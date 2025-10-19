@@ -1,0 +1,96 @@
+digraph MultiHopBFSSearch {
+    rankdir=TB;
+    node [shape=box, style=filled, fillcolor=lightblue];
+    edge [fontsize=10];
+
+    // Title
+    label="Multi-Hop BFS Search Algorithm\nBreadth-First Search for Entity Discovery";
+    labelloc="t";
+    fontsize=14;
+    fontname="Arial Bold";
+
+    // Entry
+    start [label="Start Nodes\n{entity_ids}", shape=ellipse, fillcolor=lightgreen];
+
+    // Initialize
+    init [label="Initialize BFS\nqueue, visited, distances, paths", fillcolor=lightyellow];
+    init_queue [label="Add Start Nodes\ndistance=0, path=[node]", fillcolor=lightyellow];
+
+    // Main loop
+    loop_check [label="Queue Empty?", shape=diamond, fillcolor=orange];
+    dequeue [label="Dequeue Node\n(current, distance, path)", fillcolor=lightcyan];
+
+    // Max hops check
+    max_hops [label="distance >= max_hops?", shape=diamond, fillcolor=orange];
+    get_neighbors [label="Get Neighbors\n(graph.neighbors())", fillcolor=lightcyan];
+
+    // Filter edges
+    filter [label="Filter by Edge Type?\n(mentions, related_to, etc.)", shape=diamond, fillcolor=orange];
+    check_visited [label="Already Visited?", shape=diamond, fillcolor=orange];
+
+    // Process neighbor
+    mark_visited [label="Mark as Visited\nAdd to distances/paths", fillcolor=lightpink];
+    check_type [label="Node Type = entity?", shape=diamond, fillcolor=orange];
+    add_entity [label="Add to Results", fillcolor=lightpink];
+    enqueue [label="Enqueue Neighbor\n(neighbor, distance+1, path+[neighbor])", fillcolor=lightcyan];
+
+    // Results
+    results [label="Return Results\n{entities, paths, distances}", shape=note];
+    end [label="Complete", shape=ellipse, fillcolor=lightgreen];
+
+    // Main flow
+    start -> init;
+    init -> init_queue;
+    init_queue -> loop_check;
+
+    // Loop iteration
+    loop_check -> dequeue [label="No (has items)"];
+    dequeue -> max_hops;
+    max_hops -> loop_check [label="Yes (skip)", style=dashed];
+    max_hops -> get_neighbors [label="No (continue)"];
+
+    // Neighbor processing
+    get_neighbors -> filter;
+    filter -> check_visited [label="Pass filter"];
+    filter -> loop_check [label="Fail filter", style=dashed, color=gray];
+    check_visited -> loop_check [label="Yes (skip)", style=dashed, color=gray];
+    check_visited -> mark_visited [label="No (new)"];
+    mark_visited -> check_type;
+    check_type -> add_entity [label="Yes"];
+    check_type -> enqueue [label="No"];
+    add_entity -> enqueue;
+    enqueue -> filter [style=dashed, label="Next neighbor"];
+
+    // Exit
+    loop_check -> results [label="Yes (empty)"];
+    results -> end;
+
+    // Error handling
+    error [label="Exception Handler\nReturn empty results", shape=octagon, fillcolor=red, fontcolor=white];
+    dequeue -> error [style=dashed, color=red, label="Graph error"];
+    get_neighbors -> error [style=dashed, color=red, label="Node not found"];
+    error -> end [style=dashed, color=red];
+
+    // Algorithm details
+    subgraph cluster_details {
+        label="Algorithm Details";
+        style=filled;
+        fillcolor=lightyellow;
+
+        detail1 [label="Time Complexity: O(V + E)\nV = vertices, E = edges", shape=note, fillcolor=white];
+        detail2 [label="Space Complexity: O(V)\nfor visited set + queue", shape=note, fillcolor=white];
+        detail3 [label="Max Hops: 3 (default)\nTypical: 1-2 hops sufficient", shape=note, fillcolor=white];
+    }
+
+    // Example
+    subgraph cluster_example {
+        label="Example: 'Tesla founder previous company'";
+        style=filled;
+        fillcolor=lightcyan;
+
+        ex1 [label="Start: [Tesla]\nHop 0", shape=note, fillcolor=white];
+        ex2 [label="Hop 1: [Elon Musk]\nvia founded_by edge", shape=note, fillcolor=white];
+        ex3 [label="Hop 2: [PayPal, Zip2]\nvia founded edges", shape=note, fillcolor=white];
+        ex1 -> ex2 -> ex3;
+    }
+}

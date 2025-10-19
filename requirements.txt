@@ -1,0 +1,46 @@
+# Core Dependencies
+python-dotenv==1.0.0
+pydantic==2.5.0
+pyyaml==6.0.1
+
+# Vector Layer (v5.0: Docker-free with ChromaDB)
+chromadb>=1.0.0
+sentence-transformers>=5.1.0
+
+# Graph Layer (v5.0: In-memory with NetworkX)
+networkx>=3.5
+spacy==3.7.2
+# hipporag - defer to Week 5-6 (Python 3.12 compatibility issue)
+
+# Bayesian Layer
+pgmpy==0.1.24
+torch>=2.2.0  # Python 3.12 compatible
+torch-geometric>=2.4.0
+
+# Retrieval & NLP
+rank-bm25==0.2.2
+nltk==3.8.1
+
+# API & Integration
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+watchdog==3.0.0
+python-multipart==0.0.6
+# redis removed (v5.0: using Python dict cache instead)
+
+# Logging
+loguru==0.7.2
+
+# Testing
+pytest==7.4.3
+pytest-cov==4.1.0
+pytest-asyncio==0.21.1
+pytest-benchmark==4.0.0
+
+# Development
+black==23.12.0
+ruff==0.1.8
+mypy==1.7.1
+
+# Security
+bandit==1.7.5

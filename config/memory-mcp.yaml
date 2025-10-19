@@ -1,0 +1,65 @@
+# Memory MCP Triple System Configuration
+# Version: 4.0 (from Loop 1 SPEC)
+# Phase: 1 (Vector RAG MVP)
+
+system:
+  name: memory-mcp-triple-system
+  version: 1.0.0
+  environment: development  # development, staging, production
+
+storage:
+  obsidian_vault: ~/Documents/Memory-Vault  # Path to Obsidian vault
+  vector_db:
+    type: chromadb  # v5.0: Docker-free with ChromaDB
+    persist_directory: ./chroma_data
+    collection_name: memory_embeddings
+  graph_db:
+    type: networkx  # v5.0: Docker-free with NetworkX
+    persist_path: ./data/knowledge_graph.pkl
+  cache:
+    type: memory  # v5.0: Docker-free with Python dict
+    ttl_seconds: 3600
+    max_size: 10000
+
+mcp:
+  server:
+    host: localhost
+    port: 8080
+    # API key via environment variable: MCP_API_KEY
+  models:
+    - name: chatgpt
+      enabled: true
+    - name: claude
+      enabled: true
+    - name: gemini
+      enabled: false  # Not ready yet
+
+embeddings:
+  model: sentence-transformers/all-MiniLM-L6-v2
+  dimension: 384
+  batch_size: 32
+  device: cpu  # cpu or cuda
+
+chunking:
+  strategy: max_min_semantic  # semantic, fixed_size, sentence
+  max_chunk_size: 512
+  min_chunk_size: 128
+  overlap: 50
+
+performance:
+  vector_search_timeout_ms: 200
+  graph_query_timeout_ms: 500
+  multi_hop_timeout_ms: 2000
+  indexing_workers: 4
+  batch_indexing: true
+
+curation:
+  time_budget_minutes: 5  # Target <5 min/day
+  auto_suggest: true
+  weekly_review: sunday 10am
+  retention_days: 365
+
+logging:
+  level: INFO  # DEBUG, INFO, WARNING, ERROR
+  format: json
+  output: logs/memory-mcp.log

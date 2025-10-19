@@ -1,0 +1,76 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment files
+.env
+.env.local
+
+# Logs
+logs/
+*.log
+
+# Data directories
+data/
+*.db
+*.sqlite
+
+# Obsidian vault (don't commit personal notes)
+obsidian-vault/
+
+# Docker
+docker-compose.override.yml
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Type checking
+.mypy_cache/
+.pyre/
+.pytype/
+
+# ChromaDB vector database (generated data)
+chroma_data/
+*.chroma
+
+# Archive (old/temporary files)
+archive/
+temp_*.py
+
+# OS
+.DS_Store
+Thumbs.db

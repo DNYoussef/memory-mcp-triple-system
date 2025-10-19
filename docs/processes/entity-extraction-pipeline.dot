@@ -1,0 +1,103 @@
+digraph EntityExtractionPipeline {
+    rankdir=TB;
+    node [shape=box, style=filled, fillcolor=lightblue];
+    edge [fontsize=10];
+
+    // Title
+    label="Entity Extraction and Graph Integration Pipeline\nspaCy NER + NetworkX Knowledge Graph";
+    labelloc="t";
+    fontsize=14;
+    fontname="Arial Bold";
+
+    // Entry
+    start [label="Text Input\n(chunk or query)", shape=ellipse, fillcolor=lightgreen];
+
+    // Phase 1: NER Extraction
+    spacy [label="spaCy NER\nen_core_web_sm model", fillcolor=lightyellow];
+    entities_raw [label="Raw Entities\n{text, type, start, end}", shape=note];
+
+    // Phase 2: Filtering
+    filter [label="Filter by Entity Type\nPERSON, ORG, GPE, DATE, etc.", fillcolor=lightcyan];
+    entities_filtered [label="Filtered Entities", shape=note];
+
+    // Phase 3: Normalization
+    normalize [label="Normalize Text\nlowercase, remove punctuation", fillcolor=lightcyan];
+    dedup [label="Deduplicate\nby normalized text", fillcolor=lightcyan];
+    entities_clean [label="Clean Entities", shape=note];
+
+    // Phase 4: Graph Integration
+    decision [label="Add to Graph?", shape=diamond, fillcolor=orange];
+
+    // Add to graph
+    create_nodes [label="Create Entity Nodes\n(GraphService.add_entity_node)", fillcolor=lightpink];
+    create_edges [label="Create Mention Edges\nchunk → entity", fillcolor=lightpink];
+    update_graph [label="Update Graph\n(in-memory NetworkX)", fillcolor=lightpink];
+
+    // Results
+    stats [label="Return Statistics\n{entities_added, relationships_created}", shape=note];
+    end [label="Complete", shape=ellipse, fillcolor=lightgreen];
+
+    // Main flow
+    start -> spacy;
+    spacy -> entities_raw;
+    entities_raw -> filter;
+    filter -> entities_filtered;
+    entities_filtered -> normalize;
+    normalize -> dedup;
+    dedup -> entities_clean;
+    entities_clean -> decision;
+
+    // Graph integration
+    decision -> create_nodes [label="Yes"];
+    decision -> stats [label="No (query only)"];
+    create_nodes -> create_edges;
+    create_edges -> update_graph;
+    update_graph -> stats;
+    stats -> end;
+
+    // Error handling
+    error [label="Error Handler\nLog + Continue", shape=octagon, fillcolor=red, fontcolor=white];
+    spacy -> error [style=dashed, color=red, label="NER failed"];
+    create_nodes -> error [style=dashed, color=red, label="Graph error"];
+    error -> stats [style=dashed, color=red, label="Partial results"];
+
+    // Entity types
+    subgraph cluster_types {
+        label="Supported Entity Types (spaCy)";
+        style=filled;
+        fillcolor=lightyellow;
+
+        types [label="PERSON: People names\nORG: Organizations\nGPE: Countries, cities, states\nDATE: Dates and time periods\nTIME: Times of day\nMONEY: Monetary values\nPRODUCT: Product names\nEVENT: Named events\nLAW: Legal documents\nNORP: Nationalities, religions\nFAC: Buildings, airports\nLOC: Non-GPE locations", shape=note, fillcolor=white, align=left];
+    }
+
+    // Graph structure
+    subgraph cluster_graph {
+        label="Knowledge Graph Structure";
+        style=filled;
+        fillcolor=lightcyan;
+
+        graph_nodes [label="Node Types:\n• entity (PERSON, ORG, etc.)\n• chunk (text passages)", shape=note, fillcolor=white, align=left];
+        graph_edges [label="Edge Types:\n• mentions (chunk → entity)\n• related_to (entity → entity)\n• similar_to (entity → entity)", shape=note, fillcolor=white, align=left];
+    }
+
+    // Example
+    subgraph cluster_example {
+        label="Example: 'Elon Musk founded Tesla in 2003'";
+        style=filled;
+        fillcolor=lightgreen;
+
+        ex_input [label="Input Text", shape=note, fillcolor=white];
+        ex_entities [label="Entities:\n• Elon Musk (PERSON)\n• Tesla (ORG)\n• 2003 (DATE)", shape=note, fillcolor=white];
+        ex_graph [label="Graph Nodes:\n• entity:elon_musk\n• entity:tesla\n• entity:2003\n• chunk:chunk_123", shape=note, fillcolor=white];
+        ex_edges [label="Edges:\n• chunk_123 → elon_musk (mentions)\n• chunk_123 → tesla (mentions)\n• chunk_123 → 2003 (mentions)", shape=note, fillcolor=white];
+
+        ex_input -> ex_entities -> ex_graph -> ex_edges;
+    }
+
+    // Performance
+    spacy [xlabel="<50ms"];
+    filter [xlabel="<5ms"];
+    normalize [xlabel="<5ms"];
+    create_nodes [xlabel="<10ms"];
+    create_edges [xlabel="<10ms"];
+}

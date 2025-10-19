@@ -1,0 +1,394 @@
+# Memory MCP Triple System - Schema Definition
+# Version: 1.0
+# Last Updated: 2025-10-18
+# Status: Production-ready (Week 7)
+
+version: "1.0"
+schema_version: "1.0.0"
+created_at: "2025-10-18T00:00:00Z"
+
+# 5-Tier Polyglot Storage Architecture
+# Each tier optimized for specific query patterns
+
+storage_tiers:
+  # Tier 1: Key-Value Store (O(1) lookups)
+  kv:
+    type: "key-value"
+    backend: "sqlite"
+    table_name: "kv_store"
+    use_cases:
+      - "user_preferences"
+      - "simple_lookups"
+      - "session_state"
+      - "feature_flags"
+    query_patterns:
+      - "What's my X?" # e.g., "What's my coding style?"
+    performance:
+      lookup_latency_ms: 1
+      write_latency_ms: 2
+    storage:
+      format: "TEXT" # JSON-serialized values
+      compression: false
+      retention_days: 365
+
+  # Tier 2: Relational Store (SQL queries)
+  relational:
+    type: "sql"
+    backend: "sqlite"
+    tables:
+      - "entities" # Extracted entities (spaCy NER)
+      - "relationships" # Entity relationships
+      - "metadata" # Chunk metadata
+    use_cases:
+      - "entity_queries"
+      - "structured_data"
+      - "joins_aggregations"
+    query_patterns:
+      - "What client/project X?" # e.g., "What projects used React?"
+      - "List all X with Y" # e.g., "List all files with TODO"
+    performance:
+      query_latency_ms: 50
+      index_type: "btree"
+    storage:
+      normalized: true
+      foreign_keys: true
+      retention_days: 365
+
+  # Tier 3: Vector Store (semantic search)
+  vector:
+    type: "embedding"
+    backend: "chromadb"
+    collection_name: "memory_chunks"
+    embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
+    embedding_dim: 384
+    use_cases:
+      - "semantic_search"
+      - "similarity_queries"
+      - "concept_retrieval"
+    query_patterns:
+      - "What about X?" # e.g., "What about machine learning?"
+      - "Find similar to X" # e.g., "Find similar to this code snippet"
+    performance:
+      search_latency_ms: 100
+      index_type: "hnsw"
+      hnsw_params:
+        ef: 100
+        M: 16
+        space: "cosine"
+    storage:
+      persist_directory: "./chroma_data"
+      distance_metric: "cosine"
+      retention_days: 365
+
+  # Tier 4: Graph Store (multi-hop reasoning)
+  graph:
+    type: "networkx"
+    backend: "in-memory"
+    graph_type: "directed"
+    use_cases:
+      - "multi_hop_reasoning"
+      - "entity_relationships"
+      - "path_finding"
+      - "personalized_pagerank"
+    query_patterns:
+      - "What led to X?" # e.g., "What led to this bug?"
+      - "How does X relate to Y?" # e.g., "How does auth relate to database?"
+    performance:
+      ppr_latency_ms: 50 # Personalized PageRank
+      max_hops: 3
+      max_nodes: 10000
+    algorithms:
+      - "personalized_pagerank" # HippoRAG core algorithm
+      - "shortest_path"
+      - "connected_components"
+    storage:
+      serialization_format: "graphml"
+      persistence: "optional" # In-memory by default
+      retention_days: 90 # Lighter retention for graph
+
+  # Tier 5: Event Log (temporal queries)
+  event_log:
+    type: "temporal"
+    backend: "sqlite"
+    table_name: "event_log"
+    use_cases:
+      - "audit_trail"
+      - "temporal_queries"
+      - "change_tracking"
+      - "debugging"
+    query_patterns:
+      - "What happened on X?" # e.g., "What happened on 2025-10-15?"
+      - "When did X change?" # e.g., "When did this file change?"
+    performance:
+      query_latency_ms: 100
+      index_columns:
+        - "timestamp"
+        - "event_type"
+        - "entity_id"
+    storage:
+      format: "JSONB" # Flexible event payloads
+      compression: true
+      retention_days: 90 # Shorter retention for logs
+
+# Memory Lifecycle Management
+lifecycle:
+  stages:
+    - name: "active"
+      description: "Currently used, full fidelity"
+      retention_percent: 100
+      storage_tiers: ["kv", "relational", "vector", "graph", "event_log"]
+      decay_factor: 1.0
+
+    - name: "demoted"
+      description: "Less used, decay applied"
+      retention_percent: 50
+      storage_tiers: ["relational", "vector", "event_log"]
+      decay_factor: 0.5
+      promotion_threshold: 3 # 3 accesses → promote to active
+
+    - name: "archived"
+      description: "Rarely used, compressed 100:1"
+      retention_percent: 10
+      storage_tiers: ["event_log"]
+      decay_factor: 0.1
+      compression_ratio: 100
+      rehydration_latency_ms: 1000
+
+    - name: "rehydratable"
+      description: "Lossy key only, full text dropped"
+      retention_percent: 1
+      storage_tiers: [] # No active storage
+      decay_factor: 0.01
+      rehydration_source: "obsidian_vault" # Restore from canonical source
+
+  # Rekindling mechanism (promote archived chunks)
+  rekindling:
+    enabled: true
+    match_threshold: 0.85 # Similarity threshold to rekindle
+    rehydration_limit: 10 # Max chunks to rekindle per query
+
+# Query Processing Pipeline (Nexus Processor SOP)
+query_processing:
+  # Mode detection (execution/planning/brainstorming)
+  mode_detection:
+    enabled: true
+    confidence_threshold: 0.7
+    default_mode: "execution"
+
+  # Query routing (polyglot storage selector)
+  routing:
+    strategy: "pattern_based"
+    patterns:
+      - pattern: "What's my (.+)?"
+        tier: "kv"
+        confidence: 0.9
+
+      - pattern: "What (client|project|file) (.+)?"
+        tier: "relational"
+        confidence: 0.85
+
+      - pattern: "What about (.+)?"
+        tier: "vector"
+        confidence: 0.8
+
+      - pattern: "What led to (.+)?"
+        tier: "graph"
+        confidence: 0.8
+
+      - pattern: "What happened (on|at) (.+)?"
+        tier: "event_log"
+        confidence: 0.85
+
+      - pattern: "P\\((.+)\\|(.+)\\)" # Bayesian query
+        tier: "bayesian"
+        confidence: 0.9
+
+    # Fallback: multi-tier parallel query
+    fallback:
+      tiers: ["vector", "relational"]
+      aggregation_strategy: "hybrid_rank" # Combine scores
+
+  # Curated core pattern (5 core + 15-25 extended)
+  curated_core:
+    core_chunks: 5 # High-confidence, shown to user
+    extended_chunks_min: 15
+    extended_chunks_max: 25
+    total_token_budget: 10000 # Hard limit
+
+  # Two-stage verification (execution mode only)
+  verification:
+    enabled: true
+    modes: ["execution"] # Skip for planning/brainstorming
+    stages:
+      - name: "ground_truth"
+        method: "exact_match"
+        sources: ["kv", "relational"]
+
+      - name: "cross_reference"
+        method: "multi_source"
+        min_sources: 2
+
+# Context Assembly Debugger (Week 7-11 incremental)
+debugging:
+  # Query tracing (Week 7)
+  query_tracing:
+    enabled: true
+    sampling_rate: 1.0 # 100% logging (no sampling)
+    storage:
+      backend: "sqlite"
+      table: "query_traces"
+      retention_days: 30
+    fields:
+      - "query_id"
+      - "timestamp"
+      - "query"
+      - "mode_detected"
+      - "stores_queried"
+      - "retrieved_chunks"
+      - "output"
+      - "latency_ms"
+      - "error"
+      - "error_type"
+
+  # Replay capability (Week 8)
+  replay:
+    enabled: false # Enabled in Week 8
+    deterministic: true
+    context_reconstruction: true
+
+  # Error attribution (Week 11)
+  error_attribution:
+    enabled: false # Enabled in Week 11
+    categories:
+      - "context_bug" # 70% of failures
+      - "model_bug" # 20% of failures
+      - "system_error" # 10% of failures
+
+# Memory-as-Code Philosophy
+portability:
+  # Versioned schemas
+  schema_versioning:
+    enabled: true
+    ci_validation: true
+    migration_strategy: "forward_only"
+
+  # CLI tools
+  cli_tools:
+    - "memory-cli lint" # Validate schema
+    - "memory-cli test" # Run eval suite
+    - "memory-cli export" # Export to portable format
+    - "memory-cli import" # Import with validation
+    - "memory-cli diff" # Compare snapshots
+    - "memory-cli migrate" # Apply migrations
+
+  # Obsidian vault as canonical source
+  canonical_source:
+    type: "obsidian_vault"
+    sync_strategy: "bidirectional"
+    conflict_resolution: "vault_wins" # Vault is source of truth
+
+# Performance Targets
+performance_targets:
+  query_latency_p95_ms: 800 # 95th percentile
+  indexing_latency_ms: 1500
+  curation_time_minutes_per_week: 25
+  kv_lookup_latency_ms: 1
+  vector_search_latency_ms: 100
+  graph_ppr_latency_ms: 50
+  obsidian_sync_latency_s: 2 # For 10k token files
+
+# Memory Evaluation Metrics
+evaluation_metrics:
+  freshness:
+    target: 0.70 # 70% of memories updated within 30 days
+    measurement: "30_day_update_rate"
+
+  leakage:
+    target: 0.05 # <5% lifecycle contamination
+    measurement: "cross_lifecycle_pollution"
+
+  precision_execution:
+    target: 0.90 # ≥90% precision for execution mode
+    measurement: "verified_correct_rate"
+
+  recall_planning:
+    target: 0.70 # ≥70% recall for planning mode
+    measurement: "relevant_chunks_retrieved"
+
+  context_assembly_bugs:
+    target: 0.30 # <30% of failures (vs 40% industry baseline)
+    measurement: "context_bug_failure_rate"
+
+# Schema Validation Rules
+validation:
+  required_fields:
+    - "version"
+    - "storage_tiers"
+    - "lifecycle"
+    - "query_processing"
+
+  storage_tier_required_fields:
+    - "type"
+    - "backend"
+    - "use_cases"
+    - "performance"
+
+  performance_required_fields:
+    - "query_latency_ms" # or "lookup_latency_ms" for KV
+
+  lifecycle_required_fields:
+    - "stages"
+    - "rekindling"
+
+  query_processing_required_fields:
+    - "mode_detection"
+    - "routing"
+    - "curated_core"
+    - "verification"
+
+# Migration History
+migrations:
+  - version: "1.0.0"
+    applied_at: "2025-10-18T00:00:00Z"
+    description: "Initial schema - Week 7"
+    files:
+      - "migrations/007_query_traces_table.sql"
+
+# Deprecation Policy
+deprecation:
+  notice_period_weeks: 4
+  backward_compatibility_versions: 2 # Support N-2 versions
+
+# Security & Privacy
+security:
+  encryption_at_rest: false # Optional, enable for production
+  encryption_in_transit: true # HTTPS for MCP
+  pii_handling:
+    detect: true
+    redact: false # Optional, enable if PII concerns
+  audit_logging:
+    enabled: true
+    retention_days: 90
+
+# Monitoring & Alerts
+monitoring:
+  alerts:
+    - name: "mode_detection_low"
+      condition: "mode_detection_accuracy < 0.85"
+      severity: "warning"
+
+    - name: "verification_failure_high"
+      condition: "verification_failure_rate > 0.02"
+      severity: "critical"
+
+    - name: "query_latency_high"
+      condition: "query_latency_p95 > 800"
+      severity: "warning"
+
+    - name: "storage_growth_high"
+      condition: "storage_mb_per_1k_chunks > 25"
+      severity: "info"
+
+  metrics_retention_days: 90
+
+# End of Schema

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Curate Memories{% endblock %}
+
+{% block content %}
+<div class="curate-container">
+    <div class="header-section">
+        <h2>Memory Curation</h2>
+        <div class="timer-section">
+            <p>Session Time: <span id="timer">00:00</span></p>
+            <button id="start-timer" class="btn btn-primary">Start Session</button>
+            <button id="stop-timer" class="btn btn-secondary" disabled>End Session</button>
+        </div>
+        <div class="stats-section">
+            <p>Chunks Curated: <span id="chunks-curated">0</span></p>
+            <p>Remaining: <span id="chunks-remaining">{{ chunks|length }}</span></p>
+        </div>
+    </div>
+
+    {% if chunks %}
+    <div class="chunks-container">
+        {% for chunk in chunks %}
+        <div class="chunk-card" data-chunk-id="{{ chunk.id }}">
+            <div class="chunk-header">
+                <span class="chunk-id">{{ chunk.id[:8] }}</span>
+                <span class="chunk-status">⚠️ Unverified</span>
+            </div>
+
+            <div class="chunk-content">
+                <p class="chunk-text">{{ chunk.text }}</p>
+                <div class="chunk-metadata">
+                    <small>File: {{ chunk.file_path }}</small>
+                    <small>Index: {{ chunk.chunk_index }}</small>
+                </div>
+            </div>
+
+            <div class="chunk-actions">
+                <div class="lifecycle-selector">
+                    <label>Lifecycle:</label>
+                    <select class="lifecycle-select" data-chunk-id="{{ chunk.id }}">
+                        {% for option in lifecycle_options %}
+                        <option value="{{ option }}"
+                                {% if option == chunk.suggested_lifecycle %}selected{% endif %}>
+                            {{ option.capitalize() }}
+                            {% if option == chunk.suggested_lifecycle %}(suggested){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <button class="btn btn-tag" data-chunk-id="{{ chunk.id }}">Tag</button>
+                </div>
+
+                <button class="btn btn-verify" data-chunk-id="{{ chunk.id }}">
+                    ✅ Verify
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <h3>🎉 All chunks verified!</h3>
+        <p>No unverified chunks remaining. Great work!</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Initialize curation functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeCuration();
+    });
+</script>
+{% endblock %}

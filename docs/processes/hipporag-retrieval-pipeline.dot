@@ -1,0 +1,96 @@
+digraph HippoRAGRetrievalPipeline {
+    rankdir=TB;
+    node [shape=box, style=filled, fillcolor=lightblue];
+    edge [fontsize=10];
+
+    // Title
+    label="HippoRAG Retrieval Pipeline\nMulti-Hop Graph-Based Retrieval with Personalized PageRank";
+    labelloc="t";
+    fontsize=14;
+    fontname="Arial Bold";
+
+    // Entry point
+    start [label="User Query", shape=ellipse, fillcolor=lightgreen];
+
+    // Phase 1: Entity Extraction
+    extract [label="Extract Entities\n(EntityService + spaCy NER)", fillcolor=lightyellow];
+    entities [label="Query Entities\n{text, type, confidence}", shape=note];
+
+    // Phase 2: Node Matching
+    match [label="Match to Graph Nodes\n(Text normalization)", fillcolor=lightyellow];
+    nodes [label="Matched Nodes\n{node_id, confidence}", shape=note];
+
+    // Decision: Multi-hop or Standard?
+    decision [label="Multi-hop query?", shape=diamond, fillcolor=orange];
+
+    // Standard Path (Single-hop)
+    ppr_standard [label="Run PPR\n(Personalized PageRank)", fillcolor=lightcyan];
+
+    // Multi-hop Path
+    expand [label="Multi-Hop Expansion\n(BFS, max 3 hops)", fillcolor=lightcyan];
+    synonyms [label="Synonymy Expansion\n(similar_to edges)", fillcolor=lightcyan];
+    ppr_multi [label="Run PPR on Expanded Set\n(Personalized PageRank)", fillcolor=lightcyan];
+
+    // Convergence
+    ppr_scores [label="PPR Scores\n{node_id: score}", shape=note];
+
+    // Ranking
+    rank [label="Rank Chunks by Score\n(Aggregate entity PPR)", fillcolor=lightpink];
+
+    // Results
+    format [label="Format Results\n(RetrievalResult list)", fillcolor=lightpink];
+    results [label="Top-K Results\n{chunk_id, score, rank}", shape=note];
+
+    // Exit
+    end [label="Return to User", shape=ellipse, fillcolor=lightgreen];
+
+    // Flow: Standard Path
+    start -> extract;
+    extract -> entities;
+    entities -> match;
+    match -> nodes;
+    nodes -> decision;
+    decision -> ppr_standard [label="No (single-hop)"];
+    ppr_standard -> ppr_scores;
+
+    // Flow: Multi-hop Path
+    decision -> expand [label="Yes (multi-hop)"];
+    expand -> synonyms;
+    synonyms -> ppr_multi;
+    ppr_multi -> ppr_scores;
+
+    // Flow: Common Path
+    ppr_scores -> rank;
+    rank -> format;
+    format -> results;
+    results -> end;
+
+    // Error handling
+    error [label="Error Handler\n(Log + Return [])", shape=octagon, fillcolor=red, fontcolor=white];
+    extract -> error [style=dashed, color=red, label="Exception"];
+    match -> error [style=dashed, color=red, label="Exception"];
+    ppr_standard -> error [style=dashed, color=red, label="Exception"];
+    expand -> error [style=dashed, color=red, label="Exception"];
+    error -> end [style=dashed, color=red];
+
+    // Performance annotations
+    extract [xlabel="<50ms"];
+    match [xlabel="<10ms"];
+    ppr_standard [xlabel="<50ms"];
+    expand [xlabel="<30ms"];
+    synonyms [xlabel="<10ms"];
+    ppr_multi [xlabel="<50ms"];
+    rank [xlabel="<20ms"];
+
+    // Legend
+    subgraph cluster_legend {
+        label="Legend";
+        style=filled;
+        fillcolor=white;
+
+        leg_input [label="Input/Output", shape=note, fillcolor=white];
+        leg_process [label="Processing Step", shape=box, fillcolor=lightblue];
+        leg_decision [label="Decision Point", shape=diamond, fillcolor=orange];
+        leg_error [label="Error Handling", shape=octagon, fillcolor=red, fontcolor=white];
+    }
+}

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Memory Curation{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1 class="nav-title">Memory Curation System</h1>
+            <ul class="nav-links">
+                <li><a href="{{ url_for('curate') }}" class="nav-link">Curate</a></li>
+                <li><a href="{{ url_for('settings') }}" class="nav-link">Settings</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <p>&copy; 2025 Memory MCP Triple System v5.0</p>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/curation.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

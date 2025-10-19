@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="settings-container">
+    <h2>User Preferences</h2>
+
+    <form method="POST" action="{{ url_for('settings') }}" class="settings-form">
+        <div class="form-group">
+            <label for="time_budget_minutes">Time Budget (minutes per session):</label>
+            <input type="number"
+                   id="time_budget_minutes"
+                   name="time_budget_minutes"
+                   value="{{ preferences.time_budget_minutes }}"
+                   min="1"
+                   max="60"
+                   class="form-control">
+            <small>Recommended: 5-10 minutes per session</small>
+        </div>
+
+        <div class="form-group">
+            <label for="batch_size">Batch Size (chunks per session):</label>
+            <input type="number"
+                   id="batch_size"
+                   name="batch_size"
+                   value="{{ preferences.batch_size }}"
+                   min="5"
+                   max="50"
+                   class="form-control">
+            <small>Recommended: 20 chunks per session</small>
+        </div>
+
+        <div class="form-group">
+            <label>
+                <input type="checkbox"
+                       id="auto_suggest"
+                       name="auto_suggest"
+                       {% if preferences.auto_suggest %}checked{% endif %}>
+                Enable Auto-Suggest Lifecycle Tags
+            </label>
+            <small>Use AI heuristics to suggest lifecycle tags</small>
+        </div>
+
+        <div class="form-group">
+            <label for="default_lifecycle">Default Lifecycle Tag:</label>
+            <select id="default_lifecycle" name="default_lifecycle" class="form-control">
+                <option value="permanent" {% if preferences.default_lifecycle == 'permanent' %}selected{% endif %}>
+                    Permanent
+                </option>
+                <option value="temporary" {% if preferences.default_lifecycle == 'temporary' %}selected{% endif %}>
+                    Temporary
+                </option>
+                <option value="ephemeral" {% if preferences.default_lifecycle == 'ephemeral' %}selected{% endif %}>
+                    Ephemeral
+                </option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="weekly_review_day">Weekly Review Day:</label>
+            <select id="weekly_review_day" name="weekly_review_day" class="form-control">
+                {% for day in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] %}
+                <option value="{{ day }}" {% if preferences.weekly_review_day == day %}selected{% endif %}>
+                    {{ day.capitalize() }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="weekly_review_time">Weekly Review Time:</label>
+            <input type="time"
+                   id="weekly_review_time"
+                   name="weekly_review_time"
+                   value="{{ preferences.weekly_review_time }}"
+                   class="form-control">
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save Preferences</button>
+            <a href="{{ url_for('curate') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

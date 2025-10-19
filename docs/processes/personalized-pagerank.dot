@@ -1,0 +1,101 @@
+digraph PersonalizedPageRank {
+    rankdir=TB;
+    node [shape=box, style=filled, fillcolor=lightblue];
+    edge [fontsize=10];
+
+    // Title
+    label="Personalized PageRank Algorithm\nContext-Aware Importance Ranking";
+    labelloc="t";
+    fontsize=14;
+    fontname="Arial Bold";
+
+    // Entry
+    start [label="Query Nodes\n{entity_ids}", shape=ellipse, fillcolor=lightgreen];
+
+    // Validate
+    validate [label="Validate Nodes Exist\nin Graph", fillcolor=lightyellow];
+    valid_check [label="Valid Nodes Found?", shape=diamond, fillcolor=orange];
+
+    // Create personalization
+    create_vector [label="Create Personalization Vector\nUniform distribution over query nodes", fillcolor=lightyellow];
+    vector [label="Personalization\n{node: 1/N for query nodes,\n node: 0 for others}", shape=note];
+
+    // Run PPR
+    ppr [label="NetworkX PageRank\nalpha=0.85, max_iter=100, tol=1e-6", fillcolor=lightcyan];
+
+    // Iteration (inside NetworkX)
+    subgraph cluster_iteration {
+        label="PPR Iteration (inside nx.pagerank)";
+        style=filled;
+        fillcolor=lightyellow;
+
+        iter_start [label="Initialize\nall nodes = 1/N", fillcolor=white];
+        iter_loop [label="For each iteration", fillcolor=white];
+        iter_update [label="Update Scores\nPR(v) = (1-α)/N + α·Σ(PR(u)/outdeg(u))", fillcolor=white];
+        iter_check [label="Converged?\n|new - old| < tol", shape=diamond, fillcolor=orange];
+        iter_max [label="Max Iterations?", shape=diamond, fillcolor=orange];
+
+        iter_start -> iter_loop;
+        iter_loop -> iter_update;
+        iter_update -> iter_check;
+        iter_check -> iter_loop [label="No"];
+        iter_check -> iter_max [label="Yes"];
+        iter_max -> iter_loop [label="No (continue)"];
+    }
+
+    // Results
+    scores [label="PPR Scores\n{node_id: score}\nSum = 1.0", shape=note];
+    log [label="Log Results\nConvergence info", fillcolor=lightpink];
+    end [label="Return Scores", shape=ellipse, fillcolor=lightgreen];
+
+    // Main flow
+    start -> validate;
+    validate -> valid_check;
+    valid_check -> create_vector [label="Yes"];
+    valid_check -> error [label="No"];
+    create_vector -> vector;
+    vector -> ppr;
+    ppr -> iter_start;
+    iter_max -> scores [label="Yes (done)"];
+    scores -> log;
+    log -> end;
+
+    // Error paths
+    error [label="Error Handler\nReturn {}", shape=octagon, fillcolor=red, fontcolor=white];
+    convergence_error [label="Convergence Failed\nReturn {}", shape=octagon, fillcolor=red, fontcolor=white];
+
+    valid_check -> error [label="No nodes", style=dashed, color=red];
+    iter_check -> convergence_error [label="Max iter reached", style=dashed, color=red];
+    ppr -> convergence_error [style=dashed, color=red, label="Exception"];
+    error -> end [style=dashed, color=red];
+    convergence_error -> end [style=dashed, color=red];
+
+    // Algorithm explanation
+    subgraph cluster_formula {
+        label="PageRank Formula";
+        style=filled;
+        fillcolor=lightcyan;
+
+        formula [label="PR(v) = (1-α)/N + α · Σ(PR(u)/outdeg(u))\n\nWhere:\n  α = damping factor (0.85)\n  N = total nodes\n  u = nodes pointing to v\n  outdeg(u) = outgoing edges from u", shape=note, fillcolor=white];
+    }
+
+    // Personalization explanation
+    subgraph cluster_personalization {
+        label="Personalization Vector";
+        style=filled;
+        fillcolor=lightyellow;
+
+        pers [label="Standard PageRank:\n  All nodes equal (1/N)\n\nPersonalized PageRank:\n  Query nodes: 1/K (K = query nodes)\n  Other nodes: 0\n\nEffect: Biases random walk to start from query nodes", shape=note, fillcolor=white];
+    }
+
+    // Performance notes
+    subgraph cluster_performance {
+        label="Performance Characteristics";
+        style=filled;
+        fillcolor=lightgreen;
+
+        perf1 [label="Convergence: 20-30 iterations typical", shape=note, fillcolor=white];
+        perf2 [label="Time Complexity: O(E · iter)\nE = edges, iter = iterations", shape=note, fillcolor=white];
+        perf3 [label="Target: <50ms for 100k nodes", shape=note, fillcolor=white];
+    }
+}
