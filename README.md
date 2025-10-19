@@ -226,16 +226,20 @@ See [docs/SELF-REFERENTIAL-MEMORY.md](docs/SELF-REFERENTIAL-MEMORY.md) for detai
 ## Documentation
 
 ### Core Documentation
-- [INGESTION-AND-RETRIEVAL-EXPLAINED.md](docs/INGESTION-AND-RETRIEVAL-EXPLAINED.md) - Complete pipeline
-- [MCP-DEPLOYMENT-GUIDE.md](docs/MCP-DEPLOYMENT-GUIDE.md) - MCP server deployment
-- [SELF-REFERENTIAL-MEMORY.md](docs/SELF-REFERENTIAL-MEMORY.md) - Self-awareness implementation
-- [SESSION-COMPLETE-SUMMARY.md](docs/SESSION-COMPLETE-SUMMARY.md) - Week 13 summary
+- [MCP-DEPLOYMENT-GUIDE.md](docs/api/MCP-DEPLOYMENT-GUIDE.md) - MCP server deployment guide
+- [INGESTION-AND-RETRIEVAL-EXPLAINED.md](docs/api/INGESTION-AND-RETRIEVAL-EXPLAINED.md) - Complete pipeline documentation
+- [SELF-REFERENTIAL-MEMORY.md](docs/architecture/SELF-REFERENTIAL-MEMORY.md) - Self-awareness implementation
+- [SESSION-COMPLETE-SUMMARY.md](docs/project-history/SESSION-COMPLETE-SUMMARY.md) - Week 13 summary
 
-### Project Documentation
-- [docs/weeks/](docs/weeks/) - Weekly implementation summaries
-- [docs/planning/](docs/planning/) - Project planning documents
-- [docs/loop1/](docs/loop1/) - Loop 1 summaries
+### Documentation Structure
+- [docs/api/](docs/api/) - API and integration guides
+- [docs/architecture/](docs/architecture/) - System architecture and process diagrams
+- [docs/development/](docs/development/) - Development guides, audits, and quality reports
+- [docs/project-history/](docs/project-history/) - Weekly summaries and planning documents
+- [docs/research/](docs/research/) - Research papers and references
 - [scripts/README.md](scripts/README.md) - Utility scripts documentation
+
+See [docs/README.md](docs/README.md) for complete documentation index.
 
 ## Testing
 
