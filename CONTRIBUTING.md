@@ -14,9 +14,11 @@ Be respectful, collaborative, and constructive in all interactions. We're buildi
 
 2. **Clone your fork**:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/memory-mcp-triple-system.git
+   git clone https://github.com/YOUR_GITHUB_USERNAME/memory-mcp-triple-system.git
    cd memory-mcp-triple-system
    ```
+
+   Note: Replace `YOUR_GITHUB_USERNAME` with your actual GitHub username after forking the repository from https://github.com/DNYoussef/memory-mcp-triple-system
 
 3. **Create a virtual environment**:
    ```bash
@@ -292,9 +294,9 @@ print(f"Operation took {elapsed_ms:.2f}ms")
 
 ## Questions or Issues?
 
-- **Bug reports**: Open an issue with reproduction steps
-- **Feature requests**: Open an issue describing the use case
-- **Questions**: Open a discussion or issue
+- **Bug reports**: Open an issue with reproduction steps at https://github.com/DNYoussef/memory-mcp-triple-system/issues
+- **Feature requests**: Open an issue describing the use case at https://github.com/DNYoussef/memory-mcp-triple-system/issues
+- **Questions**: Open a discussion at https://github.com/DNYoussef/memory-mcp-triple-system/discussions
 
 ## License
 

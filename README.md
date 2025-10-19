@@ -65,7 +65,7 @@ The Memory MCP Triple System is a production-ready Model Context Protocol (MCP) 
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/memory-mcp-triple-system.git
+git clone https://github.com/DNYoussef/memory-mcp-triple-system.git
 cd memory-mcp-triple-system
 
 # Install dependencies
@@ -323,7 +323,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Contact
 
-For questions or support, please open an issue on GitHub.
+For questions or support, please open an issue on GitHub:
+https://github.com/DNYoussef/memory-mcp-triple-system/issues
 
 ---
 
