@@ -4,6 +4,25 @@
 
 The Memory MCP Triple System is a production-ready Model Context Protocol (MCP) server that provides intelligent, multi-layered memory management for AI assistants like Claude and ChatGPT. It automatically detects query intent, adapts context based on interaction modes, and retrieves relevant information from a semantic vector database.
 
+## 🔗 Integration with AI Development Systems
+
+The Memory MCP Triple System integrates seamlessly with intelligent code analysis and development systems:
+
+**Connascence Safety Analyzer** - [https://github.com/DNYoussef/connascence-safety-analyzer](https://github.com/DNYoussef/connascence-safety-analyzer)
+- 7+ code quality violation types with NASA compliance
+- 0.018s analysis performance
+- Real-time code quality tracking and pattern detection
+
+**ruv-SPARC Three-Loop System** - [https://github.com/DNYoussef/ruv-sparc-three-loop-system](https://github.com/DNYoussef/ruv-sparc-three-loop-system)
+- 86+ specialized agents (ALL have Memory MCP access)
+- Automatic tagging protocol (WHO/WHEN/PROJECT/WHY)
+- Complete agent coordination framework
+- Evidence-based prompting techniques
+
+**MCP Integration Guide**: See [docs/MCP-INTEGRATION.md](docs/MCP-INTEGRATION.md) for complete setup instructions.
+
+---
+
 ## Key Features
 
 - **Triple-Layer Memory Architecture**: Three-tier storage system (Short-term, Mid-term, Long-term) with automatic retention policies
