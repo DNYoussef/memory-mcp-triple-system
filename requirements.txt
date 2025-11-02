@@ -6,6 +6,7 @@ pyyaml==6.0.1
 # Vector Layer (v5.0: Docker-free with ChromaDB)
 chromadb>=1.0.0
 sentence-transformers>=5.1.0
+transformers>=4.44.0  # Stable release, avoids dev version issues
 
 # Graph Layer (v5.0: In-memory with NetworkX)
 networkx>=3.5

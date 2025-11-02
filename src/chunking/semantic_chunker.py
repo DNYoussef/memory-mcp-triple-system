@@ -41,6 +41,36 @@ class SemanticChunker:
             f"tokens, overlap={overlap}"
         )
 
+    def chunk_text(self, content: str, file_path: str) -> List[Dict[str, Any]]:
+        """
+        Chunk text content directly.
+
+        Args:
+            content: Text content to chunk
+            file_path: File path for metadata
+
+        Returns:
+            List of chunk dictionaries with metadata
+        """
+        assert len(content) > 0, "Content cannot be empty"
+
+        metadata = self._extract_frontmatter(content)
+        text = self._remove_frontmatter(content)
+
+        chunks = self._split_into_chunks(text)
+
+        result = []
+        for idx, chunk_text in enumerate(chunks):
+            result.append({
+                'text': chunk_text,
+                'file_path': file_path,
+                'chunk_index': idx,
+                'metadata': metadata
+            })
+
+        logger.info(f"Created {len(result)} chunks from {file_path}")
+        return result
+
     def chunk_file(self, file_path: Path) -> List[Dict[str, Any]]:
         """
         Chunk markdown file.
@@ -56,22 +86,7 @@ class SemanticChunker:
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
 
-        metadata = self._extract_frontmatter(content)
-        text = self._remove_frontmatter(content)
-
-        chunks = self._split_into_chunks(text)
-
-        result = []
-        for idx, chunk_text in enumerate(chunks):
-            result.append({
-                'text': chunk_text,
-                'file_path': str(file_path),
-                'chunk_index': idx,
-                'metadata': metadata
-            })
-
-        logger.info(f"Created {len(result)} chunks from {file_path}")
-        return result
+        return self.chunk_text(content, str(file_path))
 
     def _extract_frontmatter(self, content: str) -> Dict[str, Any]:
         """Extract YAML frontmatter from markdown."""

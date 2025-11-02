@@ -36,6 +36,9 @@ class VectorIndexer:
         # Initialize ChromaDB client with persistence (new API)
         self.client = chromadb.PersistentClient(path=persist_directory)
 
+        # Initialize collection immediately (fixes VectorIndexer bug)
+        self.create_collection()
+
         logger.info(f"Initialized ChromaDB at {persist_directory}")
 
     def create_collection(self, vector_size: int = 384) -> None:
