@@ -2,14 +2,34 @@
 Vector Indexer for ChromaDB
 Indexes text chunks with embeddings into ChromaDB embedded vector database.
 
-NASA Rule 10 Compliant: All functions ≤60 LOC
+NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
 from typing import List, Dict, Any, Optional
 import uuid
 import time
+import sqlite3
 import chromadb
 from loguru import logger
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+    before_sleep_log
+)
+
+
+# Retry decorator for database operations that may encounter locks
+def db_retry(func):
+    """Decorator to retry database operations on lock errors."""
+    return retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=0.1, max=2),
+        retry=retry_if_exception_type((sqlite3.OperationalError, Exception)),
+        before_sleep=before_sleep_log(logger, "WARNING"),
+        reraise=True
+    )(func)
 
 
 class VectorIndexer:
@@ -66,13 +86,14 @@ class VectorIndexer:
             )
             logger.info(f"Created collection '{self.collection_name}'")
 
+    @db_retry
     def index_chunks(
         self,
         chunks: List[Dict[str, Any]],
         embeddings: List[List[float]]
     ) -> None:
         """
-        Index chunks with embeddings.
+        Index chunks with embeddings. Retries on database lock.
 
         Args:
             chunks: List of chunk dictionaries
@@ -105,9 +126,10 @@ class VectorIndexer:
 
         logger.info(f"Indexed {len(chunks)} chunks in {elapsed_ms:.2f}ms")
 
+    @db_retry
     def delete_chunks(self, ids: List[str]) -> bool:
         """
-        Delete chunks by IDs from the collection.
+        Delete chunks by IDs from the collection. Retries on database lock.
 
         Args:
             ids: List of chunk IDs to delete
@@ -128,6 +150,7 @@ class VectorIndexer:
             logger.error(f"Failed to delete chunks: {e}")
             return False
 
+    @db_retry
     def update_chunks(
         self,
         ids: List[str],
@@ -136,7 +159,7 @@ class VectorIndexer:
         documents: Optional[List[str]] = None
     ) -> bool:
         """
-        Update existing chunks with new embeddings/metadata/documents.
+        Update existing chunks. Retries on database lock.
 
         Args:
             ids: List of chunk IDs to update
@@ -169,6 +192,7 @@ class VectorIndexer:
             logger.error(f"Failed to update chunks: {e}")
             return False
 
+    @db_retry
     def search_similar(
         self,
         query_embedding: List[float],
@@ -176,16 +200,12 @@ class VectorIndexer:
         where: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         """
-        Search for similar chunks with optional metadata filtering.
+        Search for similar chunks. Retries on database lock.
 
         Args:
             query_embedding: Query vector
             top_k: Number of results to return
             where: Optional metadata filter (ChromaDB where clause)
-                   Examples:
-                   - {"file_path": "/path/file.md"}  # exact match
-                   - {"$and": [{"file_path": "/path"}, {"chunk_index": {"$gte": 5}}]}
-                   - {"$or": [{"title": "A"}, {"title": "B"}]}
 
         Returns:
             List of result dictionaries with 'id', 'document', 'metadata', 'distance'

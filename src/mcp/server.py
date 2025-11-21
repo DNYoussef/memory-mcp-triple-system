@@ -2,12 +2,13 @@
 MCP Server Implementation using FastAPI
 Exposes vector search tool for Claude Desktop integration.
 
-NASA Rule 10 Compliant: All functions ≤60 LOC
+NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
 from typing import Dict, Any, List
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 import yaml
 from pathlib import Path
@@ -89,7 +90,7 @@ def create_app() -> FastAPI:
     @app.get("/health", response_model=HealthResponse)
     async def health_check() -> HealthResponse:
         """Health check endpoint."""
-        services = vector_search_tool.check_services()
+        services = await run_in_threadpool(vector_search_tool.check_services)
         status = "healthy" if all(s == "available" for s in services.values()) else "degraded"
         return HealthResponse(status=status, services=services)
 
@@ -100,9 +101,10 @@ def create_app() -> FastAPI:
 
     @app.post("/tools/vector_search")
     async def vector_search(query: str, limit: int = 5) -> JSONResponse:
-        """Execute vector search tool."""
+        """Execute vector search tool - offloaded to threadpool to avoid blocking."""
         try:
-            results = vector_search_tool.execute(query, limit)
+            # Offload sync blocking work (embedding + ChromaDB) to threadpool
+            results = await run_in_threadpool(vector_search_tool.execute, query, limit)
             return JSONResponse(content={"results": results})
         except Exception as e:
             logger.error(f"Vector search failed: {e}")

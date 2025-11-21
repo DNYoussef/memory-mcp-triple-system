@@ -4,7 +4,7 @@ GraphQueryEngine - Personalized PageRank and multi-hop graph queries.
 Implements HippoRAG's graph-based retrieval algorithms using NetworkX.
 Provides PPR execution, score aggregation, and multi-hop path finding.
 
-NASA Rule 10 Compliant: All functions ≤60 LOC
+NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
 from typing import List, Dict, Set, Tuple, Optional, Any
@@ -49,7 +49,7 @@ class GraphQueryEngine:
         tol: float = 1e-6
     ) -> Dict[str, float]:
         """
-        Run Personalized PageRank from query nodes.
+        Run Personalized PageRank from query nodes with fallback.
 
         Args:
             query_nodes: List of entity node IDs to start from
@@ -83,10 +83,81 @@ class GraphQueryEngine:
             return ppr_scores
 
         except nx.PowerIterationFailedConvergence as e:
-            logger.error(f"PPR failed to converge: {e}")
-            return {}
+            logger.warning(f"PPR failed to converge: {e}, trying fallback")
+            return self._ppr_fallback(query_nodes, personalization, alpha)
         except Exception as e:
             logger.error(f"PPR execution failed: {e}")
+            return self._degree_centrality_fallback(query_nodes)
+
+    def _ppr_fallback(
+        self,
+        query_nodes: List[str],
+        personalization: Dict[str, float],
+        alpha: float
+    ) -> Dict[str, float]:
+        """
+        Fallback PPR with relaxed tolerance, then degree centrality.
+
+        Args:
+            query_nodes: Original query nodes
+            personalization: Personalization vector
+            alpha: Damping factor
+
+        Returns:
+            Dict mapping node_id -> score
+        """
+        # Try with higher tolerance (1e-4 instead of 1e-6)
+        try:
+            ppr_scores = nx.pagerank(
+                self.graph,
+                alpha=alpha,
+                personalization=personalization,
+                max_iter=200,  # More iterations
+                tol=1e-4       # Relaxed tolerance
+            )
+            logger.info(f"PPR converged with relaxed tolerance: {len(ppr_scores)} scores")
+            return ppr_scores
+        except nx.PowerIterationFailedConvergence:
+            logger.warning("PPR still failed, using degree centrality fallback")
+            return self._degree_centrality_fallback(query_nodes)
+
+    def _degree_centrality_fallback(
+        self,
+        query_nodes: List[str]
+    ) -> Dict[str, float]:
+        """
+        Fallback to degree centrality when PPR fails.
+
+        Provides reasonable ranking based on node connectivity.
+
+        Args:
+            query_nodes: Query nodes to boost
+
+        Returns:
+            Dict mapping node_id -> centrality score
+        """
+        try:
+            # Use degree centrality as fallback
+            centrality = nx.degree_centrality(self.graph)
+
+            # Boost query nodes
+            for node in query_nodes:
+                if node in centrality:
+                    centrality[node] *= 2.0
+
+            # Normalize
+            total = sum(centrality.values())
+            if total > 0:
+                centrality = {k: v / total for k, v in centrality.items()}
+
+            logger.info(
+                f"Using degree centrality fallback: {len(centrality)} scores "
+                "(PPR convergence failed)"
+            )
+            return centrality
+
+        except Exception as e:
+            logger.error(f"Degree centrality fallback failed: {e}")
             return {}
 
     def _validate_nodes(self, nodes: List[str]) -> List[str]:
@@ -259,8 +330,8 @@ class GraphQueryEngine:
         Returns:
             Dict with:
                 - 'entities': List of reachable entity IDs
-                - 'paths': Dict mapping entity → shortest path
-                - 'distances': Dict mapping entity → hop distance
+                - 'paths': Dict mapping entity -> shortest path
+                - 'distances': Dict mapping entity -> hop distance
         """
         try:
             # Initialize BFS structures
