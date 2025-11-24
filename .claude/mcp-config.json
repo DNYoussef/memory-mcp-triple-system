@@ -2,7 +2,7 @@
   "mcpServers": {
     "memory-mcp": {
       "command": "python",
-      "args": ["-m", "uvicorn", "src.mcp.server:create_app", "--factory", "--host", "localhost", "--port", "8080"],
+      "args": ["-m", "src.mcp.stdio_server"],
       "cwd": "C:\\Users\\17175\\Desktop\\memory-mcp-triple-system",
       "env": {
         "PYTHONPATH": "C:\\Users\\17175\\Desktop\\memory-mcp-triple-system"
