@@ -70,7 +70,7 @@ class SchemaValidator:
         "temporal"
     ]
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize schema validator."""
         self.errors: List[ValidationError] = []
 

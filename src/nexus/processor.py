@@ -30,14 +30,14 @@ class NexusProcessor:
 
     def __init__(
         self,
-        vector_indexer=None,
-        graph_query_engine=None,
-        probabilistic_query_engine=None,
-        embedding_pipeline=None,
+        vector_indexer: Any = None,
+        graph_query_engine: Any = None,
+        probabilistic_query_engine: Any = None,
+        embedding_pipeline: Any = None,
         confidence_threshold: float = 0.3,
         dedup_threshold: float = 0.95,
         weights: Optional[Dict[str, float]] = None
-    ):
+    ) -> None:
         """
         Initialize Nexus Processor with all 3 tier services.
 
@@ -115,7 +115,7 @@ class NexusProcessor:
         mode: str,
         top_k: int,
         token_budget: int
-    ) -> tuple:
+    ) -> tuple[Dict[str, Any], Dict[str, Any]]:
         """Execute 5-step pipeline and return result with stats."""
         import time
         stats = {}
@@ -137,7 +137,7 @@ class NexusProcessor:
 
         return result, stats
 
-    def _step_recall(self, query, top_k, stats):
+    def _step_recall(self, query: str, top_k: int, stats: Dict[str, Any]) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """Step 1: Recall candidates."""
         import time
         start = time.time()
@@ -146,7 +146,7 @@ class NexusProcessor:
         logger.info(f"Recall: {len(candidates)} candidates in {stats['recall_ms']}ms")
         return candidates, stats
 
-    def _step_filter(self, candidates, stats):
+    def _step_filter(self, candidates: List[Dict[str, Any]], stats: Dict[str, Any]) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """Step 2: Filter by confidence."""
         import time
         start = time.time()

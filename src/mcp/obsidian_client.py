@@ -68,7 +68,7 @@ class ObsidianMCPClient:
         if not self.vault_path.exists():
             logger.warning(f"Vault path does not exist: {vault_path}")
 
-    def sync_vault(self, file_extensions: List[str] = None) -> Dict[str, Any]:
+    def sync_vault(self, file_extensions: Optional[List[str]] = None) -> Dict[str, Any]:
         """
         Sync entire vault to memory system.
 

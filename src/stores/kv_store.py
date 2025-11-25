@@ -244,7 +244,8 @@ class KVStore:
             return None
 
         try:
-            return json.loads(value)
+            parsed: Dict[str, Any] = json.loads(value)
+            return parsed
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON for key '{key}': {e}")
             return None
@@ -292,7 +293,8 @@ class KVStore:
 
         try:
             cursor.execute("SELECT COUNT(*) as count FROM kv_store")
-            return cursor.fetchone()["count"]
+            row = cursor.fetchone()
+            return int(row["count"]) if row else 0
         except sqlite3.Error as e:
             logger.error(f"KV count failed: {e}")
             return 0
@@ -307,10 +309,10 @@ class KVStore:
             self._conn.close()
             self._conn = None
 
-    def __enter__(self):
+    def __enter__(self) -> "KVStore":
         """Context manager entry."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Context manager exit."""
         self.close()

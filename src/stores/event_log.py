@@ -229,9 +229,9 @@ class EventLog:
             conn.close()
 
             # Convert to dict
-            stats = {}
+            stats: Dict[str, int] = {}
             for row in rows:
-                stats[row[0]] = row[1]
+                stats[str(row[0])] = int(row[1])
 
             logger.debug(f"Event stats: {stats}")
             return stats
@@ -245,7 +245,7 @@ class EventLog:
         start_time: datetime,
         end_time: datetime,
         event_types: Optional[List[EventType]]
-    ) -> tuple:
+    ) -> tuple[str, List[Any]]:
         """
         Build SQL query for timerange with optional type filtering.
 
@@ -273,7 +273,7 @@ class EventLog:
 
         return query, params
 
-    def _convert_rows_to_events(self, rows: List) -> List[Dict[str, Any]]:
+    def _convert_rows_to_events(self, rows: List[Any]) -> List[Dict[str, Any]]:
         """
         Convert SQLite rows to event dictionaries.
 
@@ -289,7 +289,7 @@ class EventLog:
             })
         return events
 
-    def _init_schema(self):
+    def _init_schema(self) -> None:
         """
         Initialize event_log table schema.
 

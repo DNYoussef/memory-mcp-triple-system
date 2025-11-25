@@ -7,7 +7,7 @@ Part of Week 8 implementation for Memory MCP Triple System.
 NASA Rule 10 Compliant: All functions ≤60 LOC
 """
 
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from enum import Enum
 import re
 from loguru import logger
@@ -51,7 +51,7 @@ class QueryRouter:
     NASA Rule 10 Compliant: All methods ≤60 LOC
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize router with pattern rules."""
         self.patterns = self._compile_patterns()
         logger.info("QueryRouter initialized with routing patterns")
@@ -60,7 +60,7 @@ class QueryRouter:
         self,
         query: str,
         mode: QueryMode = QueryMode.EXECUTION,
-        user_context: Optional[Dict] = None
+        user_context: Optional[Dict[str, Any]] = None
     ) -> List[StorageTier]:
         """
         Route query to appropriate storage tier(s).
@@ -184,7 +184,7 @@ class QueryRouter:
 
     def validate_routing_accuracy(
         self,
-        test_queries: List[Dict[str, any]]
+        test_queries: List[Dict[str, Any]]
     ) -> float:
         """
         Validate routing accuracy against labeled test queries.
