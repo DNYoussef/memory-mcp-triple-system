@@ -11,6 +11,7 @@ import yaml
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
+from loguru import logger
 
 
 @dataclass
@@ -30,10 +31,10 @@ class SchemaValidator:
         validator = SchemaValidator()
         result = validator.validate("config/memory-schema.yaml")
         if result.valid:
-            print("✅ Schema valid")
+            logger.info("Schema valid")
         else:
             for error in result.errors:
-                print(f"❌ {error.field}: {error.message}")
+                logger.error(f"{error.field}: {error.message}")
     """
 
     REQUIRED_ROOT_FIELDS = [

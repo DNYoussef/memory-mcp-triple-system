@@ -19,10 +19,7 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 from uuid import UUID, uuid4
 from pathlib import Path
-import logging
-
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 @dataclass

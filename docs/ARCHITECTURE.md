@@ -240,12 +240,13 @@ Every memory storage includes:
 
 | Tool | Description | Status |
 |------|-------------|--------|
-| `vector_search` | Semantic similarity search | WORKING |
-| `memory_store` | Store with metadata tagging | WORKING |
-| `graph_query` | HippoRAG multi-hop query | TO IMPLEMENT |
-| `bayesian_inference` | Probabilistic query | TO IMPLEMENT |
-| `entity_extraction` | NER from text | TO IMPLEMENT |
-| `hipporag_retrieve` | Full HippoRAG pipeline | TO IMPLEMENT |
+| `vector_search` | Semantic similarity search | WORKING (v1.4.0) |
+| `memory_store` | Store with metadata tagging | WORKING (v1.4.0) |
+| `detect_mode` | Query mode detection | WORKING (v1.4.0) |
+| `graph_query` | HippoRAG multi-hop query | PARTIAL (GraphService exists, PPR incomplete) |
+| `bayesian_inference` | Probabilistic query | PARTIAL (NetworkBuilder exists, CPD needs data) |
+| `entity_extraction` | NER from text | STUBBED (interface defined, implementation pending) |
+| `hipporag_retrieve` | Full HippoRAG pipeline | STUBBED (depends on graph_query completion) |
 
 ### Usage Examples
 

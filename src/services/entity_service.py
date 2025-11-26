@@ -585,7 +585,7 @@ class EntityConsolidator:
                 scores[entity] = 0
 
         # Select entity with highest score
-        canonical = max(scores, key=scores.get)
+        canonical = max(scores, key=lambda x: scores[x])
 
         logger.debug(f"Selected canonical entity '{canonical}' from {entity_group}")
         return canonical

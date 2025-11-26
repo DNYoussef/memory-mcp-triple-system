@@ -88,7 +88,7 @@ git clone https://github.com/DNYoussef/memory-mcp-triple-system.git
 cd memory-mcp-triple-system
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -e .
 
 # Run tests to verify installation
 pytest tests/unit/test_mode_detector.py tests/unit/test_mode_profile.py -v
@@ -101,8 +101,13 @@ pytest tests/unit/test_mode_detector.py tests/unit/test_mode_profile.py -v
 python -m src.mcp.stdio_server
 
 # The server listens on stdio for MCP protocol messages
-# 6 tools available: vector_search, memory_store, graph_query,
-# entity_extraction, hipporag_retrieve, detect_mode
+# 6 MCP tools available:
+# - vector_search: Semantic similarity search with mode-aware context adaptation
+# - memory_store: Store information with automatic layer assignment
+# - graph_query: HippoRAG multi-hop reasoning (implementation in progress)
+# - entity_extraction: Named entity extraction (implementation in progress)
+# - hipporag_retrieve: Full HippoRAG pipeline (implementation in progress)
+# - detect_mode: Query mode detection (execution/planning/brainstorming)
 ```
 
 ### Claude Desktop Integration
@@ -225,24 +230,42 @@ See [docs/SELF-REFERENTIAL-MEMORY.md](docs/SELF-REFERENTIAL-MEMORY.md) for detai
 
 ## Project Status
 
-**Current Phase**: Week 13 Complete - Production Ready
+**Current Version**: v1.4.0
+**Status**: Production Ready (Post-Remediation Phase 4)
+**Last Updated**: 2025-11-25
 
-### Quality Metrics
-- **Tests**: 27/27 passing (100% coverage on mode system)
-- **Theater Detection**: 100/100 (zero theater code)
-- **Functionality**: 100/100 (all features working)
-- **Style/NASA**: 100/100 (NASA Rule 10 compliant)
-- **Detection Accuracy**: 85%+ on 100-query benchmark
-- **Type Safety**: 100% mypy strict mode compliance
+### Remediation Progress
+- **Total Issues**: 52 identified
+- **Issues Resolved**: 36/52 (69%)
+- **Critical Issues Fixed**: 13/13 (100%)
+- **Phases Completed**: 0-4 (Foundation, Features, Integration, Hardening)
 
-### Deliverables
-- ✅ Triple-layer memory storage with retention policies
-- ✅ Mode-aware context adaptation (3 modes, 29 patterns)
-- ✅ Semantic chunking and vector indexing
-- ✅ MCP server implementation
+### Quality Metrics (Current)
+- **Tests**: 40+ passing (core functionality verified)
+- **NASA Rule 10**: Compliant (all functions ≤60 LOC, assertions replaced with ValueError)
+- **Error Handling**: Robust exception handling across 70+ handlers
+- **Type Safety**: Full type annotations with mypy compliance
+- **Mode Detection**: 3 modes with 29 regex patterns
+
+### Working Features
+- ✅ Vector search with ChromaDB (semantic similarity)
+- ✅ Mode-aware context adaptation (execution/planning/brainstorming)
+- ✅ Triple-layer memory architecture (short/mid/long-term)
+- ✅ WHO/WHEN/PROJECT/WHY metadata tagging protocol
+- ✅ Memory storage with automatic layer assignment
+- ✅ Event logging and query tracing
+- ✅ Lifecycle management with TTL support
+- ✅ MCP stdio server (6 tools exposed)
 - ✅ Self-referential memory capability
-- ✅ Comprehensive documentation
-- ✅ Production-ready test suite
+
+### Known Limitations
+- **HippoRAG Integration**: Graph query tier partially implemented, Personalized PageRank (PPR) needs completion
+- **Bayesian Inference**: Network builder implemented, CPD estimation requires real data
+- **NexusProcessor**: 5-step SOP pipeline implemented but falls back to vector-only search until all tiers are complete
+- **Dependency Issue**: ChromaDB opentelemetry module incompatibility on some environments (workaround: use vector operations directly)
+- **Test Coverage**: Integration tests have import issues with ChromaDB telemetry (unit tests passing)
+
+See [docs/REMEDIATION-PLAN.md](docs/REMEDIATION-PLAN.md) for detailed remediation roadmap and [docs/MECE-CONSOLIDATED-ISSUES.md](docs/MECE-CONSOLIDATED-ISSUES.md) for complete issue tracking.
 
 ## Documentation
 
@@ -306,9 +329,11 @@ pytest tests/ --cov=src --cov-report=html
 ## Technology Stack
 
 - **Language**: Python 3.10+
-- **Vector Database**: ChromaDB (embedded)
+- **Vector Database**: ChromaDB (embedded, Docker-free v5.0)
+- **Graph Database**: NetworkX (in-memory, Docker-free v5.0)
+- **Bayesian Inference**: pgmpy (probabilistic graphical models)
 - **Embeddings**: sentence-transformers/all-MiniLM-L6-v2 (384-dim)
-- **Protocol**: Model Context Protocol (MCP)
+- **Protocol**: Model Context Protocol (MCP) stdio
 - **Testing**: pytest, pytest-cov
 - **Type Checking**: mypy (strict mode)
 - **Linting**: flake8, bandit
@@ -353,6 +378,7 @@ https://github.com/DNYoussef/memory-mcp-triple-system/issues
 
 ---
 
-**Version**: 1.0.0 (Week 13 Complete)
-**Status**: Production Ready
-**Last Updated**: 2025-10-18
+**Version**: v1.4.0 (Post-Remediation Phase 4)
+**Status**: Production Ready (Core Features Complete, Advanced Tiers In Progress)
+**Remediation Tracking**: 36/52 issues resolved (69%)
+**Last Updated**: 2025-11-25

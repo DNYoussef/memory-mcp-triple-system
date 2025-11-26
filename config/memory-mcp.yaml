@@ -32,7 +32,12 @@ mcp:
     - name: claude
       enabled: true
     - name: gemini
-      enabled: false  # Not ready yet
+      enabled: false
+      # Gemini integration disabled (ISS-035)
+      # Reason: Requires additional API setup and production testing
+      # Status: Infrastructure exists but not production-tested
+      # To enable: Set to true, configure GEMINI_API_KEY in environment
+      # Tracking: See docs/MECE-CONSOLIDATED-ISSUES.md ISS-035
 
 embeddings:
   model: sentence-transformers/all-MiniLM-L6-v2
@@ -52,6 +57,7 @@ performance:
   multi_hop_timeout_ms: 2000
   indexing_workers: 4
   batch_indexing: true
+  max_bayesian_graph_nodes: 1000  # ISS-025: Configurable Bayesian network size limit
 
 curation:
   time_budget_minutes: 5  # Target <5 min/day

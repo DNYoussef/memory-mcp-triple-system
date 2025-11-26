@@ -14,10 +14,7 @@ import json
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
-import logging
-
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 class KVStore:

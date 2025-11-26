@@ -5,7 +5,7 @@ Week 10 component implementing Bayesian Graph RAG.
 
 Purpose:
 - Convert NetworkX knowledge graph → pgmpy Bayesian network
-- Prune to max 1000 nodes (complexity control)
+- Prune to max nodes (configurable via config, default 1000)
 - Filter edges by confidence ≥0.3 (sparse graphs)
 - Estimate CPDs (Conditional Probability Distributions)
 - Cache networks with 1-hour TTL
@@ -22,7 +22,9 @@ from pgmpy.estimators import MaximumLikelihoodEstimator
 from typing import Dict, List, Optional, Any
 from loguru import logger
 from datetime import datetime, timedelta
+from pathlib import Path
 import hashlib
+import yaml
 
 
 class NetworkBuilder:
@@ -34,20 +36,26 @@ class NetworkBuilder:
 
     def __init__(
         self,
-        max_nodes: int = 1000,
+        max_nodes: Optional[int] = None,
         min_edge_confidence: float = 0.3,
-        cache_ttl_hours: int = 1
+        cache_ttl_hours: int = 1,
+        config_path: str = "config/memory-mcp.yaml"
     ):
         """
         Initialize Network Builder.
 
         Args:
-            max_nodes: Maximum nodes in network (complexity limit)
+            max_nodes: Maximum nodes in network (None = read from config)
             min_edge_confidence: Minimum edge confidence to include
             cache_ttl_hours: Cache TTL in hours
+            config_path: Path to config file
 
-        NASA Rule 10: 18 LOC (≤60) ✅
+        NASA Rule 10: 30 LOC (≤60) ✅
         """
+        # ISS-025: Load max_nodes from config if not provided
+        if max_nodes is None:
+            max_nodes = self._load_max_nodes_from_config(config_path)
+
         self.max_nodes = max_nodes
         self.min_edge_confidence = min_edge_confidence
         self.cache_ttl = timedelta(hours=cache_ttl_hours)
@@ -56,6 +64,29 @@ class NetworkBuilder:
             f"NetworkBuilder initialized: max_nodes={max_nodes}, "
             f"min_confidence={min_edge_confidence}, cache_ttl={cache_ttl_hours}h"
         )
+
+    def _load_max_nodes_from_config(self, config_path: str) -> int:
+        """
+        Load max_nodes setting from config file.
+
+        Args:
+            config_path: Path to YAML config
+
+        Returns:
+            Max nodes value (default 1000)
+
+        NASA Rule 10: 18 LOC (≤60) ✅
+        """
+        try:
+            path = Path(config_path)
+            if path.exists():
+                with open(path, 'r', encoding='utf-8') as f:
+                    config = yaml.safe_load(f)
+                    return config.get('performance', {}).get('max_bayesian_graph_nodes', 1000)
+        except Exception as e:
+            logger.warning(f"Failed to load config from {config_path}: {e}")
+
+        return 1000  # Default fallback
 
     def build_network(
         self,

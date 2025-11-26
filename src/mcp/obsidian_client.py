@@ -13,11 +13,8 @@ import json
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Callable
 from datetime import datetime
-import logging
 import time
-
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 # ISS-007 FIX: Removed global state. Now using instance-level lazy loading.
 
