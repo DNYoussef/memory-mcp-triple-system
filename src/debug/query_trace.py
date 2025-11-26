@@ -120,6 +120,56 @@ class QueryTrace:
             error_type=None
         )
 
+    @classmethod
+    def init_schema(cls, db_path: str = "memory.db") -> bool:
+        """
+        ISS-051 FIX: Initialize query_traces table schema.
+
+        Creates table if not exists. Call on startup or before first log.
+
+        Args:
+            db_path: Path to SQLite database
+
+        Returns:
+            True if successful, False otherwise
+
+        NASA Rule 10: 35 LOC (<=60)
+        """
+        db = Path(db_path)
+        db.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            conn = sqlite3.connect(str(db))
+            cursor = conn.cursor()
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS query_traces (
+                    query_id TEXT PRIMARY KEY,
+                    timestamp TEXT NOT NULL,
+                    query TEXT NOT NULL,
+                    user_context TEXT,
+                    mode_detected TEXT,
+                    mode_confidence REAL,
+                    mode_detection_ms INTEGER,
+                    stores_queried TEXT,
+                    routing_logic TEXT,
+                    retrieved_chunks TEXT,
+                    retrieval_ms INTEGER,
+                    verification_result TEXT,
+                    verification_ms INTEGER,
+                    output TEXT,
+                    total_latency_ms INTEGER,
+                    error TEXT,
+                    error_type TEXT
+                )
+            """)
+            conn.commit()
+            conn.close()
+            logger.info(f"QueryTrace schema initialized in {db_path}")
+            return True
+        except sqlite3.Error as e:
+            logger.error(f"Failed to init QueryTrace schema: {e}")
+            return False
+
     def log(self, db_path: str = "memory.db") -> bool:
         """
         Save trace to SQLite `query_traces` table.
@@ -130,7 +180,7 @@ class QueryTrace:
         Returns:
             True if successful, False otherwise
 
-        NASA Rule 10: 46 LOC (≤60) ✅
+        NASA Rule 10: 50 LOC (<=60)
         """
         db = Path(db_path)
         db.parent.mkdir(parents=True, exist_ok=True)
@@ -138,6 +188,9 @@ class QueryTrace:
         try:
             conn = sqlite3.connect(str(db))
             cursor = conn.cursor()
+
+            # ISS-051 FIX: Ensure schema exists before insert
+            self.init_schema(db_path)
 
             cursor.execute("""
                 INSERT INTO query_traces (

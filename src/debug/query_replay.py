@@ -33,24 +33,42 @@ class QueryReplay:
     NASA Rule 10 Compliant: All methods d60 LOC
     """
 
-    def __init__(self, db_path: str = "memory.db", nexus_processor=None):
+    def __init__(
+        self,
+        db_path: str = "memory.db",
+        nexus_processor=None,
+        kv_store=None,
+        vector_indexer=None
+    ):
         """
         Initialize query replay engine.
 
         Args:
             db_path: Path to SQLite database with query_traces table
             nexus_processor: Optional NexusProcessor for real query execution (ISS-033)
+            kv_store: Optional KVStore for context reconstruction (ISS-010)
+            vector_indexer: Optional VectorIndexer for memory snapshots (ISS-010)
 
         NASA Rule 10: 5 LOC (d60) 
         """
         self.db_path = db_path
-        self._nexus_processor = nexus_processor  # ISS-033 fix
+        self._nexus_processor = nexus_processor
+        self._kv_store = kv_store  # ISS-010 fix
+        self._vector_indexer = vector_indexer  # ISS-010 fix
         logger.info(f"QueryReplay initialized with db_path={db_path}")
 
     def set_nexus_processor(self, nexus_processor) -> None:
         """ISS-033 FIX: Set NexusProcessor for real query execution."""
         self._nexus_processor = nexus_processor
         logger.info("QueryReplay wired to NexusProcessor")
+
+    def set_stores(self, kv_store=None, vector_indexer=None) -> None:
+        """ISS-010 FIX: Set stores for context reconstruction."""
+        if kv_store:
+            self._kv_store = kv_store
+        if vector_indexer:
+            self._vector_indexer = vector_indexer
+        logger.info("QueryReplay stores configured")
 
     def replay(self, query_id: str) -> Tuple[QueryTrace, Dict]:
         """
@@ -176,17 +194,54 @@ class QueryReplay:
 
         NASA Rule 10: 18 LOC (d60) 
         """
-        # Week 8: Mock implementation
+        # ISS-010 FIX: Actual context reconstruction using stores
         context = {
             "timestamp": timestamp.isoformat(),
             "user_context": user_context,
-            "memory_snapshot": {},  # TODO: Week 11 - fetch from memory store
-            "preferences": {},      # TODO: Week 11 - fetch from KV store
-            "sessions": []          # TODO: Week 11 - fetch from session store
+            "memory_snapshot": self._get_memory_snapshot(timestamp),
+            "preferences": self._get_preferences(),
+            "sessions": self._get_sessions()
         }
 
         logger.debug(f"Reconstructed context for timestamp {timestamp}")
         return context
+
+    def _get_memory_snapshot(self, timestamp) -> Dict:
+        """ISS-010 FIX: Get memory state at timestamp."""
+        if not self._vector_indexer:
+            return {}
+        try:
+            # Get collection stats as snapshot
+            collection = self._vector_indexer.collection
+            return {
+                "chunk_count": collection.count(),
+                "timestamp": timestamp.isoformat()
+            }
+        except Exception as e:
+            logger.warning(f"Memory snapshot failed: {e}")
+            return {}
+
+    def _get_preferences(self) -> Dict:
+        """ISS-010 FIX: Get user preferences from KV store."""
+        if not self._kv_store:
+            return {}
+        try:
+            prefs = self._kv_store.get("user:preferences")
+            return prefs if prefs else {}
+        except Exception as e:
+            logger.warning(f"Preferences fetch failed: {e}")
+            return {}
+
+    def _get_sessions(self) -> list:
+        """ISS-010 FIX: Get active sessions from KV store."""
+        if not self._kv_store:
+            return []
+        try:
+            sessions = self._kv_store.get("active:sessions")
+            return sessions if sessions else []
+        except Exception as e:
+            logger.warning(f"Sessions fetch failed: {e}")
+            return []
 
     def _rerun_query(self, query: str, context: Dict) -> QueryTrace:
         """

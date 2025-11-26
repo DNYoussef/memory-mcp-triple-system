@@ -8,6 +8,9 @@ Different modes need different retrieval strategies.
 from dataclasses import dataclass
 from typing import Dict
 
+# ISS-030 FIX: Explicit exports for import validation
+__all__ = ['ModeProfile', 'EXECUTION', 'PLANNING', 'BRAINSTORMING', 'PROFILES', 'get_profile']
+
 
 @dataclass(frozen=True)
 class ModeProfile:

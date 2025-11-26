@@ -19,37 +19,7 @@ import time
 
 logger = logging.getLogger(__name__)
 
-# Lazy imports for chunker and indexer (avoid circular imports)
-_chunker = None
-_embedder = None
-_indexer = None
-
-
-def _get_chunker():
-    """Lazy load SemanticChunker."""
-    global _chunker
-    if _chunker is None:
-        from ..chunking.semantic_chunker import SemanticChunker
-        _chunker = SemanticChunker()
-    return _chunker
-
-
-def _get_embedder():
-    """Lazy load EmbeddingPipeline."""
-    global _embedder
-    if _embedder is None:
-        from ..indexing.embedding_pipeline import EmbeddingPipeline
-        _embedder = EmbeddingPipeline()
-    return _embedder
-
-
-def _get_indexer(persist_directory: str = "./chroma_data"):
-    """Lazy load VectorIndexer."""
-    global _indexer
-    if _indexer is None:
-        from ..indexing.vector_indexer import VectorIndexer
-        _indexer = VectorIndexer(persist_directory=persist_directory)
-    return _indexer
+# ISS-007 FIX: Removed global state. Now using instance-level lazy loading.
 
 
 class ObsidianMCPClient:
@@ -96,8 +66,37 @@ class ObsidianMCPClient:
         self.api_url = api_url.rstrip("/")
         self.timeout = timeout
 
+        # ISS-007 FIX: Instance-level lazy loading instead of globals
+        self._chunker = None
+        self._embedder = None
+        self._indexer = None
+
         if not self.vault_path.exists():
             logger.warning(f"Vault path does not exist: {vault_path}")
+
+    @property
+    def chunker(self):
+        """ISS-007 FIX: Lazy load SemanticChunker (instance-level)."""
+        if self._chunker is None:
+            from ..chunking.semantic_chunker import SemanticChunker
+            self._chunker = SemanticChunker()
+        return self._chunker
+
+    @property
+    def embedder(self):
+        """ISS-007 FIX: Lazy load EmbeddingPipeline (instance-level)."""
+        if self._embedder is None:
+            from ..indexing.embedding_pipeline import EmbeddingPipeline
+            self._embedder = EmbeddingPipeline()
+        return self._embedder
+
+    @property
+    def indexer(self):
+        """ISS-007 FIX: Lazy load VectorIndexer (instance-level)."""
+        if self._indexer is None:
+            from ..indexing.vector_indexer import VectorIndexer
+            self._indexer = VectorIndexer(persist_directory="./chroma_data")
+        return self._indexer
 
     def sync_vault(self, file_extensions: Optional[List[str]] = None) -> Dict[str, Any]:
         """
@@ -198,13 +197,9 @@ class ObsidianMCPClient:
                 "vault_path": str(self.vault_path)
             }
 
-            # Real implementation: Use chunker and indexer
-            chunker = _get_chunker()
-            embedder = _get_embedder()
-            indexer = _get_indexer()
-
+            # ISS-007 FIX: Use instance properties instead of global functions
             # Chunk the file content
-            chunks = chunker.chunk_text(content, relative_path)
+            chunks = self.chunker.chunk_text(content, relative_path)
 
             if not chunks:
                 return {"success": True, "chunks": 0, "error": None}
@@ -215,10 +210,10 @@ class ObsidianMCPClient:
 
             # Generate embeddings
             texts = [c['text'] for c in chunks]
-            embeddings = embedder.encode(texts)
+            embeddings = self.embedder.encode(texts)
 
             # Index chunks
-            indexer.index_chunks(chunks, embeddings.tolist())
+            self.indexer.index_chunks(chunks, embeddings.tolist())
 
             logger.info(f"Synced {file_path.name}: {len(chunks)} chunks indexed")
 

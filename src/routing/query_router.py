@@ -95,10 +95,10 @@ class QueryRouter:
                 logger.debug(f"Matched pattern '{pattern}' → {[t.value for t in tiers]}")
                 break
 
-        # Fallback: default to vector + graph for semantic queries
+        # ISS-029 FIX: Use keyword fallback instead of hardcoded default
         if not matched_tiers:
-            matched_tiers = [StorageTier.VECTOR, StorageTier.GRAPH]
-            logger.debug(f"No pattern match, using default: vector + graph")
+            matched_tiers = self._keyword_fallback(query_lower)
+            logger.debug(f"No pattern match, using keyword fallback: {[t.value for t in matched_tiers]}")
 
         # Apply mode-based optimization
         if self.should_skip_bayesian(mode):
@@ -138,49 +138,74 @@ class QueryRouter:
 
     def _compile_patterns(self) -> Dict[str, List[StorageTier]]:
         """
-        Compile regex patterns for routing rules.
+        ISS-029 FIX: Enhanced pattern matching with more coverage.
 
-        Returns pattern dictionary mapping regex → storage tiers.
+        Returns pattern dictionary mapping regex -> storage tiers.
 
-        Patterns (in priority order):
-        1. KV: "what's my X?" (preferences, simple lookups)
-        2. Relational: "what client/project X?" (entity queries)
-        3. Event Log: "what happened on/at X?" (temporal queries)
-        4. Graph: "what led to X?" (multi-hop reasoning)
-        5. Bayesian: "P(X|Y)?" or "probability" (probabilistic queries)
-        6. Vector: "what about X?" (semantic search, default fallback)
-
-        NASA Rule 10: 44 LOC (≤60) ✅
+        NASA Rule 10: 60 LOC (<=60)
         """
         patterns = {
-            # KV Store: Preferences and simple lookups
+            # KV Store: Preferences, settings, simple lookups
             r"what'?s?\s+my\s+": [StorageTier.KV],
-            r"my\s+(coding|style|preference|setting)": [StorageTier.KV],
+            r"my\s+(coding|style|preference|setting|config)": [StorageTier.KV],
+            r"(get|fetch|retrieve)\s+my\s+": [StorageTier.KV],
+            r"(remember|recall)\s+my\s+": [StorageTier.KV],
 
-            # Relational: Entity queries
-            r"what\s+(client|project|task|file)\s+": [StorageTier.RELATIONAL],
-            r"(list|show|find)\s+all\s+(clients|projects|tasks)": [StorageTier.RELATIONAL],
+            # Relational: Entity queries, structured data
+            r"what\s+(client|project|task|file|user|document)\s+": [StorageTier.RELATIONAL],
+            r"(list|show|find|search)\s+all\s+": [StorageTier.RELATIONAL, StorageTier.VECTOR],
+            r"(how\s+many|count)\s+": [StorageTier.RELATIONAL],
 
-            # Event Log: Temporal queries
-            r"what\s+happened\s+(on|at|during|in)": [StorageTier.EVENT_LOG],
-            r"(when|timeline|history)\s+": [StorageTier.EVENT_LOG, StorageTier.GRAPH],
+            # Event Log: Temporal, historical queries
+            r"what\s+happened\s+(on|at|during|in|since|before|after)": [StorageTier.EVENT_LOG],
+            r"(when|timeline|history|recent|latest)\s+": [StorageTier.EVENT_LOG, StorageTier.GRAPH],
+            r"(yesterday|today|last\s+(week|month|year))": [StorageTier.EVENT_LOG],
 
-            # Graph: Multi-hop reasoning
+            # Graph: Multi-hop, relationship queries
             r"what\s+led\s+to": [StorageTier.GRAPH],
             r"(why|how)\s+did": [StorageTier.GRAPH, StorageTier.EVENT_LOG],
-            r"(relationship|connection)\s+between": [StorageTier.GRAPH],
+            r"(relationship|connection|link)\s+(between|with)": [StorageTier.GRAPH],
+            r"(related|connected|associated)\s+to": [StorageTier.GRAPH, StorageTier.VECTOR],
+            r"(trace|follow|path)\s+": [StorageTier.GRAPH],
 
-            # Bayesian: Probabilistic queries
+            # Bayesian: Probabilistic, uncertainty queries
             r"p\s*\(.*\|.*\)": [StorageTier.BAYESIAN],
-            r"(probability|likely|chance)\s+": [StorageTier.BAYESIAN, StorageTier.GRAPH],
+            r"(probability|likely|chance|likelihood)\s+": [StorageTier.BAYESIAN, StorageTier.GRAPH],
+            r"(uncertain|confident|sure)\s+": [StorageTier.BAYESIAN],
+            r"(predict|forecast|estimate)\s+": [StorageTier.BAYESIAN, StorageTier.VECTOR],
 
-            # Vector: Semantic search (most common, check last)
+            # Vector: Semantic search, conceptual queries
             r"what\s+about": [StorageTier.VECTOR, StorageTier.GRAPH],
-            r"(explain|describe|tell\s+me\s+about)": [StorageTier.VECTOR],
+            r"(explain|describe|tell\s+me\s+about|elaborate)": [StorageTier.VECTOR],
+            r"(similar|like|related)\s+to\s+": [StorageTier.VECTOR],
+            r"(concept|idea|topic|theme)\s+": [StorageTier.VECTOR],
+            r"(understand|learn|know)\s+about": [StorageTier.VECTOR],
         }
 
         logger.debug(f"Compiled {len(patterns)} routing patterns")
         return patterns
+
+    def _keyword_fallback(self, query: str) -> List[StorageTier]:
+        """ISS-029 FIX: Keyword-based fallback when no pattern matches."""
+        keywords = {
+            StorageTier.KV: ["preference", "setting", "config", "my"],
+            StorageTier.RELATIONAL: ["client", "project", "task", "list", "all"],
+            StorageTier.EVENT_LOG: ["when", "history", "timeline", "happened"],
+            StorageTier.GRAPH: ["why", "relationship", "led", "caused", "connected"],
+            StorageTier.BAYESIAN: ["probability", "likely", "chance", "predict"],
+            StorageTier.VECTOR: ["about", "explain", "describe", "similar"],
+        }
+        query_lower = query.lower()
+        scores = {tier: 0 for tier in StorageTier}
+        for tier, words in keywords.items():
+            for word in words:
+                if word in query_lower:
+                    scores[tier] += 1
+        # Return tiers with highest scores
+        max_score = max(scores.values())
+        if max_score > 0:
+            return [t for t, s in scores.items() if s == max_score]
+        return [StorageTier.VECTOR, StorageTier.GRAPH]
 
     def validate_routing_accuracy(
         self,

@@ -10,6 +10,14 @@ from loguru import logger
 
 from .mode_profile import ModeProfile, EXECUTION, PLANNING, BRAINSTORMING
 
+# ISS-030 FIX: Validate imports at module load time
+assert isinstance(EXECUTION, ModeProfile), "EXECUTION must be ModeProfile"
+assert isinstance(PLANNING, ModeProfile), "PLANNING must be ModeProfile"
+assert isinstance(BRAINSTORMING, ModeProfile), "BRAINSTORMING must be ModeProfile"
+assert EXECUTION.name == "execution", "EXECUTION.name must be 'execution'"
+assert PLANNING.name == "planning", "PLANNING.name must be 'planning'"
+assert BRAINSTORMING.name == "brainstorming", "BRAINSTORMING.name must be 'brainstorming'"
+
 
 class ModeDetector:
     """
