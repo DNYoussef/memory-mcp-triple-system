@@ -111,8 +111,8 @@ class GraphService:
     def add_relationship(
         self,
         source: str,
-        target: str,
         relationship_type: str,
+        target: str,
         metadata: Optional[Dict[str, Any]] = None
     ) -> bool:
         """
@@ -120,25 +120,24 @@ class GraphService:
 
         Args:
             source: Source node ID
+            relationship_type: Type of relationship (any string allowed)
             target: Target node ID
-            relationship_type: Type of relationship
             metadata: Optional edge metadata
 
         Returns:
             True if added successfully
         """
         try:
-            # Validate relationship type
-            valid_types = {
+            # Log if using non-standard relationship type
+            standard_types = {
                 self.EDGE_REFERENCES,
                 self.EDGE_MENTIONS,
                 self.EDGE_SIMILAR_TO,
                 self.EDGE_RELATED_TO
             }
 
-            if relationship_type not in valid_types:
-                logger.warning(f"Invalid relationship type: {relationship_type}")
-                return False
+            if relationship_type not in standard_types:
+                logger.debug(f"Using custom relationship type: {relationship_type}")
 
             edge_data = {
                 'type': relationship_type,
@@ -439,3 +438,22 @@ class GraphService:
             NetworkX DiGraph instance
         """
         return self.graph
+
+    def add_entity(
+        self,
+        entity_id: str,
+        entity_type: str,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """
+        Convenience method for add_entity_node.
+
+        Args:
+            entity_id: Unique entity identifier
+            entity_type: Entity type
+            metadata: Optional metadata
+
+        Returns:
+            True if added successfully
+        """
+        return self.add_entity_node(entity_id, entity_type, metadata)

@@ -11,6 +11,13 @@ from pathlib import Path
 src_path = Path(__file__).parent.parent / "src"
 sys.path.insert(0, str(src_path))
 
+# Add tests to path for fixture imports
+tests_path = Path(__file__).parent
+sys.path.insert(0, str(tests_path))
+
+# Import fixtures from real_services module
+pytest_plugins = ["fixtures.real_services"]
+
 
 @pytest.fixture(scope="session")
 def test_data_dir():
