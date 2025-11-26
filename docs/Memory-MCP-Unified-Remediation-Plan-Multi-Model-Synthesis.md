@@ -103,10 +103,27 @@ Source Plans: Claude Opus 4.5, Gemini, GPT-5 Codex
 | ISS-026 | DONE | max() type hint fixed with lambda |
 | ISS-038 | WON'T FIX | os.environ is correct usage |
 
-### FINAL STATUS
-- **Total Issues**: 52
-- **Resolved**: 43 (83%)
-- **Won't Fix**: 9 (documented with rationale)
+### Phase 6: Production Hardening - COMPLETE (6/6 issues)
+From docs/phase6/SPEC.md - Runtime wiring to enable all production features:
+
+| Issue | Status | Description |
+|-------|--------|-------------|
+| C3.2 | DONE | ObsidianClient wired + new obsidian_sync MCP tool |
+| C3.3 | DONE | EventLog fully wired to all MCP handlers |
+| C3.4 | DONE | KVStore enabled for session state tracking |
+| C3.5 | DONE | LifecycleManager wired to memory_store (demote + archive) |
+| C3.6 | DONE | QueryTrace logging enabled in vector_search |
+| C3.7 | DONE | Migrations verified auto-applying on startup |
+
+**New MCP Tool Added:**
+- `obsidian_sync` - Sync Obsidian vault to memory system
+
+### FINAL STATUS - ALL PHASES COMPLETE
+- **Original Issues**: 52
+- **Resolved (Phase 0-5)**: 43 (83%)
+- **Won't Fix**: 9 (documented)
+- **Phase 6 Issues**: 6 (all resolved)
+- **TOTAL RESOLVED**: 49/58 (84%)
 
 ### Test Results
 - **67 unit tests passing** (pre-existing spacy/pydantic env issue unrelated to changes)
