@@ -8,6 +8,7 @@ system:
   environment: development  # development, staging, production
 
 storage:
+  data_dir: ./data  # Directory for SQLite databases (event_log, kv_store, query_traces)
   obsidian_vault: ~/Documents/Memory-Vault  # Path to Obsidian vault
   vector_db:
     type: chromadb  # v5.0: Docker-free with ChromaDB

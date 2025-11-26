@@ -127,6 +127,15 @@ class NexusSearchTool:
         except Exception as e:
             logger.warning(f"Event logging failed: {e}")
 
+    def get_session_preference(self, key: str, default: str = "") -> str:
+        """C3.4: Get session preference from KV store."""
+        try:
+            value = self.kv_store.get(f"session:{key}")
+            return value if value is not None else default
+        except Exception as e:
+            logger.warning(f"Failed to get session preference {key}: {e}")
+            return default
+
     def create_query_trace(self, query: str, mode: str) -> QueryTrace:
         """C3.6: Create query trace for debugging."""
         trace = QueryTrace.create(
@@ -255,7 +264,7 @@ def load_config() -> Dict[str, Any]:
 
 
 def handle_list_tools() -> List[Dict[str, Any]]:
-    """Return list of available MCP tools (6 total - Phase 4 complete)."""
+    """Return list of available MCP tools (7 total with obsidian_sync)."""
     return [
         {
             "name": "vector_search",
@@ -344,6 +353,22 @@ def handle_list_tools() -> List[Dict[str, Any]]:
                 },
                 "required": ["query"]
             }
+        },
+        {
+            "name": "obsidian_sync",
+            "description": "Sync Obsidian vault to memory system (C3.2)",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "file_extensions": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "File extensions to sync (default: ['.md'])",
+                        "default": [".md"]
+                    }
+                },
+                "required": []
+            }
         }
     ]
 
@@ -358,6 +383,10 @@ def _handle_vector_search(
     limit = arguments.get("limit", 5)
     mode = arguments.get("mode", "execution")
 
+    # C3.4: Store last query mode in session state
+    tool.kv_store.set("session:last_query_mode", mode)
+    tool.kv_store.set("session:last_query_limit", str(limit))
+
     # C3.6: Create query trace
     trace = tool.create_query_trace(query, mode)
     start_time = time.time()
@@ -365,9 +394,20 @@ def _handle_vector_search(
     # Route through NexusProcessor
     results = tool.execute(query, limit, mode)
 
-    # C3.6: Update trace with results
+    # C3.6: Update trace with results and persist to SQLite
     trace.retrieval_ms = int((time.time() - start_time) * 1000)
     trace.retrieved_chunks = [{"score": r.get("score", 0)} for r in results[:5]]
+    trace.stores_queried = ["vector", "graph", "bayesian"]
+    trace.routing_logic = "NexusProcessor 3-tier"
+    trace.output = f"Retrieved {len(results)} results"
+    trace.total_latency_ms = trace.retrieval_ms
+    
+    # C3.6: Save trace to SQLite (query_traces.db)
+    data_dir = tool.config.get('storage', {}).get('data_dir', './data')
+    try:
+        trace.log(db_path=f"{data_dir}/query_traces.db")
+    except Exception:
+        pass  # Continue on trace logging failure
 
     # C3.3: Log event
     tool.log_event("vector_search", {
@@ -506,6 +546,13 @@ def _handle_memory_store(
                 }],
                 "isError": True
             }
+
+        # C3.5: Process lifecycle management (demote stale, archive old, consolidate)
+        try:
+            tool.lifecycle_manager.demote_stale_chunks()
+            tool.lifecycle_manager.archive_demoted_chunks()
+        except Exception as lc_err:
+            logger.debug(f"Lifecycle processing skipped: {lc_err}")
 
         # C3.3: Log event
         tool.log_event("memory_store", {
@@ -702,12 +749,66 @@ def _handle_detect_mode(
     }
 
 
+def _handle_obsidian_sync(
+    arguments: Dict[str, Any],
+    tool: NexusSearchTool
+) -> Dict[str, Any]:
+    """Handle obsidian_sync - Sync Obsidian vault to memory (C3.2)."""
+    file_extensions = arguments.get("file_extensions", [".md"])
+
+    try:
+        # Check if ObsidianClient is configured
+        if not tool.obsidian_client:
+            return {
+                "content": [{
+                    "type": "text",
+                    "text": "Obsidian vault not configured. Set vault_path in config."
+                }],
+                "isError": True
+            }
+
+        # Sync vault
+        result = tool.obsidian_client.sync_vault(file_extensions)
+
+        # C3.3: Log sync event
+        tool.log_event("chunk_added", {
+            "source": "obsidian_sync",
+            "files_synced": result["files_synced"],
+            "total_chunks": result["total_chunks"],
+            "duration_ms": result["duration_ms"]
+        })
+
+        # Format response
+        success_text = f"Synced {result['files_synced']} files ({result['total_chunks']} chunks) in {result['duration_ms']}ms"
+        if result["errors"]:
+            error_text = "\nErrors:\n" + "\n".join(f"- {e}" for e in result["errors"][:5])
+            success_text += error_text
+
+        return {
+            "content": [{
+                "type": "text",
+                "text": success_text
+            }],
+            "isError": not result["success"]
+        }
+
+    except Exception as e:
+        logger.error(f"Obsidian sync failed: {e}")
+        return {
+            "content": [{
+                "type": "text",
+                "text": f"Obsidian sync error: {e}"
+            }],
+            "isError": True
+        }
+
+
 def handle_call_tool(
     tool_name: str,
     arguments: Dict[str, Any],
     tool: NexusSearchTool
 ) -> Dict[str, Any]:
-    """Execute a tool and return results (6 tools available)."""
+    """Execute a tool and return results (7 tools available)."""
     try:
         if tool_name == "vector_search":
             return _handle_vector_search(arguments, tool)
@@ -721,6 +822,8 @@ def handle_call_tool(
             return _handle_hipporag_retrieve(arguments, tool)
         elif tool_name == "detect_mode":
             return _handle_detect_mode(arguments, tool)
+        elif tool_name == "obsidian_sync":
+            return _handle_obsidian_sync(arguments, tool)
         else:
             return {
                 "content": [{
