@@ -38,9 +38,12 @@ class CurationService:
             collection_name: Collection name
             data_dir: Directory for data files (time logs)
         """
-        assert chroma_client is not None, "chroma_client cannot be None"
-        assert isinstance(collection_name, str), "collection_name must be string"
-        assert isinstance(data_dir, str), "data_dir must be string"
+        if chroma_client is None:
+            raise ValueError("chroma_client cannot be None")
+        if not isinstance(collection_name, str):
+            raise ValueError("collection_name must be string")
+        if not isinstance(data_dir, str):
+            raise ValueError("data_dir must be string")
 
         self.client = chroma_client
         self.collection_name = collection_name
@@ -74,8 +77,10 @@ class CurationService:
         Returns:
             List of chunk dictionaries
         """
-        assert limit > 0, "limit must be positive"
-        assert limit <= 100, "limit too large (max 100)"
+        if limit <= 0:
+            raise ValueError("limit must be positive")
+        if limit > 100:
+            raise ValueError("limit too large (max 100)")
 
         # Query ChromaDB for unverified chunks
         results = self.collection.get(
@@ -123,8 +128,10 @@ class CurationService:
         Returns:
             True if successful
         """
-        assert isinstance(chunk_id, str), "chunk_id must be string"
-        assert lifecycle in self.VALID_LIFECYCLES, f"Invalid lifecycle: {lifecycle}"
+        if not isinstance(chunk_id, str):
+            raise ValueError("chunk_id must be string")
+        if lifecycle not in self.VALID_LIFECYCLES:
+            raise ValueError(f"Invalid lifecycle: {lifecycle}")
 
         try:
             # Update metadata in ChromaDB
@@ -152,7 +159,8 @@ class CurationService:
         Returns:
             True if successful
         """
-        assert isinstance(chunk_id, str), "chunk_id must be string"
+        if not isinstance(chunk_id, str):
+            raise ValueError("chunk_id must be string")
 
         try:
             # Update metadata in ChromaDB
@@ -185,8 +193,10 @@ class CurationService:
             chunks_curated: Number of chunks curated
             session_id: Optional session ID (generated if not provided)
         """
-        assert duration_seconds >= 0, "duration must be non-negative"
-        assert chunks_curated >= 0, "chunks_curated must be non-negative"
+        if duration_seconds < 0:
+            raise ValueError("duration must be non-negative")
+        if chunks_curated < 0:
+            raise ValueError("chunks_curated must be non-negative")
 
         log_file = self.data_dir / 'curation_time.json'
         session_id = session_id or str(uuid.uuid4())
@@ -257,7 +267,8 @@ class CurationService:
         Returns:
             Preferences dictionary
         """
-        assert isinstance(user_id, str), "user_id must be string"
+        if not isinstance(user_id, str):
+            raise ValueError("user_id must be string")
 
         prefs = self.preferences_cache.get(f"prefs:{user_id}")
 
@@ -284,16 +295,18 @@ class CurationService:
             user_id: User ID
             preferences: Preferences dictionary
         """
-        assert isinstance(user_id, str), "user_id must be string"
-        assert isinstance(preferences, dict), "preferences must be dict"
+        if not isinstance(user_id, str):
+            raise ValueError("user_id must be string")
+        if not isinstance(preferences, dict):
+            raise ValueError("preferences must be dict")
 
         # Validate required fields
         required_fields = {
             'time_budget_minutes', 'auto_suggest', 'weekly_review_day',
             'weekly_review_time', 'batch_size', 'default_lifecycle'
         }
-        assert required_fields.issubset(preferences.keys()), \
-            "Missing required fields"
+        if not required_fields.issubset(preferences.keys()):
+            raise ValueError("Missing required fields")
 
         # Save to cache
         self.preferences_cache.set(f"prefs:{user_id}", preferences)
@@ -309,7 +322,8 @@ class CurationService:
         Returns:
             Suggested lifecycle tag
         """
-        assert 'text' in chunk, "chunk must have 'text' field"
+        if 'text' not in chunk:
+            raise ValueError("chunk must have 'text' field")
 
         text = chunk['text'].lower()
         word_count = len(text.split())

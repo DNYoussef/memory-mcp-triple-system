@@ -30,8 +30,10 @@ class MemoryCache:
             ttl_seconds: Time-to-live in seconds (default: 1 hour)
             max_size: Maximum number of entries (default: 10,000)
         """
-        assert ttl_seconds > 0, "TTL must be positive"
-        assert max_size > 0, "max_size must be positive"
+        if ttl_seconds <= 0:
+            raise ValueError("TTL must be positive")
+        if max_size <= 0:
+            raise ValueError("max_size must be positive")
 
         self.ttl_seconds = ttl_seconds
         self.max_size = max_size
@@ -49,7 +51,8 @@ class MemoryCache:
         Returns:
             Cached value or None if not found/expired
         """
-        assert isinstance(key, str), "Key must be string"
+        if not isinstance(key, str):
+            raise ValueError("Key must be string")
 
         if key not in self._cache:
             return None
@@ -76,7 +79,8 @@ class MemoryCache:
             value: Value to cache
             ttl_seconds: Optional custom TTL (default: use cache TTL)
         """
-        assert isinstance(key, str), "Key must be string"
+        if not isinstance(key, str):
+            raise ValueError("Key must be string")
 
         ttl = ttl_seconds if ttl_seconds is not None else self.ttl_seconds
         expires_at = datetime.now() + timedelta(seconds=ttl)
@@ -102,7 +106,8 @@ class MemoryCache:
         Returns:
             True if deleted, False if not found
         """
-        assert isinstance(key, str), "Key must be string"
+        if not isinstance(key, str):
+            raise ValueError("Key must be string")
 
         if key in self._cache:
             del self._cache[key]

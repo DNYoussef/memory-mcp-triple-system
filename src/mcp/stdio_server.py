@@ -455,52 +455,87 @@ def _handle_memory_store(
     text = arguments.get("text", "")
     metadata = arguments.get("metadata", {})
 
-    # Enrich metadata with tagging protocol
-    enriched_metadata = _enrich_metadata_with_tagging(metadata)
+    if not text:
+        return {
+            "content": [{"type": "text", "text": "Error: Empty text provided"}],
+            "isError": True
+        }
 
-    # Use the vector search tool components to store
-    embedder = tool.vector_search_tool.embedder
-    indexer = tool.vector_search_tool.indexer
-
-    # C3.5: Classify memory using hot/cold classifier
     try:
-        classification = tool.hot_cold_classifier.classify(text, enriched_metadata)
-        enriched_metadata['lifecycle_tier'] = classification.get('tier', 'hot')
-        enriched_metadata['decay_score'] = classification.get('decay_score', 1.0)
+        # Enrich metadata with tagging protocol
+        enriched_metadata = _enrich_metadata_with_tagging(metadata)
+
+        # Use the vector search tool components to store
+        embedder = tool.vector_search_tool.embedder
+        indexer = tool.vector_search_tool.indexer
+
+        # C3.5: Classify memory using hot/cold classifier
+        try:
+            classification = tool.hot_cold_classifier.classify(text, enriched_metadata)
+            enriched_metadata['lifecycle_tier'] = classification.get('tier', 'hot')
+            enriched_metadata['decay_score'] = classification.get('decay_score', 1.0)
+        except Exception as e:
+            logger.debug(f"Lifecycle classification skipped: {e}")
+            enriched_metadata['lifecycle_tier'] = 'hot'
+            enriched_metadata['decay_score'] = 1.0
+
+        # Create chunk with enriched metadata
+        chunks = [{
+            'text': text,
+            'file_path': enriched_metadata.get('key', 'manual_entry'),
+            'chunk_index': 0,
+            'metadata': enriched_metadata
+        }]
+
+        # Generate embedding and index with error handling
+        try:
+            embeddings = embedder.encode([text])
+            if embeddings is None or len(embeddings) == 0:
+                raise ValueError("Embedding generation failed")
+
+            success = indexer.index_chunks(chunks, embeddings.tolist())
+            if not success:
+                raise RuntimeError("Indexing failed")
+
+        except Exception as embed_err:
+            logger.error(f"Failed to store memory: {embed_err}")
+            return {
+                "content": [{
+                    "type": "text",
+                    "text": f"Storage failed: {embed_err}"
+                }],
+                "isError": True
+            }
+
+        # C3.3: Log event
+        tool.log_event("memory_store", {
+            "text_length": len(text),
+            "agent": enriched_metadata.get('agent', {}).get('name', 'unknown'),
+            "project": enriched_metadata.get('project', 'unknown'),
+            "lifecycle_tier": enriched_metadata.get('lifecycle_tier', 'hot')
+        })
+
+        # Include tagging info in response
+        tagging_info = f"Tagged: WHO={enriched_metadata['agent']['name']}, PROJECT={enriched_metadata['project']}, INTENT={enriched_metadata['intent']}"
+        lifecycle_info = f"Lifecycle: {enriched_metadata.get('lifecycle_tier', 'hot')}"
+
+        return {
+            "content": [{
+                "type": "text",
+                "text": f"Stored memory: {text[:100]}...\n{tagging_info}\n{lifecycle_info}"
+            }],
+            "isError": False
+        }
+
     except Exception as e:
-        logger.debug(f"Lifecycle classification skipped: {e}")
-
-    # Create chunk with enriched metadata
-    chunks = [{
-        'text': text,
-        'file_path': enriched_metadata.get('key', 'manual_entry'),
-        'chunk_index': 0,
-        'metadata': enriched_metadata
-    }]
-
-    # Generate embedding and index
-    embeddings = embedder.encode([text])
-    indexer.index_chunks(chunks, embeddings.tolist())
-
-    # C3.3: Log event
-    tool.log_event("memory_store", {
-        "text_length": len(text),
-        "agent": enriched_metadata.get('agent', {}).get('name', 'unknown'),
-        "project": enriched_metadata.get('project', 'unknown'),
-        "lifecycle_tier": enriched_metadata.get('lifecycle_tier', 'hot')
-    })
-
-    # Include tagging info in response
-    tagging_info = f"Tagged: WHO={enriched_metadata['agent']['name']}, PROJECT={enriched_metadata['project']}, INTENT={enriched_metadata['intent']}"
-    lifecycle_info = f"Lifecycle: {enriched_metadata.get('lifecycle_tier', 'hot')}"
-
-    return {
-        "content": [{
-            "type": "text",
-            "text": f"Stored memory: {text[:100]}...\n{tagging_info}\n{lifecycle_info}"
-        }],
-        "isError": False
-    }
+        logger.error(f"Memory store operation failed: {e}")
+        return {
+            "content": [{
+                "type": "text",
+                "text": f"Memory store error: {e}"
+            }],
+            "isError": True
+        }
 
 
 def _handle_graph_query(

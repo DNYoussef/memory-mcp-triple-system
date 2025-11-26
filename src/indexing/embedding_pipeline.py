@@ -21,7 +21,8 @@ class EmbeddingPipeline:
         Args:
             model_name: Sentence-Transformers model name
         """
-        assert len(model_name) > 0, "Model name cannot be empty"
+        if len(model_name) == 0:
+            raise ValueError("Model name cannot be empty")
 
         self.model_name = model_name
         self.model = SentenceTransformer(model_name)
@@ -42,8 +43,10 @@ class EmbeddingPipeline:
         Returns:
             numpy array of shape (len(texts), embedding_dim)
         """
-        assert len(texts) > 0, "Cannot encode empty list"
-        assert all(len(t) > 0 for t in texts), "Texts cannot be empty"
+        if len(texts) == 0:
+            raise ValueError("Cannot encode empty list")
+        if not all(len(t) > 0 for t in texts):
+            raise ValueError("Texts cannot be empty")
 
         embeddings = self.model.encode(
             texts,
@@ -64,7 +67,8 @@ class EmbeddingPipeline:
         Returns:
             numpy array of shape (embedding_dim,)
         """
-        assert len(text) > 0, "Text cannot be empty"
+        if len(text) == 0:
+            raise ValueError("Text cannot be empty")
 
         embedding = self.model.encode(
             text,

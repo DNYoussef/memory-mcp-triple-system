@@ -13,7 +13,7 @@ import sqlite3
 import json
 from pathlib import Path
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 
 
@@ -76,8 +76,9 @@ class KVStore:
             - value (TEXT): JSON-serialized value
             - created_at (DATETIME): Creation timestamp
             - updated_at (DATETIME): Last update timestamp
+            - expires_at (DATETIME): Expiration timestamp (NULL = no expiry)
 
-        NASA Rule 10: 24 LOC (≤60) ✅
+        NASA Rule 10: 30 LOC (≤60) ✅
         """
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -87,7 +88,8 @@ class KVStore:
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL,
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                expires_at DATETIME
             )
         """)
 
@@ -97,30 +99,50 @@ class KVStore:
             ON kv_store(key)
         """)
 
+        # Index for expiration cleanup
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_kv_expires_at
+            ON kv_store(expires_at)
+        """)
+
         conn.commit()
 
     def get(self, key: str) -> Optional[str]:
         """
         Get value by key (O(1) lookup).
+        Returns None if key doesn't exist or has expired.
 
         Args:
             key: Lookup key
 
         Returns:
-            Value if found, None otherwise
+            Value if found and not expired, None otherwise
 
-        NASA Rule 10: 18 LOC (≤60) ✅
+        NASA Rule 10: 30 LOC (≤60) ✅
         """
         conn = self._get_connection()
         cursor = conn.cursor()
 
         try:
             cursor.execute(
-                "SELECT value FROM kv_store WHERE key = ?",
+                "SELECT value, expires_at FROM kv_store WHERE key = ?",
                 (key,)
             )
             row = cursor.fetchone()
-            return row["value"] if row else None
+
+            if not row:
+                return None
+
+            # Check if expired
+            if row["expires_at"]:
+                expires_at = datetime.fromisoformat(row["expires_at"])
+                if datetime.now() > expires_at:
+                    # Lazy cleanup: delete expired entry
+                    cursor.execute("DELETE FROM kv_store WHERE key = ?", (key,))
+                    conn.commit()
+                    return None
+
+            return row["value"]
 
         except sqlite3.Error as e:
             logger.error(f"KV get failed for key '{key}': {e}")
@@ -128,17 +150,17 @@ class KVStore:
 
     def set(self, key: str, value: str, ttl: Optional[int] = None) -> bool:
         """
-        Set key-value pair.
+        Set key-value pair with optional TTL.
 
         Args:
             key: Storage key
             value: Value to store (will be JSON-serialized if dict/list)
-            ttl: Time-to-live in seconds (optional, for future use)
+            ttl: Time-to-live in seconds (None = never expires)
 
         Returns:
             True if successful, False otherwise
 
-        NASA Rule 10: 32 LOC (≤60) ✅
+        NASA Rule 10: 42 LOC (≤60) ✅
         """
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -147,18 +169,26 @@ class KVStore:
         if isinstance(value, (dict, list)):
             value = json.dumps(value)
 
+        # Calculate expiration time
+        now = datetime.now()
+        expires_at = None
+        if ttl is not None:
+            expires_at = (now + timedelta(seconds=ttl)).isoformat()
+
         try:
             cursor.execute("""
-                INSERT INTO kv_store (key, value, created_at, updated_at)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO kv_store (key, value, created_at, updated_at, expires_at)
+                VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT(key) DO UPDATE SET
                     value = excluded.value,
-                    updated_at = excluded.updated_at
+                    updated_at = excluded.updated_at,
+                    expires_at = excluded.expires_at
             """, (
                 key,
                 value,
-                datetime.now().isoformat(),
-                datetime.now().isoformat()
+                now.isoformat(),
+                now.isoformat(),
+                expires_at
             ))
 
             conn.commit()
@@ -316,3 +346,35 @@ class KVStore:
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Context manager exit."""
         self.close()
+
+    def cleanup_expired(self) -> int:
+        """
+        Remove all expired entries from the store.
+
+        Returns:
+            Number of entries deleted
+
+        NASA Rule 10: 23 LOC (≤60) ✅
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute("""
+                DELETE FROM kv_store
+                WHERE expires_at IS NOT NULL
+                AND expires_at < ?
+            """, (datetime.now().isoformat(),))
+
+            deleted = cursor.rowcount
+            conn.commit()
+
+            if deleted > 0:
+                logger.info(f"Cleaned up {deleted} expired entries")
+
+            return deleted
+
+        except sqlite3.Error as e:
+            logger.error(f"KV cleanup_expired failed: {e}")
+            conn.rollback()
+            return 0

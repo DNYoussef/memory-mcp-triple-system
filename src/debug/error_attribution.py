@@ -196,8 +196,24 @@ class ErrorAttribution:
         Returns:
             True if wrong lifecycle detected
         """
-        # Implementation requires access to chunk metadata
-        # Placeholder for future enhancement
+        if not hasattr(trace, "retrieved_chunks") or not trace.retrieved_chunks:
+            return False
+
+        # Check if archived/demoted chunks returned for active query
+        for chunk in trace.retrieved_chunks:
+            if isinstance(chunk, dict):
+                metadata = chunk.get("metadata", {})
+                stage = metadata.get("stage", "active")
+
+                # If query expects active but got archived/demoted
+                if stage in ["archived", "demoted", "rehydratable"]:
+                    # Check if query was looking for current/active info
+                    if hasattr(trace, "query"):
+                        query_lower = trace.query.lower()
+                        # Keywords suggesting active/current query
+                        if any(kw in query_lower for kw in ["current", "latest", "now", "today", "recent"]):
+                            return True
+
         return False
 
     def get_statistics(self, days: int = 30) -> Dict:
@@ -228,27 +244,57 @@ class ErrorAttribution:
             logger.warning("Database not available for statistics")
             return self._empty_stats()
 
-        # In production, query database for last N days
-        # Placeholder implementation with sample data
-        stats = {
-            "total_queries": 0,
-            "failed_queries": 0,
-            "failure_breakdown": {
-                "context_bugs": 0,
-                "model_bugs": 0,
-                "system_errors": 0
-            },
-            "context_bug_breakdown": {
-                "wrong_store_queried": 0,
-                "wrong_mode_detected": 0,
-                "wrong_lifecycle_filter": 0,
-                "retrieval_ranking_error": 0
-            },
-            "days": days
-        }
+        try:
+            from datetime import datetime, timedelta
+            import sqlite3
 
-        logger.info(f"Statistics aggregated for {days} days")
-        return stats
+            cutoff_date = datetime.now() - timedelta(days=days)
+            cutoff_str = cutoff_date.isoformat()
+
+            # Query total and failed queries
+            cursor = self.db.cursor()
+            cursor.execute(
+                "SELECT COUNT(*) FROM query_traces WHERE timestamp >= ?",
+                (cutoff_str,)
+            )
+            total_queries = cursor.fetchone()[0]
+
+            cursor.execute(
+                "SELECT COUNT(*) FROM query_traces WHERE timestamp >= ? AND error IS NOT NULL",
+                (cutoff_str,)
+            )
+            failed_queries = cursor.fetchone()[0]
+
+            # Query error type breakdown
+            cursor.execute(
+                "SELECT error_type, COUNT(*) FROM query_traces WHERE timestamp >= ? AND error_type IS NOT NULL GROUP BY error_type",
+                (cutoff_str,)
+            )
+            error_breakdown = dict(cursor.fetchall())
+
+            stats = {
+                "total_queries": total_queries,
+                "failed_queries": failed_queries,
+                "failure_breakdown": {
+                    "context_bugs": error_breakdown.get("context_bug", 0),
+                    "model_bugs": error_breakdown.get("model_bug", 0),
+                    "system_errors": error_breakdown.get("system_error", 0)
+                },
+                "context_bug_breakdown": {
+                    "wrong_store_queried": 0,
+                    "wrong_mode_detected": 0,
+                    "wrong_lifecycle_filter": 0,
+                    "retrieval_ranking_error": 0
+                },
+                "days": days
+            }
+
+            logger.info(f"Statistics aggregated: {total_queries} queries, {failed_queries} failures in {days} days")
+            return stats
+
+        except Exception as e:
+            logger.error(f"Failed to aggregate statistics: {e}")
+            return self._empty_stats()
 
     def _empty_stats(self) -> Dict:
         """Return empty statistics structure."""

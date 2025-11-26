@@ -29,18 +29,18 @@ class TestMemoryCacheInitialization:
 
     def test_initialization_invalid_ttl(self):
         """Test initialization fails with invalid TTL."""
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             MemoryCache(ttl_seconds=0)
 
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             MemoryCache(ttl_seconds=-1)
 
     def test_initialization_invalid_max_size(self):
         """Test initialization fails with invalid max_size."""
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             MemoryCache(max_size=0)
 
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             MemoryCache(max_size=-1)
 
 
@@ -216,15 +216,15 @@ class TestMemoryCacheValidation:
 
     def test_get_requires_string_key(self, cache):
         """Test get requires string key."""
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             cache.get(123)
 
     def test_set_requires_string_key(self, cache):
         """Test set requires string key."""
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             cache.set(123, 'value')
 
     def test_delete_requires_string_key(self, cache):
         """Test delete requires string key."""
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             cache.delete(123)

@@ -37,10 +37,14 @@ class SemanticChunker:
             similarity_threshold: Cosine similarity threshold for boundaries
             embedding_pipeline: Optional pre-initialized embedding pipeline
         """
-        assert min_chunk_size > 0, "Min chunk size must be positive"
-        assert max_chunk_size > min_chunk_size, "Max must be > min"
-        assert 0 <= overlap < min_chunk_size, "Invalid overlap"
-        assert 0.0 <= similarity_threshold <= 1.0, "Threshold must be 0-1"
+        if min_chunk_size <= 0:
+            raise ValueError("Min chunk size must be positive")
+        if max_chunk_size <= min_chunk_size:
+            raise ValueError("Max must be > min")
+        if not (0 <= overlap < min_chunk_size):
+            raise ValueError("Invalid overlap")
+        if not (0.0 <= similarity_threshold <= 1.0):
+            raise ValueError("Threshold must be 0-1")
 
         self.min_chunk_size = min_chunk_size
         self.max_chunk_size = max_chunk_size
@@ -78,7 +82,8 @@ class SemanticChunker:
         Returns:
             List of chunk dictionaries with metadata
         """
-        assert len(content) > 0, "Content cannot be empty"
+        if len(content) == 0:
+            raise ValueError("Content cannot be empty")
 
         metadata = self._extract_frontmatter(content)
         text = self._remove_frontmatter(content)
@@ -107,7 +112,8 @@ class SemanticChunker:
         Returns:
             List of chunk dictionaries with metadata
         """
-        assert file_path.exists(), f"File not found: {file_path}"
+        if not file_path.exists():
+            raise ValueError(f"File not found: {file_path}")
 
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()

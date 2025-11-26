@@ -57,10 +57,10 @@ It should be processed correctly."""
 
     def test_initialization_invalid_params(self):
         """Test initialization with invalid parameters."""
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             SemanticChunker(min_chunk_size=0)
 
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             SemanticChunker(min_chunk_size=200, max_chunk_size=100)
 
     def test_chunk_file(self, chunker, sample_markdown):
@@ -92,5 +92,5 @@ It should be processed correctly."""
 
     def test_file_not_found(self, chunker):
         """Test handling of non-existent file."""
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             chunker.chunk_file(Path("/nonexistent/file.md"))
