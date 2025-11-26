@@ -1,0 +1,114 @@
+{
+  "project": "Memory MCP Triple System - Phase 2 Runtime Wiring",
+  "loop1_reference": "docs/phase2/SPEC.md",
+  "created": "2025-11-25",
+  "tasks": [
+    {
+      "taskId": "C3.1",
+      "description": "Wire NexusProcessor into stdio_server.py to enable 5-step SOP pipeline",
+      "taskType": "backend",
+      "complexity": "moderate",
+      "assignedAgent": "backend-dev",
+      "useSkill": null,
+      "customInstructions": "Modify src/mcp/stdio_server.py to instantiate NexusProcessor with all 3 tiers. Import VectorIndexer, GraphQueryEngine (if available), ProbabilisticQueryEngine. Route vector_search tool calls through NexusProcessor.process() instead of direct VectorSearchTool.execute(). Add mode parameter support (execution/planning/brainstorming). Preserve backward compatibility - if NexusProcessor fails, fallback to direct vector search. Follow NASA Rule 10 (functions <=60 LOC).",
+      "priority": "critical",
+      "dependencies": [],
+      "files": ["src/mcp/stdio_server.py"],
+      "acceptance": "MCP server uses NexusProcessor for queries, all 3 tiers queried"
+    },
+    {
+      "taskId": "C2.1",
+      "description": "Create hooks directory structure at ~/.claude/hooks/12fa/",
+      "taskType": "infrastructure",
+      "complexity": "simple",
+      "assignedAgent": "system-architect",
+      "useSkill": null,
+      "customInstructions": "Create directory structure: ~/.claude/hooks/12fa/. This follows Claude Code hooks convention. Use os.path.expanduser for cross-platform compatibility. Create __init__.js if needed for module exports.",
+      "priority": "high",
+      "dependencies": [],
+      "files": [],
+      "acceptance": "Directory exists and is accessible"
+    },
+    {
+      "taskId": "C2.2",
+      "description": "Create memory-mcp-tagging-protocol.js hook",
+      "taskType": "backend",
+      "complexity": "moderate",
+      "assignedAgent": "coder",
+      "useSkill": null,
+      "customInstructions": "Create ~/.claude/hooks/12fa/memory-mcp-tagging-protocol.js. Implement taggedMemoryStore(agent, content, metadata) function that auto-injects WHO/WHEN/PROJECT/WHY metadata. WHO: agent name, category. WHEN: ISO timestamp, Unix timestamp, readable format. PROJECT: from env MEMORY_MCP_PROJECT or default. WHY: intent from metadata. Export as CommonJS module. Handle errors gracefully.",
+      "priority": "high",
+      "dependencies": ["C2.1"],
+      "files": ["~/.claude/hooks/12fa/memory-mcp-tagging-protocol.js"],
+      "acceptance": "Hook exports taggedMemoryStore function with correct metadata injection"
+    },
+    {
+      "taskId": "C2.3",
+      "description": "Create agent-mcp-access-control.js hook",
+      "taskType": "backend",
+      "complexity": "moderate",
+      "assignedAgent": "coder",
+      "useSkill": null,
+      "customInstructions": "Create ~/.claude/hooks/12fa/agent-mcp-access-control.js. Define agent permissions matrix: which agents can use which MCP tools. Implement validateAccess(agent, tool) function. Default: all agents can use vector_search and memory_store. Quality agents get additional permissions. Export as CommonJS module.",
+      "priority": "medium",
+      "dependencies": ["C2.1"],
+      "files": ["~/.claude/hooks/12fa/agent-mcp-access-control.js"],
+      "acceptance": "Hook validates agent access to MCP tools"
+    },
+    {
+      "taskId": "C2.4",
+      "description": "Wire WHO/WHEN/PROJECT/WHY tagging into memory_store tool",
+      "taskType": "backend",
+      "complexity": "moderate",
+      "assignedAgent": "backend-dev",
+      "useSkill": null,
+      "customInstructions": "Modify handle_call_tool in stdio_server.py to use tagging protocol. Before storing memory, enrich metadata with WHO/WHEN/PROJECT/WHY. Import or inline the tagging logic (Python equivalent of JS hook). Ensure all stored memories have complete metadata.",
+      "priority": "high",
+      "dependencies": ["C3.1", "C2.2"],
+      "files": ["src/mcp/stdio_server.py"],
+      "acceptance": "All memory_store calls include WHO/WHEN/PROJECT/WHY metadata"
+    },
+    {
+      "taskId": "C2.5",
+      "description": "Validate hooks integration with test",
+      "taskType": "test",
+      "complexity": "simple",
+      "assignedAgent": "tester",
+      "useSkill": null,
+      "customInstructions": "Create tests/integration/test_hooks_integration.py. Test that: 1) Hooks directory exists, 2) tagging-protocol.js is valid JS, 3) memory_store includes metadata, 4) vector_search works through NexusProcessor. Use pytest fixtures.",
+      "priority": "medium",
+      "dependencies": ["C3.1", "C2.4"],
+      "files": ["tests/integration/test_hooks_integration.py"],
+      "acceptance": "All integration tests pass"
+    }
+  ],
+  "parallelGroups": [
+    {
+      "group": 1,
+      "tasks": ["C3.1", "C2.1"],
+      "reason": "Foundation tasks with no dependencies - can run in parallel"
+    },
+    {
+      "group": 2,
+      "tasks": ["C2.2", "C2.3"],
+      "reason": "Hook creation depends on directory (C2.1) - can run in parallel with each other"
+    },
+    {
+      "group": 3,
+      "tasks": ["C2.4"],
+      "reason": "Wiring depends on C3.1 and C2.2 completion"
+    },
+    {
+      "group": 4,
+      "tasks": ["C2.5"],
+      "reason": "Validation must run after all implementation"
+    }
+  ],
+  "statistics": {
+    "totalTasks": 6,
+    "skillBasedAgents": 0,
+    "customInstructionAgents": 6,
+    "uniqueAgents": 4,
+    "estimatedParallelism": "4 groups, 2x speedup"
+  }
+}

@@ -525,9 +525,9 @@ class NexusProcessor:
             return None
 
         try:
-            # Extract query entities (simplified - assume query is entity name)
-            # In production, use entity extraction from Week 5
-            query_entity = query.split()[0] if query.split() else "unknown"
+            # B3.3 FIX: Extract entities properly (capitalized phrases)
+            # Uses same logic as entity_extraction MCP tool
+            query_entity = self._extract_query_entity(query)
 
             # Query Bayesian network
             raw_results = self.probabilistic_query_engine.query_conditional(
@@ -564,11 +564,51 @@ class NexusProcessor:
             logger.warning(f"Bayesian tier query failed (expected): {e}")
             return None
 
+    def _extract_query_entity(self, query: str) -> str:
+        """
+        B3.3 FIX: Extract entity from query using capitalized phrase detection.
+
+        Instead of just taking the first word, this looks for:
+        1. Capitalized phrases (e.g., "John Smith", "New York City")
+        2. Falls back to longest capitalized word
+        3. Falls back to first word if no capitalized words found
+
+        Args:
+            query: Input query text
+
+        Returns:
+            Extracted entity string
+
+        NASA Rule 10: 25 LOC
+        """
+        import re
+
+        if not query or not query.strip():
+            return "unknown"
+
+        # Find capitalized phrases (2+ adjacent capitalized words)
+        cap_phrase_pattern = r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b'
+        phrases = re.findall(cap_phrase_pattern, query)
+        if phrases:
+            # Return longest capitalized phrase
+            return max(phrases, key=len)
+
+        # Find single capitalized words (excluding sentence starters)
+        words = query.split()
+        cap_words = [w for i, w in enumerate(words)
+                     if w[0].isupper() and (i > 0 or len(words) == 1)]
+        if cap_words:
+            return max(cap_words, key=len)
+
+        # Fallback: first word
+        return words[0] if words else "unknown"
+
     def _calculate_cosine_similarity(self, text1: str, text2: str) -> float:
         """
-        Calculate cosine similarity between two texts.
+        B3.2 FIX: Calculate cosine similarity between two texts.
 
-        Uses simple word-based TF representation for speed.
+        Uses embedding-based cosine similarity when pipeline available,
+        falls back to word-based Jaccard for offline mode.
 
         Args:
             text1: First text
@@ -576,16 +616,36 @@ class NexusProcessor:
 
         Returns:
             Cosine similarity (0-1)
+
+        NASA Rule 10: 30 LOC
         """
-        # Tokenize
+        if not text1 or not text2:
+            return 0.0
+
+        # Use embeddings for accurate cosine similarity
+        if self.embedding_pipeline is not None:
+            try:
+                emb1 = self.embedding_pipeline.encode_single(text1)
+                emb2 = self.embedding_pipeline.encode_single(text2)
+
+                # Actual cosine similarity: dot(a,b) / (|a| * |b|)
+                dot_product = np.dot(emb1, emb2)
+                norm1 = np.linalg.norm(emb1)
+                norm2 = np.linalg.norm(emb2)
+
+                if norm1 > 0 and norm2 > 0:
+                    return float(dot_product / (norm1 * norm2))
+                return 0.0
+            except Exception as e:
+                logger.debug(f"Embedding similarity failed, using Jaccard: {e}")
+
+        # Fallback: Jaccard similarity (offline mode)
         words1 = set(text1.lower().split())
         words2 = set(text2.lower().split())
 
         if not words1 or not words2:
             return 0.0
 
-        # Jaccard similarity as fast approximation
-        # (For production, use embeddings for better accuracy)
         intersection = len(words1 & words2)
         union = len(words1 | words2)
 

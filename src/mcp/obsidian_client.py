@@ -1,15 +1,14 @@
 """
-Obsidian MCP Client (Week 7)
+Obsidian MCP Client (Week 7 - Phase 3 Real Implementation)
 
 REST API client for Obsidian vault synchronization.
 Implements portable vault integration with bidirectional sync.
 
 Part of Memory-as-Code philosophy: Obsidian vault is canonical source.
 
-NASA Rule 10 Compliant: All functions ≤60 LOC
+NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
-import requests
 import json
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Callable
@@ -19,6 +18,38 @@ import time
 
 
 logger = logging.getLogger(__name__)
+
+# Lazy imports for chunker and indexer (avoid circular imports)
+_chunker = None
+_embedder = None
+_indexer = None
+
+
+def _get_chunker():
+    """Lazy load SemanticChunker."""
+    global _chunker
+    if _chunker is None:
+        from ..chunking.semantic_chunker import SemanticChunker
+        _chunker = SemanticChunker()
+    return _chunker
+
+
+def _get_embedder():
+    """Lazy load EmbeddingPipeline."""
+    global _embedder
+    if _embedder is None:
+        from ..indexing.embedding_pipeline import EmbeddingPipeline
+        _embedder = EmbeddingPipeline()
+    return _embedder
+
+
+def _get_indexer(persist_directory: str = "./chroma_data"):
+    """Lazy load VectorIndexer."""
+    global _indexer
+    if _indexer is None:
+        from ..indexing.vector_indexer import VectorIndexer
+        _indexer = VectorIndexer(persist_directory=persist_directory)
+    return _indexer
 
 
 class ObsidianMCPClient:
@@ -138,7 +169,7 @@ class ObsidianMCPClient:
 
     def _sync_file(self, file_path: Path) -> Dict[str, Any]:
         """
-        Sync single file to memory system.
+        Sync single file to memory system using real chunking and indexing.
 
         Args:
             file_path: Path to file to sync
@@ -146,34 +177,59 @@ class ObsidianMCPClient:
         Returns:
             {"success": bool, "chunks": int, "error": str}
 
-        NASA Rule 10: 40 LOC (≤60) ✅
+        NASA Rule 10: 55 LOC (<=60)
         """
         try:
             # Read file content
             with open(file_path, "r", encoding="utf-8") as f:
                 content = f.read()
 
+            if len(content.strip()) == 0:
+                return {"success": True, "chunks": 0, "error": None}
+
             # Get file metadata
             stat = file_path.stat()
-            metadata = {
-                "file_path": str(file_path.relative_to(self.vault_path)),
+            relative_path = str(file_path.relative_to(self.vault_path))
+            base_metadata = {
+                "file_path": relative_path,
                 "modified_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
                 "size_bytes": stat.st_size,
-                "source": "obsidian_vault"
+                "source": "obsidian_vault",
+                "vault_path": str(self.vault_path)
             }
 
-            # Send to memory system via API
-            # (This would integrate with vector indexer, chunking, etc.)
-            # For Week 7, we return mock success
-            chunks = max(1, len(content) // 500)  # Estimate chunks
+            # Real implementation: Use chunker and indexer
+            chunker = _get_chunker()
+            embedder = _get_embedder()
+            indexer = _get_indexer()
+
+            # Chunk the file content
+            chunks = chunker.chunk_text(content, relative_path)
+
+            if not chunks:
+                return {"success": True, "chunks": 0, "error": None}
+
+            # Enrich chunks with metadata
+            for chunk in chunks:
+                chunk['metadata'] = {**base_metadata, **chunk.get('metadata', {})}
+
+            # Generate embeddings
+            texts = [c['text'] for c in chunks]
+            embeddings = embedder.encode(texts)
+
+            # Index chunks
+            indexer.index_chunks(chunks, embeddings.tolist())
+
+            logger.info(f"Synced {file_path.name}: {len(chunks)} chunks indexed")
 
             return {
                 "success": True,
-                "chunks": chunks,
+                "chunks": len(chunks),
                 "error": None
             }
 
         except Exception as e:
+            logger.error(f"Failed to sync {file_path}: {e}")
             return {
                 "success": False,
                 "chunks": 0,

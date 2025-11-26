@@ -3,8 +3,12 @@ Helper script to find best SPEK agents for Memory MCP tasks.
 Uses agent_registry.py from SPEK Platform.
 """
 
+import os
 import sys
-sys.path.insert(0, 'C:/Users/17175/Desktop/spek-v2-rebuild')
+
+# Use environment variable or default to relative path
+SPEK_PATH = os.environ.get('SPEK_PATH', os.path.expanduser('~/Desktop/spek-v2-rebuild'))
+sys.path.insert(0, SPEK_PATH)
 
 from src.coordination.agent_registry import find_drones_for_task, get_drone_description
 

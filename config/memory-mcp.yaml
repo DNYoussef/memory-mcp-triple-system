@@ -12,7 +12,7 @@ storage:
   vector_db:
     type: chromadb  # v5.0: Docker-free with ChromaDB
     persist_directory: ./chroma_data
-    collection_name: memory_embeddings
+    collection_name: memory_chunks
   graph_db:
     type: networkx  # v5.0: Docker-free with NetworkX
     persist_path: ./data/knowledge_graph.pkl

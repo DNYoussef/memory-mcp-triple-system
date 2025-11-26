@@ -7,6 +7,7 @@ dependencies = [
     "python-dotenv==1.0.0",
     "pydantic>=2.5.0",
     "pyyaml==6.0.1",
+    "tenacity>=8.2.0",
     "chromadb>=1.0.0",
     "sentence-transformers>=5.1.0",
     "transformers>=4.44.0",
