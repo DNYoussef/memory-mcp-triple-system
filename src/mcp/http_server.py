@@ -147,8 +147,8 @@ async def vector_search(request: VectorSearchRequest) -> Dict[str, Any]:
         # Detect mode if not provided
         mode = request.mode
         if not mode:
-            detection = mode_detector.detect_mode(request.query)
-            mode = detection.mode.value
+            profile, confidence = mode_detector.detect(request.query)
+            mode = profile.name
 
         # Generate query embedding
         query_embedding = embedder.encode([request.query])[0]
@@ -211,14 +211,14 @@ async def detect_mode(request: DetectModeRequest) -> Dict[str, Any]:
     """Detect query mode."""
     try:
         detector = get_mode_detector()
-        result = detector.detect_mode(request.query)
+        profile, confidence = detector.detect(request.query)
 
         return {
-            "mode": result.mode.value,
-            "confidence": result.confidence,
-            "token_budget": result.token_budget,
-            "core_size": result.core_size,
-            "extended_size": result.extended_size
+            "mode": profile.name,
+            "confidence": confidence,
+            "token_budget": profile.token_budget,
+            "core_size": profile.core_size,
+            "extended_size": profile.extended_size
         }
     except Exception as e:
         logger.error(f"Mode detection failed: {e}")
