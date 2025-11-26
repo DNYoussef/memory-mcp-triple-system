@@ -23,6 +23,11 @@ from ..lifecycle.hotcold_classifier import HotColdClassifier
 from ..memory.lifecycle_manager import MemoryLifecycleManager
 from .obsidian_client import ObsidianMCPClient
 
+# ISS-003 fix: Import Graph and Bayesian engines for full architecture wiring
+from ..services.graph_service import GraphService
+from ..services.graph_query_engine import GraphQueryEngine
+from ..bayesian.probabilistic_query_engine import ProbabilisticQueryEngine
+
 
 class NexusSearchTool:
     """
@@ -67,14 +72,19 @@ class NexusSearchTool:
         self.kv_store = KVStore(db_path=str(data_dir / "kv_store.db"))
 
         # C3.5: Lifecycle manager with hot/cold classifier
+        # ISS-019 fix: Wire real VectorIndexer instead of None
         self.hot_cold_classifier = HotColdClassifier()
         self.lifecycle_manager = MemoryLifecycleManager(
-            vector_indexer=None,  # Set later when vector_search_tool.indexer is available
+            vector_indexer=self.vector_search_tool.indexer,
             kv_store=self.kv_store
         )
 
         # C3.2: Obsidian client (lazy init)
-        vault_path = config.get('obsidian', {}).get('vault_path')
+        # ISS-034 fix: Support both config paths for backwards compatibility
+        vault_path = (
+            config.get('obsidian', {}).get('vault_path') or
+            config.get('storage', {}).get('obsidian_vault')
+        )
         self._obsidian_client: Optional[ObsidianMCPClient] = None
         self._vault_path = vault_path
 
@@ -98,8 +108,21 @@ class NexusSearchTool:
 
     def log_event(self, event_type: str, data: Dict[str, Any]) -> None:
         """C3.3: Log event to event store."""
+        from ..stores.event_log import EventType
         try:
-            self.event_log.log(event_type=event_type, data=data)
+            # Map string to EventType enum
+            event_type_map = {
+                "vector_search": EventType.QUERY_EXECUTED,
+                "memory_store": EventType.CHUNK_ADDED,
+                "chunk_added": EventType.CHUNK_ADDED,
+                "chunk_updated": EventType.CHUNK_UPDATED,
+                "chunk_deleted": EventType.CHUNK_DELETED,
+                "query_executed": EventType.QUERY_EXECUTED,
+                "entity_consolidated": EventType.ENTITY_CONSOLIDATED,
+                "lifecycle_transition": EventType.LIFECYCLE_TRANSITION
+            }
+            enum_type = event_type_map.get(event_type, EventType.QUERY_EXECUTED)
+            self.event_log.log_event(event_type=enum_type, data=data)
         except Exception as e:
             logger.warning(f"Event logging failed: {e}")
 
@@ -114,17 +137,26 @@ class NexusSearchTool:
 
     @property
     def nexus_processor(self) -> Optional[NexusProcessor]:
-        """Lazy load NexusProcessor."""
+        """Lazy load NexusProcessor with all 3 tiers."""
         if self._nexus_processor is None:
             try:
-                # Initialize NexusProcessor with VectorIndexer
+                # ISS-003 fix: Wire all 3 tiers (Vector + Graph + Bayesian)
+                # Initialize Graph tier (HippoRAG)
+                data_dir = self.config.get('storage', {}).get('data_dir', './data')
+                graph_service = GraphService(data_dir=data_dir)
+                graph_query_engine = GraphQueryEngine(graph_service=graph_service)
+
+                # Initialize Bayesian tier
+                probabilistic_engine = ProbabilisticQueryEngine(timeout_seconds=1.0)
+
+                # Initialize NexusProcessor with all tiers
                 self._nexus_processor = NexusProcessor(
                     vector_indexer=self.vector_search_tool.indexer,
-                    graph_query_engine=None,  # HippoRAG tier (Week 8)
-                    probabilistic_query_engine=None,  # Bayesian tier (Week 10)
+                    graph_query_engine=graph_query_engine,
+                    probabilistic_query_engine=probabilistic_engine,
                     embedding_pipeline=self.vector_search_tool.embedder
                 )
-                logger.info("NexusProcessor initialized successfully")
+                logger.info("NexusProcessor initialized with all 3 tiers (Vector + Graph + Bayesian)")
             except Exception as e:
                 logger.warning(f"NexusProcessor init failed, using fallback: {e}")
                 self._nexus_processor = None
@@ -753,8 +785,9 @@ def _apply_migrations(config: Dict[str, Any]) -> None:
             with open(migration_file, 'r') as f:
                 conn.executescript(f.read())
         conn.close()
-    except Exception:
-        pass  # Ignore migration errors on startup
+    except Exception as e:
+        # ISS-050 fix: Log migration errors instead of silently ignoring
+        logger.warning(f"Database migration failed: {e}. Server continuing with existing schema.")
 
 
 def main():

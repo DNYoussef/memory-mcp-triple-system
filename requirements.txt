@@ -4,19 +4,20 @@ pydantic==2.5.0
 pyyaml==6.0.1
 
 # Vector Layer (v5.0: Docker-free with ChromaDB)
-chromadb>=1.0.0
-sentence-transformers>=5.1.0
-transformers>=4.44.0  # Stable release, avoids dev version issues
+# ISS-039 fix: Pinned versions for reproducible builds
+chromadb==1.3.0
+sentence-transformers==5.1.0
+transformers==4.44.0  # Stable release, avoids dev version issues
 
 # Graph Layer (v5.0: In-memory with NetworkX)
-networkx>=3.5
+networkx==3.5
 spacy==3.7.2
 # hipporag - defer to Week 5-6 (Python 3.12 compatibility issue)
 
 # Bayesian Layer
 pgmpy==0.1.24
-torch>=2.2.0  # Python 3.12 compatible
-torch-geometric>=2.4.0
+torch==2.2.0  # Python 3.12 compatible
+torch-geometric==2.4.0
 
 # Retrieval & NLP
 rank-bm25==0.2.2

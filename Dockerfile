@@ -32,12 +32,8 @@ RUN useradd -m -u 1000 memoryuser && \
 
 USER memoryuser
 
-# Expose port for MCP server
-EXPOSE 8000
+# Stdio server doesn't need port exposure (communicates via stdin/stdout)
+# For containerized usage, use docker run -i to enable stdin
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
-
-# Default command (can be overridden)
-CMD ["python", "-m", "src.mcp.server"]
+# Default command - Stdio MCP server (canonical)
+CMD ["python", "-m", "src.mcp.stdio_server"]

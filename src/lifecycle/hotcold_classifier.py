@@ -67,6 +67,55 @@ class HotColdClassifier:
         self.access_threshold = access_threshold
         logger.info(f"HotColdClassifier initialized: active={active_days}d, demoted={demoted_days}d, threshold={access_threshold}/week")
 
+    def classify(
+        self,
+        text: str,
+        metadata: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Classify new memory content for lifecycle management.
+
+        This is the public API for memory_store integration.
+        Returns tier classification and decay score for new content.
+
+        Args:
+            text: Content being stored
+            metadata: Enriched metadata with agent/timestamp info
+
+        Returns:
+            {
+                "tier": "hot" | "warm" | "cold",
+                "decay_score": 1.0,
+                "lifecycle_stage": LifecycleStage
+            }
+
+        NASA Rule 10: 28 LOC
+        """
+        # New content always starts as HOT (ACTIVE)
+        # Decay score starts at 1.0 (freshest)
+        stage = LifecycleStage.ACTIVE
+
+        # Check if metadata suggests lower priority
+        intent = metadata.get('intent', 'storage')
+        if intent in ['archive', 'reference']:
+            stage = LifecycleStage.DEMOTED
+
+        tier_map = {
+            LifecycleStage.ACTIVE: "hot",
+            LifecycleStage.DEMOTED: "warm",
+            LifecycleStage.ARCHIVED: "cold",
+            LifecycleStage.REHYDRATABLE: "cold"
+        }
+
+        result = {
+            "tier": tier_map.get(stage, "hot"),
+            "decay_score": 1.0,
+            "lifecycle_stage": stage.value
+        }
+
+        logger.debug(f"Classified new content: tier={result['tier']}, intent={intent}")
+        return result
+
     def classify_chunk(
         self,
         chunk_id: str,

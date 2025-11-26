@@ -97,10 +97,12 @@ pytest tests/unit/test_mode_detector.py tests/unit/test_mode_profile.py -v
 ### Running the MCP Server
 
 ```bash
-# Start the MCP server
-python -m src.mcp.server
+# Start the MCP server (Stdio protocol - canonical)
+python -m src.mcp.stdio_server
 
-# The server will listen on stdio for MCP protocol messages
+# The server listens on stdio for MCP protocol messages
+# 6 tools available: vector_search, memory_store, graph_query,
+# entity_extraction, hipporag_retrieve, detect_mode
 ```
 
 ### Claude Desktop Integration
@@ -112,7 +114,7 @@ Add to your Claude Desktop MCP configuration (`~/Library/Application Support/Cla
   "mcpServers": {
     "memory": {
       "command": "python",
-      "args": ["-m", "src.mcp.server"],
+      "args": ["-m", "src.mcp.stdio_server"],
       "cwd": "/path/to/memory-mcp-triple-system"
     }
   }
