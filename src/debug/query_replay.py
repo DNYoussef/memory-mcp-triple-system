@@ -33,17 +33,24 @@ class QueryReplay:
     NASA Rule 10 Compliant: All methods d60 LOC
     """
 
-    def __init__(self, db_path: str = "memory.db"):
+    def __init__(self, db_path: str = "memory.db", nexus_processor=None):
         """
         Initialize query replay engine.
 
         Args:
             db_path: Path to SQLite database with query_traces table
+            nexus_processor: Optional NexusProcessor for real query execution (ISS-033)
 
         NASA Rule 10: 5 LOC (d60) 
         """
         self.db_path = db_path
+        self._nexus_processor = nexus_processor  # ISS-033 fix
         logger.info(f"QueryReplay initialized with db_path={db_path}")
+
+    def set_nexus_processor(self, nexus_processor) -> None:
+        """ISS-033 FIX: Set NexusProcessor for real query execution."""
+        self._nexus_processor = nexus_processor
+        logger.info("QueryReplay wired to NexusProcessor")
 
     def replay(self, query_id: str) -> Tuple[QueryTrace, Dict]:
         """
@@ -197,27 +204,51 @@ class QueryReplay:
 
         NASA Rule 10: 29 LOC (d60) 
         """
-        # Week 8: Mock implementation (creates dummy trace for testing)
-        from uuid import uuid4
+        # ISS-033 FIX: Use real NexusProcessor when available
+        import time
+        start_time = time.time()
 
         new_trace = QueryTrace.create(
             query=query,
             user_context=context.get("user_context", {})
         )
 
-        # Populate with mock data (deterministic for testing)
-        new_trace.mode_detected = "execution"
-        new_trace.mode_confidence = 0.95
-        new_trace.mode_detection_ms = 50
-        new_trace.stores_queried = ["vector", "graph"]
-        new_trace.routing_logic = "Mock routing (Week 8)"
-        new_trace.retrieved_chunks = []
-        new_trace.retrieval_ms = 100
-        new_trace.output = f"Mock replay output for: {query}"
-        new_trace.total_latency_ms = 200
+        if self._nexus_processor is not None:
+            try:
+                mode = context.get("user_context", {}).get("mode", "execution")
+                result = self._nexus_processor.process(
+                    query=query,
+                    mode=mode,
+                    top_k=50,
+                    token_budget=10000
+                )
+                new_trace.mode_detected = mode
+                new_trace.stores_queried = ["vector", "graph", "bayesian"]
+                new_trace.routing_logic = "NexusProcessor 5-step SOP"
+                new_trace.retrieved_chunks = result.get("core", []) + result.get("extended", [])
+                new_trace.output = f"Real replay: {len(new_trace.retrieved_chunks)} chunks"
+                logger.debug(f"Reran query (real NexusProcessor): {query}")
+            except Exception as e:
+                logger.warning(f"NexusProcessor replay failed, using mock: {e}")
+                self._populate_mock_trace(new_trace, query)
+        else:
+            # Fallback to mock for testing
+            self._populate_mock_trace(new_trace, query)
 
-        logger.debug(f"Reran query (mock): {query}")
+        new_trace.total_latency_ms = int((time.time() - start_time) * 1000)
         return new_trace
+
+    def _populate_mock_trace(self, trace: QueryTrace, query: str) -> None:
+        """Populate trace with mock data for testing."""
+        trace.mode_detected = "execution"
+        trace.mode_confidence = 0.95
+        trace.mode_detection_ms = 50
+        trace.stores_queried = ["vector", "graph"]
+        trace.routing_logic = "Mock routing (no NexusProcessor)"
+        trace.retrieved_chunks = []
+        trace.retrieval_ms = 100
+        trace.output = f"Mock replay output for: {query}"
+        logger.debug(f"Reran query (mock): {query}")
 
     def _compare_traces(
         self,

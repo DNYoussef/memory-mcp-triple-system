@@ -27,6 +27,7 @@ from .obsidian_client import ObsidianMCPClient
 from ..services.graph_service import GraphService
 from ..services.graph_query_engine import GraphQueryEngine
 from ..bayesian.probabilistic_query_engine import ProbabilisticQueryEngine
+from ..bayesian.network_builder import NetworkBuilder  # ISS-018 fix
 
 
 class NexusSearchTool:
@@ -146,8 +147,21 @@ class NexusSearchTool:
                 graph_service = GraphService(data_dir=data_dir)
                 graph_query_engine = GraphQueryEngine(graph_service=graph_service)
 
-                # Initialize Bayesian tier
-                probabilistic_engine = ProbabilisticQueryEngine(timeout_seconds=1.0)
+                # ISS-018 fix: Build Bayesian network from knowledge graph
+                bayesian_network = None
+                try:
+                    network_builder = NetworkBuilder(max_nodes=1000)
+                    bayesian_network = network_builder.build_network(graph_service.graph)
+                    if bayesian_network:
+                        logger.info("Bayesian network built successfully")
+                except Exception as bn_err:
+                    logger.warning(f"Bayesian network build failed (will use fallback): {bn_err}")
+
+                # Initialize Bayesian tier with network
+                probabilistic_engine = ProbabilisticQueryEngine(
+                    timeout_seconds=1.0,
+                    network=bayesian_network
+                )
 
                 # Initialize NexusProcessor with all tiers
                 self._nexus_processor = NexusProcessor(

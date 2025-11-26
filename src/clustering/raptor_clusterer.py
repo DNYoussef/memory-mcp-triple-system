@@ -272,25 +272,63 @@ class RAPTORClusterer:
         texts: List[str]
     ) -> str:
         """
-        Generate abstractive summary for cluster.
+        ISS-012 FIX: Improved extractive summary for cluster.
 
-        Week 9: Simple extractive summary (first 200 chars of concatenation).
-        Future: Could use LLM for true abstractive summarization.
+        Extracts key sentences from each text based on entity density,
+        combines them into a coherent summary preserving important information.
 
         Args:
             texts: List of text chunks to summarize
 
         Returns:
-            Summary text
+            Summary text (max 300 chars)
 
-        NASA Rule 10: 17 LOC (≤60) ✅
+        NASA Rule 10: 55 LOC (<=60)
         """
+        import re
         if not texts:
             return ""
 
-        # Simple extractive summary: concatenate and truncate
-        concatenated = " ".join(texts)
-        summary = concatenated[:200] + "..." if len(concatenated) > 200 else concatenated
+        if len(texts) == 1:
+            return self._extract_best_sentence(texts[0])
+
+        # ISS-012 FIX: Extract best sentence from each text
+        key_sentences = []
+        for text in texts[:5]:  # Limit to 5 texts for efficiency
+            best = self._extract_best_sentence(text)
+            if best and best not in key_sentences:
+                key_sentences.append(best)
+
+        if not key_sentences:
+            # Fallback to truncation
+            concatenated = " ".join(texts)
+            return concatenated[:250] + "..." if len(concatenated) > 250 else concatenated
+
+        # Combine key sentences
+        summary = " ".join(key_sentences)
+        if len(summary) > 300:
+            summary = summary[:297] + "..."
 
         logger.debug(f"Generated summary for {len(texts)} texts: {len(summary)} chars")
         return summary
+
+    def _extract_best_sentence(self, text: str, max_len: int = 100) -> str:
+        """ISS-012 FIX: Extract most informative sentence from text."""
+        import re
+        sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+        if not sentences:
+            return text[:max_len] + "..." if len(text) > max_len else text
+
+        # Score by entity count (capitalized words)
+        best_score, best_sent = -1, sentences[0]
+        for sent in sentences:
+            if len(sent) < 10:
+                continue
+            entities = sum(1 for w in sent.split() if w and w[0].isupper())
+            score = entities / max(len(sent.split()), 1)
+            if score > best_score:
+                best_score, best_sent = score, sent
+
+        if len(best_sent) > max_len:
+            best_sent = best_sent[:max_len-3] + "..."
+        return best_sent

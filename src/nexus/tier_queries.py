@@ -53,9 +53,13 @@ class TierQueryMixin:
             # Convert to standard format
             results = []
             for result in raw_results:
+                # ISS-021 FIX: Normalize L2 distance to [0,1] similarity
+                # L2 distance can be > 1, so use max(0, 1 - d/2) to ensure [0,1] range
+                distance = result.get("distance", 1.0)
+                similarity = max(0.0, min(1.0, 1.0 - (distance / 2.0)))
                 results.append({
                     "text": result.get("document", ""),
-                    "score": 1 - result.get("distance", 1.0),  # Distance -> similarity
+                    "score": similarity,
                     "tier": "vector",
                     "metadata": result.get("metadata", {}),
                     "id": result.get("id", "")

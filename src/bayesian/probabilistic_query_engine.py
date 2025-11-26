@@ -31,21 +31,32 @@ class ProbabilisticQueryEngine:
     Week 10 component for uncertainty quantification.
     """
 
-    def __init__(self, timeout_seconds: float = 1.0):
+    def __init__(
+        self,
+        timeout_seconds: float = 1.0,
+        network: Optional[BayesianNetwork] = None
+    ):
         """
         Initialize Probabilistic Query Engine.
 
         Args:
             timeout_seconds: Query timeout (default 1s, fallback if exceeded)
+            network: Optional pre-built Bayesian network (ISS-018 fix)
 
-        NASA Rule 10: 10 LOC (≤60) ✅
+        NASA Rule 10: 15 LOC (<=60)
         """
         self.timeout_seconds = timeout_seconds
+        self._network = network  # ISS-018: Store network internally
         logger.info(f"ProbabilisticQueryEngine initialized: timeout={timeout_seconds}s")
+
+    def set_network(self, network: BayesianNetwork) -> None:
+        """ISS-018 FIX: Set or update the Bayesian network."""
+        self._network = network
+        logger.info("Bayesian network updated")
 
     def query_conditional(
         self,
-        network: BayesianNetwork,
+        network: Optional[BayesianNetwork],
         query_vars: List[str],
         evidence: Optional[Dict[str, str]] = None
     ) -> Optional[Dict[str, Any]]:
@@ -53,7 +64,7 @@ class ProbabilisticQueryEngine:
         Calculate conditional probability P(X|Y=y, Z=z).
 
         Args:
-            network: Bayesian network
+            network: Bayesian network (uses stored network if None - ISS-018 fix)
             query_vars: Variables to query
             evidence: Evidence dict {var: value}
 
@@ -65,14 +76,20 @@ class ProbabilisticQueryEngine:
             }
             or None if timeout
 
-        NASA Rule 10: 50 LOC (≤60) ✅
+        NASA Rule 10: 55 LOC (<=60)
         """
+        # ISS-018 FIX: Use stored network if none provided
+        effective_network = network if network is not None else self._network
+        if effective_network is None:
+            logger.warning("No Bayesian network available (pass network or call set_network)")
+            return None
+
         if evidence is None:
             evidence = {}
 
         # Execute with timeout
         result = self.execute_with_timeout(
-            lambda: self._query_conditional_impl(network, query_vars, evidence)
+            lambda: self._query_conditional_impl(effective_network, query_vars, evidence)
         )
 
         if result is None:

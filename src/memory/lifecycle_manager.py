@@ -257,27 +257,58 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
 
     def _summarize(self, full_text: str) -> str:
         """
-        Summarize full text to 1 sentence (100:1 compression).
+        ISS-011 FIX: Improved extractive summarization with entity preservation.
 
-        In production, use LLM call: "Summarize in 1 sentence, preserving
-        key entities and concepts"
+        Uses TF-IDF-like scoring to select most informative sentence.
+        Falls back to first sentence if analysis fails.
 
         Args:
             full_text: Full text to summarize
 
         Returns:
-            One-sentence summary (target: ~1% of original length)
+            One-sentence summary preserving key entities
+
+        NASA Rule 10: 55 LOC (<=60)
         """
-        # Placeholder: Aggressive compression
-        # In production, replace with LLM call
-        sentences = full_text.split('. ')
-        summary = sentences[0] if sentences else full_text
+        if not full_text or len(full_text) < 50:
+            return full_text
 
-        # Ensure 100:1 compression target
-        target_length = max(10, len(full_text) // 100)
-        if len(summary) > target_length:
-            summary = summary[:target_length-3] + "..."
+        # Split into sentences
+        import re
+        sentences = re.split(r'(?<=[.!?])\s+', full_text.strip())
+        if not sentences:
+            return full_text[:100] + "..." if len(full_text) > 100 else full_text
 
-        return summary
+        if len(sentences) == 1:
+            return self._truncate_with_entities(sentences[0])
+
+        # ISS-011 FIX: Score sentences by entity density and position
+        scored = []
+        all_words = set(full_text.lower().split())
+        for i, sent in enumerate(sentences):
+            # Count capitalized words (entities) and unique terms
+            words = sent.split()
+            entities = sum(1 for w in words if w and w[0].isupper())
+            unique = len(set(w.lower() for w in words) & all_words)
+            # Position bonus: first and last sentences often important
+            pos_bonus = 1.5 if i == 0 else (1.2 if i == len(sentences) - 1 else 1.0)
+            score = (entities * 2 + unique) * pos_bonus / max(len(words), 1)
+            scored.append((score, i, sent))
+
+        # Select best sentence
+        scored.sort(reverse=True)
+        best_sentence = scored[0][2] if scored else sentences[0]
+
+        return self._truncate_with_entities(best_sentence)
+
+    def _truncate_with_entities(self, text: str, max_len: int = 200) -> str:
+        """Truncate text while preserving complete words and entities."""
+        if len(text) <= max_len:
+            return text
+        # Find last space before max_len to avoid cutting words
+        truncate_at = text.rfind(' ', 0, max_len - 3)
+        if truncate_at == -1:
+            truncate_at = max_len - 3
+        return text[:truncate_at] + "..."
 
     # _calculate_similarity and _merge_chunks are provided by ConsolidationMixin
