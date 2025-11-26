@@ -134,7 +134,7 @@ B1.1 (Obsidian sync mock)
 
 CHAIN 6: TODO Chain -> Debugging Impossible
 -------------------------------------------
-B2.3-B2.5 (Query replay TODOs - Week 11)
+B2.3-B2.5 (Query replay TODOs - v0.9.0 deferred)
     |
     +-> B1.4 (Context reconstruction empty)
             |
@@ -243,7 +243,7 @@ PHASE 3: Mock Code Replacement (Core functionality)
 
 PHASE 4: Feature Completion (Full functionality)
 ================================================
-[ ] B2.3-B2.5 - Query replay Week 11 TODOs
+[ ] B2.3-B2.5 - Query replay v0.9.0 deferred TODOs
     - BLOCKED BY: Phase 2, Phase 3
     - EFFORT: 16 hours
 

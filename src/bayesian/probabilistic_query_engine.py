@@ -1,7 +1,7 @@
 """
 Probabilistic Query Engine - Execute probabilistic queries over Bayesian networks.
 
-Week 10 component for Bayesian Graph RAG.
+v0.8.0 component for Bayesian Graph RAG.
 
 Purpose:
 - Conditional probability queries: P(X|Y=y, Z=z)
@@ -28,7 +28,7 @@ class ProbabilisticQueryEngine:
     """
     Execute probabilistic queries over Bayesian networks.
 
-    Week 10 component for uncertainty quantification.
+    v0.8.0 component for uncertainty quantification.
     """
 
     def __init__(

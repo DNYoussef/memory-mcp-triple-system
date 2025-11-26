@@ -1,7 +1,7 @@
 # Memory MCP Triple System - Schema Definition
 # Version: 1.0
 # Last Updated: 2025-10-18
-# Status: Production-ready (Week 7)
+# Status: Production-ready (v0.5.0 Context Debugger Foundation)
 
 version: "1.0"
 schema_version: "1.0.0"
@@ -228,9 +228,9 @@ query_processing:
         method: "multi_source"
         min_sources: 2
 
-# Context Assembly Debugger (Week 7-11 incremental)
+# Context Assembly Debugger (v0.5.0-v0.9.0 incremental development)
 debugging:
-  # Query tracing (Week 7)
+  # Query tracing (v0.5.0)
   query_tracing:
     enabled: true
     sampling_rate: 1.0 # 100% logging (no sampling)
@@ -250,15 +250,15 @@ debugging:
       - "error"
       - "error_type"
 
-  # Replay capability (Week 8)
+  # Replay capability (v0.6.0)
   replay:
-    enabled: false # Enabled in Week 8
+    enabled: false # Enabled in v0.6.0
     deterministic: true
     context_reconstruction: true
 
-  # Error attribution (Week 11)
+  # Error attribution (v0.9.0)
   error_attribution:
-    enabled: false # Enabled in Week 11
+    enabled: false # Enabled in v0.9.0
     categories:
       - "context_bug" # 70% of failures
       - "model_bug" # 20% of failures
@@ -350,7 +350,7 @@ validation:
 migrations:
   - version: "1.0.0"
     applied_at: "2025-10-18T00:00:00Z"
-    description: "Initial schema - Week 7"
+    description: "Initial schema - v0.5.0 (Context Debugger Foundation)"
     files:
       - "migrations/007_query_traces_table.sql"
 

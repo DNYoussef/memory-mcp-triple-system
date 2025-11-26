@@ -1,7 +1,7 @@
 """
 Bayesian Graph RAG module.
 
-Week 10 component - Probabilistic inference over knowledge graphs.
+v0.8.0 component - Probabilistic inference over knowledge graphs.
 
 Components:
 - NetworkBuilder: Convert knowledge graph to Bayesian belief network

@@ -99,7 +99,7 @@
 |----|------|------|-------|--------|
 | B1.1 | src/mcp/obsidian_client.py | 167 | Sync returns fake chunk count, no API call | Opus |
 | B1.2 | src/mcp/obsidian_client.py | 150-174 | _sync_file reads markdown but doesn't index | Codex |
-| B1.3 | src/debug/query_replay.py | 31,83 | Week 8 mock implementation | Opus |
+| B1.3 | src/debug/query_replay.py | 31,83 | v0.6.0 mock implementation | Opus |
 | B1.4 | src/debug/query_replay.py | 160-178 | Context reconstruction returns empty dicts | Opus |
 | B1.5 | src/debug/query_replay.py | 188-219 | Query re-run creates dummy trace | Opus |
 | B1.6 | src/bayesian/network_builder.py | 145-156 | CPD uses random.choice instead of real data | Opus |
@@ -112,9 +112,9 @@
 |----|------|------|------|------|
 | B2.1 | src/chunking/semantic_chunker.py | 116 | Max-Min semantic chunking algorithm | - |
 | B2.2 | src/utils/file_watcher.py | 63 | Implement deletion from vector DB | - |
-| B2.3 | src/debug/query_replay.py | 176 | Fetch from memory store | Week 11 |
-| B2.4 | src/debug/query_replay.py | 177 | Fetch from KV store | Week 11 |
-| B2.5 | src/debug/query_replay.py | 178 | Fetch from session store | Week 11 |
+| B2.3 | src/debug/query_replay.py | 176 | Fetch from memory store | v0.9.0 |
+| B2.4 | src/debug/query_replay.py | 177 | Fetch from KV store | v0.9.0 |
+| B2.5 | src/debug/query_replay.py | 178 | Fetch from session store | v0.9.0 |
 | B2.6 | src/services/curation_service.py | 317 | TODO/FIXME detection for lifecycle | - |
 
 ### B3. Algorithm Bugs [CRITICAL - ALL]

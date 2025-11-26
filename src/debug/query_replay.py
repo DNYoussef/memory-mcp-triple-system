@@ -2,7 +2,7 @@
 Query Replay - Deterministic Query Debugging
 
 Replays queries with exact same context for debugging failed queries.
-Part of Week 8 implementation for Memory MCP Triple System.
+Part of v0.6.0 implementation for Memory MCP Triple System.
 
 NASA Rule 10 Compliant: All functions d60 LOC
 """
@@ -27,8 +27,8 @@ class QueryReplay:
     - Compare traces (original vs replay)
     - Identify context bugs (wrong store, wrong mode, etc.)
 
-    NOTE: Full implementation requires NexusProcessor (Week 11).
-    Week 8: Mock implementation for testing infrastructure.
+    NOTE: Full implementation requires NexusProcessor (v0.9.0).
+    v0.6.0: Mock implementation for testing infrastructure.
 
     NASA Rule 10 Compliant: All methods d60 LOC
     """
@@ -105,7 +105,7 @@ class QueryReplay:
             user_context=original.user_context
         )
 
-        # 3. Re-run query (mock for Week 8, real NexusProcessor in Week 11)
+        # 3. Re-run query (mock for v0.6.0, real NexusProcessor in v0.9.0)
         new_trace = self._rerun_query(original.query, context)
 
         # 4. Compare traces
@@ -182,8 +182,8 @@ class QueryReplay:
         - User preferences (as of timestamp)
         - Session lifecycle (active sessions at timestamp)
 
-        NOTE: Week 8 mock implementation returns minimal context.
-        Week 11: Full implementation with memory snapshots.
+        NOTE: v0.6.0 mock implementation returns minimal context.
+        v0.9.0: Full implementation with memory snapshots.
 
         Args:
             timestamp: Original query timestamp
@@ -247,8 +247,8 @@ class QueryReplay:
         """
         Re-run query with reconstructed context.
 
-        NOTE: Week 8 mock implementation creates dummy trace.
-        Week 11: Wire to real NexusProcessor for actual query execution.
+        NOTE: v0.6.0 mock implementation creates dummy trace.
+        v0.9.0: Wire to real NexusProcessor for actual query execution.
 
         Args:
             query: Original query text

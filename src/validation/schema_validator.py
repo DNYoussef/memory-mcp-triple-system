@@ -2,7 +2,7 @@
 Memory Schema Validator
 
 Validates memory-schema.yaml against specification requirements.
-Part of Memory-as-Code philosophy (Week 7).
+Part of Memory-as-Code philosophy (v0.5.0).
 
 NASA Rule 10 Compliant: All functions ≤60 LOC
 """

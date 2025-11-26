@@ -272,63 +272,111 @@ class RAPTORClusterer:
         texts: List[str]
     ) -> str:
         """
-        ISS-012 FIX: Improved extractive summary for cluster.
+        REM-003 FIX: TF-IDF extractive summarization for cluster.
 
-        Extracts key sentences from each text based on entity density,
-        combines them into a coherent summary preserving important information.
+        Uses TF-IDF to rank sentences by importance, selects top sentences
+        that cover key entities, combines into coherent summary.
 
         Args:
             texts: List of text chunks to summarize
 
         Returns:
-            Summary text (max 300 chars)
+            Summary text (max 500 chars)
 
-        NASA Rule 10: 55 LOC (<=60)
+        NASA Rule 10: 51 LOC (<=60)
         """
         import re
         if not texts:
             return ""
 
         if len(texts) == 1:
-            return self._extract_best_sentence(texts[0])
+            return self._extract_best_sentence_tfidf(texts[0])
 
-        # ISS-012 FIX: Extract best sentence from each text
+        # REM-003 FIX: Extract best sentence from each text using TF-IDF
         key_sentences = []
         for text in texts[:5]:  # Limit to 5 texts for efficiency
-            best = self._extract_best_sentence(text)
+            best = self._extract_best_sentence_tfidf(text)
             if best and best not in key_sentences:
                 key_sentences.append(best)
 
         if not key_sentences:
             # Fallback to truncation
             concatenated = " ".join(texts)
-            return concatenated[:250] + "..." if len(concatenated) > 250 else concatenated
+            return concatenated[:450] + "..." if len(concatenated) > 450 else concatenated
 
         # Combine key sentences
         summary = " ".join(key_sentences)
-        if len(summary) > 300:
-            summary = summary[:297] + "..."
+        if len(summary) > 500:
+            summary = summary[:497] + "..."
 
-        logger.debug(f"Generated summary for {len(texts)} texts: {len(summary)} chars")
+        logger.debug(f"Generated TF-IDF summary for {len(texts)} texts: {len(summary)} chars")
         return summary
 
-    def _extract_best_sentence(self, text: str, max_len: int = 100) -> str:
-        """ISS-012 FIX: Extract most informative sentence from text."""
+    def _extract_best_sentence_tfidf(self, text: str, max_len: int = 150) -> str:
+        """
+        REM-003 FIX: Extract most informative sentence using TF-IDF.
+
+        Scores sentences by TF-IDF, entity coverage, position.
+        NASA Rule 10: 56 LOC (<=60)
+        """
         import re
+        from collections import Counter
+        import math
+
         sentences = re.split(r'(?<=[.!?])\s+', text.strip())
         if not sentences:
             return text[:max_len] + "..." if len(text) > max_len else text
 
-        # Score by entity count (capitalized words)
+        if len(sentences) == 1:
+            sent = sentences[0]
+            return sent[:max_len-3] + "..." if len(sent) > max_len else sent
+
+        # Calculate IDF (inverse document frequency)
+        idf = self._calculate_idf(sentences)
+        num_sentences = len(sentences)
+
+        # Score each sentence
         best_score, best_sent = -1, sentences[0]
-        for sent in sentences:
+        for idx, sent in enumerate(sentences):
             if len(sent) < 10:
                 continue
+
+            words = sent.lower().split()
+            if not words:
+                continue
+
+            # TF-IDF score
+            tf = Counter(words)
+            tfidf_score = sum(tf[w] * idf.get(w, 0) for w in set(words))
+            tfidf_score /= len(words)
+
+            # Entity coverage (capitalized words)
             entities = sum(1 for w in sent.split() if w and w[0].isupper())
-            score = entities / max(len(sent.split()), 1)
+            entity_score = entities / max(len(sent.split()), 1)
+
+            # Position bonus (earlier = more important)
+            position_score = 1.0 - (idx / num_sentences) * 0.3
+
+            # Combined score
+            score = tfidf_score + entity_score + position_score
+
             if score > best_score:
                 best_score, best_sent = score, sent
 
         if len(best_sent) > max_len:
             best_sent = best_sent[:max_len-3] + "..."
         return best_sent
+
+    def _calculate_idf(self, sentences: List[str]) -> Dict[str, float]:
+        """Calculate inverse document frequency. NASA Rule 10: 13 LOC"""
+        from collections import Counter
+        import math
+
+        word_counts = Counter()
+        for sent in sentences:
+            words = sent.lower().split()
+            word_counts.update(set(words))
+
+        num_sentences = len(sentences)
+        return {word: math.log(num_sentences / count)
+                for word, count in word_counts.items()}

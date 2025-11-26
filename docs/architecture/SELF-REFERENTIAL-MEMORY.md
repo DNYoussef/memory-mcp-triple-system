@@ -431,24 +431,24 @@ Documentation chunks: 173
    - **Workaround**: Delete collection and re-ingest for clean slate
 
 2. **No cross-document linking**: Can't query "references to X across all docs"
-   - **Future**: Graph-based retrieval (Week 5-6) will enable this
+   - **Future**: Graph-based retrieval (v0.3.0-v0.4.0) will enable this
 
 3. **No automatic update**: Docs must be manually re-ingested
    - **Future**: File watcher for automatic re-ingestion on changes
 
 ### Planned Improvements
 
-**Week 14-15** (Graph Integration):
+**v1.1.0-v1.2.0** (Graph Integration):
 - Link related documentation sections
 - Enable "What references X?" queries
 - Build knowledge graph of concepts
 
-**Week 16-17** (Lifecycle Management):
+**v1.3.0-v1.4.0** (Lifecycle Management):
 - Version tracking for documentation
 - Automatic cleanup of outdated chunks
 - Hot/cold storage for frequently vs rarely accessed docs
 
-**Week 18+** (Advanced Features):
+**v2.0.0+** (Advanced Features):
 - Automatic summarization of long docs
 - Multi-hop reasoning across documents
 - Citation tracking (which doc answered which query)

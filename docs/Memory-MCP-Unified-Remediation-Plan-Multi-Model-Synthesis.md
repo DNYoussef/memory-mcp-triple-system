@@ -512,17 +512,17 @@ def on_deleted(self, event):
 - **Effort**: 4-6 hours
 - **Found By**: [Claude, Gemini, GPT-5] (100% agreement - TIER 1)
 - **Location**: src/debug/query_replay.py:31, 160-215
-- **Description**: `QueryReplay` class is explicitly marked "Week 8: Mock implementation". Returns hardcoded/random data for `mode_detected`, `stores_queried`. `_rerun_query()` fabricates output. Context reconstruction (memory_snapshot, preferences, sessions) returns TODO placeholders.
+- **Description**: `QueryReplay` class is explicitly marked "v0.6.0: Mock implementation". Returns hardcoded/random data for `mode_detected`, `stores_queried`. `_rerun_query()` fabricates output. Context reconstruction (memory_snapshot, preferences, sessions) returns TODO placeholders.
 - **Evidence**:
 ```python
 # query_replay.py:31
 class QueryReplay:
-    """Week 8: Mock implementation"""
+    """v0.6.0: Mock implementation"""
 
 # query_replay.py:176-178
-# TODO Week 11: memory_snapshot
-# TODO Week 11: preferences
-# TODO Week 11: sessions
+# TODO v0.9.0: memory_snapshot
+# TODO v0.9.0: preferences
+# TODO v0.9.0: sessions
 ```
 - **Remediation**:
   1. Implement actual context reconstruction using VectorIndexer snapshots
@@ -1358,7 +1358,7 @@ Before implementing, verify these single-source findings:
 | Canonical ID | Merged From | Rationale |
 |--------------|-------------|-----------|
 | ISS-009 | Claude C-001, Gemini H-001, GPT-5 HI-05 | Same file, same line, same TODO |
-| ISS-010 | Claude C-002/H-005, Gemini C-002, GPT-5 ME-01 | Same file, "Week 8 mock" identified by all |
+| ISS-010 | Claude C-002/H-005, Gemini C-002, GPT-5 ME-01 | Same file, "v0.6.0 mock" identified by all |
 | ISS-003 | Gemini H-003, GPT-5 CR-02 | Same processor.py issues, different scope |
 | ISS-013+ISS-014+ISS-015 | Claude H-003/H-004, Gemini M-003 | Same error_attribution.py, split for granularity |
 | ISS-024+ISS-027 | GPT-5 CR-01 | Split into caller issue and API issue |

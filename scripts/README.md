@@ -59,21 +59,21 @@ See [docs/SELF-REFERENTIAL-MEMORY.md](../docs/SELF-REFERENTIAL-MEMORY.md) for fu
 Ingest an entire Obsidian vault into the memory system.
 
 **Status**: Not yet implemented
-**Target**: Week 14-15
+**Target**: v1.1.0-v1.2.0
 
 ### `reindex_collection.py` - Collection Reindexing
 
 Re-index existing chunks with updated embeddings or metadata.
 
 **Status**: Not yet implemented
-**Target**: Week 16-17
+**Target**: v1.3.0-v1.4.0
 
 ### `cleanup_old_chunks.py` - Lifecycle Management
 
 Clean up old or low-value chunks based on access patterns.
 
 **Status**: Not yet implemented
-**Target**: Week 16-17
+**Target**: v1.3.0-v1.4.0
 
 ---
 

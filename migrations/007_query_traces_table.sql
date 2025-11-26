@@ -1,5 +1,5 @@
 -- Migration 007: Query Traces Table
--- Week 7: Context Assembly Debugger Foundation
+-- v0.5.0: Context Assembly Debugger Foundation
 -- Created: 2025-10-18
 -- Purpose: 100% query logging for deterministic replay and error attribution
 

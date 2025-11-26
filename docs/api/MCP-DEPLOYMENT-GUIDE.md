@@ -8,7 +8,7 @@
 
 The **Memory MCP Triple System** is now fully tested and ready for deployment as an MCP (Model Context Protocol) memory tool. This guide provides step-by-step instructions for deploying the system and integrating it with Claude Desktop, ChatGPT, or other LLM clients.
 
-**Key Achievement**: Week 13 delivered **mode-aware context** that automatically adapts retrieval behavior based on query patterns, achieving **100% test accuracy** and **perfect audit scores** (100/100 on Theater, Functionality, and Style audits).
+**Key Achievement**: v1.0.0 delivered **mode-aware context** that automatically adapts retrieval behavior based on query patterns, achieving **100% test accuracy** and **perfect audit scores** (100/100 on Theater, Functionality, and Style audits).
 
 ## System Architecture
 
@@ -22,7 +22,7 @@ The **Memory MCP Triple System** is now fully tested and ready for deployment as
 │                    MCP Server (FastAPI)                      │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
 │  │ Mode Detector│→ │ Vector Search│→ │Context Assembler    │
-│  │ (Week 13)    │  │ Tool         │  │                │     │
+│  │ (v1.0.0)     │  │ Tool         │  │                │     │
 │  └──────────────┘  └──────────────┘  └──────────────┘      │
 └─────────────────────────────────────────────────────────────┘
                                ↓
@@ -545,7 +545,7 @@ async def vector_search(...):
 - **Documentation**: `docs/` directory
 - **Test Suite**: `tests/unit/` and `tests/integration/`
 - **Configuration**: `config/memory-mcp.yaml`
-- **Week 13 Summary**: `docs/weeks/WEEK-13-COMPLETE-SUMMARY.md`
+- **v1.0.0 Release Summary**: `docs/project-history/SESSION-COMPLETE-SUMMARY.md`
 
 ## Conclusion
 

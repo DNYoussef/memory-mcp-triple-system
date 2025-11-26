@@ -364,14 +364,14 @@ async def mode_detect(query: str):
     return await nexus.detect_mode(query)
 ```
 
-### P4.2: Query Replay Week 11 TODOs (B2.3-B2.5)
+### P4.2: Query Replay v0.9.0 Deferred TODOs (B2.3-B2.5)
 **Effort**: 16 hours
 
 ```python
 # src/debug/query_replay.py - CURRENT (TODO):
-# TODO: Fetch from memory store (Week 11)
-# TODO: Fetch from KV store (Week 11)
-# TODO: Fetch from session store (Week 11)
+# TODO: Fetch from memory store (v0.9.0 deferred)
+# TODO: Fetch from KV store (v0.9.0 deferred)
+# TODO: Fetch from session store (v0.9.0 deferred)
 return {}
 
 # src/debug/query_replay.py - FIXED:

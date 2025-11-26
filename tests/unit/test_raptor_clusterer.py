@@ -137,9 +137,9 @@ class TestRAPTORClusterer:
         long_texts = ["A" * 100, "B" * 100, "C" * 100]
         summary = clusterer._generate_summary(long_texts)
 
-        # Should truncate to 200 chars + "..."
-        assert len(summary) <= 203  # 200 + "..."
-        assert "..." in summary or len(summary) == 200
+        # REM-003 FIX: Should truncate to 500 chars + "..." (was 200)
+        assert len(summary) <= 503  # 500 + "..."
+        assert "..." in summary or len(summary) <= 500
 
     def test_generate_summary_empty(self, clusterer):
         """Test summary generation with empty input."""

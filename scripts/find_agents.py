@@ -12,10 +12,13 @@ sys.path.insert(0, SPEK_PATH)
 
 from src.coordination.agent_registry import find_drones_for_task, get_drone_description
 
-# Week 1 Tasks
+# Week 1 Tasks (DEPRECATED - v5.0 uses ChromaDB and NetworkX, no Docker)
+# This file is kept for reference only. System now uses:
+# - ChromaDB (embedded) instead of Qdrant
+# - NetworkX (in-memory) instead of Neo4j
 tasks = {
-    "docker_devops": "Setup Docker Compose with Qdrant Neo4j Redis containers CI/CD pipeline deploy",
-    "backend_qdrant": "Implement backend API for Qdrant vector database MCP server endpoints database",
+    "docker_devops": "Setup Docker Compose with ChromaDB NetworkX Redis containers CI/CD pipeline deploy",
+    "backend_chromadb": "Implement backend API for ChromaDB vector database MCP server endpoints database",
     "file_watcher": "Write code for Obsidian file watcher implement embedding pipeline vector indexing",
     "testing": "Write pytest tests for file watcher test embedding pipeline create test fixtures"
 }
