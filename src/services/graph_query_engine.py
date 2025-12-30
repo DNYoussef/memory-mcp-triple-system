@@ -12,11 +12,27 @@ See: ppr_algorithms.py
 
 from typing import List, Dict, Set, Tuple, Optional, Any
 from collections import deque
+from dataclasses import dataclass, field
 import networkx as nx
 from loguru import logger
 
 from .graph_service import GraphService
 from .ppr_algorithms import PPRAlgorithmsMixin
+
+
+@dataclass
+class BFSContext:
+    """
+    Context object for BFS traversal state.
+
+    ISS-007 FIX: Reduces _explore_neighbors from 10 parameters to 6 (NASA compliant).
+    Consolidates mutable BFS state into single parameter object.
+    """
+    queue: deque = field(default_factory=deque)
+    visited: set = field(default_factory=set)
+    distances: Dict[str, int] = field(default_factory=dict)
+    paths: Dict[str, List[str]] = field(default_factory=dict)
+    entities: set = field(default_factory=set)
 
 
 class GraphQueryEngine(PPRAlgorithmsMixin):
@@ -227,33 +243,29 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
                 - 'distances': Dict mapping entity -> hop distance
         """
         try:
-            # Initialize BFS structures
-            queue, visited, distances, paths = self._init_bfs(start_nodes)
-            entities = set(start_nodes)
+            # ISS-007 FIX: Initialize BFS with context object
+            ctx = self._init_bfs(start_nodes)
 
             # BFS traversal
-            while queue:
-                current, distance, path = queue.popleft()
+            while ctx.queue:
+                current, distance, path = ctx.queue.popleft()
 
                 # Stop if max hops reached
                 if distance >= max_hops:
                     continue
 
-                # Explore neighbors
-                self._explore_neighbors(
-                    current, distance, path, edge_types,
-                    queue, visited, distances, paths, entities
-                )
+                # Explore neighbors (now 6 params instead of 10 - NASA compliant)
+                self._explore_neighbors(current, distance, path, edge_types, ctx)
 
             logger.info(
-                f"Multi-hop search found {len(entities)} entities "
+                f"Multi-hop search found {len(ctx.entities)} entities "
                 f"within {max_hops} hops"
             )
 
             return {
-                'entities': list(entities),
-                'paths': paths,
-                'distances': distances
+                'entities': list(ctx.entities),
+                'paths': ctx.paths,
+                'distances': ctx.distances
             }
 
         except Exception as e:
@@ -263,31 +275,31 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
     def _init_bfs(
         self,
         start_nodes: List[str]
-    ) -> Tuple[deque, set, Dict[str, int], Dict[str, List[str]]]:
+    ) -> BFSContext:
         """
         Initialize BFS data structures.
+
+        ISS-007 FIX: Returns BFSContext instead of tuple for better encapsulation.
 
         Args:
             start_nodes: Starting nodes for BFS
 
         Returns:
-            Tuple of (queue, visited, distances, paths)
+            BFSContext with initialized queue, visited, distances, paths, entities
         """
-        queue = deque()
-        visited = set()
-        distances = {}
-        paths = {}
+        ctx = BFSContext()
+        ctx.entities = set(start_nodes)
 
         for node in start_nodes:
             if self.graph.has_node(node):
-                queue.append((node, 0, [node]))
-                visited.add(node)
-                distances[node] = 0
-                paths[node] = [node]
+                ctx.queue.append((node, 0, [node]))
+                ctx.visited.add(node)
+                ctx.distances[node] = 0
+                ctx.paths[node] = [node]
             else:
                 logger.debug(f"Start node not in graph: {node}")
 
-        return queue, visited, distances, paths
+        return ctx
 
     def _explore_neighbors(
         self,
@@ -295,25 +307,20 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
         distance: int,
         path: List[str],
         edge_types: Optional[List[str]],
-        queue: deque,
-        visited: set,
-        distances: Dict[str, int],
-        paths: Dict[str, List[str]],
-        entities: set
+        ctx: BFSContext
     ) -> None:
         """
         Explore neighbors during BFS traversal.
+
+        ISS-007 FIX: Reduced from 10 parameters to 6 (NASA compliant).
+        BFS state now encapsulated in BFSContext.
 
         Args:
             current: Current node
             distance: Current distance from start
             path: Current path
             edge_types: Edge type filter
-            queue: BFS queue
-            visited: Visited nodes
-            distances: Distance tracking
-            paths: Path tracking
-            entities: Entity nodes found
+            ctx: BFS context containing queue, visited, distances, paths, entities
         """
         for neighbor in self.graph.successors(current):
             # Filter by edge type if specified
@@ -323,22 +330,22 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
                     continue
 
             # Skip if already visited
-            if neighbor in visited:
+            if neighbor in ctx.visited:
                 continue
 
-            visited.add(neighbor)
+            ctx.visited.add(neighbor)
             new_distance = distance + 1
             new_path = path + [neighbor]
 
-            distances[neighbor] = new_distance
-            paths[neighbor] = new_path
+            ctx.distances[neighbor] = new_distance
+            ctx.paths[neighbor] = new_path
 
             # Add entity nodes to results
             node_data = self.graph.nodes[neighbor]
             if node_data.get('type') == 'entity':
-                entities.add(neighbor)
+                ctx.entities.add(neighbor)
 
-            queue.append((neighbor, new_distance, new_path))
+            ctx.queue.append((neighbor, new_distance, new_path))
 
     def expand_with_synonyms(
         self,
