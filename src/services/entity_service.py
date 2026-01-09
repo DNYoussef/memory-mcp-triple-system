@@ -218,13 +218,15 @@ class EntityService:
         for ent in entities:
             entity_id = self._normalize_entity_text(ent['text'])
 
+            # FIX: Correct parameter order (source, relationship_type, target, metadata)
             success = graph_service.add_relationship(
                 chunk_id,
-                entity_id,
                 GraphService.EDGE_MENTIONS,
+                entity_id,
                 {
                     'entity_type': ent['type'],
-                    'position': ent['start']
+                    'position': ent['start'],
+                    'confidence': 0.8  # Explicit confidence for Bayesian filtering
                 }
             )
 

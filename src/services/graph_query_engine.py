@@ -470,3 +470,139 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
                     chunks.add(predecessor)
 
         return list(chunks)
+
+    def retrieve_multi_hop(
+        self,
+        query: str,
+        max_hops: int = 3,
+        top_k: int = 5
+    ) -> List[Dict[str, Any]]:
+        """
+        Multi-hop retrieval combining entity extraction, PPR, and chunk ranking.
+
+        This is the main interface expected by TierQueryMixin._query_hipporag_tier().
+        Wraps lower-level methods to provide unified retrieval.
+
+        Args:
+            query: User query text
+            max_hops: Maximum hops for graph traversal (default 3)
+            top_k: Number of top results to return (default 5)
+
+        Returns:
+            List of dicts with chunk_id, text, ppr_score, metadata
+        """
+        try:
+            # 1. Extract entities from query (simple token-based extraction)
+            query_entities = self._extract_query_entities(query)
+            if not query_entities:
+                logger.debug("No query entities extracted, returning empty")
+                return []
+
+            # 2. Expand via multi-hop search to find related entities
+            expanded_result = self.multi_hop_search(
+                start_nodes=query_entities,
+                max_hops=max_hops
+            )
+            expanded_entities = expanded_result.get('entities', query_entities)
+
+            # 3. Run PPR on expanded entity set
+            ppr_scores = self.personalized_pagerank(
+                query_nodes=expanded_entities,
+                alpha=0.85
+            )
+
+            if not ppr_scores:
+                logger.debug("No PPR scores computed, returning empty")
+                return []
+
+            # 4. Rank chunks by aggregated PPR scores
+            ranked_chunks = self.rank_chunks_by_ppr(ppr_scores, top_k=top_k)
+
+            # 5. Format results with text and metadata
+            results = []
+            for chunk_id, score in ranked_chunks:
+                results.append({
+                    "chunk_id": chunk_id,
+                    "text": self._get_chunk_text(chunk_id),
+                    "ppr_score": score,
+                    "score": score,
+                    "metadata": self._get_chunk_metadata(chunk_id)
+                })
+
+            logger.info(f"retrieve_multi_hop returned {len(results)} results")
+            return results
+
+        except Exception as e:
+            logger.error(f"retrieve_multi_hop failed: {e}")
+            return []
+
+    def _extract_query_entities(self, query: str) -> List[str]:
+        """
+        Extract potential entity nodes from query text.
+
+        Simple implementation: finds graph nodes that match query tokens.
+
+        Args:
+            query: User query text
+
+        Returns:
+            List of matching entity node IDs
+        """
+        # Tokenize query (simple whitespace + lowercase)
+        tokens = set(query.lower().split())
+
+        # Find matching entity nodes in graph
+        matching_entities = []
+        for node_id in self.graph.nodes():
+            node_data = self.graph.nodes[node_id]
+
+            # Only check entity nodes
+            if node_data.get('type') != 'entity':
+                continue
+
+            # Check if entity text matches any token
+            entity_text = node_data.get('text', node_id).lower()
+            if any(token in entity_text or entity_text in token for token in tokens):
+                matching_entities.append(node_id)
+
+        logger.debug(f"Extracted {len(matching_entities)} entities from query")
+        return matching_entities
+
+    def _get_chunk_text(self, chunk_id: str) -> str:
+        """
+        Get text content of a chunk node.
+
+        Args:
+            chunk_id: Chunk node ID
+
+        Returns:
+            Chunk text content or empty string
+        """
+        if not self.graph.has_node(chunk_id):
+            return ""
+
+        node_data = self.graph.nodes[chunk_id]
+        return node_data.get('text', node_data.get('content', ''))
+
+    def _get_chunk_metadata(self, chunk_id: str) -> Dict[str, Any]:
+        """
+        Get metadata of a chunk node.
+
+        Args:
+            chunk_id: Chunk node ID
+
+        Returns:
+            Dict of chunk metadata
+        """
+        if not self.graph.has_node(chunk_id):
+            return {}
+
+        node_data = self.graph.nodes[chunk_id]
+
+        # Extract metadata fields (exclude text content)
+        metadata = {}
+        for key, value in node_data.items():
+            if key not in ('text', 'content'):
+                metadata[key] = value
+
+        return metadata

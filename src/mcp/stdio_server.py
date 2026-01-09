@@ -82,7 +82,10 @@ class NexusSearchTool:
 
         # C3.2: Obsidian client (lazy init)
         # ISS-034 fix: Support both config paths for backwards compatibility
+        # Priority: env var > obsidian.vault_path > storage.obsidian_vault
+        import os
         vault_path = (
+            os.environ.get('OBSIDIAN_VAULT_PATH') or
             config.get('obsidian', {}).get('vault_path') or
             config.get('storage', {}).get('obsidian_vault')
         )
