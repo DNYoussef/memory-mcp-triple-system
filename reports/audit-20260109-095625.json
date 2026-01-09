@@ -1,0 +1,148 @@
+{
+  "timestamp": "2026-01-09T09:56:25.128733",
+  "vector_rag": {
+    "total": 21634,
+    "sample_size": 1000,
+    "content_analysis": {
+      "avg_length": 1329.32,
+      "min_length": 40,
+      "max_length": 7612,
+      "empty_count": 0,
+      "short_count": 1,
+      "empty_ids": [],
+      "short_ids": [
+        "1be275b7-359b-4c1c-92db-1c9344688611"
+      ]
+    },
+    "metadata_analysis": {
+      "incomplete_count": 0,
+      "issues": []
+    },
+    "distributions": {
+      "top_projects": {
+        "memory-mcp-triple-system": 494,
+        "general": 494,
+        "connascence": 7,
+        "dnyoussef-portfolio": 4,
+        "fog-compute": 1
+      },
+      "top_sources": {
+        "legacy-import:1.0": 1000
+      },
+      "top_intents": {
+        "bugfix": 546,
+        "testing": 198,
+        "refactor": 82,
+        "documentation": 53,
+        "planning": 48,
+        "implementation": 36,
+        "general": 25,
+        "session-context": 7,
+        "configuration": 3,
+        "research": 2
+      }
+    }
+  },
+  "hipporag": {
+    "nodes": 79670,
+    "edges": 264680,
+    "node_types": {
+      "chunk": 16965,
+      "entity": 62705
+    },
+    "connectivity": {
+      "components": 78,
+      "largest_component": 79421,
+      "largest_component_pct": 99.69,
+      "avg_degree": 6.64
+    },
+    "issues": {
+      "orphan_nodes": 0,
+      "orphan_sample": [],
+      "weak_nodes": 45342,
+      "dead_links": 0
+    },
+    "hubs": {
+      "count": 6078,
+      "top_10": [
+        [
+          "###",
+          6841
+        ],
+        [
+          "3",
+          6729
+        ],
+        [
+          "2",
+          6436
+        ],
+        [
+          "1",
+          6325
+        ],
+        [
+          "4",
+          5042
+        ],
+        [
+          "5",
+          4550
+        ],
+        [
+          "##",
+          3372
+        ],
+        [
+          "#",
+          3042
+        ],
+        [
+          "6",
+          2738
+        ],
+        [
+          "10",
+          2179
+        ]
+      ]
+    }
+  },
+  "bayesian": {
+    "sample_size": 1000,
+    "confidence_analysis": {
+      "has_confidence": 1000,
+      "no_confidence": 0,
+      "avg_confidence": 0.743,
+      "min_confidence": 0.4,
+      "max_confidence": 0.85
+    },
+    "distribution": {
+      "0.0-0.3 (low)": 0,
+      "0.3-0.5 (medium-low)": 3,
+      "0.5-0.7 (medium)": 152,
+      "0.7-0.9 (high)": 845,
+      "0.9-1.0 (very high)": 0
+    },
+    "low_confidence_items": []
+  },
+  "recommendations": {
+    "delete": [],
+    "reinforce": [],
+    "repair": [],
+    "warnings": [
+      {
+        "category": "fragmented_graph",
+        "count": 78,
+        "reason": "Graph has many disconnected components",
+        "action": "Add cross-references to improve connectivity"
+      }
+    ],
+    "summary": {
+      "items_to_delete": 0,
+      "items_to_repair": 0,
+      "warnings": 1,
+      "health_score": 100
+    }
+  }
+}

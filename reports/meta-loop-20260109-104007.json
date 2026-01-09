@@ -1,0 +1,115 @@
+{
+  "timestamp": "2026-01-09T15:40:07.417824Z",
+  "period_days": 1,
+  "summary": {
+    "total_learnings": 12,
+    "skills_affected": [
+      "debug",
+      "code",
+      "code-review",
+      "reflect"
+    ],
+    "patterns_identified": 3,
+    "conflicts_detected": 0
+  },
+  "by_skill": {
+    "debug": {
+      "count": 3,
+      "signal_types": {
+        "correction": 1
+      }
+    },
+    "code": {
+      "count": 3,
+      "signal_types": {
+        "explicit_rule": 1
+      }
+    },
+    "code-review": {
+      "count": 3,
+      "signal_types": {
+        "approval": 1
+      }
+    },
+    "reflect": {
+      "count": 3,
+      "signal_types": {
+        "session-summary": 1
+      }
+    }
+  },
+  "patterns": [
+    {
+      "skill": "debug",
+      "pattern": "",
+      "occurrences": 3,
+      "current_confidence": 0.9,
+      "signal_types": [
+        "correction",
+        "correction",
+        "correction"
+      ],
+      "confidence_promotion": "No change",
+      "recommendation": "Recurring correction - promote to HIGH confidence",
+      "sessions": [
+        "integration_test_20260109_103815",
+        "e2e_test_session",
+        "session_20260109_103612"
+      ]
+    },
+    {
+      "skill": "code",
+      "pattern": "",
+      "occurrences": 3,
+      "current_confidence": 0.9,
+      "signal_types": [
+        "explicit_rule",
+        "explicit_rule",
+        "explicit_rule"
+      ],
+      "confidence_promotion": "No change",
+      "recommendation": "Pattern observed, needs more evidence",
+      "sessions": [
+        "integration_test_20260109_103815",
+        "e2e_test_session",
+        "session_20260109_103612"
+      ]
+    },
+    {
+      "skill": "code-review",
+      "pattern": "",
+      "occurrences": 3,
+      "current_confidence": 0.75,
+      "signal_types": [
+        "approval",
+        "approval",
+        "approval"
+      ],
+      "confidence_promotion": "No change",
+      "recommendation": "Confirmed pattern - maintain MEDIUM confidence",
+      "sessions": [
+        "integration_test_20260109_103815",
+        "e2e_test_session",
+        "session_20260109_103612"
+      ]
+    }
+  ],
+  "conflicts": [],
+  "recommendations": [
+    {
+      "skill": "debug",
+      "action": "Recurring correction - promote to HIGH confidence",
+      "priority": "MEDIUM"
+    },
+    {
+      "skill": "code",
+      "action": "Pattern observed, needs more evidence",
+      "priority": "MEDIUM"
+    },
+    {
+      "skill": "code-review",
+      "action": "Confirmed pattern - maintain MEDIUM confidence",
+      "priority": "MEDIUM"
+    }
+  ]
+}

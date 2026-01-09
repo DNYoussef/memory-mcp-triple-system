@@ -1,0 +1,40 @@
+{
+  "total": 18,
+  "valid": 18,
+  "invalid": 0,
+  "inserted": 0,
+  "skipped_existing": 0,
+  "errors": 0,
+  "validation_issues": [],
+  "project_distribution": {
+    "memory-mcp-triple-system": 2,
+    "claude-dev-cli": 1,
+    "life-os-dashboard": 1,
+    "trader-ai": 1,
+    "connascence": 1,
+    "dnyoussef-portfolio": 1,
+    "fog-compute": 1,
+    "meta-calculus-toolkit": 1,
+    "nsbu-rpg-app": 1,
+    "corporate-council": 1,
+    "the-agent-maker": 1,
+    "startup": 1,
+    "llm-council": 1,
+    "outreach": 1,
+    "context-cascade": 1,
+    "s1-content": 1,
+    "s3-dashboard": 1
+  },
+  "type_distribution": {
+    "project_overview": 11,
+    "architecture": 1,
+    "system_overview": 3,
+    "infrastructure_overview": 1,
+    "stream_overview": 2
+  },
+  "confidence_distribution": {
+    "low": 0,
+    "medium": 3,
+    "high": 15
+  }
+}

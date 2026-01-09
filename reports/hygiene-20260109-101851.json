@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-01-09T10:18:51.849513",
+  "dry_run": false,
+  "total": 21652,
+  "health_score": 100,
+  "cleaned": 0,
+  "reinforced": 0,
+  "layer_distribution": {
+    "long-term": 1000
+  },
+  "dashboard_export": "D:\\Projects\\memory-mcp-triple-system\\data\\dashboard-stats.json"
+}

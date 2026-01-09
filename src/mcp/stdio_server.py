@@ -26,6 +26,7 @@ from .obsidian_client import ObsidianMCPClient
 # ISS-003 fix: Import Graph and Bayesian engines for full architecture wiring
 from ..services.graph_service import GraphService
 from ..services.graph_query_engine import GraphQueryEngine
+from ..services.entity_service import EntityService  # ISS-035: Entity extraction for graph
 from ..bayesian.probabilistic_query_engine import ProbabilisticQueryEngine
 from ..bayesian.network_builder import NetworkBuilder  # ISS-018 fix
 
@@ -91,6 +92,22 @@ class NexusSearchTool:
         )
         self._obsidian_client: Optional[ObsidianMCPClient] = None
         self._vault_path = vault_path
+
+        # ISS-035: Entity extraction and graph persistence for HippoRAG/Bayesian
+        self.graph_service = GraphService(data_dir=str(data_dir))
+        # Load existing graph if present
+        graph_file = data_dir / 'graph.json'
+        if graph_file.exists():
+            self.graph_service.load_graph(graph_file)
+            logger.info(f"Loaded existing graph: {self.graph_service.get_node_count()} nodes")
+
+        # Initialize entity service for NER extraction
+        try:
+            self.entity_service = EntityService()
+            logger.info("EntityService initialized for graph population")
+        except Exception as e:
+            logger.warning(f"EntityService init failed (graph features disabled): {e}")
+            self.entity_service = None
 
         logger.info(f"Production features initialized: data_dir={data_dir}")
 
@@ -557,12 +574,55 @@ def _handle_memory_store(
         except Exception as lc_err:
             logger.debug(f"Lifecycle processing skipped: {lc_err}")
 
+        # ISS-035: Entity extraction and graph persistence for HippoRAG/Bayesian
+        entities_added = 0
+        if tool.entity_service:
+            try:
+                # Generate chunk_id matching ChromaDB format
+                import hashlib
+                chunk_id = hashlib.md5(text.encode()).hexdigest()[:16]
+
+                # Extract entities from text
+                entities = tool.entity_service.extract_entities(text)
+
+                if entities:
+                    # Add chunk node to graph
+                    tool.graph_service.add_chunk_node(chunk_id, {
+                        'text': text[:500],  # Store truncated text
+                        'file_path': enriched_metadata.get('key', 'manual_entry'),
+                        'timestamp': enriched_metadata.get('timestamp')
+                    })
+
+                    # Add entities and relationships
+                    for ent in entities:
+                        entity_id = ent['text'].lower().replace(' ', '_')
+                        tool.graph_service.add_entity_node(
+                            entity_id,
+                            ent['type'],
+                            {'text': ent['text'], 'start': ent['start'], 'end': ent['end']}
+                        )
+                        tool.graph_service.add_relationship(
+                            chunk_id,
+                            GraphService.EDGE_MENTIONS,
+                            entity_id,
+                            {'entity_type': ent['type'], 'position': ent['start'], 'confidence': 0.8}
+                        )
+                        entities_added += 1
+
+                    # Persist graph to disk
+                    tool.graph_service.save_graph()
+                    logger.debug(f"Graph updated: +{entities_added} entities, total nodes={tool.graph_service.get_node_count()}")
+
+            except Exception as graph_err:
+                logger.warning(f"Graph update skipped: {graph_err}")
+
         # C3.3: Log event
         tool.log_event("memory_store", {
             "text_length": len(text),
             "agent": enriched_metadata.get('agent', {}).get('name', 'unknown'),
             "project": enriched_metadata.get('project', 'unknown'),
-            "lifecycle_tier": enriched_metadata.get('lifecycle_tier', 'hot')
+            "lifecycle_tier": enriched_metadata.get('lifecycle_tier', 'hot'),
+            "entities_extracted": entities_added
         })
 
         # Include tagging info in response

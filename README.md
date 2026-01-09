@@ -382,3 +382,60 @@ https://github.com/DNYoussef/memory-mcp-triple-system/issues
 **Status**: Production Ready (Core Features Complete, Advanced Tiers In Progress)
 **Remediation Tracking**: 36/52 issues resolved (69%)
 **Last Updated**: 2025-11-25
+---
+
+## Obsidian Vault Integration
+
+Memory MCP supports bidirectional sync with Obsidian vaults.
+
+### Configuration
+
+Add to your `.env` file:
+
+```bash
+OBSIDIAN_VAULT_PATH=C:\Users\17175\Documents\Obsidian Vault
+OBSIDIAN_SYNC_ENABLED=true
+OBSIDIAN_SYNC_INTERVAL=300
+OBSIDIAN_SYNC_EXTENSIONS=.md
+```
+
+### Quick Start
+
+```bash
+# Check vault statistics
+python scripts/obsidian_sync.py --stats
+
+# Scan vault files
+python scripts/obsidian_sync.py
+
+# Use custom vault path
+python scripts/obsidian_sync.py --vault "/path/to/vault" --stats
+```
+
+### Programmatic Usage
+
+```python
+from src.mcp import ObsidianMCPClient
+
+client = ObsidianMCPClient(vault_path="/path/to/vault")
+
+# Get vault statistics
+stats = client.get_vault_stats()
+print(f"Found {stats['markdown_files']} markdown files")
+
+# Sync vault to memory system
+result = client.sync_vault()
+print(f"Synced {result['files_processed']} files")
+
+# Export memories back to vault
+client.export_to_vault(chunks, output_file="memories.md")
+```
+
+### Components
+
+| Component | Purpose |
+|-----------|---------|
+| `ObsidianMCPClient` | Facade coordinating all vault operations |
+| `VaultFileManager` | File discovery, metadata, and filtering |
+| `VaultSyncService` | Sync operations, chunking, embedding |
+

@@ -1,0 +1,44 @@
+{
+  "timestamp": "2026-01-09T15:39:07.785812Z",
+  "period_days": 1,
+  "summary": {
+    "total_learnings": 8,
+    "skills_affected": [
+      "debug",
+      "code",
+      "code-review",
+      "reflect"
+    ],
+    "patterns_identified": 0,
+    "conflicts_detected": 0
+  },
+  "by_skill": {
+    "debug": {
+      "count": 2,
+      "signal_types": {
+        "correction": 1
+      }
+    },
+    "code": {
+      "count": 2,
+      "signal_types": {
+        "explicit_rule": 1
+      }
+    },
+    "code-review": {
+      "count": 2,
+      "signal_types": {
+        "approval": 1
+      }
+    },
+    "reflect": {
+      "count": 2,
+      "signal_types": {
+        "session-summary": 1
+      }
+    }
+  },
+  "patterns": [],
+  "conflicts": [],
+  "recommendations": []
+}

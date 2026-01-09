@@ -1,0 +1,233 @@
+{
+  "timestamp": "2026-01-09T09:53:15.219279",
+  "vector_rag": {
+    "total": 21634,
+    "sample_size": 1000,
+    "content_analysis": {
+      "avg_length": 1329.32,
+      "min_length": 40,
+      "max_length": 7612,
+      "empty_count": 0,
+      "short_count": 1,
+      "empty_ids": [],
+      "short_ids": [
+        "1be275b7-359b-4c1c-92db-1c9344688611"
+      ]
+    },
+    "metadata_analysis": {
+      "incomplete_count": 1000,
+      "issues": [
+        {
+          "id": "8c099225-46bb-4752-8692-1cd01c39a8ca",
+          "missing": [
+            "WHO",
+            "WHEN",
+            "PROJECT",
+            "WHY"
+          ]
+        },
+        {
+          "id": "f23619cf-fb74-455c-9b3e-1478d8dbb8cc",
+          "missing": [
+            "WHO",
+            "WHEN",
+            "PROJECT",
+            "WHY"
+          ]
+        },
+        {
+          "id": "445f3760-a05b-45ec-8ea6-b0edd990f63b",
+          "missing": [
+            "WHO",
+            "WHEN",
+            "PROJECT",
+            "WHY"
+          ]
+        },
+        {
+          "id": "fc16a5eb-f982-4c71-bc08-e1737eede0e3",
+          "missing": [
+            "WHO",
+            "WHEN",
+            "PROJECT",
+            "WHY"
+          ]
+        },
+        {
+          "id": "cd96ba98-a15d-4d0e-8ee3-365c68e1e1eb",
+          "missing": [
+            "WHO",
+            "WHEN",
+            "PROJECT",
+            "WHY"
+          ]
+        },
+        {
+          "id": "00b67b0c-4f37-493b-a510-54e83fb76f19",
+          "missing": [
+            "WHO",
+            "WHEN",
+            "PROJECT",
+            "WHY"
+          ]
+        },
+        {
+          "id": "77f3392b-e0df-4145-83b7-1060cccfe1fd",
+          "missing": [
+            "WHO",
+            "WHEN",
+            "PROJECT",
+            "WHY"
+          ]
+        },
+        {
+          "id": "5fbc1239-4b38-4451-aa3f-4fc8db51ad25",
+          "missing": [
+            "WHO",
+            "WHEN",
+            "PROJECT",
+            "WHY"
+          ]
+        },
+        {
+          "id": "eaa6479e-5358-4445-8c36-21ca77ff8c40",
+          "missing": [
+            "WHO",
+            "WHEN",
+            "PROJECT",
+            "WHY"
+          ]
+        },
+        {
+          "id": "1ed894a4-0f19-4cd0-a792-57bf677607fa",
+          "missing": [
+            "WHO",
+            "WHEN",
+            "PROJECT",
+            "WHY"
+          ]
+        }
+      ]
+    },
+    "distributions": {
+      "top_projects": {
+        "unknown": 1000
+      },
+      "top_sources": {
+        "unknown": 1000
+      },
+      "top_intents": {
+        "unknown": 1000
+      }
+    }
+  },
+  "hipporag": {
+    "nodes": 79670,
+    "edges": 264680,
+    "node_types": {
+      "chunk": 16965,
+      "entity": 62705
+    },
+    "connectivity": {
+      "components": 78,
+      "largest_component": 79421,
+      "largest_component_pct": 99.69,
+      "avg_degree": 6.64
+    },
+    "issues": {
+      "orphan_nodes": 0,
+      "orphan_sample": [],
+      "weak_nodes": 45342,
+      "dead_links": 0
+    },
+    "hubs": {
+      "count": 6078,
+      "top_10": [
+        [
+          "###",
+          6841
+        ],
+        [
+          "3",
+          6729
+        ],
+        [
+          "2",
+          6436
+        ],
+        [
+          "1",
+          6325
+        ],
+        [
+          "4",
+          5042
+        ],
+        [
+          "5",
+          4550
+        ],
+        [
+          "##",
+          3372
+        ],
+        [
+          "#",
+          3042
+        ],
+        [
+          "6",
+          2738
+        ],
+        [
+          "10",
+          2179
+        ]
+      ]
+    }
+  },
+  "bayesian": {
+    "sample_size": 1000,
+    "confidence_analysis": {
+      "has_confidence": 0,
+      "no_confidence": 1000,
+      "avg_confidence": 0,
+      "min_confidence": 0,
+      "max_confidence": 0
+    },
+    "distribution": {
+      "0.0-0.3 (low)": 0,
+      "0.3-0.5 (medium-low)": 0,
+      "0.5-0.7 (medium)": 0,
+      "0.7-0.9 (high)": 0,
+      "0.9-1.0 (very high)": 0
+    },
+    "low_confidence_items": []
+  },
+  "recommendations": {
+    "delete": [],
+    "reinforce": [],
+    "repair": [
+      {
+        "category": "missing_confidence",
+        "count": 1000,
+        "reason": "Memories without confidence scores won't work in Bayesian tier",
+        "action": "Assign default confidence (0.5) or compute from source"
+      }
+    ],
+    "warnings": [
+      {
+        "category": "fragmented_graph",
+        "count": 78,
+        "reason": "Graph has many disconnected components",
+        "action": "Add cross-references to improve connectivity"
+      }
+    ],
+    "summary": {
+      "items_to_delete": 0,
+      "items_to_repair": 1000,
+      "warnings": 1,
+      "health_score": 55.0
+    }
+  }
+}

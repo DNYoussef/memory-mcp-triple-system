@@ -1,0 +1,35 @@
+{
+  "processed": 21634,
+  "updated": 21634,
+  "skipped": 0,
+  "errors": 0,
+  "project_distribution": {
+    "memory-mcp-triple-system": 2583,
+    "general": 16675,
+    "connascence": 1951,
+    "dnyoussef-portfolio": 74,
+    "fog-compute": 294,
+    "claude-dev-cli": 6,
+    "trader-ai": 41,
+    "life-os-frontend": 5,
+    "nsbu-rpg-app": 2,
+    "context-cascade": 1
+  },
+  "why_distribution": {
+    "planning": 501,
+    "general": 980,
+    "bugfix": 9823,
+    "documentation": 1377,
+    "implementation": 1256,
+    "testing": 5437,
+    "refactor": 1968,
+    "research": 60,
+    "configuration": 185,
+    "session-context": 45
+  },
+  "confidence_distribution": {
+    "low": 0,
+    "medium": 3291,
+    "high": 18343
+  }
+}
