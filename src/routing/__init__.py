@@ -1,5 +1,5 @@
-"""Query routing components."""
+"""Routing modules for unified retrieval."""
 
-from .query_router import QueryRouter, StorageTier, QueryMode
+from .unified_router import UnifiedRetrievalRouter
 
-__all__ = ["QueryRouter", "StorageTier", "QueryMode"]
+__all__ = ["UnifiedRetrievalRouter"]

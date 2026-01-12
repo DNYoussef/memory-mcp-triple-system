@@ -19,6 +19,7 @@ Cohesion: HIGH (facade pattern - coordinates focused components)
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 import networkx as nx
+import numpy as np
 from loguru import logger
 
 from .graph_node_manager import GraphNodeManager
@@ -131,3 +132,103 @@ class GraphService:
     def get_graph(self) -> nx.DiGraph:
         """Return underlying NetworkX graph."""
         return self.graph
+
+    def link_similar_entities(
+        self,
+        entity_id: str,
+        embedder: Any,
+        similarity_threshold: float = 0.85,
+        max_links: int = 3
+    ) -> int:
+        """
+        Link entity to similar entities across components.
+
+        Uses embedding similarity to add SIMILAR_TO edges.
+        """
+        if embedder is None or not self.graph.has_node(entity_id):
+            return 0
+        return self._link_similar_entities(
+            entity_id,
+            embedder,
+            similarity_threshold,
+            max_links
+        )
+
+    def _link_similar_entities(
+        self,
+        entity_id: str,
+        embedder: Any,
+        similarity_threshold: float,
+        max_links: int
+    ) -> int:
+        """
+        Link entity to similar entities using embedding similarity.
+
+        Returns number of links created.
+        """
+        entity_text = self._get_entity_text(entity_id)
+        if not entity_text:
+            return 0
+
+        candidates = self._get_cross_component_entities(entity_id)
+        if not candidates:
+            return 0
+
+        candidate_texts = [self._get_entity_text(cid) for cid in candidates]
+        filtered = [(cid, text) for cid, text in zip(candidates, candidate_texts) if text]
+        if not filtered:
+            return 0
+
+        ids, texts = zip(*filtered)
+        embeddings = embedder.encode([entity_text] + list(texts))
+        base = embeddings[0]
+        scores = self._cosine_similarity(base, embeddings[1:])
+        ranked = sorted(
+            zip(ids, scores),
+            key=lambda item: item[1],
+            reverse=True
+        )
+
+        links_added = 0
+        for candidate_id, score in ranked:
+            if score < similarity_threshold or links_added >= max_links:
+                break
+            if self.graph.has_edge(entity_id, candidate_id):
+                continue
+            self.add_relationship(
+                entity_id,
+                self.EDGE_SIMILAR_TO,
+                candidate_id,
+                {"confidence": float(score)}
+            )
+            links_added += 1
+
+        return links_added
+
+    def _get_entity_text(self, entity_id: str) -> str:
+        node_data = self.graph.nodes.get(entity_id, {})
+        metadata = node_data.get("metadata", {})
+        return metadata.get("text") or node_data.get("text") or entity_id
+
+    def _get_cross_component_entities(self, entity_id: str) -> List[str]:
+        components = list(nx.weakly_connected_components(self.graph))
+        component_map = {node: idx for idx, comp in enumerate(components) for node in comp}
+        source_component = component_map.get(entity_id)
+        candidates = []
+        for node_id, data in self.graph.nodes(data=True):
+            if data.get("type") != self.NODE_TYPE_ENTITY:
+                continue
+            if component_map.get(node_id) == source_component:
+                continue
+            candidates.append(node_id)
+        return candidates
+
+    def _cosine_similarity(self, base: Any, vectors: Any) -> List[float]:
+        base_vec = np.array(base)
+        base_norm = np.linalg.norm(base_vec) or 1.0
+        sims = []
+        for vec in vectors:
+            vec_arr = np.array(vec)
+            denom = base_norm * (np.linalg.norm(vec_arr) or 1.0)
+            sims.append(float(np.dot(base_vec, vec_arr) / denom))
+        return sims

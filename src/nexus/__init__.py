@@ -11,5 +11,6 @@ Key Components:
 """
 
 from .processor import NexusProcessor
+from .public_api import MemoryMCPQueryService
 
-__all__ = ["NexusProcessor"]
+__all__ = ["NexusProcessor", "MemoryMCPQueryService"]

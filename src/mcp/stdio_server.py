@@ -27,6 +27,7 @@ from .obsidian_client import ObsidianMCPClient
 from ..services.graph_service import GraphService
 from ..services.graph_query_engine import GraphQueryEngine
 from ..services.entity_service import EntityService  # ISS-035: Entity extraction for graph
+from ..services.hipporag_service import HippoRagService
 from ..bayesian.probabilistic_query_engine import ProbabilisticQueryEngine
 from ..bayesian.network_builder import NetworkBuilder  # ISS-018 fix
 
@@ -108,6 +109,12 @@ class NexusSearchTool:
         except Exception as e:
             logger.warning(f"EntityService init failed (graph features disabled): {e}")
             self.entity_service = None
+            self.hipporag_service = None
+        else:
+            self.hipporag_service = HippoRagService(
+                graph_service=self.graph_service,
+                entity_service=self.entity_service
+            )
 
         logger.info(f"Production features initialized: data_dir={data_dir}")
 
@@ -469,26 +476,31 @@ def _enrich_metadata_with_tagging(metadata: Dict[str, Any]) -> Dict[str, Any]:
     now = datetime.utcnow()
 
     # WHO - Agent information
-    agent_name = metadata.get('agent', 'unknown')
+    agent_name = metadata.get('agent', 'unknown-agent:1.0.0')
     agent_category = metadata.get('agent_category', 'general')
+    who = metadata.get('WHO', agent_name)
 
     # WHEN - Timestamps
-    timestamp_iso = now.isoformat() + 'Z'
+    timestamp_iso = metadata.get('WHEN', now.isoformat() + 'Z')
     timestamp_unix = int(now.timestamp())
     timestamp_readable = now.strftime('%Y-%m-%d %H:%M:%S')
 
     # PROJECT - From env or metadata or default
     project = os.environ.get(
         'MEMORY_MCP_PROJECT',
-        metadata.get('project', 'memory-mcp-triple-system')
+        metadata.get('project', metadata.get('PROJECT', 'default'))
     )
 
     # WHY - Intent
-    intent = metadata.get('intent', 'storage')
+    intent = metadata.get('intent', metadata.get('WHY', 'storage'))
 
     # Build enriched metadata
     enriched = {
         **metadata,
+        'WHO': who,
+        'WHEN': timestamp_iso,
+        'PROJECT': project,
+        'WHY': intent,
         'agent': {
             'name': agent_name,
             'category': agent_category
@@ -505,6 +517,23 @@ def _enrich_metadata_with_tagging(metadata: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     return enriched
+
+
+def _assign_confidence(metadata: Dict[str, Any]) -> float:
+    """Assign confidence based on source type or defaults."""
+    existing = metadata.get("confidence")
+    if existing is not None:
+        return float(existing)
+
+    source_type = metadata.get("source_type") or metadata.get("source") or ""
+    source_type = str(source_type).lower()
+    mapping = {
+        "witnessed": 0.95,
+        "reported": 0.70,
+        "inferred": 0.50,
+        "assumed": 0.30,
+    }
+    return mapping.get(source_type, 0.5)
 
 
 def _handle_memory_store(
@@ -524,6 +553,7 @@ def _handle_memory_store(
     try:
         # Enrich metadata with tagging protocol
         enriched_metadata = _enrich_metadata_with_tagging(metadata)
+        enriched_metadata["confidence"] = _assign_confidence(enriched_metadata)
 
         # Use the vector search tool components to store
         embedder = tool.vector_search_tool.embedder
@@ -607,6 +637,13 @@ def _handle_memory_store(
                             entity_id,
                             {'entity_type': ent['type'], 'position': ent['start'], 'confidence': 0.8}
                         )
+                        try:
+                            tool.graph_service.link_similar_entities(
+                                entity_id,
+                                embedder=embedder
+                            )
+                        except Exception as link_err:
+                            logger.debug(f"Entity linking skipped: {link_err}")
                         entities_added += 1
 
                     # Persist graph to disk
@@ -660,7 +697,7 @@ def _handle_graph_query(
     try:
         # Try to use graph query engine if available
         if tool.nexus_processor and tool.nexus_processor.graph_query_engine:
-            results = tool.nexus_processor.graph_query_engine.retrieve_multi_hop(
+            results = tool.nexus_processor.graph_query_engine.query(
                 query=query,
                 top_k=limit,
                 max_hops=max_hops
@@ -695,25 +732,25 @@ def _handle_entity_extraction(
     entity_types = arguments.get("entity_types", ["PERSON", "ORG", "GPE", "CONCEPT"])
 
     try:
-        # Simple regex-based entity extraction (fallback)
-        # In production, would use spaCy NER
-        import re
+        if tool.entity_service:
+            entities = tool.entity_service.extract_entities_by_type(text, entity_types)
+        else:
+            # Simple regex-based entity extraction (fallback)
+            # In production, would use spaCy NER
+            import re
 
-        entities = []
+            entities = []
+            cap_pattern = r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b'
+            matches = re.findall(cap_pattern, text)
 
-        # Extract capitalized phrases as potential entities
-        cap_pattern = r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b'
-        matches = re.findall(cap_pattern, text)
+            for match in matches[:20]:
+                if len(match.split()) > 1:
+                    etype = "ORG" if any(w in match for w in ["Inc", "Corp", "Ltd"]) else "CONCEPT"
+                else:
+                    etype = "PERSON" if match[0].isupper() else "CONCEPT"
 
-        for match in matches[:20]:  # Limit to 20 entities
-            # Simple heuristic classification
-            if len(match.split()) > 1:
-                etype = "ORG" if any(w in match for w in ["Inc", "Corp", "Ltd"]) else "CONCEPT"
-            else:
-                etype = "PERSON" if match[0].isupper() else "CONCEPT"
-
-            if etype in entity_types:
-                entities.append({"text": match, "type": etype, "confidence": 0.7})
+                if etype in entity_types:
+                    entities.append({"text": match, "type": etype, "confidence": 0.7})
 
         return {
             "content": [{
@@ -738,11 +775,14 @@ def _handle_hipporag_retrieve(
     mode = arguments.get("mode", "execution")
 
     try:
-        # Step 1: Extract entities from query
         entity_result = _handle_entity_extraction({"text": query}, tool)
-
-        # Step 2: Use NexusProcessor with all tiers
-        results = tool.execute(query, limit, mode)
+        if tool.hipporag_service:
+            results = tool.hipporag_service.retrieve_multi_hop(
+                query=query,
+                top_k=limit
+            )
+        else:
+            results = tool.execute(query, limit, mode)
 
         # Format combined output
         content = []
@@ -757,11 +797,17 @@ def _handle_hipporag_retrieve(
 
         # Add retrieval results
         for idx, result in enumerate(results, 1):
-            tier = result.get('tier', 'unknown')
-            score = result.get('score', 0.0)
+            if isinstance(result, dict):
+                tier = result.get('tier', 'hipporag')
+                score = result.get('score', 0.0)
+                text = result.get('text', '')
+            else:
+                tier = 'hipporag'
+                score = getattr(result, "score", 0.0)
+                text = getattr(result, "text", "")
             content.append({
                 "type": "text",
-                "text": f"\nResult {idx} [{tier}] (score: {score:.4f}):\n{result['text'][:300]}...\n"
+                "text": f"\nResult {idx} [{tier}] (score: {score:.4f}):\n{text[:300]}...\n"
             })
 
         return {"content": content, "isError": False}

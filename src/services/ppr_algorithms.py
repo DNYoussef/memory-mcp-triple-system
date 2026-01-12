@@ -50,6 +50,33 @@ class PPRAlgorithmsMixin:
             logger.warning("PPR still failed, using degree centrality fallback")
             return self._degree_centrality_fallback(query_nodes)
 
+    def _execute_pagerank(
+        self,
+        personalization: Dict[str, float],
+        alpha: float,
+        max_iter: int,
+        tol: float
+    ) -> Dict[str, float]:
+        """
+        Execute NetworkX pagerank with provided personalization.
+
+        Args:
+            personalization: Personalization vector
+            alpha: Damping factor
+            max_iter: Maximum iterations
+            tol: Convergence tolerance
+
+        Returns:
+            Dict mapping node_id -> score
+        """
+        return nx.pagerank(
+            self.graph,
+            alpha=alpha,
+            personalization=personalization,
+            max_iter=max_iter,
+            tol=tol
+        )
+
     def _degree_centrality_fallback(
         self,
         query_nodes: List[str]
