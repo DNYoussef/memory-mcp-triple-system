@@ -91,10 +91,9 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
             personalization = self._create_personalization_vector(valid_nodes)
 
             # Run NetworkX PageRank
-            ppr_scores = nx.pagerank(
-                self.graph,
-                alpha=alpha,
+            ppr_scores = self._execute_pagerank(
                 personalization=personalization,
+                alpha=alpha,
                 max_iter=max_iter,
                 tol=tol
             )
@@ -535,6 +534,25 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
         except Exception as e:
             logger.error(f"retrieve_multi_hop failed: {e}")
             return []
+
+    def query(
+        self,
+        query: str,
+        max_hops: int = 3,
+        top_k: int = 10
+    ) -> List[Dict[str, Any]]:
+        """
+        Execute graph query using multi-hop retrieval.
+
+        Args:
+            query: Query text
+            max_hops: Maximum hops
+            top_k: Number of results
+
+        Returns:
+            List of results with chunk metadata
+        """
+        return self.retrieve_multi_hop(query=query, max_hops=max_hops, top_k=top_k)
 
     def _extract_query_entities(self, query: str) -> List[str]:
         """

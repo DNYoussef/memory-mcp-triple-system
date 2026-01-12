@@ -61,3 +61,23 @@ class TestGetGraph:
         assert ppr_scores is not None
         assert 'entity_1' in ppr_scores
         assert 'entity_2' in ppr_scores
+
+
+def test_link_similar_entities_adds_edge(graph_service):
+    """Ensure similar entities across components are linked."""
+    graph_service.add_entity_node('entity_a', 'ORG', {'text': 'Alpha'})
+    graph_service.add_entity_node('entity_b', 'ORG', {'text': 'Alpha'})
+
+    class DummyEmbedder:
+        def encode(self, texts):
+            return [[1.0, 0.0] for _ in texts]
+
+    links_added = graph_service.link_similar_entities(
+        'entity_a',
+        embedder=DummyEmbedder(),
+        similarity_threshold=0.5,
+        max_links=1
+    )
+
+    assert links_added == 1
+    assert graph_service.graph.has_edge('entity_a', 'entity_b')
