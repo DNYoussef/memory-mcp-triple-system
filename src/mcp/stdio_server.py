@@ -31,6 +31,8 @@ from ..services.hipporag_service import HippoRagService
 from ..bayesian.probabilistic_query_engine import ProbabilisticQueryEngine
 from ..bayesian.network_builder import NetworkBuilder  # ISS-018 fix
 
+REQUIRED_TAGS = ["who", "when", "project", "why"]
+
 
 class NexusSearchTool:
     """
@@ -291,11 +293,29 @@ def load_config() -> Dict[str, Any]:
 
 
 def handle_list_tools() -> List[Dict[str, Any]]:
-    """Return list of available MCP tools (7 total with obsidian_sync)."""
+    """Return list of available MCP tools."""
     return [
         {
             "name": "vector_search",
             "description": "Search memory vault using semantic similarity with mode-aware context adaptation",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search query text"},
+                    "limit": {"type": "integer", "description": "Number of results", "default": 5},
+                    "mode": {
+                        "type": "string",
+                        "description": "Query mode: execution, planning, or brainstorming",
+                        "enum": ["execution", "planning", "brainstorming"],
+                        "default": "execution"
+                    }
+                },
+                "required": ["query"]
+            }
+        },
+        {
+            "name": "unified_search",
+            "description": "Full Nexus 5-step search (RECALL, FILTER, DEDUPE, RANK, COMPRESS)",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -337,6 +357,18 @@ def handle_list_tools() -> List[Dict[str, Any]]:
             }
         },
         {
+            "name": "bayesian_inference",
+            "description": "Run probabilistic inference on memory graph",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Query text"},
+                    "evidence": {"type": "object", "description": "Evidence mapping"}
+                },
+                "required": ["query"]
+            }
+        },
+        {
             "name": "entity_extraction",
             "description": "Extract named entities from text using NER",
             "inputSchema": {
@@ -351,6 +383,17 @@ def handle_list_tools() -> List[Dict[str, Any]]:
                     }
                 },
                 "required": ["text"]
+            }
+        },
+        {
+            "name": "mode_detection",
+            "description": "Detect query mode (execution/planning/brainstorming) from text",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Query to analyze for mode"}
+                },
+                "required": ["query"]
             }
         },
         {
@@ -379,6 +422,14 @@ def handle_list_tools() -> List[Dict[str, Any]]:
                     "query": {"type": "string", "description": "Query to analyze for mode"}
                 },
                 "required": ["query"]
+            }
+        },
+        {
+            "name": "lifecycle_status",
+            "description": "Get memory lifecycle statistics",
+            "inputSchema": {
+                "type": "object",
+                "properties": {}
             }
         },
         {
@@ -460,6 +511,45 @@ def _handle_vector_search(
     }
 
 
+def _normalize_metadata_tags(metadata: Dict[str, Any]) -> Dict[str, Any]:
+    normalized = dict(metadata)
+    for tag in REQUIRED_TAGS:
+        upper = tag.upper()
+        if upper in normalized and tag not in normalized:
+            normalized[tag] = normalized[upper]
+    return normalized
+
+
+def _validate_metadata(metadata: Dict[str, Any]) -> tuple[bool, List[str]]:
+    if metadata is None:
+        return False, REQUIRED_TAGS
+    missing = [tag for tag in REQUIRED_TAGS if not metadata.get(tag)]
+    return len(missing) == 0, missing
+
+
+def _autofill_metadata(metadata: Dict[str, Any], missing: List[str]) -> Dict[str, Any]:
+    from datetime import datetime
+
+    now = datetime.utcnow().isoformat()
+    if "who" in missing:
+        metadata["who"] = "unknown:mcp-client"
+    if "when" in missing:
+        metadata["when"] = now
+    if "project" in missing:
+        metadata["project"] = "untagged"
+    if "why" in missing:
+        metadata["why"] = "unspecified"
+    return metadata
+
+
+def _get_tagging_policy(config: Dict[str, Any]) -> Dict[str, bool]:
+    tagging = config.get("tagging", {})
+    return {
+        "strict": bool(tagging.get("strict", False)),
+        "auto_fill": bool(tagging.get("auto_fill", True))
+    }
+
+
 def _enrich_metadata_with_tagging(metadata: Dict[str, Any]) -> Dict[str, Any]:
     """
     Enrich metadata with WHO/WHEN/PROJECT/WHY tagging protocol.
@@ -478,10 +568,10 @@ def _enrich_metadata_with_tagging(metadata: Dict[str, Any]) -> Dict[str, Any]:
     # WHO - Agent information
     agent_name = metadata.get('agent', 'unknown-agent:1.0.0')
     agent_category = metadata.get('agent_category', 'general')
-    who = metadata.get('WHO', agent_name)
+    who = metadata.get('who', metadata.get('WHO', agent_name))
 
     # WHEN - Timestamps
-    timestamp_iso = metadata.get('WHEN', now.isoformat() + 'Z')
+    timestamp_iso = metadata.get('when', metadata.get('WHEN', now.isoformat() + 'Z'))
     timestamp_unix = int(now.timestamp())
     timestamp_readable = now.strftime('%Y-%m-%d %H:%M:%S')
 
@@ -492,7 +582,7 @@ def _enrich_metadata_with_tagging(metadata: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     # WHY - Intent
-    intent = metadata.get('intent', metadata.get('WHY', 'storage'))
+    intent = metadata.get('intent', metadata.get('why', metadata.get('WHY', 'storage')))
 
     # Build enriched metadata
     enriched = {
@@ -542,7 +632,18 @@ def _handle_memory_store(
 ) -> Dict[str, Any]:
     """Handle memory_store with tagging, lifecycle management, and event logging."""
     text = arguments.get("text", "")
-    metadata = arguments.get("metadata", {})
+    metadata = _normalize_metadata_tags(arguments.get("metadata", {}))
+    is_valid, missing = _validate_metadata(metadata)
+    if not is_valid:
+        policy = _get_tagging_policy(tool.config)
+        if policy["strict"]:
+            return {
+                "content": [{"type": "text", "text": f"Missing required tags: {missing}"}],
+                "isError": True
+            }
+        if policy["auto_fill"]:
+            metadata = _autofill_metadata(metadata, missing)
+            logger.warning(f"Auto-filled missing tags: {missing}")
 
     if not text:
         return {
@@ -671,7 +772,8 @@ def _handle_memory_store(
                 "type": "text",
                 "text": f"Stored memory: {text[:100]}...\n{tagging_info}\n{lifecycle_info}"
             }],
-            "isError": False
+            "isError": False,
+            "tags_auto_filled": missing if not is_valid else []
         }
 
     except Exception as e:
@@ -858,6 +960,83 @@ def _handle_detect_mode(
     }
 
 
+def _handle_lifecycle_status(
+    arguments: Dict[str, Any],
+    tool: NexusSearchTool
+) -> Dict[str, Any]:
+    """Handle lifecycle_status - lifecycle statistics."""
+    stats = tool.lifecycle_manager.get_stage_stats()
+    return {
+        "content": [{
+            "type": "text",
+            "text": json.dumps(stats)
+        }],
+        "isError": False
+    }
+
+
+def _handle_bayesian_inference(
+    arguments: Dict[str, Any],
+    tool: NexusSearchTool
+) -> Dict[str, Any]:
+    """Handle bayesian_inference - probabilistic inference."""
+    query = arguments.get("query", "")
+    evidence = arguments.get("evidence")
+
+    if not tool.nexus_processor or not tool.nexus_processor.probabilistic_query_engine:
+        return {
+            "content": [{"type": "text", "text": "Bayesian engine unavailable"}],
+            "isError": True
+        }
+
+    query_var = tool.nexus_processor._extract_query_entity(query)
+    result = tool.nexus_processor.probabilistic_query_engine.query_conditional(
+        network=None,
+        query_vars=[query_var],
+        evidence=evidence
+    )
+
+    return {
+        "content": [{"type": "text", "text": json.dumps(result)}],
+        "isError": False
+    }
+
+
+def _handle_unified_search(
+    arguments: Dict[str, Any],
+    tool: NexusSearchTool
+) -> Dict[str, Any]:
+    """Handle unified_search - NexusProcessor 5-step SOP."""
+    query = arguments.get("query", "")
+    limit = arguments.get("limit", 5)
+    mode = arguments.get("mode", "execution")
+
+    if not tool.nexus_processor:
+        return _handle_vector_search(arguments, tool)
+
+    nexus_result = tool.nexus_processor.process(
+        query=query,
+        mode=mode,
+        top_k=50,
+        token_budget=10000
+    )
+
+    combined = nexus_result.get("core", []) + nexus_result.get("extended", [])
+    limited = combined[:limit]
+
+    return {
+        "content": [{
+            "type": "text",
+            "text": json.dumps({
+                "results": limited,
+                "pipeline_stats": nexus_result.get("pipeline_stats"),
+                "mode": mode
+            })
+        }],
+        "isError": False
+    }
+
+
 def _handle_obsidian_sync(
     arguments: Dict[str, Any],
     tool: NexusSearchTool
@@ -917,20 +1096,28 @@ def handle_call_tool(
     arguments: Dict[str, Any],
     tool: NexusSearchTool
 ) -> Dict[str, Any]:
-    """Execute a tool and return results (7 tools available)."""
+    """Execute a tool and return results."""
     try:
         if tool_name == "vector_search":
             return _handle_vector_search(arguments, tool)
+        elif tool_name == "unified_search":
+            return _handle_unified_search(arguments, tool)
         elif tool_name == "memory_store":
             return _handle_memory_store(arguments, tool)
         elif tool_name == "graph_query":
             return _handle_graph_query(arguments, tool)
+        elif tool_name == "bayesian_inference":
+            return _handle_bayesian_inference(arguments, tool)
         elif tool_name == "entity_extraction":
             return _handle_entity_extraction(arguments, tool)
         elif tool_name == "hipporag_retrieve":
             return _handle_hipporag_retrieve(arguments, tool)
+        elif tool_name == "mode_detection":
+            return _handle_detect_mode(arguments, tool)
         elif tool_name == "detect_mode":
             return _handle_detect_mode(arguments, tool)
+        elif tool_name == "lifecycle_status":
+            return _handle_lifecycle_status(arguments, tool)
         elif tool_name == "obsidian_sync":
             return _handle_obsidian_sync(arguments, tool)
         else:
@@ -1053,8 +1240,14 @@ def _apply_migrations(config: Dict[str, Any]) -> None:
 
 def main():
     """Main stdio MCP server loop with production features."""
+    import argparse
     # Suppress loguru output to stderr (interferes with stdio protocol)
     logger.remove()
+
+    parser = argparse.ArgumentParser(description="Memory MCP stdio server")
+    parser.add_argument("--list-tools", action="store_true", help="Print available tools and exit")
+    parser.add_argument("--test-mode", action="store_true", help="Initialize dependencies and exit")
+    args, _ = parser.parse_known_args()
 
     # Load config and initialize Nexus search tool
     config = load_config()
@@ -1063,6 +1256,13 @@ def main():
     _apply_migrations(config)
 
     nexus_search_tool = NexusSearchTool(config)
+
+    if args.list_tools:
+        print(json.dumps({"tools": handle_list_tools()}), flush=True)
+        return
+    if args.test_mode:
+        print(json.dumps({"status": "ok"}), flush=True)
+        return
 
     # Process stdio messages
     for line in sys.stdin:

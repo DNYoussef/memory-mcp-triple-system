@@ -252,11 +252,11 @@ class EventLog:
         NASA Rule 10: 23 LOC (≤60) ✅
         """
         if event_types:
-            type_placeholders = ','.join(['?'] * len(event_types))
+            type_params = ','.join(['?'] * len(event_types))
             query = f"""
                 SELECT * FROM event_log
                 WHERE timestamp BETWEEN ? AND ?
-                AND event_type IN ({type_placeholders})
+                AND event_type IN ({type_params})
                 ORDER BY timestamp ASC
             """
             params = [

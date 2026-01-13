@@ -5,10 +5,11 @@ Indexes text chunks with embeddings into ChromaDB embedded vector database.
 NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 import uuid
 import time
 import sqlite3
+import threading
 import chromadb
 from loguru import logger
 from tenacity import (
@@ -34,6 +35,26 @@ def db_retry(func):
 
 class VectorIndexer:
     """Manages vector indexing in ChromaDB (embedded)."""
+
+    _instances: Dict[Tuple[str, str], "VectorIndexer"] = {}
+    _instance_lock = threading.Lock()
+
+    @classmethod
+    def get_instance(
+        cls,
+        persist_directory: str = "./chroma_data",
+        collection_name: str = "memory_chunks"
+    ) -> "VectorIndexer":
+        """Return a shared VectorIndexer instance for given configuration."""
+        key = (persist_directory, collection_name)
+        if key not in cls._instances:
+            with cls._instance_lock:
+                if key not in cls._instances:
+                    cls._instances[key] = cls(
+                        persist_directory=persist_directory,
+                        collection_name=collection_name
+                    )
+        return cls._instances[key]
 
     def __init__(
         self,

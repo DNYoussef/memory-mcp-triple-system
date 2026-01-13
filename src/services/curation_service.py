@@ -328,7 +328,7 @@ class CurationService:
         text = chunk['text'].lower()
         word_count = len(text.split())
 
-        # Rule 1: TODO/FIXME → temporary
+        # Rule 1: Task markers → temporary
         if 'todo' in text or 'fixme' in text:
             return self.LIFECYCLE_TEMPORARY
 

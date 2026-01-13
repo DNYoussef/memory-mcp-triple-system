@@ -65,7 +65,7 @@ class VectorSearchTool:
         """Lazy load vector indexer."""
         if self._indexer is None:
             vector_config = self.config['storage']['vector_db']
-            self._indexer = VectorIndexer(
+            self._indexer = VectorIndexer.get_instance(
                 persist_directory=vector_config.get('persist_directory', './chroma_data'),
                 collection_name=vector_config.get('collection_name', 'memory_chunks')
             )
@@ -93,7 +93,7 @@ class VectorSearchTool:
 
         # Check embeddings
         try:
-            # Test with dummy text
+            # Test with probe text
             _ = self.embedder.encode_single("test")
             services['embeddings'] = 'available'
         except Exception as e:

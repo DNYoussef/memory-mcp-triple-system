@@ -9,11 +9,13 @@ Query patterns: "What's my X?" (e.g., "What's my coding style?")
 NASA Rule 10 Compliant: All functions ≤60 LOC
 """
 
-import sqlite3
 import json
+import sqlite3
+import threading
+from contextlib import contextmanager
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, List, Dict, Any
-from datetime import datetime, timedelta
 from loguru import logger
 
 
@@ -47,7 +49,8 @@ class KVStore:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
-        self._conn: Optional[sqlite3.Connection] = None
+        self._lock = threading.RLock()
+        self._local = threading.local()
         self._create_table()
 
     def _get_connection(self) -> sqlite3.Connection:
@@ -56,13 +59,29 @@ class KVStore:
 
         NASA Rule 10: 10 LOC (≤60) ✅
         """
-        if self._conn is None:
-            self._conn = sqlite3.connect(
+        if not hasattr(self._local, "conn") or self._local.conn is None:
+            self._local.conn = sqlite3.connect(
                 str(self.db_path),
-                check_same_thread=False
+                check_same_thread=False,
+                timeout=30.0
             )
-            self._conn.row_factory = sqlite3.Row
-        return self._conn
+            self._local.conn.row_factory = sqlite3.Row
+        return self._local.conn
+
+    @contextmanager
+    def _transaction(self):
+        """Thread-safe transaction context manager."""
+        with self._lock:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            try:
+                yield cursor
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                raise
+            finally:
+                cursor.close()
 
     def _create_table(self) -> None:
         """
@@ -77,32 +96,28 @@ class KVStore:
 
         NASA Rule 10: 30 LOC (≤60) ✅
         """
-        conn = self._get_connection()
-        cursor = conn.cursor()
+        with self._transaction() as cursor:
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS kv_store (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL,
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    expires_at DATETIME
+                )
+            """)
 
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS kv_store (
-                key TEXT PRIMARY KEY,
-                value TEXT NOT NULL,
-                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                expires_at DATETIME
-            )
-        """)
+            # Index for prefix queries
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_kv_key_prefix
+                ON kv_store(key)
+            """)
 
-        # Index for prefix queries
-        cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_kv_key_prefix
-            ON kv_store(key)
-        """)
-
-        # Index for expiration cleanup
-        cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_kv_expires_at
-            ON kv_store(expires_at)
-        """)
-
-        conn.commit()
+            # Index for expiration cleanup
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_kv_expires_at
+                ON kv_store(expires_at)
+            """)
 
     def get(self, key: str) -> Optional[str]:
         """
@@ -117,29 +132,24 @@ class KVStore:
 
         NASA Rule 10: 30 LOC (≤60) ✅
         """
-        conn = self._get_connection()
-        cursor = conn.cursor()
-
         try:
-            cursor.execute(
-                "SELECT value, expires_at FROM kv_store WHERE key = ?",
-                (key,)
-            )
-            row = cursor.fetchone()
+            with self._transaction() as cursor:
+                cursor.execute(
+                    "SELECT value, expires_at FROM kv_store WHERE key = ?",
+                    (key,)
+                )
+                row = cursor.fetchone()
 
-            if not row:
-                return None
-
-            # Check if expired
-            if row["expires_at"]:
-                expires_at = datetime.fromisoformat(row["expires_at"])
-                if datetime.now() > expires_at:
-                    # Lazy cleanup: delete expired entry
-                    cursor.execute("DELETE FROM kv_store WHERE key = ?", (key,))
-                    conn.commit()
+                if not row:
                     return None
 
-            return row["value"]
+                if row["expires_at"]:
+                    expires_at = datetime.fromisoformat(row["expires_at"])
+                    if datetime.now() > expires_at:
+                        cursor.execute("DELETE FROM kv_store WHERE key = ?", (key,))
+                        return None
+
+                return row["value"]
 
         except sqlite3.Error as e:
             logger.error(f"KV get failed for key '{key}': {e}")
@@ -159,9 +169,6 @@ class KVStore:
 
         NASA Rule 10: 42 LOC (≤60) ✅
         """
-        conn = self._get_connection()
-        cursor = conn.cursor()
-
         # Serialize value if needed
         if isinstance(value, (dict, list)):
             value = json.dumps(value)
@@ -173,27 +180,25 @@ class KVStore:
             expires_at = (now + timedelta(seconds=ttl)).isoformat()
 
         try:
-            cursor.execute("""
-                INSERT INTO kv_store (key, value, created_at, updated_at, expires_at)
-                VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT(key) DO UPDATE SET
-                    value = excluded.value,
-                    updated_at = excluded.updated_at,
-                    expires_at = excluded.expires_at
-            """, (
-                key,
-                value,
-                now.isoformat(),
-                now.isoformat(),
-                expires_at
-            ))
-
-            conn.commit()
+            with self._transaction() as cursor:
+                cursor.execute("""
+                    INSERT INTO kv_store (key, value, created_at, updated_at, expires_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT(key) DO UPDATE SET
+                        value = excluded.value,
+                        updated_at = excluded.updated_at,
+                        expires_at = excluded.expires_at
+                """, (
+                    key,
+                    value,
+                    now.isoformat(),
+                    now.isoformat(),
+                    expires_at
+                ))
             return True
 
         except sqlite3.Error as e:
             logger.error(f"KV set failed for key '{key}': {e}")
-            conn.rollback()
             return False
 
     def delete(self, key: str) -> bool:
@@ -208,20 +213,16 @@ class KVStore:
 
         NASA Rule 10: 20 LOC (≤60) ✅
         """
-        conn = self._get_connection()
-        cursor = conn.cursor()
-
         try:
-            cursor.execute(
-                "DELETE FROM kv_store WHERE key = ?",
-                (key,)
-            )
-            conn.commit()
-            return cursor.rowcount > 0
+            with self._transaction() as cursor:
+                cursor.execute(
+                    "DELETE FROM kv_store WHERE key = ?",
+                    (key,)
+                )
+                return cursor.rowcount > 0
 
         except sqlite3.Error as e:
             logger.error(f"KV delete failed for key '{key}': {e}")
-            conn.rollback()
             return False
 
     def list_keys(self, prefix: str = "") -> List[str]:
@@ -236,19 +237,17 @@ class KVStore:
 
         NASA Rule 10: 22 LOC (≤60) ✅
         """
-        conn = self._get_connection()
-        cursor = conn.cursor()
-
         try:
-            if prefix:
-                cursor.execute(
-                    "SELECT key FROM kv_store WHERE key LIKE ? ORDER BY key",
-                    (f"{prefix}%",)
-                )
-            else:
-                cursor.execute("SELECT key FROM kv_store ORDER BY key")
+            with self._transaction() as cursor:
+                if prefix:
+                    cursor.execute(
+                        "SELECT key FROM kv_store WHERE key LIKE ? ORDER BY key",
+                        (f"{prefix}%",)
+                    )
+                else:
+                    cursor.execute("SELECT key FROM kv_store ORDER BY key")
 
-            return [row["key"] for row in cursor.fetchall()]
+                return [row["key"] for row in cursor.fetchall()]
 
         except sqlite3.Error as e:
             logger.error(f"KV list_keys failed: {e}")
@@ -315,13 +314,11 @@ class KVStore:
 
         NASA Rule 10: 14 LOC (≤60) ✅
         """
-        conn = self._get_connection()
-        cursor = conn.cursor()
-
         try:
-            cursor.execute("SELECT COUNT(*) as count FROM kv_store")
-            row = cursor.fetchone()
-            return int(row["count"]) if row else 0
+            with self._transaction() as cursor:
+                cursor.execute("SELECT COUNT(*) as count FROM kv_store")
+                row = cursor.fetchone()
+                return int(row["count"]) if row else 0
         except sqlite3.Error as e:
             logger.error(f"KV count failed: {e}")
             return 0
@@ -332,9 +329,10 @@ class KVStore:
 
         NASA Rule 10: 5 LOC (≤60) ✅
         """
-        if self._conn:
-            self._conn.close()
-            self._conn = None
+        with self._lock:
+            if hasattr(self._local, "conn") and self._local.conn:
+                self._local.conn.close()
+                self._local.conn = None
 
     def __enter__(self) -> "KVStore":
         """Context manager entry."""
@@ -353,25 +351,21 @@ class KVStore:
 
         NASA Rule 10: 23 LOC (≤60) ✅
         """
-        conn = self._get_connection()
-        cursor = conn.cursor()
-
         try:
-            cursor.execute("""
-                DELETE FROM kv_store
-                WHERE expires_at IS NOT NULL
-                AND expires_at < ?
-            """, (datetime.now().isoformat(),))
+            with self._transaction() as cursor:
+                cursor.execute("""
+                    DELETE FROM kv_store
+                    WHERE expires_at IS NOT NULL
+                    AND expires_at < ?
+                """, (datetime.now().isoformat(),))
 
-            deleted = cursor.rowcount
-            conn.commit()
+                deleted = cursor.rowcount
 
-            if deleted > 0:
-                logger.info(f"Cleaned up {deleted} expired entries")
+                if deleted > 0:
+                    logger.info(f"Cleaned up {deleted} expired entries")
 
-            return deleted
+                return deleted
 
         except sqlite3.Error as e:
             logger.error(f"KV cleanup_expired failed: {e}")
-            conn.rollback()
             return 0

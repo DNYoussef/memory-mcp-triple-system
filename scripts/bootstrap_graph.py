@@ -23,6 +23,15 @@ from services.graph_service import GraphService
 from services.entity_service import EntityService
 
 
+def load_config() -> Dict[str, Any]:
+    """Load Memory MCP config."""
+    import yaml
+
+    config_path = Path(__file__).parent.parent / "config" / "memory-mcp.yaml"
+    with open(config_path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
 def get_chromadb_client(chroma_dir: Path):
     """Get ChromaDB client."""
     import chromadb
@@ -35,7 +44,7 @@ def get_chromadb_client(chroma_dir: Path):
     return client
 
 
-def get_all_memories(client, collection_name: str = "memory_mcp", limit: int = 0) -> List[Dict[str, Any]]:
+def get_all_memories(client, collection_name: str, limit: int = 0) -> List[Dict[str, Any]]:
     """Retrieve all memories from ChromaDB."""
     try:
         collection = client.get_collection(collection_name)
@@ -66,7 +75,7 @@ def get_all_memories(client, collection_name: str = "memory_mcp", limit: int = 0
 def bootstrap_graph(
     data_dir: Path,
     chroma_dir: Path,
-    collection_name: str = "memory_chunks",
+    collection_name: str,
     batch_size: int = 100,
     limit: int = 0
 ) -> Dict[str, int]:
@@ -187,10 +196,23 @@ def bootstrap_graph(
 
 
 def main():
+    config = load_config()
+    vector_config = config.get("storage", {}).get("vector_db", {})
+
     parser = argparse.ArgumentParser(description="Bootstrap graph from ChromaDB")
     parser.add_argument("--data-dir", type=str, default="./data", help="Data directory for graph")
-    parser.add_argument("--chroma-dir", type=str, default="./chroma_data", help="ChromaDB directory")
-    parser.add_argument("--collection", type=str, default="memory_chunks", help="Collection name")
+    parser.add_argument(
+        "--chroma-dir",
+        type=str,
+        default=vector_config.get("persist_directory", "./chroma_data"),
+        help="ChromaDB directory"
+    )
+    parser.add_argument(
+        "--collection",
+        type=str,
+        default=vector_config.get("collection_name", "memory_chunks"),
+        help="Collection name"
+    )
     parser.add_argument("--batch-size", type=int, default=100, help="Batch size for saves")
     parser.add_argument("--limit", type=int, default=0, help="Max memories (0 = all)")
     args = parser.parse_args()
