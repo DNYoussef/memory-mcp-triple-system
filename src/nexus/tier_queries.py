@@ -8,6 +8,7 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 from typing import List, Dict, Any, Optional
 import re
 from loguru import logger
+from ..services.entity_service import load_spacy_model
 
 
 class TierQueryMixin:
@@ -194,11 +195,20 @@ class TierQueryMixin:
         if not query or not query.strip():
             return "unknown"
 
+        # Prefer spaCy entity spans when available
+        try:
+            nlp = load_spacy_model()
+            doc = nlp(query)
+            if doc.ents:
+                longest = max(doc.ents, key=lambda ent: len(ent.text))
+                return longest.text
+        except Exception as e:
+            logger.debug(f"spaCy entity extraction failed, using regex: {e}")
+
         # Find capitalized phrases (2+ adjacent capitalized words)
         cap_phrase_pattern = r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b'
         phrases = re.findall(cap_phrase_pattern, query)
         if phrases:
-            # Return longest capitalized phrase
             return max(phrases, key=len)
 
         # Find single capitalized words (excluding sentence starters)

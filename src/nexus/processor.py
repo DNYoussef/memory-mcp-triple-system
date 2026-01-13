@@ -131,8 +131,15 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         if not candidates:
             return self._empty_result(mode), stats
 
+        # Combine tier scores into hybrid candidates
+        combine_start = time.time()
+        combined = self._combine_tier_scores(candidates)
+        stats["combine_ms"] = int((time.time() - combine_start) * 1000)
+        if not combined:
+            return self._empty_result(mode), stats
+
         # Step 2: Filter
-        filtered, stats = self._step_filter(candidates, stats)
+        filtered, stats = self._step_filter(combined, stats)
         if not filtered:
             return self._empty_result(mode), stats
 
@@ -142,6 +149,75 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         result, stats = self._step_compress(ranked, mode, token_budget, stats)
 
         return result, stats
+
+    def _candidate_key(self, candidate: Dict[str, Any]) -> str:
+        """Build a stable key for combining tier scores."""
+        candidate_id = candidate.get("id")
+        if candidate_id:
+            return str(candidate_id)
+
+        metadata = candidate.get("metadata", {})
+        file_path = metadata.get("file_path")
+        if file_path:
+            chunk_index = metadata.get("chunk_index", 0)
+            return f"{file_path}::{chunk_index}"
+
+        text = candidate.get("text", "")
+        return text[:200] if text else "unknown"
+
+    def _combine_tier_scores(
+        self,
+        candidates: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Combine tier-specific scores into hybrid candidates.
+
+        Adds vector_score, graph_score, bayesian_score and hybrid score fields.
+        """
+        grouped: Dict[str, Dict[str, Any]] = {}
+
+        for candidate in candidates:
+            key = self._candidate_key(candidate)
+            entry = grouped.setdefault(key, {
+                "id": candidate.get("id", key),
+                "text": candidate.get("text", ""),
+                "metadata": candidate.get("metadata", {}),
+                "vector_score": 0.0,
+                "graph_score": 0.0,
+                "bayesian_score": 0.0,
+                "source_tiers": set()
+            })
+
+            tier = candidate.get("tier", "vector")
+            score = float(candidate.get("score", 0.0))
+            entry["source_tiers"].add(tier)
+
+            if tier == "vector":
+                entry["vector_score"] = max(entry["vector_score"], score)
+            elif tier == "hipporag":
+                entry["graph_score"] = max(entry["graph_score"], score)
+            elif tier == "bayesian":
+                entry["bayesian_score"] = max(entry["bayesian_score"], score)
+
+            if not entry.get("text") and candidate.get("text"):
+                entry["text"] = candidate["text"]
+            if not entry.get("metadata") and candidate.get("metadata"):
+                entry["metadata"] = candidate["metadata"]
+
+        combined = []
+        for entry in grouped.values():
+            final_score = (
+                self.weights.get("vector", 0.4) * entry["vector_score"] +
+                self.weights.get("hipporag", 0.4) * entry["graph_score"] +
+                self.weights.get("bayesian", 0.2) * entry["bayesian_score"]
+            )
+            entry["score"] = final_score
+            entry["hybrid_score"] = final_score
+            entry["tier"] = "hybrid"
+            entry["source_tiers"] = sorted(entry["source_tiers"])
+            combined.append(entry)
+
+        return combined
 
     def _step_recall(self, query: str, top_k: int, stats: Dict[str, Any]) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """Step 1: Recall candidates."""
@@ -316,14 +392,26 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         Returns:
             Sorted list (highest score first) with hybrid_score added
         """
-        for candidate in candidates:
-            tier = candidate.get("tier", "vector")
-            tier_score = candidate.get("score", 0.0)
-            weight = self.weights.get(tier, 0.4)
+        if not candidates:
+            return []
 
-            # Hybrid score = tier_weight * tier_score
-            candidate["hybrid_score"] = weight * tier_score
-            candidate["tier_weight"] = weight
+        for candidate in candidates:
+            vector_score = float(candidate.get("vector_score", 0.0))
+            graph_score = float(candidate.get("graph_score", 0.0))
+            bayesian_score = float(candidate.get("bayesian_score", 0.0))
+
+            final_score = (
+                self.weights.get("vector", 0.4) * vector_score +
+                self.weights.get("hipporag", 0.4) * graph_score +
+                self.weights.get("bayesian", 0.2) * bayesian_score
+            )
+            candidate["score"] = final_score
+            candidate["hybrid_score"] = final_score
+            candidate["score_breakdown"] = {
+                "vector": vector_score,
+                "graph": graph_score,
+                "bayesian": bayesian_score
+            }
 
         # Sort by hybrid score (descending)
         ranked = sorted(

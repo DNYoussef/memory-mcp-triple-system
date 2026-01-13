@@ -45,7 +45,8 @@ class QueryReplay:
         db_path: str = "memory.db",
         nexus_processor: Optional[Any] = None,
         kv_store: Optional[Any] = None,
-        vector_indexer: Optional[Any] = None
+        vector_indexer: Optional[Any] = None,
+        allow_mock: bool = False
     ):
         """
         Initialize query replay engine.
@@ -55,6 +56,7 @@ class QueryReplay:
             nexus_processor: Optional NexusProcessor for real queries
             kv_store: Optional KVStore for context
             vector_indexer: Optional VectorIndexer for snapshots
+            allow_mock: Allow mock replay fallback (dev only)
         """
         self.repository = QueryTraceRepository(db_path)
         self.context_reconstructor = ContextReconstructor(
@@ -63,6 +65,7 @@ class QueryReplay:
         )
         self.comparator = TraceComparator()
         self._nexus_processor = nexus_processor
+        self._allow_mock = allow_mock
 
         logger.info(f"QueryReplay initialized: db_path={db_path}")
 
@@ -125,8 +128,10 @@ class QueryReplay:
 
         if self._nexus_processor is not None:
             self._execute_real_replay(new_trace, query, context)
-        else:
+        elif self._allow_mock:
             self._execute_mock_replay(new_trace, query)
+        else:
+            raise RuntimeError("QueryReplay requires NexusProcessor unless allow_mock is True")
 
         new_trace.total_latency_ms = int((time.time() - start_time) * 1000)
         return new_trace
@@ -153,8 +158,12 @@ class QueryReplay:
             trace.output = f"Real replay: {len(trace.retrieved_chunks)} chunks"
             logger.debug(f"Real replay executed: {query[:50]}...")
         except Exception as e:
-            logger.warning(f"Real replay failed, using mock: {e}")
-            self._execute_mock_replay(trace, query)
+            if self._allow_mock:
+                logger.warning(f"Real replay failed, using mock: {e}")
+                self._execute_mock_replay(trace, query)
+            else:
+                logger.error(f"Real replay failed: {e}")
+                raise
 
     def _execute_mock_replay(
         self,

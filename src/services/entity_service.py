@@ -10,10 +10,29 @@ NASA Rule 10 Compliant: All functions ≤60 LOC
 from typing import List, Dict, Any, Optional, Set
 from loguru import logger
 import spacy
+from spacy.cli import download
 from difflib import SequenceMatcher
 import networkx as nx
 
 from .graph_service import GraphService
+
+_MODEL_CACHE: Dict[str, "spacy.language.Language"] = {}
+
+
+def load_spacy_model(model_name: str = "en_core_web_sm") -> "spacy.language.Language":
+    """Load spaCy model with auto-download and caching."""
+    if model_name in _MODEL_CACHE:
+        return _MODEL_CACHE[model_name]
+
+    try:
+        nlp = spacy.load(model_name)
+    except OSError:
+        logger.info("Downloading spaCy model: %s", model_name)
+        download(model_name)
+        nlp = spacy.load(model_name)
+
+    _MODEL_CACHE[model_name] = nlp
+    return nlp
 
 
 class EntityService:
@@ -46,16 +65,8 @@ class EntityService:
         Args:
             model_name: spaCy model name (default: en_core_web_sm)
         """
-        try:
-            self.nlp = spacy.load(model_name)
-            logger.info(f"Loaded spaCy model: {model_name}")
-
-        except OSError:
-            logger.error(
-                f"spaCy model '{model_name}' not found. "
-                f"Install with: python -m spacy download {model_name}"
-            )
-            raise
+        self.nlp = load_spacy_model(model_name)
+        logger.info(f"Loaded spaCy model: {model_name}")
 
     def extract_entities(self, text: str) -> List[Dict[str, Any]]:
         """

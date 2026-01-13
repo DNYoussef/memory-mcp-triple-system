@@ -24,6 +24,15 @@ from src.indexing.embedding_pipeline import EmbeddingPipeline
 from src.indexing.vector_indexer import VectorIndexer
 
 
+def load_config() -> Dict[str, Any]:
+    """Load Memory MCP config."""
+    import yaml
+
+    config_path = Path(__file__).parent.parent / "config" / "memory-mcp.yaml"
+    with open(config_path, "r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
 def print_header(title: str):
     """Print section header."""
     print("\n" + "=" * 70)
@@ -188,6 +197,11 @@ def main():
     print("\nIngesting system documentation into the memory system...")
     print("This enables AI models to retrieve information about the system itself.")
 
+    config = load_config()
+    vector_config = config.get("storage", {}).get("vector_db", {})
+    collection_name = vector_config.get("collection_name", "memory_chunks")
+    persist_directory = vector_config.get("persist_directory", "./chroma_data")
+
     # Step 1: Initialize components
     print_header("Step 1: Initialize Components")
 
@@ -215,9 +229,9 @@ def main():
         sys.exit(1)
 
     print("\nInitializing vector indexer...")
-    indexer = VectorIndexer(
-        persist_directory='./chroma_data',
-        collection_name='memory_embeddings'
+    indexer = VectorIndexer.get_instance(
+        persist_directory=persist_directory,
+        collection_name=collection_name
     )
     indexer.create_collection(vector_size=384)
     print("✓ VectorIndexer ready")
@@ -254,8 +268,8 @@ def main():
 
     print(f"\nFiles processed: {successful_files}/{len(doc_files)}")
     print(f"Total chunks created: {total_chunks}")
-    print(f"Storage location: ./chroma_data/")
-    print(f"Collection: memory_embeddings")
+    print(f"Storage location: {persist_directory}")
+    print(f"Collection: {collection_name}")
 
     if total_chunks == 0:
         print("\n⚠ WARNING: No chunks were created!")

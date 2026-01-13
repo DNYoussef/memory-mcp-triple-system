@@ -37,7 +37,7 @@ python scripts/ingest_documentation.py
 Files processed: 4/4
 Total chunks created: 173
 Storage location: ./chroma_data/
-Collection: memory_embeddings
+Collection: memory_chunks (from config)
 
 ✅ Documentation ingestion complete!
 ```

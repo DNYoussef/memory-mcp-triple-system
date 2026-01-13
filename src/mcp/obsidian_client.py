@@ -84,7 +84,7 @@ class ObsidianMCPClient:
         """Lazy load VectorIndexer."""
         if self._indexer is None:
             from ..indexing.vector_indexer import VectorIndexer
-            self._indexer = VectorIndexer(persist_directory="./chroma_data")
+            self._indexer = VectorIndexer.get_instance(persist_directory="./chroma_data")
         return self._indexer
 
     @property

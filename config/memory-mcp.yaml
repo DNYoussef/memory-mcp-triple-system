@@ -52,6 +52,10 @@ chunking:
   min_chunk_size: 128
   overlap: 50
 
+tagging:
+  strict: false  # When true, reject requests missing WHO/WHEN/PROJECT/WHY
+  auto_fill: true  # When true, fill missing tags with defaults
+
 performance:
   vector_search_timeout_ms: 200
   graph_query_timeout_ms: 500

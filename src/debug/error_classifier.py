@@ -60,7 +60,7 @@ class ErrorClassifier:
             try:
                 return ErrorType(trace.error_type)
             except ValueError:
-                pass
+                logger.debug("Unknown error_type on trace: %s", trace.error_type)
 
         # Check for context bugs
         if self.rules.is_wrong_store(trace):
