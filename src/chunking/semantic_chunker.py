@@ -41,8 +41,11 @@ class SemanticChunker:
             raise ValueError("Min chunk size must be positive")
         if max_chunk_size <= min_chunk_size:
             raise ValueError("Max must be > min")
-        if not (0 <= overlap < min_chunk_size):
+        if overlap < 0:
             raise ValueError("Invalid overlap")
+        if overlap >= min_chunk_size:
+            overlap = max(0, min_chunk_size // 2)
+            logger.warning("Overlap reduced to fit chunk size constraints")
         if not (0.0 <= similarity_threshold <= 1.0):
             raise ValueError("Threshold must be 0-1")
 
@@ -71,7 +74,7 @@ class SemanticChunker:
                 self._use_semantic = False
         return self._embedding_pipeline
 
-    def chunk_text(self, content: str, file_path: str) -> List[Dict[str, Any]]:
+    def chunk_text(self, content: str, file_path: str) -> List[Dict[str, Any]]: 
         """
         Chunk text content directly.
 
@@ -101,6 +104,10 @@ class SemanticChunker:
 
         logger.info(f"Created {len(result)} chunks from {file_path}")
         return result
+
+    def chunk(self, content: str, file_path: str = "in_memory") -> List[Dict[str, Any]]:
+        """Chunk raw content with a default in-memory source label."""
+        return self.chunk_text(content, file_path)
 
     def chunk_file(self, file_path: Path) -> List[Dict[str, Any]]:
         """

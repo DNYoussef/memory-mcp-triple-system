@@ -57,6 +57,10 @@ class EmbeddingPipeline:
         logger.debug(f"Encoded {len(texts)} texts")
         return embeddings
 
+    def encode_batch(self, texts: List[str]) -> np.ndarray:
+        """Batch alias for encode to match legacy call sites."""
+        return self.encode(texts)
+
     def encode_single(self, text: str) -> np.ndarray:
         """
         Generate embedding for single text.

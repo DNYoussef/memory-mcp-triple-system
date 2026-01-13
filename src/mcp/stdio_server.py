@@ -566,7 +566,7 @@ def _enrich_metadata_with_tagging(metadata: Dict[str, Any]) -> Dict[str, Any]:
     now = datetime.utcnow()
 
     # WHO - Agent information
-    agent_name = metadata.get('agent', 'unknown-agent:1.0.0')
+    agent_name = metadata.get('agent', 'unknown')
     agent_category = metadata.get('agent_category', 'general')
     who = metadata.get('who', metadata.get('WHO', agent_name))
 
@@ -578,7 +578,7 @@ def _enrich_metadata_with_tagging(metadata: Dict[str, Any]) -> Dict[str, Any]:
     # PROJECT - From env or metadata or default
     project = os.environ.get(
         'MEMORY_MCP_PROJECT',
-        metadata.get('project', metadata.get('PROJECT', 'default'))
+        metadata.get('project', metadata.get('PROJECT', 'memory-mcp-triple-system'))
     )
 
     # WHY - Intent

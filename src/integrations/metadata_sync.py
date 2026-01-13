@@ -16,7 +16,7 @@ class MetadataSync:
 
     def beads_to_memory_mcp(self, task: BeadTask, project: str) -> Dict[str, Any]:
         """Map Beads task metadata to Memory MCP tagging protocol."""
-        who = task.assignee or "unknown-agent:1.0.0"
+        who = task.assignee or "unknown"
         when = task.updated_at.isoformat() + "Z" if task.updated_at else _now_iso()
         why = task.issue_type or "task"
         return {

@@ -145,7 +145,89 @@ class VectorIndexer:
         )
         elapsed_ms = (time.perf_counter() - start) * 1000
 
-        logger.info(f"Indexed {len(chunks)} chunks in {elapsed_ms:.2f}ms")
+        logger.info(f"Indexed {len(chunks)} chunks in {elapsed_ms:.2f}ms")      
+
+    @db_retry
+    def add_document(
+        self,
+        doc_id: str,
+        text: str,
+        embedding: List[float],
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """
+        Add a single document with a known ID.
+
+        Args:
+            doc_id: Document identifier
+            text: Document text
+            embedding: Embedding vector
+            metadata: Optional metadata
+
+        Returns:
+            True if added, False otherwise
+        """
+        if not doc_id or not text:
+            raise ValueError("doc_id and text are required")
+        if not embedding:
+            raise ValueError("embedding cannot be empty")
+
+        try:
+            self.collection.add(
+                ids=[doc_id],
+                documents=[text],
+                embeddings=[embedding],
+                metadatas=[metadata or {}]
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to add document {doc_id}: {e}")
+            return False
+
+    @db_retry
+    def add_documents(
+        self,
+        docs: List[Dict[str, Any]]
+    ) -> bool:
+        """
+        Add multiple documents with explicit IDs.
+
+        Args:
+            docs: List of dicts with id, text, embedding, metadata
+
+        Returns:
+            True if added, False otherwise
+        """
+        if not docs:
+            return True
+
+        ids = []
+        documents = []
+        embeddings = []
+        metadatas = []
+
+        for doc in docs:
+            doc_id = doc.get("id")
+            text = doc.get("text")
+            embedding = doc.get("embedding")
+            if not doc_id or not text or not embedding:
+                raise ValueError("Each doc requires id, text, and embedding")
+            ids.append(str(doc_id))
+            documents.append(text)
+            embeddings.append(embedding)
+            metadatas.append(doc.get("metadata", {}))
+
+        try:
+            self.collection.add(
+                ids=ids,
+                documents=documents,
+                embeddings=embeddings,
+                metadatas=metadatas
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to add documents: {e}")
+            return False
 
     @db_retry
     def delete_chunks(self, ids: List[str]) -> bool:
@@ -255,3 +337,34 @@ class VectorIndexer:
             })
 
         return formatted_results
+
+    @db_retry
+    def search(
+        self,
+        query_embedding: List[float],
+        top_k: int = 5,
+        where: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Search for similar documents and return normalized scores.
+
+        Args:
+            query_embedding: Query embedding vector
+            top_k: Number of results
+            where: Optional metadata filter
+
+        Returns:
+            List of result dicts with id, text, metadata, score
+        """
+        results = self.search_similar(query_embedding, top_k=top_k, where=where)
+        formatted = []
+        for result in results:
+            distance = result.get("distance", 0.0) or 0.0
+            similarity = max(0.0, min(1.0, 1.0 - (distance / 2.0)))
+            formatted.append({
+                "id": result.get("id"),
+                "text": result.get("document", ""),
+                "metadata": result.get("metadata", {}),
+                "score": similarity
+            })
+        return formatted

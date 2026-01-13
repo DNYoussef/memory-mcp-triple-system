@@ -279,8 +279,9 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
         if not sentences:
             return full_text[:100] + "..." if len(full_text) > 100 else full_text
 
+        max_len = min(200, max(50, int(len(full_text) / 5) - 1))
         if len(sentences) == 1:
-            return self._truncate_with_entities(sentences[0])
+            return self._truncate_with_entities(sentences[0], max_len=max_len)
 
         # ISS-011 FIX: Score sentences by entity density and position
         scored = []
@@ -299,7 +300,7 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
         scored.sort(reverse=True)
         best_sentence = scored[0][2] if scored else sentences[0]
 
-        return self._truncate_with_entities(best_sentence)
+        return self._truncate_with_entities(best_sentence, max_len=max_len)
 
     def _truncate_with_entities(self, text: str, max_len: int = 200) -> str:
         """Truncate text while preserving complete words and entities."""

@@ -94,8 +94,27 @@ class GraphService:
         return self._node_manager.get_node_count()
 
     # Edge operations (delegate to GraphEdgeManager)
-    def add_relationship(self, source: str, relationship_type: str, target: str, metadata: Optional[Dict] = None) -> bool:
-        return self._edge_manager.add_relationship(source, relationship_type, target, metadata)
+    def add_relationship(
+        self,
+        source: str,
+        relationship_type: str,
+        target: str,
+        metadata: Optional[Dict] = None
+    ) -> bool:
+        standard_types = {
+            self.EDGE_REFERENCES,
+            self.EDGE_MENTIONS,
+            self.EDGE_SIMILAR_TO,
+            self.EDGE_RELATED_TO
+        }
+        if relationship_type not in standard_types and target in standard_types:
+            relationship_type, target = target, relationship_type
+        return self._edge_manager.add_relationship(
+            source,
+            relationship_type,
+            target,
+            metadata
+        )
 
     def remove_edge(self, source: str, target: str) -> bool:
         return self._edge_manager.remove_edge(source, target)

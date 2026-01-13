@@ -400,6 +400,16 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
             graph_score = float(candidate.get("graph_score", 0.0))
             bayesian_score = float(candidate.get("bayesian_score", 0.0))
 
+            if not any([vector_score, graph_score, bayesian_score]):
+                tier = candidate.get("tier")
+                base_score = float(candidate.get("score", 0.0))
+                if tier == "vector":
+                    vector_score = base_score
+                elif tier == "hipporag":
+                    graph_score = base_score
+                elif tier == "bayesian":
+                    bayesian_score = base_score
+
             final_score = (
                 self.weights.get("vector", 0.4) * vector_score +
                 self.weights.get("hipporag", 0.4) * graph_score +
