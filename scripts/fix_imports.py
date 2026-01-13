@@ -9,7 +9,9 @@ import warnings
 
 # Set environment variables before any imports
 os.environ['PYTHONIOENCODING'] = 'utf-8'
-os.environ['HF_HOME'] = r'C:\Users\17175\.cache\huggingface'
+# Use standard HuggingFace cache location (cross-platform)
+if 'HF_HOME' not in os.environ:
+    os.environ['HF_HOME'] = os.path.join(os.path.expanduser('~'), '.cache', 'huggingface')
 
 # Fix Windows console encoding
 if sys.platform == 'win32':

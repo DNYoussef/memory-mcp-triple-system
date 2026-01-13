@@ -9,7 +9,9 @@ system:
 
 storage:
   data_dir: ./data  # Directory for SQLite databases (event_log, kv_store, query_traces)
-  obsidian_vault: C:/Users/17175/Documents/Obsidian Vault  # Path to Obsidian vault
+  # Obsidian integration (optional)
+  # Set OBSIDIAN_VAULT_PATH environment variable or uncomment and set path below:
+  # obsidian_vault: ~/Documents/Obsidian Vault
   vector_db:
     type: chromadb  # v5.0: Docker-free with ChromaDB
     persist_directory: ./chroma_data

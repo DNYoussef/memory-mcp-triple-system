@@ -7,7 +7,8 @@ echo.
 
 REM Set environment variables
 set PYTHONIOENCODING=utf-8
-set HF_HOME=C:\Users\17175\.cache\huggingface
+REM Use standard HuggingFace cache location (portable)
+if not defined HF_HOME set HF_HOME=%USERPROFILE%\.cache\huggingface
 set ENVIRONMENT=development
 set LOG_LEVEL=INFO
 
