@@ -111,6 +111,25 @@ pip install -e .
 pytest tests/unit/test_mode_detector.py tests/unit/test_mode_profile.py -v
 ```
 
+### Configuration (Optional)
+
+Copy `.env.example` to `.env` and configure as needed:
+
+```bash
+cp .env.example .env
+```
+
+**Environment Variables:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MEMORY_MCP_DATA_DIR` | `./data` | Data storage directory |
+| `HF_HOME` | `~/.cache/huggingface` | HuggingFace model cache |
+| `OBSIDIAN_VAULT_PATH` | (none) | Optional Obsidian integration |
+| `LOG_LEVEL` | `INFO` | Logging verbosity |
+
+All paths support `~` expansion for cross-platform compatibility.
+
 ### Running the MCP Server
 
 ```bash
@@ -118,12 +137,13 @@ pytest tests/unit/test_mode_detector.py tests/unit/test_mode_profile.py -v
 python -m src.mcp.stdio_server
 
 # The server listens on stdio for MCP protocol messages
-# 6 MCP tools available:
+# 11 MCP tools available:
 # - vector_search: Semantic similarity search with mode-aware context adaptation
 # - memory_store: Store information with automatic layer assignment
-# - graph_query: HippoRAG multi-hop reasoning (implementation in progress)
-# - entity_extraction: Named entity extraction (implementation in progress)
-# - hipporag_retrieve: Full HippoRAG pipeline (implementation in progress)
+# - kv_get/kv_set/kv_delete: Key-value storage operations
+# - graph_query: HippoRAG multi-hop reasoning
+# - entity_extraction: Named entity extraction
+# - hipporag_retrieve: Full HippoRAG pipeline
 # - detect_mode: Query mode detection (execution/planning/brainstorming)
 ```
 
