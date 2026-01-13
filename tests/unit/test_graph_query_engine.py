@@ -30,10 +30,10 @@ def graph_service(tmp_path):
     service.add_chunk_node('chunk_2', {'text': 'SpaceX is also led by Elon Musk'})
 
     # Add mentions edges
-    service.add_relationship('chunk_1', 'tesla', 'mentions', {})
-    service.add_relationship('chunk_1', 'elon_musk', 'mentions', {})
-    service.add_relationship('chunk_2', 'spacex', 'mentions', {})
-    service.add_relationship('chunk_2', 'elon_musk', 'mentions', {})
+    service.add_relationship('chunk_1', 'mentions', 'tesla', {})
+    service.add_relationship('chunk_1', 'mentions', 'elon_musk', {})
+    service.add_relationship('chunk_2', 'mentions', 'spacex', {})
+    service.add_relationship('chunk_2', 'mentions', 'elon_musk', {})
 
     return service
 
@@ -209,7 +209,7 @@ class TestGetEntityNeighbors:
     def test_get_neighbors_with_edge_type_filter(self, graph_service):
         """Test filtering neighbors by edge type."""
         # Add similar_to edge
-        graph_service.add_relationship('tesla', 'spacex', 'similar_to', {})
+        graph_service.add_relationship('tesla', 'similar_to', 'spacex', {})
 
         engine = GraphQueryEngine(graph_service=graph_service)
         neighbors = engine.get_entity_neighbors('tesla', edge_type='similar_to')
@@ -315,7 +315,7 @@ class TestMultiHopSearch:
     def test_multi_hop_single_hop(self, graph_service):
         """Test multi-hop search with max_hops=1."""
         # Add entity relationships (using valid edge types)
-        graph_service.add_relationship('tesla', 'elon_musk', 'related_to', {})
+        graph_service.add_relationship('tesla', 'related_to', 'elon_musk', {})
 
         engine = GraphQueryEngine(graph_service=graph_service)
         result = engine.multi_hop_search(
@@ -332,8 +332,8 @@ class TestMultiHopSearch:
     def test_multi_hop_two_hops(self, graph_service):
         """Test multi-hop search with max_hops=2."""
         # Add 2-hop path: tesla → elon_musk → spacex
-        graph_service.add_relationship('tesla', 'elon_musk', 'related_to', {})
-        graph_service.add_relationship('elon_musk', 'spacex', 'related_to', {})
+        graph_service.add_relationship('tesla', 'related_to', 'elon_musk', {})
+        graph_service.add_relationship('elon_musk', 'related_to', 'spacex', {})
 
         engine = GraphQueryEngine(graph_service=graph_service)
         result = engine.multi_hop_search(
@@ -350,9 +350,9 @@ class TestMultiHopSearch:
         """Test multi-hop search with max_hops=3."""
         # Add 3-hop path
         graph_service.add_entity_node('starship', 'PRODUCT', {'text': 'Starship'})
-        graph_service.add_relationship('tesla', 'elon_musk', 'related_to', {})
-        graph_service.add_relationship('elon_musk', 'spacex', 'related_to', {})
-        graph_service.add_relationship('spacex', 'starship', 'related_to', {})
+        graph_service.add_relationship('tesla', 'related_to', 'elon_musk', {})
+        graph_service.add_relationship('elon_musk', 'related_to', 'spacex', {})
+        graph_service.add_relationship('spacex', 'related_to', 'starship', {})
 
         engine = GraphQueryEngine(graph_service=graph_service)
         result = engine.multi_hop_search(
@@ -382,8 +382,8 @@ class TestMultiHopSearch:
     def test_multi_hop_filter_edge_types(self, graph_service):
         """Test multi-hop search with edge type filtering."""
         # Add multiple edge types
-        graph_service.add_relationship('tesla', 'elon_musk', 'related_to', {})
-        graph_service.add_relationship('tesla', 'spacex', 'similar_to', {})
+        graph_service.add_relationship('tesla', 'related_to', 'elon_musk', {})
+        graph_service.add_relationship('tesla', 'similar_to', 'spacex', {})
 
         engine = GraphQueryEngine(graph_service=graph_service)
 
@@ -400,7 +400,7 @@ class TestMultiHopSearch:
 
     def test_multi_hop_returns_distances(self, graph_service):
         """Test multi-hop search returns correct distances."""
-        graph_service.add_relationship('tesla', 'elon_musk', 'related_to', {})
+        graph_service.add_relationship('tesla', 'related_to', 'elon_musk', {})
 
         engine = GraphQueryEngine(graph_service=graph_service)
         result = engine.multi_hop_search(
@@ -414,7 +414,7 @@ class TestMultiHopSearch:
 
     def test_multi_hop_returns_paths(self, graph_service):
         """Test multi-hop search returns shortest paths."""
-        graph_service.add_relationship('tesla', 'elon_musk', 'related_to', {})
+        graph_service.add_relationship('tesla', 'related_to', 'elon_musk', {})
 
         engine = GraphQueryEngine(graph_service=graph_service)
         result = engine.multi_hop_search(
@@ -429,9 +429,9 @@ class TestMultiHopSearch:
     def test_multi_hop_handles_cycles(self, graph_service):
         """Test multi-hop search handles cyclic graphs."""
         # Create cycle: tesla → elon_musk → spacex → tesla
-        graph_service.add_relationship('tesla', 'elon_musk', 'related_to', {})
-        graph_service.add_relationship('elon_musk', 'spacex', 'related_to', {})
-        graph_service.add_relationship('spacex', 'tesla', 'related_to', {})
+        graph_service.add_relationship('tesla', 'related_to', 'elon_musk', {})
+        graph_service.add_relationship('elon_musk', 'related_to', 'spacex', {})
+        graph_service.add_relationship('spacex', 'related_to', 'tesla', {})
 
         engine = GraphQueryEngine(graph_service=graph_service)
         result = engine.multi_hop_search(
@@ -453,7 +453,7 @@ class TestSynonymy:
         """Test expanding single entity with synonyms."""
         # Add synonym relationship
         graph_service.add_entity_node('tsla', 'ORG', {'text': 'TSLA'})
-        graph_service.add_relationship('tesla', 'tsla', 'similar_to', {})
+        graph_service.add_relationship('tesla', 'similar_to', 'tsla', {})
 
         engine = GraphQueryEngine(graph_service=graph_service)
         expanded = engine.expand_with_synonyms(['tesla'])
@@ -467,8 +467,8 @@ class TestSynonymy:
         # Add synonyms for both entities
         graph_service.add_entity_node('tsla', 'ORG', {'text': 'TSLA'})
         graph_service.add_entity_node('spx', 'ORG', {'text': 'SPX'})
-        graph_service.add_relationship('tesla', 'tsla', 'similar_to', {})
-        graph_service.add_relationship('spacex', 'spx', 'similar_to', {})
+        graph_service.add_relationship('tesla', 'similar_to', 'tsla', {})
+        graph_service.add_relationship('spacex', 'similar_to', 'spx', {})
 
         engine = GraphQueryEngine(graph_service=graph_service)
         expanded = engine.expand_with_synonyms(['tesla', 'spacex'])
@@ -505,8 +505,8 @@ class TestSynonymy:
         """Test synonym expansion integrates with multi-hop search."""
         # Add synonym and relationship
         graph_service.add_entity_node('tsla', 'ORG', {'text': 'TSLA'})
-        graph_service.add_relationship('tesla', 'tsla', 'similar_to', {})
-        graph_service.add_relationship('tsla', 'elon_musk', 'related_to', {})
+        graph_service.add_relationship('tesla', 'similar_to', 'tsla', {})
+        graph_service.add_relationship('tsla', 'related_to', 'elon_musk', {})
 
         engine = GraphQueryEngine(graph_service=graph_service)
 
@@ -526,7 +526,7 @@ class TestEntityNeighborhood:
 
     def test_get_neighborhood_one_hop(self, graph_service):
         """Test 1-hop neighborhood extraction."""
-        graph_service.add_relationship('tesla', 'elon_musk', 'related_to', {})
+        graph_service.add_relationship('tesla', 'related_to', 'elon_musk', {})
 
         engine = GraphQueryEngine(graph_service=graph_service)
         neighborhood = engine.get_entity_neighborhood('tesla', hops=1)
@@ -537,8 +537,8 @@ class TestEntityNeighborhood:
 
     def test_get_neighborhood_two_hops(self, graph_service):
         """Test 2-hop neighborhood extraction."""
-        graph_service.add_relationship('tesla', 'elon_musk', 'related_to', {})
-        graph_service.add_relationship('elon_musk', 'spacex', 'related_to', {})
+        graph_service.add_relationship('tesla', 'related_to', 'elon_musk', {})
+        graph_service.add_relationship('elon_musk', 'related_to', 'spacex', {})
 
         engine = GraphQueryEngine(graph_service=graph_service)
         neighborhood = engine.get_entity_neighborhood('tesla', hops=2)
@@ -586,8 +586,8 @@ class TestMultiHopRetrieval:
         graph_service.add_entity_node('tesla', 'ORG', {'text': 'Tesla'})
         graph_service.add_entity_node('elon_musk', 'PERSON', {'text': 'Elon Musk'})
         graph_service.add_chunk_node('chunk_1', {'text': 'Tesla was founded'})
-        graph_service.add_relationship('chunk_1', 'tesla', 'mentions', {})
-        graph_service.add_relationship('tesla', 'elon_musk', 'related_to', {})
+        graph_service.add_relationship('chunk_1', 'mentions', 'tesla', {})
+        graph_service.add_relationship('tesla', 'related_to', 'elon_musk', {})
 
         service = HippoRagService(
             graph_service=graph_service,
@@ -614,9 +614,9 @@ class TestMultiHopRetrieval:
         graph_service.add_entity_node('elon_musk', 'PERSON', {'text': 'Elon Musk'})
         graph_service.add_entity_node('spacex', 'ORG', {'text': 'SpaceX'})
         graph_service.add_chunk_node('chunk_1', {'text': 'SpaceX launches rockets'})
-        graph_service.add_relationship('chunk_1', 'spacex', 'mentions', {})
-        graph_service.add_relationship('tesla', 'elon_musk', 'related_to', {})
-        graph_service.add_relationship('elon_musk', 'spacex', 'related_to', {})
+        graph_service.add_relationship('chunk_1', 'mentions', 'spacex', {})
+        graph_service.add_relationship('tesla', 'related_to', 'elon_musk', {})
+        graph_service.add_relationship('elon_musk', 'related_to', 'spacex', {})
 
         service = HippoRagService(
             graph_service=graph_service,
@@ -644,10 +644,10 @@ class TestMultiHopRetrieval:
         graph_service.add_entity_node('spacex', 'ORG', {'text': 'SpaceX'})
         graph_service.add_entity_node('starship', 'PRODUCT', {'text': 'Starship'})
         graph_service.add_chunk_node('chunk_1', {'text': 'Starship is a rocket'})
-        graph_service.add_relationship('chunk_1', 'starship', 'mentions', {})
-        graph_service.add_relationship('tesla', 'elon_musk', 'related_to', {})
-        graph_service.add_relationship('elon_musk', 'spacex', 'related_to', {})
-        graph_service.add_relationship('spacex', 'starship', 'related_to', {})
+        graph_service.add_relationship('chunk_1', 'mentions', 'starship', {})
+        graph_service.add_relationship('tesla', 'related_to', 'elon_musk', {})
+        graph_service.add_relationship('elon_musk', 'related_to', 'spacex', {})
+        graph_service.add_relationship('spacex', 'related_to', 'starship', {})
 
         service = HippoRagService(
             graph_service=graph_service,
@@ -674,9 +674,9 @@ class TestMultiHopRetrieval:
         graph_service.add_entity_node('elon_musk', 'PERSON', {'text': 'Elon Musk'})
         graph_service.add_chunk_node('chunk_1', {'text': 'Tesla info'})
         graph_service.add_chunk_node('chunk_2', {'text': 'Elon Musk info'})
-        graph_service.add_relationship('chunk_1', 'tesla', 'mentions', {})
-        graph_service.add_relationship('chunk_2', 'elon_musk', 'mentions', {})
-        graph_service.add_relationship('tesla', 'elon_musk', 'related_to', {})
+        graph_service.add_relationship('chunk_1', 'mentions', 'tesla', {})
+        graph_service.add_relationship('chunk_2', 'mentions', 'elon_musk', {})
+        graph_service.add_relationship('tesla', 'related_to', 'elon_musk', {})
 
         service = HippoRagService(
             graph_service=graph_service,
@@ -709,8 +709,8 @@ class TestMultiHopRetrieval:
         graph_service.add_entity_node('tesla', 'ORG', {'text': 'Tesla'})
         graph_service.add_entity_node('elon_musk', 'PERSON', {'text': 'Elon Musk'})
         graph_service.add_chunk_node('chunk_1', {'text': 'Tesla info'})
-        graph_service.add_relationship('chunk_1', 'tesla', 'mentions', {})
-        graph_service.add_relationship('tesla', 'elon_musk', 'related_to', {})
+        graph_service.add_relationship('chunk_1', 'mentions', 'tesla', {})
+        graph_service.add_relationship('tesla', 'related_to', 'elon_musk', {})
 
         service = HippoRagService(
             graph_service=graph_service,

@@ -20,15 +20,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 
 class TestMCPToolsExposed:
-    """Test C1.2-C1.6: All 7 MCP tools are exposed."""
+    """Test C1.2-C1.6: All 11 MCP tools are exposed."""
 
-    def test_handle_list_tools_returns_7_tools(self):
-        """Verify 7 tools are returned by handle_list_tools."""
+    def test_handle_list_tools_returns_11_tools(self):
+        """Verify 11 tools are returned by handle_list_tools."""
         from src.mcp.stdio_server import handle_list_tools
 
         tools = handle_list_tools()
 
-        assert len(tools) == 7, f"Expected 7 tools, got {len(tools)}"
+        assert len(tools) == 11, f"Expected 11 tools, got {len(tools)}"
 
     def test_all_required_tools_present(self):
         """Verify all required tool names are present."""

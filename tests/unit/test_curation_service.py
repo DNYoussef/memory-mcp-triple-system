@@ -63,7 +63,7 @@ class TestCurationServiceInitialization:
 
     def test_initialization_requires_chroma_client(self, tmp_path):
         """Test initialization fails without chroma_client."""
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             CurationService(
                 chroma_client=None,
                 data_dir=str(tmp_path)
@@ -120,10 +120,10 @@ class TestGetUnverifiedChunks:
 
     def test_get_unverified_chunks_limit_validation(self, service):
         """Test limit must be positive and <=100."""
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             service.get_unverified_chunks(limit=0)
 
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             service.get_unverified_chunks(limit=101)
 
 
@@ -166,7 +166,7 @@ class TestTagLifecycle:
 
     def test_tag_lifecycle_invalid_tag_fails(self, service):
         """Test invalid lifecycle tag raises assertion."""
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             service.tag_lifecycle('chunk123', 'invalid_tag')
 
     def test_tag_lifecycle_adds_updated_at(self, service):
@@ -266,10 +266,10 @@ class TestLogTime:
 
     def test_log_time_validation(self, service):
         """Test log_time validates inputs."""
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             service.log_time(duration_seconds=-1)
 
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             service.log_time(duration_seconds=60, chunks_curated=-1)
 
 
@@ -326,7 +326,7 @@ class TestPreferences:
             'time_budget_minutes': 10
         }
 
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             service.save_preferences('default', incomplete_prefs)
 
 

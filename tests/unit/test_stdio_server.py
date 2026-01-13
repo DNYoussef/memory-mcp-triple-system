@@ -48,10 +48,10 @@ class TestHandleListTools:
         tools = handle_list_tools()
         assert isinstance(tools, list)
 
-    def test_returns_seven_tools(self):
-        """Test exactly seven tools are returned."""
+    def test_returns_eleven_tools(self):
+        """Test exactly eleven tools are returned."""
         tools = handle_list_tools()
-        assert len(tools) == 7
+        assert len(tools) == 11
 
     def test_vector_search_tool_present(self):
         """Test vector_search tool is in the list."""
@@ -193,7 +193,13 @@ class TestHandleCallTool:
         """Test memory_store returns success structure."""
         result = handle_call_tool(
             "memory_store",
-            {"text": "content to store", "metadata": {"key": "test_key"}},
+            {"text": "content to store", "metadata": {
+                "key": "test_key",
+                "who": "test-agent",
+                "when": "2026-01-13T12:00:00",
+                "project": "test-project",
+                "why": "testing"
+            }},
             mock_vector_tool
         )
 
@@ -205,7 +211,12 @@ class TestHandleCallTool:
         """Test memory_store returns confirmation."""
         result = handle_call_tool(
             "memory_store",
-            {"text": "content to store"},
+            {"text": "content to store", "metadata": {
+                "who": "test-agent",
+                "when": "2026-01-13T12:00:00",
+                "project": "test-project",
+                "why": "testing"
+            }},
             mock_vector_tool
         )
 
@@ -344,7 +355,7 @@ class TestStdioMainLoop:
 
         assert "result" in response
         assert "tools" in response["result"]
-        assert len(response["result"]["tools"]) == 7
+        assert len(response["result"]["tools"]) == 11
 
     def test_error_response_format(self):
         """Test error response format for unknown method."""
@@ -434,7 +445,12 @@ class TestEdgeCases:
         """Test memory_store with empty text."""
         result = handle_call_tool(
             "memory_store",
-            {"text": ""},
+            {"text": "", "metadata": {
+                "who": "test-agent",
+                "when": "2026-01-13T12:00:00",
+                "project": "test-project",
+                "why": "testing"
+            }},
             mock_tool
         )
 
@@ -444,7 +460,12 @@ class TestEdgeCases:
         """Test memory_store uses default key when not provided."""
         result = handle_call_tool(
             "memory_store",
-            {"text": "test content"},
+            {"text": "test content", "metadata": {
+                "who": "test-agent",
+                "when": "2026-01-13T12:00:00",
+                "project": "test-project",
+                "why": "testing"
+            }},
             mock_tool
         )
 
