@@ -1,13 +1,14 @@
 """
 Phase 4 Integration Tests - MCP Tools Validation
 
-Tests that all 6 MCP tools are properly exposed and functional:
+Tests that all 7 MCP tools are properly exposed and functional:
 1. vector_search - Semantic similarity search
 2. memory_store - Store with tagging
 3. graph_query - HippoRAG multi-hop
 4. entity_extraction - NER
 5. hipporag_retrieve - Full pipeline
 6. detect_mode - Query mode detection
+7. obsidian_sync - Sync Obsidian vault
 """
 
 import sys
@@ -19,15 +20,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 
 class TestMCPToolsExposed:
-    """Test C1.2-C1.6: All 6 MCP tools are exposed."""
+    """Test C1.2-C1.6: All 7 MCP tools are exposed."""
 
-    def test_handle_list_tools_returns_6_tools(self):
-        """Verify 6 tools are returned by handle_list_tools."""
+    def test_handle_list_tools_returns_7_tools(self):
+        """Verify 7 tools are returned by handle_list_tools."""
         from src.mcp.stdio_server import handle_list_tools
 
         tools = handle_list_tools()
 
-        assert len(tools) == 6, f"Expected 6 tools, got {len(tools)}"
+        assert len(tools) == 7, f"Expected 7 tools, got {len(tools)}"
 
     def test_all_required_tools_present(self):
         """Verify all required tool names are present."""
@@ -42,7 +43,8 @@ class TestMCPToolsExposed:
             "graph_query",
             "entity_extraction",
             "hipporag_retrieve",
-            "detect_mode"
+            "detect_mode",
+            "obsidian_sync"
         ]
 
         for required in required_tools:
@@ -96,8 +98,8 @@ class TestToolHandlers:
 class TestHandleCallToolRouting:
     """Test that handle_call_tool routes to correct handlers."""
 
-    def test_routes_to_all_6_tools(self):
-        """Verify handle_call_tool has routing for all 6 tools."""
+    def test_routes_to_all_7_tools(self):
+        """Verify handle_call_tool has routing for all 7 tools."""
         from src.mcp.stdio_server import handle_call_tool
         import inspect
 
@@ -110,6 +112,7 @@ class TestHandleCallToolRouting:
         assert 'tool_name == "entity_extraction"' in source
         assert 'tool_name == "hipporag_retrieve"' in source
         assert 'tool_name == "detect_mode"' in source
+        assert 'tool_name == "obsidian_sync"' in source
 
 
 class TestEntityExtraction:
@@ -121,7 +124,7 @@ class TestEntityExtraction:
 
         # Create a mock tool (not needed for entity extraction)
         class MockTool:
-            pass
+            entity_service = None
 
         result = _handle_entity_extraction(
             {"text": "John Smith works at Microsoft Corp in New York City."},
@@ -187,10 +190,10 @@ class TestDetectMode:
 class TestServerVersion:
     """Test server version is updated."""
 
-    def test_version_is_1_2_0(self):
-        """Verify version is 1.2.0."""
+    def test_version_is_1_4_0(self):
+        """Verify version is 1.4.0."""
         from src import __version__
-        assert __version__ == "1.2.0", f"Expected 1.2.0, got {__version__}"
+        assert __version__ == "1.4.0", f"Expected 1.4.0, got {__version__}"
 
 
 if __name__ == "__main__":

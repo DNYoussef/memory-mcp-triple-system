@@ -143,5 +143,5 @@ def test_kv_context_manager(tmp_path):
         store.set("key1", "value1")
         assert store.get("key1") == "value1"
 
-    # Connection should be closed after context
-    assert store._conn is None
+    # Connection should be closed after context (thread-local)
+    assert getattr(store._local, "conn", None) is None

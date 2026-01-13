@@ -11,7 +11,7 @@ transformers==4.44.0  # Stable release, avoids dev version issues
 
 # Graph Layer (v5.0: In-memory with NetworkX)
 networkx==3.5
-spacy==3.7.2
+spacy>=3.8.0  # Python 3.12 compatibility fix
 # hipporag - deferred to v0.3.0-v0.4.0 (Python 3.12 compatibility issue)
 
 # Bayesian Layer

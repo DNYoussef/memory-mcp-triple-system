@@ -6,7 +6,7 @@ Use cases: user_preferences, simple_lookups, session_state, feature_flags.
 
 Query patterns: "What's my X?" (e.g., "What's my coding style?")
 
-NASA Rule 10 Compliant: All functions ≤60 LOC
+NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
 import json
@@ -44,7 +44,7 @@ class KVStore:
         Args:
             db_path: Path to SQLite database file
 
-        NASA Rule 10: 11 LOC (≤60) ✅
+        NASA Rule 10: 11 LOC (<=60)
         """
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -55,9 +55,9 @@ class KVStore:
 
     def _get_connection(self) -> sqlite3.Connection:
         """
-        Get or create database connection.
+        Get or create thread-local database connection.
 
-        NASA Rule 10: 10 LOC (≤60) ✅
+        NASA Rule 10: 10 LOC (<=60)
         """
         if not hasattr(self._local, "conn") or self._local.conn is None:
             self._local.conn = sqlite3.connect(
@@ -80,8 +80,6 @@ class KVStore:
             except Exception:
                 conn.rollback()
                 raise
-            finally:
-                cursor.close()
 
     def _create_table(self) -> None:
         """
@@ -94,7 +92,7 @@ class KVStore:
             - updated_at (DATETIME): Last update timestamp
             - expires_at (DATETIME): Expiration timestamp (NULL = no expiry)
 
-        NASA Rule 10: 30 LOC (≤60) ✅
+        NASA Rule 10: 30 LOC (<=60)
         """
         with self._transaction() as cursor:
             cursor.execute("""
@@ -130,7 +128,7 @@ class KVStore:
         Returns:
             Value if found and not expired, None otherwise
 
-        NASA Rule 10: 30 LOC (≤60) ✅
+        NASA Rule 10: 30 LOC (<=60)
         """
         try:
             with self._transaction() as cursor:
@@ -143,9 +141,11 @@ class KVStore:
                 if not row:
                     return None
 
+                # Check if expired
                 if row["expires_at"]:
                     expires_at = datetime.fromisoformat(row["expires_at"])
                     if datetime.now() > expires_at:
+                        # Lazy cleanup: delete expired entry
                         cursor.execute("DELETE FROM kv_store WHERE key = ?", (key,))
                         return None
 
@@ -167,7 +167,7 @@ class KVStore:
         Returns:
             True if successful, False otherwise
 
-        NASA Rule 10: 42 LOC (≤60) ✅
+        NASA Rule 10: 42 LOC (<=60)
         """
         # Serialize value if needed
         if isinstance(value, (dict, list)):
@@ -211,7 +211,7 @@ class KVStore:
         Returns:
             True if deleted, False otherwise
 
-        NASA Rule 10: 20 LOC (≤60) ✅
+        NASA Rule 10: 20 LOC (<=60)
         """
         try:
             with self._transaction() as cursor:
@@ -235,7 +235,7 @@ class KVStore:
         Returns:
             List of matching keys
 
-        NASA Rule 10: 22 LOC (≤60) ✅
+        NASA Rule 10: 22 LOC (<=60)
         """
         try:
             with self._transaction() as cursor:
@@ -263,7 +263,7 @@ class KVStore:
         Returns:
             Parsed JSON dict if found and valid, None otherwise
 
-        NASA Rule 10: 19 LOC (≤60) ✅
+        NASA Rule 10: 19 LOC (<=60)
         """
         value = self.get(key)
         if value is None:
@@ -287,7 +287,7 @@ class KVStore:
         Returns:
             True if successful, False otherwise
 
-        NASA Rule 10: 10 LOC (≤60) ✅
+        NASA Rule 10: 10 LOC (<=60)
         """
         return self.set(key, json.dumps(value))
 
@@ -301,7 +301,7 @@ class KVStore:
         Returns:
             True if key exists, False otherwise
 
-        NASA Rule 10: 10 LOC (≤60) ✅
+        NASA Rule 10: 10 LOC (<=60)
         """
         return self.get(key) is not None
 
@@ -312,7 +312,7 @@ class KVStore:
         Returns:
             Total key count
 
-        NASA Rule 10: 14 LOC (≤60) ✅
+        NASA Rule 10: 14 LOC (<=60)
         """
         try:
             with self._transaction() as cursor:
@@ -327,12 +327,12 @@ class KVStore:
         """
         Close database connection.
 
-        NASA Rule 10: 5 LOC (≤60) ✅
+        NASA Rule 10: 5 LOC (<=60)
         """
-        with self._lock:
-            if hasattr(self._local, "conn") and self._local.conn:
-                self._local.conn.close()
-                self._local.conn = None
+        conn = getattr(self._local, "conn", None)
+        if conn:
+            conn.close()
+            self._local.conn = None
 
     def __enter__(self) -> "KVStore":
         """Context manager entry."""
@@ -349,7 +349,7 @@ class KVStore:
         Returns:
             Number of entries deleted
 
-        NASA Rule 10: 23 LOC (≤60) ✅
+        NASA Rule 10: 23 LOC (<=60)
         """
         try:
             with self._transaction() as cursor:

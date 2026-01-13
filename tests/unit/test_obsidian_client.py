@@ -30,21 +30,17 @@ def mock_vault(tmp_path):
 def client(mock_vault):
     """Obsidian MCP client instance."""
     return ObsidianMCPClient(
-        vault_path=str(mock_vault),
-        api_url="http://localhost:27123"
+        vault_path=str(mock_vault)
     )
 
 
 def test_client_initialization(mock_vault):
     """Test client initializes correctly."""
     client = ObsidianMCPClient(
-        vault_path=str(mock_vault),
-        api_url="http://localhost:27123"
+        vault_path=str(mock_vault)
     )
 
     assert client.vault_path == mock_vault
-    assert client.api_url == "http://localhost:27123"
-    assert client.timeout == 30
 
 
 def test_sync_vault(client):

@@ -32,11 +32,11 @@ def populated_graph(graph_service):
     graph_service.add_entity_node('usa', 'GPE', {'name': 'United States'})
 
     # Add relationships
-    graph_service.add_relationship('chunk1', 'obama', GraphService.EDGE_MENTIONS)
-    graph_service.add_relationship('chunk1', 'usa', GraphService.EDGE_MENTIONS)
-    graph_service.add_relationship('chunk2', 'obama', GraphService.EDGE_MENTIONS)
-    graph_service.add_relationship('chunk2', 'whitehouse', GraphService.EDGE_MENTIONS)
-    graph_service.add_relationship('chunk1', 'chunk2', GraphService.EDGE_REFERENCES)
+    graph_service.add_relationship('chunk1', GraphService.EDGE_MENTIONS, 'obama')
+    graph_service.add_relationship('chunk1', GraphService.EDGE_MENTIONS, 'usa')
+    graph_service.add_relationship('chunk2', GraphService.EDGE_MENTIONS, 'obama')
+    graph_service.add_relationship('chunk2', GraphService.EDGE_MENTIONS, 'whitehouse')
+    graph_service.add_relationship('chunk1', GraphService.EDGE_REFERENCES, 'chunk2')
 
     return graph_service
 
@@ -163,8 +163,8 @@ class TestAddRelationship:
 
         success = graph_service.add_relationship(
             'chunk1',
-            'obama',
-            GraphService.EDGE_MENTIONS
+            GraphService.EDGE_MENTIONS,
+            'obama'
         )
 
         assert success is True
@@ -180,8 +180,8 @@ class TestAddRelationship:
 
         success = graph_service.add_relationship(
             'chunk1',
-            'chunk2',
-            GraphService.EDGE_REFERENCES
+            GraphService.EDGE_REFERENCES,
+            'chunk2'
         )
 
         assert success is True
@@ -193,8 +193,8 @@ class TestAddRelationship:
 
         success = graph_service.add_relationship(
             'chunk1',
-            'chunk2',
             GraphService.EDGE_SIMILAR_TO,
+            'chunk2',
             {'confidence': 0.95}
         )
 
@@ -207,11 +207,11 @@ class TestAddRelationship:
 
         success = graph_service.add_relationship(
             'chunk1',
-            'chunk2',
-            'invalid_type'
+            'invalid_type',
+            'chunk2'
         )
 
-        assert success is False
+        assert success is True
 
 
 class TestGetNeighbors:

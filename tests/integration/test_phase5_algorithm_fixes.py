@@ -153,12 +153,12 @@ class TestB33EntityExtraction:
 
 
 class TestVersionUpdated:
-    """Test version is updated to 1.3.0."""
+    """Test version is updated to 1.4.0."""
 
-    def test_version_is_1_3_0(self):
-        """Verify version is 1.3.0 for Phase 5."""
+    def test_version_is_1_4_0(self):
+        """Verify version is 1.4.0 for Phase 5."""
         from src import __version__
-        assert __version__ == "1.3.0", f"Expected 1.3.0, got {__version__}"
+        assert __version__ == "1.4.0", f"Expected 1.4.0, got {__version__}"
 
 
 if __name__ == "__main__":

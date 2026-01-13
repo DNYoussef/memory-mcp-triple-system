@@ -61,17 +61,17 @@ class TestEmbeddingPipeline:
 
     def test_encode_empty_text_raises(self, pipeline):
         """Test that encoding empty text raises error."""
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError, match="Text cannot be empty"):
             pipeline.encode_single("")
 
     def test_encode_empty_list_raises(self, pipeline):
         """Test that encoding empty list raises error."""
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError, match="Cannot encode empty list"):
             pipeline.encode([])
 
     def test_encode_list_with_empty_string_raises(self, pipeline):
         """Test that list with empty strings raises error."""
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError, match="Texts cannot be empty"):
             pipeline.encode(["valid text", ""])
 
     def test_embedding_consistency(self, pipeline):

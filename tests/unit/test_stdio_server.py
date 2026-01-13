@@ -48,10 +48,10 @@ class TestHandleListTools:
         tools = handle_list_tools()
         assert isinstance(tools, list)
 
-    def test_returns_two_tools(self):
-        """Test exactly two tools are returned."""
+    def test_returns_seven_tools(self):
+        """Test exactly seven tools are returned."""
         tools = handle_list_tools()
-        assert len(tools) == 2
+        assert len(tools) == 7
 
     def test_vector_search_tool_present(self):
         """Test vector_search tool is in the list."""
@@ -115,6 +115,22 @@ class TestHandleCallTool:
         mock.embedder = MagicMock()
         mock.embedder.encode.return_value = MagicMock(tolist=lambda: [[0.1, 0.2, 0.3]])
         mock.indexer = MagicMock()
+        mock.vector_search_tool = MagicMock()
+        mock_embeddings = MagicMock()
+        mock_embeddings.tolist.return_value = [[0.1, 0.2, 0.3]]
+        mock_embeddings.__len__.return_value = 1
+        mock.vector_search_tool.embedder = MagicMock()
+        mock.vector_search_tool.embedder.encode.return_value = mock_embeddings
+        mock.vector_search_tool.indexer = MagicMock()
+        mock.vector_search_tool.indexer.index_chunks.return_value = True
+        mock.hot_cold_classifier = MagicMock()
+        mock.hot_cold_classifier.classify.return_value = {
+            "tier": "hot",
+            "decay_score": 1.0
+        }
+        mock.lifecycle_manager = MagicMock()
+        mock.entity_service = None
+        mock.log_event = MagicMock()
         return mock
 
     def test_vector_search_returns_content(self, mock_vector_tool):
@@ -153,7 +169,11 @@ class TestHandleCallTool:
             mock_vector_tool
         )
 
-        mock_vector_tool.execute.assert_called_once_with("test query", 5)
+        mock_vector_tool.execute.assert_called_once_with(
+            "test query",
+            5,
+            "execution"
+        )
 
     def test_vector_search_respects_custom_limit(self, mock_vector_tool):
         """Test vector_search uses custom limit."""
@@ -163,7 +183,11 @@ class TestHandleCallTool:
             mock_vector_tool
         )
 
-        mock_vector_tool.execute.assert_called_once_with("test query", 10)
+        mock_vector_tool.execute.assert_called_once_with(
+            "test query",
+            10,
+            "execution"
+        )
 
     def test_memory_store_returns_success(self, mock_vector_tool):
         """Test memory_store returns success structure."""
@@ -320,7 +344,7 @@ class TestStdioMainLoop:
 
         assert "result" in response
         assert "tools" in response["result"]
-        assert len(response["result"]["tools"]) == 2
+        assert len(response["result"]["tools"]) == 7
 
     def test_error_response_format(self):
         """Test error response format for unknown method."""
@@ -364,6 +388,22 @@ class TestEdgeCases:
         mock.embedder = MagicMock()
         mock.embedder.encode.return_value = MagicMock(tolist=lambda: [[0.1]])
         mock.indexer = MagicMock()
+        mock.vector_search_tool = MagicMock()
+        mock_embeddings = MagicMock()
+        mock_embeddings.tolist.return_value = [[0.1]]
+        mock_embeddings.__len__.return_value = 1
+        mock.vector_search_tool.embedder = MagicMock()
+        mock.vector_search_tool.embedder.encode.return_value = mock_embeddings
+        mock.vector_search_tool.indexer = MagicMock()
+        mock.vector_search_tool.indexer.index_chunks.return_value = True
+        mock.hot_cold_classifier = MagicMock()
+        mock.hot_cold_classifier.classify.return_value = {
+            "tier": "hot",
+            "decay_score": 1.0
+        }
+        mock.lifecycle_manager = MagicMock()
+        mock.entity_service = None
+        mock.log_event = MagicMock()
         return mock
 
     def test_empty_query_handling(self, mock_tool):
@@ -376,7 +416,7 @@ class TestEdgeCases:
 
         # Should still work, just return empty results
         assert result["isError"] is False
-        mock_tool.execute.assert_called_with("", 5)
+        mock_tool.execute.assert_called_with("", 5, "execution")
 
     def test_missing_query_handling(self, mock_tool):
         """Test handling of missing query parameter."""
@@ -388,7 +428,7 @@ class TestEdgeCases:
 
         # Should use empty string as default
         assert result["isError"] is False
-        mock_tool.execute.assert_called_with("", 5)
+        mock_tool.execute.assert_called_with("", 5, "execution")
 
     def test_empty_text_memory_store(self, mock_tool):
         """Test memory_store with empty text."""
@@ -398,7 +438,7 @@ class TestEdgeCases:
             mock_tool
         )
 
-        assert result["isError"] is False
+        assert result["isError"] is True
 
     def test_memory_store_default_key(self, mock_tool):
         """Test memory_store uses default key when not provided."""
@@ -420,7 +460,7 @@ class TestEdgeCases:
         )
 
         assert result["isError"] is False
-        mock_tool.execute.assert_called_with("test", 10000)
+        mock_tool.execute.assert_called_with("test", 10000, "execution")
 
     def test_negative_limit_handling(self, mock_tool):
         """Test vector_search with negative limit."""
@@ -432,7 +472,7 @@ class TestEdgeCases:
 
         # Should pass through to tool (validation is tool's responsibility)
         assert result["isError"] is False
-        mock_tool.execute.assert_called_with("test", -1)
+        mock_tool.execute.assert_called_with("test", -1, "execution")
 
     def test_special_characters_in_query(self, mock_tool):
         """Test query with special characters."""
@@ -444,7 +484,7 @@ class TestEdgeCases:
         )
 
         assert result["isError"] is False
-        mock_tool.execute.assert_called_with(query, 5)
+        mock_tool.execute.assert_called_with(query, 5, "execution")
 
     def test_unicode_in_query(self, mock_tool):
         """Test query with unicode characters."""
