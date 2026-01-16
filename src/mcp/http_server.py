@@ -46,6 +46,17 @@ from src.stores.event_log import EventLog, EventType
 from src.stores.kv_store import KVStore
 from src.memory.lifecycle_manager import MemoryLifecycleManager
 from src.memory.lifecycle_scheduler import LifecycleScheduler
+from src.universal_components import (
+    init_connascence_bridge,
+    init_memory_client,
+    init_tagger,
+    init_telemetry_bridge,
+)
+
+tagger = init_tagger()
+memory_client = init_memory_client()
+telemetry_bridge = init_telemetry_bridge()
+connascence_bridge = init_connascence_bridge()
 
 
 app = FastAPI(
@@ -567,7 +578,8 @@ async def obsidian_sync(request: ObsidianSyncRequest) -> Dict[str, Any]:
 def main():
     """Run HTTP server."""
     host = os.getenv("MEMORY_MCP_HTTP_HOST", "0.0.0.0")
-    port = int(os.getenv("MEMORY_MCP_HTTP_PORT", "8080"))
+    # Railway injects PORT, fall back to MEMORY_MCP_HTTP_PORT or 8080
+    port = int(os.getenv("PORT", os.getenv("MEMORY_MCP_HTTP_PORT", "8080")))
 
     logger.info(f"Starting Memory MCP HTTP server on {host}:{port}")
     uvicorn.run(app, host=host, port=port)

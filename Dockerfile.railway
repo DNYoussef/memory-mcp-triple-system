@@ -1,0 +1,56 @@
+# Dockerfile.railway - HTTP Server for Railway Deployment
+# Memory MCP Triple System with PageRank/HippoRAG
+# PROJ-002: Production PageRank deployment
+
+FROM python:3.11-slim as base
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app directory
+WORKDIR /app
+
+# Copy requirements first (for layer caching)
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Download spacy model during build (not at runtime)
+RUN python -m spacy download en_core_web_sm
+
+# Copy application code
+COPY . .
+
+# Create non-root user
+RUN useradd -m -u 1000 memoryuser && \
+    chown -R memoryuser:memoryuser /app
+
+# Create data directory for persistence
+RUN mkdir -p /data && chown memoryuser:memoryuser /data
+
+USER memoryuser
+
+# Railway injects PORT env var, we map to our variable
+# Default to 8080 if PORT not set
+ENV MEMORY_MCP_HTTP_PORT=${PORT:-8080}
+
+# Expose port for HTTP server
+EXPOSE 8080
+
+# Health check for Railway
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:${MEMORY_MCP_HTTP_PORT:-8080}/health || exit 1
+
+# Run HTTP server (not stdio)
+CMD ["python", "-m", "src.mcp.http_server"]

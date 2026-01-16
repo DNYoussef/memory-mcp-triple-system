@@ -1,0 +1,34 @@
+# Railway Deployment Configuration for Memory MCP Triple System
+#
+# Deploys HTTP API wrapper with PageRank/HippoRAG retrieval
+# PROJ-002: Production PageRank deployment
+
+[build]
+# Use Dockerfile for reproducible builds
+builder = "dockerfile"
+dockerfilePath = "./Dockerfile.railway"
+
+[deploy]
+# Health check for Railway
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+
+# Use PORT environment variable from Railway
+startCommand = "python -m src.mcp.http_server"
+
+# Memory requirements for ML models (sentence-transformers, spacy)
+numReplicas = 1
+
+[env]
+# Python settings
+PYTHONUNBUFFERED = "1"
+
+# Server configuration (Railway injects PORT)
+MEMORY_MCP_HTTP_HOST = "0.0.0.0"
+
+# Data persistence (Railway volume mount)
+MEMORY_MCP_DATA_DIR = "/data"
+
+# Logging
+LOG_LEVEL = "INFO"
+ENVIRONMENT = "production"
