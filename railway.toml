@@ -9,9 +9,9 @@ builder = "dockerfile"
 dockerfilePath = "./Dockerfile.railway"
 
 [deploy]
-# Health check for Railway
+# Health check for Railway (increased timeout for ML model loading)
 healthcheckPath = "/health"
-healthcheckTimeout = 30
+healthcheckTimeout = 120
 
 # Use PORT environment variable from Railway
 startCommand = "python -m src.mcp.http_server"
