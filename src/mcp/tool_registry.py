@@ -28,6 +28,7 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
         _beads_ready_tasks_tool(),
         _beads_task_detail_tool(),
         _beads_query_tasks_tool(),
+        _observation_timeline_tool(),
     ]
 
 
@@ -47,6 +48,12 @@ def _vector_search_tool() -> Dict[str, Any]:
                     "description": "Query mode: execution, planning, or brainstorming",
                     "enum": ["execution", "planning", "brainstorming"],
                     "default": "execution"
+                },
+                "detail": {
+                    "type": "string",
+                    "description": "Detail level: compact (~50 tok/result) or full (~500 tok/result)",
+                    "enum": ["compact", "full"],
+                    "default": "full"
                 }
             },
             "required": ["query"]
@@ -70,6 +77,12 @@ def _unified_search_tool() -> Dict[str, Any]:
                     "description": "Query mode: execution, planning, or brainstorming",
                     "enum": ["execution", "planning", "brainstorming"],
                     "default": "execution"
+                },
+                "detail": {
+                    "type": "string",
+                    "description": "Detail level: compact (~50 tok/result) or full (~500 tok/result)",
+                    "enum": ["compact", "full"],
+                    "default": "full"
                 }
             },
             "required": ["query"]
@@ -269,6 +282,53 @@ def _beads_query_tasks_tool() -> Dict[str, Any]:
                 "priority": {"type": "integer", "description": "Filter by priority (1-5)"},
                 "assignee": {"type": "string", "description": "Filter by assignee"},
                 "limit": {"type": "integer", "description": "Max tasks to return", "default": 20}
+            },
+            "required": []
+        }
+    }
+
+
+def _observation_timeline_tool() -> Dict[str, Any]:
+    """Observation timeline tool definition."""
+    return {
+        "name": "observation_timeline",
+        "version": REGISTRY_VERSION,
+        "description": "Query auto-captured observations by time range, project, type, or session",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project": {
+                    "type": "string",
+                    "description": "Filter by project name"
+                },
+                "obs_type": {
+                    "type": "string",
+                    "description": "Filter by type: tool_use, code_change, error, decision, discovery, conversation",
+                    "enum": [
+                        "tool_use", "code_change", "error",
+                        "decision", "discovery", "conversation"
+                    ]
+                },
+                "session_id": {
+                    "type": "string",
+                    "description": "Filter by session UUID"
+                },
+                "hours_back": {
+                    "type": "integer",
+                    "description": "Hours to look back from now (default: 24)",
+                    "default": 24
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max observations to return (default: 30)",
+                    "default": 30
+                },
+                "detail": {
+                    "type": "string",
+                    "description": "Detail level: compact or full",
+                    "enum": ["compact", "full"],
+                    "default": "compact"
+                }
             },
             "required": []
         }

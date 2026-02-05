@@ -10,8 +10,18 @@ import uuid
 import time
 import sqlite3
 import threading
-import chromadb
 from loguru import logger
+
+# ChromaDB is optional -- vector tier degrades gracefully when unavailable
+try:
+    import chromadb
+    import chromadb.errors
+    CHROMADB_AVAILABLE = True
+    _CHROMA_NOT_FOUND = chromadb.errors.NotFoundError
+except ImportError:
+    CHROMADB_AVAILABLE = False
+    _CHROMA_NOT_FOUND = Exception  # never matched when chromadb absent
+    chromadb = None  # type: ignore[assignment]
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -74,6 +84,12 @@ class VectorIndexer:
         self.persist_directory = persist_directory
         self.collection_name = collection_name
 
+        if not CHROMADB_AVAILABLE:
+            logger.warning("ChromaDB not available -- vector tier disabled")
+            self.client = None
+            self.collection = None
+            return
+
         # Initialize ChromaDB client with persistence (new API)
         self.client = chromadb.PersistentClient(path=persist_directory)
 
@@ -94,11 +110,14 @@ class VectorIndexer:
         """
         assert vector_size > 0, "vector_size must be positive"
 
+        if self.client is None:
+            return
+
         try:
             self.collection = self.client.get_collection(self.collection_name)
             logger.info(f"Collection '{self.collection_name}' already exists")
-        except (ValueError, KeyError):
-            # ChromaDB raises ValueError/KeyError when collection not found
+        except (ValueError, KeyError, _CHROMA_NOT_FOUND):
+            # ChromaDB >=1.x raises NotFoundError; older versions raise ValueError/KeyError
             self.collection = self.client.create_collection(
                 name=self.collection_name,
                 metadata={
@@ -125,6 +144,10 @@ class VectorIndexer:
         """
         assert len(chunks) == len(embeddings), "Mismatched lengths"
         assert len(chunks) > 0, "Empty chunks list"
+
+        if self.collection is None:
+            logger.warning("ChromaDB unavailable -- skipping index_chunks")
+            return
 
         # Prepare data for ChromaDB batch add
         ids = [str(uuid.uuid4()) for _ in chunks]
@@ -174,6 +197,10 @@ class VectorIndexer:
             raise ValueError("doc_id and text are required")
         if not embedding:
             raise ValueError("embedding cannot be empty")
+
+        if self.collection is None:
+            logger.warning("ChromaDB unavailable -- skipping add_document")
+            return False
 
         # Ensure timestamp fields for lifecycle queries
         from datetime import datetime
@@ -234,6 +261,10 @@ class VectorIndexer:
         if not embedding:
             raise ValueError("embedding cannot be empty")
 
+        if self.collection is None:
+            logger.warning("ChromaDB unavailable -- skipping add_fact")
+            return False
+
         # VEC-005: Build truth layer metadata
         fact_metadata = {
             "is_fact": True,
@@ -271,6 +302,10 @@ class VectorIndexer:
         """
         if not docs:
             return True
+
+        if self.collection is None:
+            logger.warning("ChromaDB unavailable -- skipping add_documents")
+            return False
 
         ids = []
         documents = []
@@ -325,6 +360,10 @@ class VectorIndexer:
         Returns:
             True if deletion successful, False otherwise
         """
+        if self.collection is None:
+            logger.warning("ChromaDB unavailable -- skipping delete_chunks")
+            return False
+
         try:
             if not ids:
                 logger.warning("Empty IDs list provided for deletion")
@@ -358,6 +397,10 @@ class VectorIndexer:
         Returns:
             True if update successful, False otherwise
         """
+        if self.collection is None:
+            logger.warning("ChromaDB unavailable -- skipping update_chunks")
+            return False
+
         try:
             if not ids:
                 logger.warning("Empty IDs list provided for update")
@@ -400,6 +443,9 @@ class VectorIndexer:
         """
         assert top_k > 0, "top_k must be positive"
         assert len(query_embedding) > 0, "query_embedding cannot be empty"
+
+        if self.collection is None:
+            return []
 
         # Query ChromaDB with optional metadata filtering
         query_params = {

@@ -69,6 +69,7 @@ from .request_router import (
     handle_beads_ready_tasks,
     handle_beads_task_detail,
     handle_beads_query_tasks,
+    handle_observation_timeline,
     _enrich_metadata_with_tagging as _request_router_enrich_metadata_with_tagging,
 )
 
@@ -95,6 +96,7 @@ _handle_obsidian_sync = handle_obsidian_sync
 _handle_beads_ready_tasks = handle_beads_ready_tasks
 _handle_beads_task_detail = handle_beads_task_detail
 _handle_beads_query_tasks = handle_beads_query_tasks
+_handle_observation_timeline = handle_observation_timeline
 _handle_initialize_method = handle_initialize_method
 _handle_tools_list_method = handle_tools_list_method
 _handle_tools_call_method = handle_tools_call_method
@@ -151,6 +153,8 @@ def handle_call_tool(tool_name, arguments, tool):
             return handle_detect_mode(arguments, tool)
         if tool_name == "obsidian_sync":
             return handle_obsidian_sync(arguments, tool)
+        if tool_name == "observation_timeline":
+            return handle_observation_timeline(arguments, tool)
         return _handle_call_tool(tool_name, arguments, tool)
     except Exception as e:
         return {
@@ -193,6 +197,7 @@ __all__ = [
     "handle_beads_ready_tasks",
     "handle_beads_task_detail",
     "handle_beads_query_tasks",
+    "handle_observation_timeline",
     "_enrich_metadata_with_tagging",
     # Protocol handler
     "handle_initialize_method",
