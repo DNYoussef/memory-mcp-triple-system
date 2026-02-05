@@ -503,7 +503,24 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
             # Fallback: no embedding pipeline, return exact-deduped only
             return [candidates[i] for i in exact_unique_indices]
 
-        # Near-dedup pass: compare pre-computed vectors (O(n^2) dot products)
+        unique = self._near_dedup_by_vectors(
+            candidates, exact_unique_indices, embeddings
+        )
+
+        logger.info(
+            f"Deduplicate: {len(candidates)} -> {len(unique)} "
+            f"({len(candidates) - len(unique)} duplicates removed)"
+        )
+
+        return unique
+
+    def _near_dedup_by_vectors(
+        self,
+        candidates: List[Dict[str, Any]],
+        exact_unique_indices: List[int],
+        embeddings: List[List[float]],
+    ) -> List[Dict[str, Any]]:
+        """Compare pre-computed vectors to remove near-duplicates (O(n^2) dot products)."""
         final_indices = []
         for i, idx in enumerate(exact_unique_indices):
             is_duplicate = False
@@ -515,14 +532,7 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
             if not is_duplicate:
                 final_indices.append(i)
 
-        unique = [candidates[exact_unique_indices[i]] for i in final_indices]
-
-        logger.info(
-            f"Deduplicate: {len(candidates)} -> {len(unique)} "
-            f"({len(candidates) - len(unique)} duplicates removed)"
-        )
-
-        return unique
+        return [candidates[exact_unique_indices[i]] for i in final_indices]
 
     def _batch_encode_texts(
         self,

@@ -75,9 +75,12 @@ class TestNexusProcessor:
 
     @pytest.fixture
     def mock_embedding_pipeline(self):
-        """Mock EmbeddingPipeline."""
+        """Mock EmbeddingPipeline returning N distinct orthogonal embeddings for N texts."""
         pipeline = Mock()
-        pipeline.encode.return_value = [[0.1, 0.2, 0.3]]  # Mock embedding
+        pipeline.encode.side_effect = lambda texts: [
+            [1.0 if j == i else 0.0 for j in range(max(len(texts), 3))]
+            for i in range(len(texts))
+        ]
         return pipeline
 
     @pytest.fixture
@@ -329,9 +332,12 @@ class TestNexusProcessorRerank:
 
     @pytest.fixture
     def mock_embedding_pipeline(self):
-        """Mock EmbeddingPipeline."""
+        """Mock EmbeddingPipeline returning N distinct orthogonal embeddings for N texts."""
         pipeline = Mock()
-        pipeline.encode.return_value = [[0.1, 0.2, 0.3]]
+        pipeline.encode.side_effect = lambda texts: [
+            [1.0 if j == i else 0.0 for j in range(max(len(texts), 3))]
+            for i in range(len(texts))
+        ]
         return pipeline
 
     @pytest.fixture
