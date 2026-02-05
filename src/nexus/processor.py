@@ -1,11 +1,12 @@
 """
 Nexus Processor: Unified Multi-Tier RAG Retrieval Pipeline.
 
-Implements 5-step SOP:
+Implements 5.5-step SOP (MEM-QWEN-002):
 1. Recall - Query all 3 tiers (Vector + HippoRAG + Bayesian)
 2. Filter - Confidence threshold (>0.3)
 3. Deduplicate - Cosine similarity (>0.95)
 4. Rank - Weighted scoring (Vector 0.4 + HippoRAG 0.4 + Bayesian 0.2)
+4.5 Rerank - Cross-encoder precision refinement (optional, MEM-QWEN-002)
 5. Compress - Curated core pattern (mode-aware)
 
 NASA Rule 10 Compliant: All methods <=60 LOC
@@ -19,7 +20,7 @@ from loguru import logger
 
 # Import mixins for modular architecture (ISS-004 fix)
 from .tier_queries import TierQueryMixin
-from .processing_utils import ProcessingUtilsMixin
+from .processing_utils import ProcessingUtilsMixin, LostInMiddleMitigation
 
 
 class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
@@ -40,9 +41,15 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         graph_query_engine: Any = None,
         probabilistic_query_engine: Any = None,
         embedding_pipeline: Any = None,
+        reranker: Any = None,
+        rlm_adapter: Any = None,
+        bayesian_graph_sync: Any = None,
         confidence_threshold: float = 0.3,
         dedup_threshold: float = 0.95,
-        weights: Optional[Dict[str, float]] = None
+        weights: Optional[Dict[str, float]] = None,
+        rerank_top_k: int = 30,
+        rerank_enabled: bool = True,
+        lost_in_middle_mitigation: LostInMiddleMitigation = LostInMiddleMitigation.EDGES
     ) -> None:
         """
         Initialize Nexus Processor with all 3 tier services.
@@ -52,24 +59,41 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
             graph_query_engine: GraphQueryEngine instance (Week 8)
             probabilistic_query_engine: ProbabilisticQueryEngine instance (Week 10)
             embedding_pipeline: EmbeddingPipeline instance (Week 6)
+            reranker: RerankerService instance (MEM-QWEN-002)
+            rlm_adapter: RLMNexusAdapter instance (RLM-008)
+            bayesian_graph_sync: BayesianGraphSync instance (BAY-005 feedback loop)
             confidence_threshold: Minimum confidence for filtering (default: 0.3)
             dedup_threshold: Cosine similarity threshold for deduplication (default: 0.95)
             weights: Tier weights for ranking (default: {vector: 0.4, hipporag: 0.4, bayesian: 0.2})
+            rerank_top_k: Number of candidates to pass through reranker (default: 30)
+            rerank_enabled: Enable/disable reranking step (default: True)
+            lost_in_middle_mitigation: Strategy for mitigating lost-in-middle (MEM-CHUNK-002)
         """
         self.vector_indexer = vector_indexer
         self.graph_query_engine = graph_query_engine
         self.probabilistic_query_engine = probabilistic_query_engine
         self.embedding_pipeline = embedding_pipeline
+        self.reranker = reranker
+        self.rlm_adapter = rlm_adapter
+        self.bayesian_graph_sync = bayesian_graph_sync  # BAY-005: Feedback loop
         self.confidence_threshold = confidence_threshold
         self.dedup_threshold = dedup_threshold
+        self.rerank_top_k = rerank_top_k
+        self.rerank_enabled = rerank_enabled
+        self.lost_in_middle_mitigation = lost_in_middle_mitigation  # MEM-CHUNK-002
         self.weights = weights or {
             "vector": 0.4,
             "hipporag": 0.4,
             "bayesian": 0.2
         }
 
+        rerank_status = "enabled" if (reranker and rerank_enabled) else "disabled"
+        feedback_status = "enabled" if bayesian_graph_sync else "disabled"
+        mitigation_status = lost_in_middle_mitigation.value
         logger.info(
-            f"NexusProcessor initialized with weights: {self.weights}"
+            f"NexusProcessor initialized with weights: {self.weights}, "
+            f"rerank: {rerank_status}, bayesian_feedback: {feedback_status}, "
+            f"lost_in_middle: {mitigation_status}"
         )
 
     def process(
@@ -77,7 +101,8 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         query: str,
         mode: str = "execution",
         top_k: int = 50,
-        token_budget: int = 10000
+        token_budget: int = 10000,
+        use_rlm: bool = False
     ) -> Dict[str, Any]:
         """
         Full 5-step SOP pipeline.
@@ -101,6 +126,20 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         import time
         start = time.time()
 
+        if use_rlm:
+            rlm_result = self._process_rlm(query, mode, top_k, token_budget)
+            if rlm_result is not None:
+                rlm_result["pipeline_stats"] = {
+                    "rlm_ms": int((time.time() - start) * 1000)
+                }
+                rlm_result["total_ms"] = int((time.time() - start) * 1000)
+                logger.info(
+                    "RLM pipeline complete: "
+                    f"{rlm_result['total_ms']}ms total "
+                    f"({len(rlm_result['core'])} core + {len(rlm_result['extended'])} extended)"
+                )
+                return rlm_result
+
         # Execute 5-step pipeline
         result, stats = self._execute_pipeline(query, mode, top_k, token_budget)
 
@@ -114,6 +153,34 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         )
 
         return result
+
+    def _process_rlm(
+        self,
+        query: str,
+        mode: str,
+        top_k: int,
+        token_budget: int
+    ) -> Optional[Dict[str, Any]]:
+        """Execute RLM exploration as a NexusProcessor alternative."""
+        adapter = self.rlm_adapter
+        if adapter is None:
+            try:
+                from ..rlm.rlm_nexus_adapter import RLMNexusAdapter
+                adapter = RLMNexusAdapter()
+                self.rlm_adapter = adapter
+            except Exception as exc:
+                logger.warning(f"RLM adapter unavailable: {exc}")
+                return None
+        try:
+            return adapter.explore(
+                query,
+                mode=mode,
+                top_k=top_k,
+                token_budget=token_budget,
+            )
+        except Exception as exc:
+            logger.warning(f"RLM exploration failed: {exc}")
+            return None
 
     def _execute_pipeline(
         self,
@@ -143,10 +210,18 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         if not filtered:
             return self._empty_result(mode), stats
 
-        # Step 3-5: Deduplicate, Rank, Compress
+        # Step 3-4: Deduplicate, Rank
         deduplicated, stats = self._step_deduplicate(filtered, stats)
         ranked, stats = self._step_rank(deduplicated, stats)
-        result, stats = self._step_compress(ranked, mode, token_budget, stats)
+
+        # Step 4.5: Rerank with cross-encoder (MEM-QWEN-002)
+        if self.reranker and self.rerank_enabled:
+            reranked, stats = self._step_rerank(query, ranked, stats)
+        else:
+            reranked = ranked
+
+        # Step 5: Compress
+        result, stats = self._step_compress(reranked, mode, token_budget, stats)
 
         return result, stats
 
@@ -206,10 +281,10 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
 
         combined = []
         for entry in grouped.values():
-            final_score = (
-                self.weights.get("vector", 0.4) * entry["vector_score"] +
-                self.weights.get("hipporag", 0.4) * entry["graph_score"] +
-                self.weights.get("bayesian", 0.2) * entry["bayesian_score"]
+            final_score = self._calculate_hybrid_score(
+                vector_score=entry["vector_score"],
+                graph_score=entry["graph_score"],
+                bayesian_score=entry["bayesian_score"]
             )
             entry["score"] = final_score
             entry["hybrid_score"] = final_score
@@ -255,15 +330,70 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         logger.info(f"Rank: Weighted scoring in {stats['rank_ms']}ms")
         return ranked, stats
 
-    def _step_compress(self, ranked, mode, token_budget, stats):
-        """Step 5: Compress to core + extended."""
+    def _step_rerank(
+        self,
+        query: str,
+        candidates: List[Dict[str, Any]],
+        stats: Dict[str, Any]
+    ) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
+        """
+        Step 4.5: Rerank top candidates with cross-encoder (MEM-QWEN-002).
+
+        Uses cross-encoder for more precise query-document relevance scoring.
+        Only reranks top-k candidates to limit latency overhead.
+        """
         import time
         start = time.time()
+
+        # Limit candidates for reranking (latency optimization)
+        candidates_to_rerank = candidates[:self.rerank_top_k]
+        remaining = candidates[self.rerank_top_k:]
+
+        # Call reranker service
+        reranked, rerank_stats = self.reranker.rerank(
+            query=query,
+            documents=candidates_to_rerank,
+            top_k=self.rerank_top_k
+        )
+
+        # Merge rerank scores with hybrid scores
+        reranked = self.reranker.merge_scores(
+            reranked,
+            hybrid_weight=0.5,
+            rerank_weight=0.5
+        )
+
+        # Append remaining candidates (not reranked) at lower priority
+        result = reranked + remaining
+
+        # Update stats
+        stats["rerank_ms"] = int((time.time() - start) * 1000)
+        stats.update(rerank_stats)
+
+        logger.info(
+            f"Rerank: {len(candidates_to_rerank)} candidates in {stats['rerank_ms']}ms"
+        )
+
+        return result, stats
+
+    def _step_compress(self, ranked, mode, token_budget, stats):
+        """Step 5: Compress to core + extended with lost-in-middle mitigation."""
+        import time
+        start = time.time()
+
+        # Apply lost-in-middle mitigation before compression (MEM-CHUNK-002)
+        if self.lost_in_middle_mitigation != LostInMiddleMitigation.NONE:
+            ranked = self.apply_lost_in_middle_mitigation(
+                ranked,
+                self.lost_in_middle_mitigation
+            )
+            stats["mitigation_applied"] = self.lost_in_middle_mitigation.value
+
         result = self.compress(ranked, mode, token_budget)
         stats["compress_ms"] = int((time.time() - start) * 1000)
         logger.info(
             f"Compress: {len(ranked)} → {len(result['core']) + len(result['extended'])} "
-            f"({stats['compress_ms']}ms)"
+            f"({stats['compress_ms']}ms, mitigation={self.lost_in_middle_mitigation.value})"
         )
         return result, stats
 
@@ -337,50 +467,98 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         """
         Step 3: Remove duplicates by cosine similarity.
 
+        P0-1 FIX: Pre-compute embeddings once, then compare vectors.
+        Old: O(n^2) embedding calls (re-encoded per pair).
+        New: O(n) embeddings + O(n^2) dot products (50x faster).
+
         Args:
             candidates: List of candidates from filter
 
         Returns:
             Deduplicated list (cosine <dedup_threshold)
         """
+        import numpy as np
+
         if not candidates:
             return []
 
-        # Keep first occurrence of each unique chunk
-        unique = []
-        seen_texts = set()
+        texts = [c.get("text", "") for c in candidates]
 
-        for candidate in candidates:
-            text = candidate.get("text", "")
+        # Exact dedup pass (O(n), hash-based)
+        seen_texts = {}
+        exact_unique_indices = []
+        for i, text in enumerate(texts):
+            if text not in seen_texts:
+                seen_texts[text] = i
+                exact_unique_indices.append(i)
 
-            # Check for exact duplicates first
-            if text in seen_texts:
-                continue
+        if not exact_unique_indices:
+            return []
 
-            # Check for near-duplicates (cosine similarity)
-            is_duplicate = False
-            for existing in unique:
-                similarity = self._calculate_cosine_similarity(
-                    text, existing.get("text", "")
-                )
-                if similarity >= self.dedup_threshold:
-                    is_duplicate = True
-                    logger.debug(
-                        f"Duplicate found (cosine={similarity:.3f}): "
-                        f"{text[:50]}... == {existing.get('text', '')[:50]}..."
-                    )
-                    break
+        # Pre-compute all embeddings in one batch (O(n) encoding)
+        unique_texts = [texts[i] for i in exact_unique_indices]
+        embeddings = self._batch_encode_texts(unique_texts)
 
-            if not is_duplicate:
-                unique.append(candidate)
-                seen_texts.add(text)
+        if embeddings is None:
+            # Fallback: no embedding pipeline, return exact-deduped only
+            return [candidates[i] for i in exact_unique_indices]
+
+        unique = self._near_dedup_by_vectors(
+            candidates, exact_unique_indices, embeddings
+        )
 
         logger.info(
-            f"Deduplicate: {len(candidates)} → {len(unique)} "
+            f"Deduplicate: {len(candidates)} -> {len(unique)} "
             f"({len(candidates) - len(unique)} duplicates removed)"
         )
 
         return unique
+
+    def _near_dedup_by_vectors(
+        self,
+        candidates: List[Dict[str, Any]],
+        exact_unique_indices: List[int],
+        embeddings: List[List[float]],
+    ) -> List[Dict[str, Any]]:
+        """Compare pre-computed vectors to remove near-duplicates (O(n^2) dot products)."""
+        final_indices = []
+        for i, idx in enumerate(exact_unique_indices):
+            is_duplicate = False
+            for j in final_indices:
+                sim = self._cosine_from_vectors(embeddings[i], embeddings[j])
+                if sim >= self.dedup_threshold:
+                    is_duplicate = True
+                    break
+            if not is_duplicate:
+                final_indices.append(i)
+
+        return [candidates[exact_unique_indices[i]] for i in final_indices]
+
+    def _batch_encode_texts(
+        self,
+        texts: List[str]
+    ) -> Optional[Any]:
+        """Pre-compute embeddings for all texts in one batch call."""
+        import numpy as np
+
+        if self.embedding_pipeline is None:
+            return None
+        try:
+            return self.embedding_pipeline.encode(texts)
+        except Exception as e:
+            logger.warning(f"Batch encoding failed: {e}")
+            return None
+
+    @staticmethod
+    def _cosine_from_vectors(vec_a, vec_b) -> float:
+        """Cosine similarity from pre-computed vectors. No re-encoding."""
+        import numpy as np
+
+        norm_a = np.linalg.norm(vec_a)
+        norm_b = np.linalg.norm(vec_b)
+        if norm_a == 0 or norm_b == 0:
+            return 0.0
+        return float(np.dot(vec_a, vec_b) / (norm_a * norm_b))
 
     def rank(self, candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
@@ -410,10 +588,10 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
                 elif tier == "bayesian":
                     bayesian_score = base_score
 
-            final_score = (
-                self.weights.get("vector", 0.4) * vector_score +
-                self.weights.get("hipporag", 0.4) * graph_score +
-                self.weights.get("bayesian", 0.2) * bayesian_score
+            final_score = self._calculate_hybrid_score(
+                vector_score=vector_score,
+                graph_score=graph_score,
+                bayesian_score=bayesian_score
             )
             candidate["score"] = final_score
             candidate["hybrid_score"] = final_score

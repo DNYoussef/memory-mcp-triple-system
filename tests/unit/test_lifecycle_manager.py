@@ -243,7 +243,7 @@ class TestRehydration:
     def test_make_rehydratable(self, manager):
         """Test making archived chunks rehydratable (>90 days)."""
         # Mock archived keys
-        manager.kv_store.keys.return_value = [
+        manager.kv_store.list_keys.return_value = [
             'archived:chunk1',
             'archived:chunk1:metadata',
             'archived:chunk2',
@@ -444,7 +444,7 @@ class TestStatistics:
         ]
 
         # Mock KV store keys
-        manager.kv_store.keys.return_value = [
+        manager.kv_store.list_keys.return_value = [
             'archived:c1',
             'archived:c1:metadata',
             'archived:c2',

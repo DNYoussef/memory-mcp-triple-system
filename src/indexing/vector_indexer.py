@@ -10,8 +10,18 @@ import uuid
 import time
 import sqlite3
 import threading
-import chromadb
 from loguru import logger
+
+# ChromaDB is optional -- vector tier degrades gracefully when unavailable
+try:
+    import chromadb
+    import chromadb.errors
+    CHROMADB_AVAILABLE = True
+    _CHROMA_NOT_FOUND = chromadb.errors.NotFoundError
+except ImportError:
+    CHROMADB_AVAILABLE = False
+    _CHROMA_NOT_FOUND = Exception  # never matched when chromadb absent
+    chromadb = None  # type: ignore[assignment]
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -74,6 +84,12 @@ class VectorIndexer:
         self.persist_directory = persist_directory
         self.collection_name = collection_name
 
+        if not CHROMADB_AVAILABLE:
+            logger.warning("ChromaDB not available -- vector tier disabled")
+            self.client = None
+            self.collection = None
+            return
+
         # Initialize ChromaDB client with persistence (new API)
         self.client = chromadb.PersistentClient(path=persist_directory)
 
@@ -88,14 +104,20 @@ class VectorIndexer:
 
         Args:
             vector_size: Embedding dimension (used for validation)
+
+        VEC-004: Embedding dimensions are standardized at 384 (all-MiniLM-L6-v2).
+        All sources must use consistent dimensions for vector operations.
         """
         assert vector_size > 0, "vector_size must be positive"
+
+        if self.client is None:
+            return
 
         try:
             self.collection = self.client.get_collection(self.collection_name)
             logger.info(f"Collection '{self.collection_name}' already exists")
-        except Exception:
-            # Collection doesn't exist, create it with optimized HNSW parameters
+        except (ValueError, KeyError, _CHROMA_NOT_FOUND):
+            # ChromaDB >=1.x raises NotFoundError; older versions raise ValueError/KeyError
             self.collection = self.client.create_collection(
                 name=self.collection_name,
                 metadata={
@@ -122,6 +144,10 @@ class VectorIndexer:
         """
         assert len(chunks) == len(embeddings), "Mismatched lengths"
         assert len(chunks) > 0, "Empty chunks list"
+
+        if self.collection is None:
+            logger.warning("ChromaDB unavailable -- skipping index_chunks")
+            return
 
         # Prepare data for ChromaDB batch add
         ids = [str(uuid.uuid4()) for _ in chunks]
@@ -172,16 +198,92 @@ class VectorIndexer:
         if not embedding:
             raise ValueError("embedding cannot be empty")
 
+        if self.collection is None:
+            logger.warning("ChromaDB unavailable -- skipping add_document")
+            return False
+
+        # Ensure timestamp fields for lifecycle queries
+        from datetime import datetime
+        now = datetime.now()
+        enriched_metadata = metadata.copy() if metadata else {}
+        if 'last_accessed_ts' not in enriched_metadata:
+            enriched_metadata['last_accessed_ts'] = now.timestamp()
+            enriched_metadata['last_accessed'] = now.isoformat()
+        if 'created_at_ts' not in enriched_metadata:
+            enriched_metadata['created_at_ts'] = now.timestamp()
+            enriched_metadata['created_at'] = now.isoformat()
+        if 'stage' not in enriched_metadata:
+            enriched_metadata['stage'] = 'active'
+
         try:
             self.collection.add(
                 ids=[doc_id],
                 documents=[text],
                 embeddings=[embedding],
-                metadatas=[metadata or {}]
+                metadatas=[enriched_metadata]
             )
             return True
         except Exception as e:
             logger.error(f"Failed to add document {doc_id}: {e}")
+            return False
+
+    @db_retry
+    def add_fact(
+        self,
+        doc_id: str,
+        text: str,
+        embedding: List[float],
+        source: str,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """
+        VEC-005: Add a fact document with truth layer metadata.
+
+        Adds is_fact=True, source, and promoted_at timestamp for
+        truth layer content that has been verified/promoted.
+
+        Args:
+            doc_id: Document identifier
+            text: Document text
+            embedding: Embedding vector
+            source: Source of the fact (e.g., 'obsidian', 'promotion', 'manual')
+            metadata: Optional additional metadata
+
+        Returns:
+            True if added, False otherwise
+
+        NASA Rule 10: 25 LOC (<=60)
+        """
+        from datetime import datetime
+
+        if not doc_id or not text:
+            raise ValueError("doc_id and text are required")
+        if not embedding:
+            raise ValueError("embedding cannot be empty")
+
+        if self.collection is None:
+            logger.warning("ChromaDB unavailable -- skipping add_fact")
+            return False
+
+        # VEC-005: Build truth layer metadata
+        fact_metadata = {
+            "is_fact": True,
+            "source": source,
+            "promoted_at": datetime.utcnow().isoformat(),
+            **(metadata or {})
+        }
+
+        try:
+            self.collection.add(
+                ids=[doc_id],
+                documents=[text],
+                embeddings=[embedding],
+                metadatas=[fact_metadata]
+            )
+            logger.debug(f"Added fact {doc_id} from source={source}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to add fact {doc_id}: {e}")
             return False
 
     @db_retry
@@ -201,10 +303,17 @@ class VectorIndexer:
         if not docs:
             return True
 
+        if self.collection is None:
+            logger.warning("ChromaDB unavailable -- skipping add_documents")
+            return False
+
         ids = []
         documents = []
         embeddings = []
         metadatas = []
+
+        from datetime import datetime
+        now = datetime.now()
 
         for doc in docs:
             doc_id = doc.get("id")
@@ -215,7 +324,18 @@ class VectorIndexer:
             ids.append(str(doc_id))
             documents.append(text)
             embeddings.append(embedding)
-            metadatas.append(doc.get("metadata", {}))
+
+            # Ensure timestamp fields for lifecycle queries
+            meta = doc.get("metadata", {}).copy() if doc.get("metadata") else {}
+            if 'last_accessed_ts' not in meta:
+                meta['last_accessed_ts'] = now.timestamp()
+                meta['last_accessed'] = now.isoformat()
+            if 'created_at_ts' not in meta:
+                meta['created_at_ts'] = now.timestamp()
+                meta['created_at'] = now.isoformat()
+            if 'stage' not in meta:
+                meta['stage'] = 'active'
+            metadatas.append(meta)
 
         try:
             self.collection.add(
@@ -240,6 +360,10 @@ class VectorIndexer:
         Returns:
             True if deletion successful, False otherwise
         """
+        if self.collection is None:
+            logger.warning("ChromaDB unavailable -- skipping delete_chunks")
+            return False
+
         try:
             if not ids:
                 logger.warning("Empty IDs list provided for deletion")
@@ -273,6 +397,10 @@ class VectorIndexer:
         Returns:
             True if update successful, False otherwise
         """
+        if self.collection is None:
+            logger.warning("ChromaDB unavailable -- skipping update_chunks")
+            return False
+
         try:
             if not ids:
                 logger.warning("Empty IDs list provided for update")
@@ -315,6 +443,9 @@ class VectorIndexer:
         """
         assert top_k > 0, "top_k must be positive"
         assert len(query_embedding) > 0, "query_embedding cannot be empty"
+
+        if self.collection is None:
+            return []
 
         # Query ChromaDB with optional metadata filtering
         query_params = {

@@ -8,27 +8,33 @@ NASA Rule 10 Compliant: All functions ≤60 LOC
 """
 
 from typing import List, Dict, Any, Optional, Set
+import re
 from loguru import logger
-import spacy
-from spacy.cli import download
 from difflib import SequenceMatcher
 import networkx as nx
 
 from .graph_service import GraphService
 
-_MODEL_CACHE: Dict[str, "spacy.language.Language"] = {}
+_MODEL_CACHE: Dict[str, Any] = {}
 
 
-def load_spacy_model(model_name: str = "en_core_web_sm") -> "spacy.language.Language":
-    """Load spaCy model with auto-download and caching."""
+def load_spacy_model(model_name: str = "en_core_web_sm"):
+    """Load spaCy model with auto-download and caching. Lazy imports spacy."""
     if model_name in _MODEL_CACHE:
         return _MODEL_CACHE[model_name]
+
+    try:
+        import spacy
+        from spacy.cli import download as spacy_download
+    except ImportError:
+        logger.warning("spaCy not installed - entity extraction disabled")
+        return None
 
     try:
         nlp = spacy.load(model_name)
     except OSError:
         logger.info("Downloading spaCy model: %s", model_name)
-        download(model_name)
+        spacy_download(model_name)
         nlp = spacy.load(model_name)
 
     _MODEL_CACHE[model_name] = nlp
@@ -81,6 +87,9 @@ class EntityService:
         if not text or not text.strip():
             return []
 
+        if self.nlp is None:
+            return self._regex_extract_entities(text)
+
         try:
             doc = self.nlp(text)
 
@@ -99,6 +108,60 @@ class EntityService:
         except Exception as e:
             logger.error(f"Failed to extract entities: {e}")
             return []
+
+    # Compiled regex patterns for fallback NER
+    _DATE_RE = re.compile(
+        r'\b(?:January|February|March|April|May|June|July|August|'
+        r'September|October|November|December)\s+\d{1,2}(?:,?\s+\d{4})?\b'
+    )
+    _MULTI_PROPER_RE = re.compile(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b')
+    _SINGLE_PROPER_RE = re.compile(r'(?<=[a-z]\s)([A-Z][a-z]{2,})\b')
+    _ACRONYM_RE = re.compile(r'\b([A-Z]{2,})\b')
+
+    def _regex_extract_entities(self, text: str) -> List[Dict[str, Any]]:
+        """Regex fallback for entity extraction when spaCy is unavailable."""
+        entities: List[Dict[str, Any]] = []
+
+        # DATE patterns (month day, year)
+        for m in self._DATE_RE.finditer(text):
+            entities.append({
+                'text': m.group(), 'type': 'DATE',
+                'start': m.start(), 'end': m.end(),
+            })
+
+        # Multi-word proper nouns → PERSON heuristic
+        for m in self._MULTI_PROPER_RE.finditer(text):
+            if not self._overlaps_existing(entities, m.start(), m.end()):
+                entities.append({
+                    'text': m.group(), 'type': 'PERSON',
+                    'start': m.start(), 'end': m.end(),
+                })
+
+        # Single capitalized words mid-sentence → ORG heuristic
+        for m in self._SINGLE_PROPER_RE.finditer(text):
+            s, e = m.start(1), m.end(1)
+            if not self._overlaps_existing(entities, s, e):
+                entities.append({
+                    'text': m.group(1), 'type': 'ORG',
+                    'start': s, 'end': e,
+                })
+
+        # All-caps acronyms (USA, NASA, IBM) → ORG heuristic
+        for m in self._ACRONYM_RE.finditer(text):
+            s, e = m.start(1), m.end(1)
+            if not self._overlaps_existing(entities, s, e):
+                entities.append({
+                    'text': m.group(1), 'type': 'ORG',
+                    'start': s, 'end': e,
+                })
+
+        return sorted(entities, key=lambda ent: ent['start'])
+
+    @staticmethod
+    def _overlaps_existing(entities: List[Dict], start: int, end: int) -> bool:
+        """Check if span overlaps any existing entity."""
+        return any(e['start'] <= start < e['end'] or e['start'] < end <= e['end']
+                    for e in entities)
 
     def extract_entities_by_type(
         self,
@@ -305,8 +368,13 @@ class EntityService:
         Returns:
             List of entity lists (one per input text)
         """
+        if not texts:
+            return []
+
+        if self.nlp is None:
+            return [self._regex_extract_entities(t) for t in texts]
+
         try:
-            # Use spaCy pipe for efficiency
             docs = list(self.nlp.pipe(texts))
 
             results = []

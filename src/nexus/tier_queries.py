@@ -3,6 +3,8 @@ Tier Query Module: Queries for Vector, HippoRAG, and Bayesian tiers.
 
 Extracted from processor.py for modularity.
 NASA Rule 10 Compliant: All functions <=60 LOC
+
+BAY-002/BAY-005: Includes feedback loop to update graph edges from Bayesian posteriors.
 """
 
 from typing import List, Dict, Any, Optional
@@ -20,6 +22,7 @@ class TierQueryMixin:
         - self.embedding_pipeline
         - self.graph_query_engine
         - self.probabilistic_query_engine
+        - self.bayesian_graph_sync (optional, BAY-002/BAY-005)
     """
 
     def _query_vector_tier(
@@ -125,6 +128,7 @@ class TierQueryMixin:
         Query Bayesian tier (Probabilistic inference).
 
         Note: Bayesian tier may timeout or be skipped for simple queries.
+        BAY-002/BAY-005: Includes feedback loop to update graph edges.
 
         Args:
             query: User query text
@@ -152,11 +156,27 @@ class TierQueryMixin:
                 logger.debug("Bayesian tier timeout/skip")
                 return None
 
+            # BAY-002/BAY-005: Feedback loop - update graph from Bayesian inference
+            self._apply_bayesian_feedback(raw_results)
+
             # Convert to standard format
+            # MEM-001: prob_dist contains {'probabilities': {...}, 'entropy': float}
+            # We need to iterate over probabilities, not the outer dict
             results = []
-            for var, prob_dist in raw_results.get("results", {}).items():
+            for var, var_result in raw_results.get("results", {}).items():
+                # Extract probabilities dict and entropy from var_result
+                if isinstance(var_result, dict):
+                    prob_dist = var_result.get("probabilities", var_result)
+                    entropy = var_result.get("entropy", 0.0)
+                else:
+                    prob_dist = {}
+                    entropy = 0.0
+
                 for state, prob in prob_dist.items():
-                    if isinstance(state, (int, str)):  # Skip metadata
+                    # MEM-001: Skip metadata keys like 'entropy', 'probabilities'
+                    if state in ("entropy", "probabilities"):
+                        continue
+                    if isinstance(state, (int, str)) and isinstance(prob, (int, float)):
                         results.append({
                             "text": f"{var}={state}",
                             "score": float(prob),
@@ -164,7 +184,7 @@ class TierQueryMixin:
                             "metadata": {
                                 "variable": var,
                                 "state": state,
-                                "entropy": prob_dist.get("entropy", 0.0)
+                                "entropy": entropy
                             },
                             "id": f"bayesian_{var}_{state}"
                         })
@@ -174,6 +194,36 @@ class TierQueryMixin:
         except Exception as e:
             logger.warning(f"Bayesian tier query failed (expected): {e}")
             return None
+
+    def _apply_bayesian_feedback(
+        self,
+        inference_results: Dict[str, Any]
+    ) -> None:
+        """
+        BAY-002: Apply feedback loop to update graph edges from Bayesian inference.
+
+        Called after successful Bayesian query to propagate posteriors back to graph.
+        Uses formula: new_confidence = 0.7 * prior + 0.3 * posterior
+
+        Args:
+            inference_results: Results from ProbabilisticQueryEngine
+
+        NASA Rule 10: 20 LOC (<=60)
+        """
+        # Check if bayesian_graph_sync is available (optional dependency)
+        sync = getattr(self, 'bayesian_graph_sync', None)
+        if sync is None:
+            logger.debug("Bayesian feedback loop skipped (sync not configured)")
+            return
+
+        try:
+            sync_result = sync.update_graph_from_inference(inference_results)
+            if sync_result.get("edges_updated", 0) > 0:
+                logger.info(
+                    f"BAY-002 feedback: {sync_result['edges_updated']} edges updated"
+                )
+        except Exception as e:
+            logger.warning(f"Bayesian feedback loop failed: {e}")
 
     def _extract_query_entity(self, query: str) -> str:
         """

@@ -5,7 +5,8 @@ Extracted from graph_query_engine.py for modularity.
 NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
-from typing import List, Dict
+from typing import List, Dict, Tuple
+from functools import lru_cache
 import networkx as nx
 from loguru import logger
 
@@ -60,6 +61,9 @@ class PPRAlgorithmsMixin:
         """
         Execute NetworkX pagerank with provided personalization.
 
+        P4-2: Uses LRU cache keyed on frozen personalization + params.
+        Cache is invalidated when graph structure changes (node/edge count).
+
         Args:
             personalization: Personalization vector
             alpha: Damping factor
@@ -69,10 +73,21 @@ class PPRAlgorithmsMixin:
         Returns:
             Dict mapping node_id -> score
         """
+        cache_key = (
+            frozenset(personalization.items()),
+            alpha, max_iter, tol,
+            len(self.graph.nodes), len(self.graph.edges),
+        )
+        return self._cached_pagerank(cache_key)
+
+    @lru_cache(maxsize=64)
+    def _cached_pagerank(self, cache_key: tuple) -> Dict[str, float]:
+        """LRU-cached PPR computation. cache_key includes graph size for invalidation."""
+        personalization_items, alpha, max_iter, tol, _n, _e = cache_key
         return nx.pagerank(
             self.graph,
             alpha=alpha,
-            personalization=personalization,
+            personalization=dict(personalization_items),
             max_iter=max_iter,
             tol=tol
         )

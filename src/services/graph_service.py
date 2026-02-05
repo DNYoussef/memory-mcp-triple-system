@@ -74,24 +74,51 @@ class GraphService:
 
         logger.info("GraphService initialized")
 
+    def _mutate(self, result: bool) -> bool:
+        """P2-3: Mark graph dirty if mutation succeeded."""
+        if result:
+            self._persistence.mark_dirty()
+        return result
+
     # Node operations (delegate to GraphNodeManager)
     def add_chunk_node(self, chunk_id: str, metadata: Optional[Dict] = None) -> bool:
-        return self._node_manager.add_chunk(chunk_id, metadata)
+        return self._mutate(self._node_manager.add_chunk(chunk_id, metadata))
 
     def add_entity_node(self, entity_id: str, entity_type: str, metadata: Optional[Dict] = None) -> bool:
-        return self._node_manager.add_entity(entity_id, entity_type, metadata)
+        return self._mutate(self._node_manager.add_entity(entity_id, entity_type, metadata))
 
     def add_entity(self, entity_id: str, entity_type: str, metadata: Optional[Dict] = None) -> bool:
-        return self._node_manager.add_entity(entity_id, entity_type, metadata)
+        return self._mutate(self._node_manager.add_entity(entity_id, entity_type, metadata))
 
     def get_node(self, node_id: str) -> Optional[Dict[str, Any]]:
         return self._node_manager.get_node(node_id)
 
     def remove_node(self, node_id: str) -> bool:
-        return self._node_manager.remove_node(node_id)
+        return self._mutate(self._node_manager.remove_node(node_id))
 
     def get_node_count(self) -> int:
         return self._node_manager.get_node_count()
+
+    # Bayesian node operations (delegate to GraphNodeManager)
+    def increment_node_frequency(self, node_id: str) -> bool:
+        """Increment frequency counter when node is accessed."""
+        return self._mutate(self._node_manager.increment_frequency(node_id))
+
+    def update_node_importance(self, node_id: str, explicit_weight: float = 0.5) -> bool:
+        """Update node importance using weighted formula."""
+        return self._mutate(self._node_manager.update_importance(node_id, explicit_weight))
+
+    def update_node_decay_score(self, node_id: str) -> bool:
+        """Update decay score based on time since last access."""
+        return self._mutate(self._node_manager.update_decay_score(node_id))
+
+    def get_nodes_by_importance(
+        self,
+        min_importance: float = 0.0,
+        max_importance: float = 1.0
+    ) -> List[tuple]:
+        """Get nodes filtered by importance range."""
+        return self._node_manager.get_nodes_by_importance(min_importance, max_importance)
 
     # Edge operations (delegate to GraphEdgeManager)
     def add_relationship(
@@ -109,21 +136,89 @@ class GraphService:
         }
         if relationship_type not in standard_types and target in standard_types:
             relationship_type, target = target, relationship_type
-        return self._edge_manager.add_relationship(
+        return self._mutate(self._edge_manager.add_relationship(
             source,
             relationship_type,
             target,
             metadata
-        )
+        ))
 
     def remove_edge(self, source: str, target: str) -> bool:
-        return self._edge_manager.remove_edge(source, target)
+        return self._mutate(self._edge_manager.remove_edge(source, target))
 
     def get_neighbors(self, node_id: str, relationship_type: Optional[str] = None) -> List[str]:
         return self._edge_manager.get_neighbors(node_id, relationship_type)
 
     def get_edge_count(self) -> int:
         return self._edge_manager.get_edge_count()
+
+    # Bayesian edge operations (delegate to GraphEdgeManager)
+    def update_edge_confidence(
+        self,
+        source: str,
+        target: str,
+        new_confidence: float,
+        evidence_chunk: Optional[str] = None
+    ) -> bool:
+        """Update edge confidence based on new evidence."""
+        return self._mutate(self._edge_manager.update_edge_confidence(
+            source, target, new_confidence, evidence_chunk
+        ))
+
+    def increment_edge_frequency(self, source: str, target: str) -> bool:
+        """Increment frequency counter when edge is observed."""
+        return self._mutate(self._edge_manager.increment_frequency(source, target))
+
+    def get_edges_by_confidence(
+        self,
+        min_confidence: float = 0.0,
+        max_confidence: float = 1.0
+    ) -> List[tuple]:
+        """Get edges filtered by confidence range."""
+        return self._edge_manager.get_edges_by_confidence(min_confidence, max_confidence)
+
+    def update_edge_from_bayesian(
+        self,
+        source: str,
+        target: str,
+        bayesian_posterior: float,
+        prior_weight: float = 0.7,
+        posterior_weight: float = 0.3
+    ) -> bool:
+        """
+        Update edge confidence based on Bayesian inference result.
+
+        BAY-003: Applies confidence update formula:
+            new_confidence = prior_weight * prior + posterior_weight * posterior
+            Clamped to [0.1, 0.95] to prevent certainty
+
+        Args:
+            source: Source node ID
+            target: Target node ID
+            bayesian_posterior: Posterior probability from Bayesian inference
+            prior_weight: Weight for historical confidence (default 0.7)
+            posterior_weight: Weight for new evidence (default 0.3)
+
+        Returns:
+            True if updated successfully
+        """
+        if not self.graph.has_edge(source, target):
+            logger.warning(f"Edge not found for Bayesian update: {source} -> {target}")
+            return False
+
+        edge_data = self.graph.get_edge_data(source, target)
+        prior_confidence = edge_data.get('confidence', 0.5)
+
+        # Apply weighted update formula
+        new_confidence = (
+            prior_weight * prior_confidence +
+            posterior_weight * bayesian_posterior
+        )
+
+        # Clamp to [0.1, 0.95] to prevent certainty
+        new_confidence = max(0.1, min(0.95, new_confidence))
+
+        return self._mutate(self._edge_manager.update_edge_confidence(source, target, new_confidence))
 
     # Query operations (delegate to GraphQueryService)
     def find_path(self, source: str, target: str) -> Optional[List[str]]:
@@ -133,8 +228,8 @@ class GraphService:
         return self._query_service.get_subgraph(node_id, depth)
 
     # Persistence operations (delegate to GraphPersistence)
-    def save_graph(self, file_path: Optional[Path] = None) -> bool:
-        return self._persistence.save(file_path)
+    def save_graph(self, file_path: Optional[Path] = None, force: bool = False) -> bool:
+        return self._persistence.save(file_path, force=force)
 
     def load_graph(self, file_path: Optional[Path] = None) -> bool:
         loaded = self._persistence.load(file_path)

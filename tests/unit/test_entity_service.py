@@ -11,6 +11,13 @@ from unittest.mock import MagicMock
 from src.services.entity_service import EntityService
 from src.services.graph_service import GraphService
 
+try:
+    import spacy
+    _nlp = spacy.load("en_core_web_sm")
+    HAS_SPACY = _nlp is not None and hasattr(_nlp, 'lang')
+except (ImportError, OSError):
+    HAS_SPACY = False
+
 
 @pytest.fixture
 def entity_service():
@@ -27,17 +34,22 @@ def graph_service(tmp_path):
 class TestInitialization:
     """Test suite for EntityService initialization."""
 
-    def test_initialization_loads_model(self):
-        """Test EntityService loads spaCy model."""
+    def test_initialization_creates_service(self):
+        """Test EntityService initializes (spaCy or regex fallback)."""
         service = EntityService()
+        assert service is not None
 
+    @pytest.mark.skipif(not HAS_SPACY, reason="spaCy model not available")
+    def test_initialization_loads_spacy_model(self):
+        """Test EntityService loads spaCy model when available."""
+        service = EntityService()
         assert service.nlp is not None
         assert service.nlp.lang == 'en'
 
+    @pytest.mark.skipif(not HAS_SPACY, reason="spaCy model not available")
     def test_initialization_with_custom_model(self):
         """Test initialization with specific model name."""
         service = EntityService(model_name='en_core_web_sm')
-
         assert service.nlp is not None
 
 
@@ -57,6 +69,7 @@ class TestExtractEntities:
         assert len(person_entities) >= 1
         assert any('Obama' in e['text'] for e in person_entities)
 
+    @pytest.mark.skipif(not HAS_SPACY, reason="ORG classification requires spaCy NER")
     def test_extract_entities_organization(self, entity_service):
         """Test extracting ORG entity."""
         text = "Google is a technology company."
@@ -67,6 +80,7 @@ class TestExtractEntities:
         assert len(org_entities) >= 1
         assert any('Google' in e['text'] for e in org_entities)
 
+    @pytest.mark.skipif(not HAS_SPACY, reason="GPE classification requires spaCy NER")
     def test_extract_entities_gpe(self, entity_service):
         """Test extracting GPE (geo-political) entity."""
         text = "United States is a country in North America."
