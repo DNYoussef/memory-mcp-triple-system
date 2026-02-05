@@ -88,14 +88,17 @@ class VectorIndexer:
 
         Args:
             vector_size: Embedding dimension (used for validation)
+
+        VEC-004: Embedding dimensions are standardized at 384 (all-MiniLM-L6-v2).
+        All sources must use consistent dimensions for vector operations.
         """
         assert vector_size > 0, "vector_size must be positive"
 
         try:
             self.collection = self.client.get_collection(self.collection_name)
             logger.info(f"Collection '{self.collection_name}' already exists")
-        except Exception:
-            # Collection doesn't exist, create it with optimized HNSW parameters
+        except (ValueError, KeyError):
+            # ChromaDB raises ValueError/KeyError when collection not found
             self.collection = self.client.create_collection(
                 name=self.collection_name,
                 metadata={
@@ -172,16 +175,84 @@ class VectorIndexer:
         if not embedding:
             raise ValueError("embedding cannot be empty")
 
+        # Ensure timestamp fields for lifecycle queries
+        from datetime import datetime
+        now = datetime.now()
+        enriched_metadata = metadata.copy() if metadata else {}
+        if 'last_accessed_ts' not in enriched_metadata:
+            enriched_metadata['last_accessed_ts'] = now.timestamp()
+            enriched_metadata['last_accessed'] = now.isoformat()
+        if 'created_at_ts' not in enriched_metadata:
+            enriched_metadata['created_at_ts'] = now.timestamp()
+            enriched_metadata['created_at'] = now.isoformat()
+        if 'stage' not in enriched_metadata:
+            enriched_metadata['stage'] = 'active'
+
         try:
             self.collection.add(
                 ids=[doc_id],
                 documents=[text],
                 embeddings=[embedding],
-                metadatas=[metadata or {}]
+                metadatas=[enriched_metadata]
             )
             return True
         except Exception as e:
             logger.error(f"Failed to add document {doc_id}: {e}")
+            return False
+
+    @db_retry
+    def add_fact(
+        self,
+        doc_id: str,
+        text: str,
+        embedding: List[float],
+        source: str,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """
+        VEC-005: Add a fact document with truth layer metadata.
+
+        Adds is_fact=True, source, and promoted_at timestamp for
+        truth layer content that has been verified/promoted.
+
+        Args:
+            doc_id: Document identifier
+            text: Document text
+            embedding: Embedding vector
+            source: Source of the fact (e.g., 'obsidian', 'promotion', 'manual')
+            metadata: Optional additional metadata
+
+        Returns:
+            True if added, False otherwise
+
+        NASA Rule 10: 25 LOC (<=60)
+        """
+        from datetime import datetime
+
+        if not doc_id or not text:
+            raise ValueError("doc_id and text are required")
+        if not embedding:
+            raise ValueError("embedding cannot be empty")
+
+        # VEC-005: Build truth layer metadata
+        fact_metadata = {
+            "is_fact": True,
+            "source": source,
+            "promoted_at": datetime.utcnow().isoformat(),
+            **(metadata or {})
+        }
+
+        try:
+            self.collection.add(
+                ids=[doc_id],
+                documents=[text],
+                embeddings=[embedding],
+                metadatas=[fact_metadata]
+            )
+            logger.debug(f"Added fact {doc_id} from source={source}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to add fact {doc_id}: {e}")
             return False
 
     @db_retry
@@ -206,6 +277,9 @@ class VectorIndexer:
         embeddings = []
         metadatas = []
 
+        from datetime import datetime
+        now = datetime.now()
+
         for doc in docs:
             doc_id = doc.get("id")
             text = doc.get("text")
@@ -215,7 +289,18 @@ class VectorIndexer:
             ids.append(str(doc_id))
             documents.append(text)
             embeddings.append(embedding)
-            metadatas.append(doc.get("metadata", {}))
+
+            # Ensure timestamp fields for lifecycle queries
+            meta = doc.get("metadata", {}).copy() if doc.get("metadata") else {}
+            if 'last_accessed_ts' not in meta:
+                meta['last_accessed_ts'] = now.timestamp()
+                meta['last_accessed'] = now.isoformat()
+            if 'created_at_ts' not in meta:
+                meta['created_at_ts'] = now.timestamp()
+                meta['created_at'] = now.isoformat()
+            if 'stage' not in meta:
+                meta['stage'] = 'active'
+            metadatas.append(meta)
 
         try:
             self.collection.add(

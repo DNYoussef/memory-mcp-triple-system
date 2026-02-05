@@ -26,6 +26,12 @@ from pathlib import Path
 import hashlib
 import yaml
 
+# Import default confidence from graph edge manager for consistency
+try:
+    from ..services.graph_edge_manager import DEFAULT_EDGE_CONFIDENCE
+except ImportError:
+    DEFAULT_EDGE_CONFIDENCE = 0.5  # Fallback if import fails
+
 
 class NetworkBuilder:
     """
@@ -60,9 +66,12 @@ class NetworkBuilder:
         self.min_edge_confidence = min_edge_confidence
         self.cache_ttl = timedelta(hours=cache_ttl_hours)
         self.cache: Dict[str, Dict[str, Any]] = {}
+        # MEM-006: Add bounded cache with max size to prevent memory leaks
+        self.max_cache_size = 100
         logger.info(
             f"NetworkBuilder initialized: max_nodes={max_nodes}, "
-            f"min_confidence={min_edge_confidence}, cache_ttl={cache_ttl_hours}h"
+            f"min_confidence={min_edge_confidence}, cache_ttl={cache_ttl_hours}h, "
+            f"max_cache_size={self.max_cache_size}"
         )
 
     def _load_max_nodes_from_config(self, config_path: str) -> int:
@@ -221,8 +230,8 @@ class NetworkBuilder:
         for parent in parents:
             if graph.has_edge(parent, node):
                 edge_data = graph.edges[parent, node]
-                weight = edge_data.get("weight", 0.5)
-                weight *= edge_data.get("confidence", 0.5)
+                weight = edge_data.get("weight", DEFAULT_EDGE_CONFIDENCE)
+                weight *= edge_data.get("confidence", DEFAULT_EDGE_CONFIDENCE)
                 total_weight += weight
 
         avg_weight = total_weight / len(parents) if parents else 0.5
@@ -365,20 +374,38 @@ class NetworkBuilder:
 
     def cache_network(self, network: BayesianNetwork, cache_key: str):
         """
-        Cache Bayesian network with TTL.
+        Cache Bayesian network with TTL and bounded size.
 
         Args:
             network: Network to cache
             cache_key: Cache key (graph hash)
 
-        NASA Rule 10: 12 LOC (≤60) ✅
+        NASA Rule 10: 25 LOC (<=60)
         """
+        # MEM-006: Proactive cleanup - remove expired entries
+        now = datetime.now()
+        expired_keys = [
+            k for k, v in self.cache.items()
+            if v.get("expires_at", now) < now
+        ]
+        for k in expired_keys:
+            del self.cache[k]
+
+        # MEM-006: Enforce max cache size - evict oldest entries
+        while len(self.cache) >= self.max_cache_size:
+            oldest_key = min(
+                self.cache.keys(),
+                key=lambda k: self.cache[k].get("created_at", now)
+            )
+            del self.cache[oldest_key]
+            logger.debug(f"Evicted cache entry {oldest_key[:8]} (max size reached)")
+
         self.cache[cache_key] = {
             "network": network,
-            "expires_at": datetime.now() + self.cache_ttl,
-            "created_at": datetime.now()
+            "expires_at": now + self.cache_ttl,
+            "created_at": now
         }
-        logger.debug(f"Cached network {cache_key[:8]}, TTL={self.cache_ttl}")
+        logger.debug(f"Cached network {cache_key[:8]}, TTL={self.cache_ttl}, cache_size={len(self.cache)}")
 
     def _filter_edges(self, graph: nx.DiGraph) -> nx.DiGraph:
         """
@@ -390,7 +417,9 @@ class NetworkBuilder:
         edges_to_remove = []
 
         for u, v, data in filtered.edges(data=True):
-            confidence = data.get("confidence", 1.0)
+            # Use DEFAULT_EDGE_CONFIDENCE instead of 1.0 to avoid false certainty
+            # BAY-001: Fixed - edges without explicit confidence no longer appear 100% certain
+            confidence = data.get("confidence", DEFAULT_EDGE_CONFIDENCE)
             if confidence < self.min_edge_confidence:
                 edges_to_remove.append((u, v))
 

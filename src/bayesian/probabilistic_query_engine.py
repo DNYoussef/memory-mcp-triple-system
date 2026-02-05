@@ -47,7 +47,13 @@ class ProbabilisticQueryEngine:
         """
         self.timeout_seconds = timeout_seconds
         self._network = network  # ISS-018: Store network internally
+        # P0-3 FIX: Reuse single executor instead of creating per-query
+        self._executor = ThreadPoolExecutor(max_workers=1)
         logger.info(f"ProbabilisticQueryEngine initialized: timeout={timeout_seconds}s")
+
+    def close(self) -> None:
+        """Shut down the thread pool executor."""
+        self._executor.shutdown(wait=False)
 
     def set_network(self, network: BayesianNetwork) -> None:
         """ISS-018 FIX: Set or update the Bayesian network."""
@@ -204,10 +210,10 @@ class ProbabilisticQueryEngine:
             timeout = self.timeout_seconds
 
         try:
-            with ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(query_func)
-                result = future.result(timeout=timeout)
-                return result
+            # P0-3 FIX: Reuse self._executor instead of creating new per query
+            future = self._executor.submit(query_func)
+            result = future.result(timeout=timeout)
+            return result
         except TimeoutError:
             logger.warning(f"Query timeout after {timeout}s")
             return None

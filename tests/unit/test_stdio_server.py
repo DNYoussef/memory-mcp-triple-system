@@ -48,10 +48,10 @@ class TestHandleListTools:
         tools = handle_list_tools()
         assert isinstance(tools, list)
 
-    def test_returns_eleven_tools(self):
-        """Test exactly eleven tools are returned."""
+    def test_returns_thirteen_tools(self):
+        """Test exactly thirteen tools are returned (mode_detection removed in P1-2)."""
         tools = handle_list_tools()
-        assert len(tools) == 11
+        assert len(tools) == 13
 
     def test_vector_search_tool_present(self):
         """Test vector_search tool is in the list."""
@@ -355,7 +355,7 @@ class TestStdioMainLoop:
 
         assert "result" in response
         assert "tools" in response["result"]
-        assert len(response["result"]["tools"]) == 11
+        assert len(response["result"]["tools"]) == 13
 
     def test_error_response_format(self):
         """Test error response format for unknown method."""

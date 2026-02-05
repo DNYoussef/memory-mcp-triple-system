@@ -15,6 +15,7 @@ from enum import Enum
 from uuid import uuid4
 import sqlite3
 import json
+import threading
 from loguru import logger
 
 
@@ -49,11 +50,23 @@ class EventLog:
         Args:
             db_path: Path to SQLite database file
 
-        NASA Rule 10: 9 LOC (≤60) ✅
+        NASA Rule 10: 12 LOC (<=60)
         """
         self.db_path = db_path
+        # P4-1: Thread-local connection pooling (reuse connections instead
+        # of creating/closing per operation like KVStore does)
+        self._local = threading.local()
         self._init_schema()
         logger.info(f"EventLog initialized with db_path={db_path}")
+
+    def _get_connection(self) -> sqlite3.Connection:
+        """Get or create thread-local database connection."""
+        if not hasattr(self._local, "conn") or self._local.conn is None:
+            self._local.conn = sqlite3.connect(
+                self.db_path, check_same_thread=False, timeout=30.0
+            )
+            self._local.conn.row_factory = sqlite3.Row
+        return self._local.conn
 
     def log_event(
         self,
@@ -80,7 +93,7 @@ class EventLog:
         event_id = str(uuid4())
 
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._get_connection()
             cursor = conn.cursor()
 
             cursor.execute("""
@@ -94,11 +107,13 @@ class EventLog:
             ))
 
             conn.commit()
-            conn.close()
 
             logger.debug(f"Logged event {event_type.value}: {event_id}")
             return True
 
+        except (OSError, IOError) as e:
+            logger.critical(f"Storage failure logging event: {e}")
+            raise
         except Exception as e:
             logger.error(f"Failed to log event: {e}")
             return False
@@ -125,15 +140,13 @@ class EventLog:
         NASA Rule 10: 37 LOC (≤60) ✅
         """
         try:
-            conn = sqlite3.connect(self.db_path)
-            conn.row_factory = sqlite3.Row
+            conn = self._get_connection()
             cursor = conn.cursor()
 
             # Build and execute query
             query, params = self._build_timerange_query(start_time, end_time, event_types)
             cursor.execute(query, params)
             rows = cursor.fetchall()
-            conn.close()
 
             # Convert to list of dicts
             events = self._convert_rows_to_events(rows)
@@ -163,7 +176,7 @@ class EventLog:
         cutoff = datetime.now() - timedelta(days=retention_days)
 
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._get_connection()
             cursor = conn.cursor()
 
             cursor.execute("""
@@ -173,7 +186,6 @@ class EventLog:
 
             deleted = cursor.rowcount
             conn.commit()
-            conn.close()
 
             logger.info(f"Cleaned up {deleted} events older than {retention_days} days")
             return deleted
@@ -204,7 +216,7 @@ class EventLog:
         NASA Rule 10: 43 LOC (≤60) ✅
         """
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._get_connection()
             cursor = conn.cursor()
 
             # Build query
@@ -226,7 +238,6 @@ class EventLog:
 
             cursor.execute(query, params)
             rows = cursor.fetchall()
-            conn.close()
 
             # Convert to dict
             stats: Dict[str, int] = {}
@@ -298,7 +309,7 @@ class EventLog:
         NASA Rule 10: 33 LOC (≤60) ✅
         """
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = self._get_connection()
             cursor = conn.cursor()
 
             cursor.execute("""
@@ -322,7 +333,6 @@ class EventLog:
             """)
 
             conn.commit()
-            conn.close()
 
             logger.debug("Event log schema initialized")
 

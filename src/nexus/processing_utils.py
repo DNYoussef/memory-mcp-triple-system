@@ -3,11 +3,29 @@ Processing Utilities: Helper functions for NexusProcessor.
 
 Extracted from processor.py for modularity.
 NASA Rule 10 Compliant: All functions <=60 LOC
+
+MEM-CHUNK-002: Added Lost-in-the-Middle mitigation strategies.
 """
 
 from typing import List, Dict, Any, Optional
+from enum import Enum
 import numpy as np
 from loguru import logger
+
+
+class LostInMiddleMitigation(Enum):
+    """
+    Lost-in-the-Middle mitigation strategies (MEM-CHUNK-002).
+
+    NONE: No reordering, standard descending relevance.
+    EDGES: High relevance at edges (start/end), medium in middle.
+    INTERLEAVE: Alternate high/medium relevance throughout.
+    REVERSE_MIDDLE: Highest at start, then reverse-sorted middle, highest at end.
+    """
+    NONE = "none"
+    EDGES = "edges"
+    INTERLEAVE = "interleave"
+    REVERSE_MIDDLE = "reverse_middle"
 
 
 class ProcessingUtilsMixin:
@@ -17,6 +35,23 @@ class ProcessingUtilsMixin:
     Requires:
         - self.embedding_pipeline (optional, for cosine similarity)
     """
+
+    def _calculate_hybrid_score(
+        self,
+        vector_score: float = 0.0,
+        graph_score: float = 0.0,
+        bayesian_score: float = 0.0
+    ) -> float:
+        """Calculate weighted hybrid score from tier scores.
+
+        Single source of truth for the scoring formula.
+        Used by both _combine_tier_scores() and rank().
+        """
+        return (
+            self.weights.get("vector", 0.4) * vector_score +
+            self.weights.get("hipporag", 0.4) * graph_score +
+            self.weights.get("bayesian", 0.2) * bayesian_score
+        )
 
     def _get_mode_config(self, mode: str) -> Dict[str, int]:
         """Get mode-specific core/extended split configuration."""
@@ -180,3 +215,157 @@ class ProcessingUtilsMixin:
             "pipeline_stats": {},
             "total_ms": 0
         }
+
+    def apply_lost_in_middle_mitigation(
+        self,
+        results: List[Dict[str, Any]],
+        strategy: LostInMiddleMitigation = LostInMiddleMitigation.EDGES
+    ) -> List[Dict[str, Any]]:
+        """
+        Apply Lost-in-the-Middle mitigation reordering (MEM-CHUNK-002).
+
+        LLMs tend to miss content in the middle of context windows.
+        This method reorders results to place high-relevance content
+        at positions that get more attention (start and end).
+
+        Args:
+            results: Ranked results (already sorted by relevance desc)
+            strategy: Mitigation strategy to apply
+
+        Returns:
+            Reordered results with high relevance at edges
+
+        NASA Rule 10: 35 LOC
+        """
+        if not results or len(results) <= 2:
+            return results
+
+        if strategy == LostInMiddleMitigation.NONE:
+            return results
+
+        if strategy == LostInMiddleMitigation.EDGES:
+            return self._reorder_edges(results)
+
+        if strategy == LostInMiddleMitigation.INTERLEAVE:
+            return self._reorder_interleave(results)
+
+        if strategy == LostInMiddleMitigation.REVERSE_MIDDLE:
+            return self._reorder_reverse_middle(results)
+
+        return results
+
+    def _reorder_edges(
+        self,
+        results: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Reorder with high relevance at edges (MEM-CHUNK-002).
+
+        Pattern: [1, 3, 5, 7, ..., 8, 6, 4, 2]
+        Places odd-ranked items at start, even-ranked at end (reversed).
+
+        NASA Rule 10: 20 LOC
+        """
+        n = len(results)
+        reordered = []
+
+        # First half: odd positions (0, 2, 4, ...)
+        for i in range(0, n, 2):
+            reordered.append(results[i])
+
+        # Second half: even positions reversed (n-1, n-3, ...)
+        for i in range(n - 1 if n % 2 == 0 else n - 2, 0, -2):
+            reordered.append(results[i])
+
+        logger.debug(f"Lost-in-middle EDGES reorder: {n} items")
+        return reordered
+
+    def _reorder_interleave(
+        self,
+        results: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Interleave high and medium relevance throughout (MEM-CHUNK-002).
+
+        Pattern: [1, 6, 2, 7, 3, 8, 4, 9, 5, 10]
+        Alternates between top half and bottom half.
+
+        NASA Rule 10: 25 LOC
+        """
+        n = len(results)
+        mid = (n + 1) // 2
+        top_half = results[:mid]
+        bottom_half = results[mid:]
+
+        reordered = []
+        for i in range(max(len(top_half), len(bottom_half))):
+            if i < len(top_half):
+                reordered.append(top_half[i])
+            if i < len(bottom_half):
+                reordered.append(bottom_half[i])
+
+        logger.debug(f"Lost-in-middle INTERLEAVE reorder: {n} items")
+        return reordered
+
+    def _reorder_reverse_middle(
+        self,
+        results: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Keep start, reverse middle, keep end (MEM-CHUNK-002).
+
+        Pattern: [1, 4, 3, 2, 5] for 5 items
+        First stays first, last stays last, middle is reversed.
+        This pushes medium relevance toward edges of the middle section.
+
+        NASA Rule 10: 20 LOC
+        """
+        n = len(results)
+        if n <= 3:
+            return results
+
+        first = [results[0]]
+        last = [results[-1]]
+        middle = results[1:-1]
+        middle_reversed = list(reversed(middle))
+
+        reordered = first + middle_reversed + last
+        logger.debug(f"Lost-in-middle REVERSE_MIDDLE reorder: {n} items")
+        return reordered
+
+    def get_position_weights(
+        self,
+        length: int,
+        edge_boost: float = 0.1
+    ) -> List[float]:
+        """
+        Get position-based relevance weight adjustments (MEM-CHUNK-002).
+
+        Boosts edge positions (start/end) with extra weight to
+        compensate for LLM attention patterns.
+
+        Args:
+            length: Number of items
+            edge_boost: Extra weight for edge positions (default 0.1 = 10%)
+
+        Returns:
+            List of position weights (1.0 base + boost for edges)
+
+        NASA Rule 10: 20 LOC
+        """
+        if length == 0:
+            return []
+
+        weights = [1.0] * length
+
+        # Boost first and last positions
+        weights[0] += edge_boost
+        if length > 1:
+            weights[-1] += edge_boost
+
+        # Slight boost for near-edge positions
+        if length > 2:
+            weights[1] += edge_boost * 0.5
+            weights[-2] += edge_boost * 0.5
+
+        return weights

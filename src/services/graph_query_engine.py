@@ -578,8 +578,17 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
             if node_data.get('type') != 'entity':
                 continue
 
-            # Check if entity text matches any token
-            entity_text = node_data.get('text', node_id).lower()
+            # MEM-002: Check both 'text' field and metadata for entity text
+            # Entity text may be stored in node_data directly or in metadata
+            entity_text = node_data.get('text', '')
+            if not entity_text:
+                # Check metadata field for entity text
+                metadata = node_data.get('metadata', {})
+                if isinstance(metadata, dict):
+                    entity_text = metadata.get('text', metadata.get('name', node_id))
+                else:
+                    entity_text = node_id
+            entity_text = entity_text.lower()
             if any(token in entity_text or entity_text in token for token in tokens):
                 matching_entities.append(node_id)
 
