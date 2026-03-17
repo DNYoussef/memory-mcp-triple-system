@@ -37,8 +37,13 @@ from ..services.graph_service import GraphService
 from ..services.graph_query_engine import GraphQueryEngine
 from ..services.entity_service import EntityService
 from ..services.hipporag_service import HippoRagService
-from ..bayesian.probabilistic_query_engine import ProbabilisticQueryEngine
-from ..bayesian.network_builder import NetworkBuilder
+from ..bayesian import BAYESIAN_AVAILABLE
+if BAYESIAN_AVAILABLE:
+    from ..bayesian.probabilistic_query_engine import ProbabilisticQueryEngine
+    from ..bayesian.network_builder import NetworkBuilder
+else:
+    ProbabilisticQueryEngine = None  # type: ignore[assignment,misc]
+    NetworkBuilder = None  # type: ignore[assignment,misc]
 
 # Beads integration for task management
 from ..integrations.beads_bridge import BeadsBridge
