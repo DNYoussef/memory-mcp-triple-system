@@ -13,8 +13,13 @@ from ..services.graph_service import GraphService
 from ..services.graph_query_engine import GraphQueryEngine
 from ..services.entity_service import EntityService
 from ..services.hipporag_service import HippoRagService
-from ..bayesian.network_builder import NetworkBuilder
-from ..bayesian.probabilistic_query_engine import ProbabilisticQueryEngine
+from ..bayesian import BAYESIAN_AVAILABLE
+if BAYESIAN_AVAILABLE:
+    from ..bayesian.network_builder import NetworkBuilder
+    from ..bayesian.probabilistic_query_engine import ProbabilisticQueryEngine
+else:
+    NetworkBuilder = None  # type: ignore[assignment,misc]
+    ProbabilisticQueryEngine = None  # type: ignore[assignment,misc]
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +45,7 @@ class MemoryMCPQueryService:
         mode: str = "execution",
         top_k: int = 50,
         token_budget: int = 10000,
+        use_rlm: bool = False,
     ) -> Dict[str, Any]:
         return await asyncio.to_thread(
             self._nexus.process,
@@ -47,6 +53,7 @@ class MemoryMCPQueryService:
             mode,
             top_k,
             token_budget,
+            use_rlm,
         )
 
     async def get_related_entities(self, entity_name: str) -> List[str]:
@@ -71,12 +78,16 @@ class MemoryMCPQueryService:
     def _init_nexus(self) -> NexusProcessor:
         graph_query_engine = self._graph_query_engine
         bayesian_network = None
-        try:
-            builder = NetworkBuilder(max_nodes=1000)
-            bayesian_network = builder.build_network(self._graph_service.graph)
-        except Exception as exc:
-            logger.warning("Failed to build Bayesian network: %s", exc)
-        probabilistic_engine = ProbabilisticQueryEngine(network=bayesian_network)
+        probabilistic_engine = None
+        if NetworkBuilder is not None and ProbabilisticQueryEngine is not None:
+            try:
+                builder = NetworkBuilder(max_nodes=1000)
+                bayesian_network = builder.build_network(self._graph_service.graph)
+            except Exception as exc:
+                logger.warning("Failed to build Bayesian network: %s", exc)
+            probabilistic_engine = ProbabilisticQueryEngine(network=bayesian_network)
+        else:
+            logger.info("Bayesian layer unavailable (torch/pgmpy not installed). Running vector + graph only.")
         return NexusProcessor(
             vector_indexer=self._vector_tool.indexer,
             graph_query_engine=graph_query_engine,

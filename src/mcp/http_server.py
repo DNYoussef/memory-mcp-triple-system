@@ -37,15 +37,22 @@ from src.indexing.vector_indexer import VectorIndexer
 from src.indexing.embedding_pipeline import EmbeddingPipeline
 from src.modes.mode_detector import ModeDetector
 from src.routing.query_router import QueryRouter
+from src.routing.unified_router import UnifiedRetrievalRouter
 from src.nexus.processor import NexusProcessor
 from src.services.graph_service import GraphService
 from src.services.graph_query_engine import GraphQueryEngine
-from src.bayesian.network_builder import NetworkBuilder
-from src.bayesian.probabilistic_query_engine import ProbabilisticQueryEngine
+from src.bayesian import BAYESIAN_AVAILABLE
+if BAYESIAN_AVAILABLE:
+    from src.bayesian.network_builder import NetworkBuilder
+    from src.bayesian.probabilistic_query_engine import ProbabilisticQueryEngine
+else:
+    NetworkBuilder = None  # type: ignore[assignment,misc]
+    ProbabilisticQueryEngine = None  # type: ignore[assignment,misc]
 from src.stores.event_log import EventLog, EventType
 from src.stores.kv_store import KVStore
 from src.memory.lifecycle_manager import MemoryLifecycleManager
 from src.memory.lifecycle_scheduler import LifecycleScheduler
+from src.integrations.beads_bridge import BeadsBridge
 from src.universal_components import (
     init_connascence_bridge,
     init_memory_client,
@@ -53,10 +60,39 @@ from src.universal_components import (
     init_telemetry_bridge,
 )
 
-tagger = init_tagger()
-memory_client = init_memory_client()
-telemetry_bridge = init_telemetry_bridge()
-connascence_bridge = init_connascence_bridge()
+# P0-2 FIX: Lazy init (no import-time side effects)
+_tagger = None
+_memory_client = None
+_telemetry_bridge = None
+_connascence_bridge = None
+
+
+def _get_tagger():
+    global _tagger
+    if _tagger is None:
+        _tagger = init_tagger()
+    return _tagger
+
+
+def _get_memory_client():
+    global _memory_client
+    if _memory_client is None:
+        _memory_client = init_memory_client()
+    return _memory_client
+
+
+def _get_telemetry_bridge():
+    global _telemetry_bridge
+    if _telemetry_bridge is None:
+        _telemetry_bridge = init_telemetry_bridge()
+    return _telemetry_bridge
+
+
+def _get_connascence_bridge():
+    global _connascence_bridge
+    if _connascence_bridge is None:
+        _connascence_bridge = init_connascence_bridge()
+    return _connascence_bridge
 
 
 app = FastAPI(
@@ -87,6 +123,8 @@ _event_log: Optional[EventLog] = None
 _kv_store: Optional[KVStore] = None
 _lifecycle_manager: Optional[MemoryLifecycleManager] = None
 _lifecycle_scheduler: Optional[LifecycleScheduler] = None
+_unified_router: Optional[UnifiedRetrievalRouter] = None
+_beads_bridge: Optional[BeadsBridge] = None
 
 _indexer_lock = threading.Lock()
 _embedder_lock = threading.Lock()
@@ -98,6 +136,8 @@ _nexus_lock = threading.Lock()
 _event_log_lock = threading.Lock()
 _kv_store_lock = threading.Lock()
 _lifecycle_manager_lock = threading.Lock()
+_unified_router_lock = threading.Lock()
+_beads_bridge_lock = threading.Lock()
 
 
 def get_indexer() -> VectorIndexer:
@@ -224,16 +264,19 @@ def get_nexus_processor() -> NexusProcessor:
                 graph_query_engine = get_graph_query_engine()
 
                 bayesian_network = None
-                try:
-                    builder = NetworkBuilder(max_nodes=1000)
-                    bayesian_network = builder.build_network(graph_service.graph)
-                except Exception as exc:
-                    logger.warning("Bayesian network build failed: %s", exc)
-
-                probabilistic_engine = ProbabilisticQueryEngine(
-                    timeout_seconds=1.0,
-                    network=bayesian_network
-                )
+                probabilistic_engine = None
+                if NetworkBuilder is not None and ProbabilisticQueryEngine is not None:
+                    try:
+                        builder = NetworkBuilder(max_nodes=1000)
+                        bayesian_network = builder.build_network(graph_service.graph)
+                    except (ValueError, RuntimeError, TimeoutError) as exc:
+                        logger.warning("Bayesian network build failed: %s", exc)
+                    probabilistic_engine = ProbabilisticQueryEngine(
+                        timeout_seconds=1.0,
+                        network=bayesian_network
+                    )
+                else:
+                    logger.info("Bayesian layer unavailable (torch/pgmpy not installed)")
 
                 _nexus_processor = NexusProcessor(
                     vector_indexer=get_indexer(),
@@ -242,6 +285,34 @@ def get_nexus_processor() -> NexusProcessor:
                     embedding_pipeline=get_embedder()
                 )
     return _nexus_processor
+
+
+def get_beads_bridge() -> BeadsBridge:
+    """Lazy initialize BeadsBridge for Beads CLI integration."""
+    global _beads_bridge
+    if _beads_bridge is None:
+        with _beads_bridge_lock:
+            if _beads_bridge is None:
+                # Use bd.exe path from environment or default Windows location
+                beads_binary = os.getenv(
+                    "BEADS_BINARY",
+                    r"C:\Users\17175\AppData\Local\beads\bd.exe"
+                )
+                _beads_bridge = BeadsBridge(beads_binary=beads_binary, cache_ttl=60)
+    return _beads_bridge
+
+
+def get_unified_router() -> UnifiedRetrievalRouter:
+    """Lazy initialize UnifiedRetrievalRouter with Beads + Memory."""
+    global _unified_router
+    if _unified_router is None:
+        with _unified_router_lock:
+            if _unified_router is None:
+                _unified_router = UnifiedRetrievalRouter(
+                    beads_bridge=get_beads_bridge(),
+                    memory_service=get_nexus_processor()
+                )
+    return _unified_router
 
 
 # Request/Response Models
@@ -274,6 +345,13 @@ class SearchRequest(BaseModel):
     query: str = Field(..., description="Search query")
     limit: int = Field(10, description="Max results")
     mode: Optional[str] = Field(None, description="Query mode (execution/planning/brainstorming)")
+
+
+class UnifiedRetrievalRequest(BaseModel):
+    """Request for unified retrieval combining Beads and Memory MCP."""
+    query: str = Field(..., description="Search query")
+    mode: Optional[str] = Field(None, description="Mode: execution (80% beads), planning (50/50), brainstorming (80% memory)")
+    token_budget: int = Field(10000, description="Total token budget for results")
 
 
 REQUIRED_TAGS = ["who", "when", "project", "why"]
@@ -572,6 +650,76 @@ async def obsidian_sync(request: ObsidianSyncRequest) -> Dict[str, Any]:
         raise
     except Exception as e:
         logger.error(f"Obsidian sync failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/tools/unified_retrieve")
+async def unified_retrieve(request: UnifiedRetrievalRequest) -> Dict[str, Any]:
+    """Unified retrieval combining Beads (procedural) and Memory MCP (semantic).
+
+    Mode weights:
+    - execution: 80% beads, 20% memory (task-focused)
+    - planning: 50% beads, 50% memory (balanced)
+    - brainstorming: 20% beads, 80% memory (creative)
+
+    This is the PRODUCTION endpoint for Life OS Dashboard integration.
+    PROJ-002: Memory MCP Production PageRank - wiring complete.
+    """
+    try:
+        mode_detector = get_mode_detector()
+        mode = request.mode
+        if not mode:
+            profile, _ = mode_detector.detect(request.query)
+            mode = profile.name
+
+        # Get unified router (Beads + Memory)
+        router = get_unified_router()
+
+        # Execute unified retrieval
+        result = await router.retrieve(
+            query=request.query,
+            mode=mode,
+            token_budget=request.token_budget
+        )
+
+        # Log the unified retrieval
+        event_log = get_event_log()
+        event_log.log_event(
+            EventType.QUERY_EXECUTED,
+            {
+                "query": request.query,
+                "mode": mode,
+                "token_budget": request.token_budget,
+                "beads_count": len(result.get("beads", [])),
+                "memory_count": len(result.get("memory", {}).get("core", [])),
+                "processor": "unified_router",
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        )
+
+        # Transform beads tasks to serializable format
+        beads_tasks = []
+        for task in result.get("beads", []):
+            beads_tasks.append({
+                "id": task.id,
+                "title": task.title,
+                "description": task.description,
+                "status": task.status,
+                "priority": task.priority,
+                "type": "procedural_task"
+            })
+
+        return {
+            "mode": result.get("mode"),
+            "token_budget": result.get("token_budget"),
+            "beads_budget": result.get("beads_budget"),
+            "memory_budget": result.get("memory_budget"),
+            "beads": beads_tasks,
+            "memory": result.get("memory", {}),
+            "processor": "unified_retrieval_router"
+        }
+    except Exception as e:
+        logger.error(f"Unified retrieval failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

@@ -21,9 +21,9 @@ WORKDIR /app
 COPY requirements-api.txt requirements.txt ./
 RUN pip install --no-cache-dir -r requirements-api.txt
 
-# pgmpy installed separately with --no-deps to prevent pulling torch + NVIDIA CUDA (~2GB)
-# All pgmpy runtime deps (pandas, scipy, scikit-learn, statsmodels, networkx, numpy) already installed above
-RUN pip install --no-cache-dir --no-deps pgmpy==0.1.24
+# pgmpy EXCLUDED from Railway build -- pgmpy.global_vars unconditionally imports torch.
+# Bayesian layer gracefully degrades: vector (40%) + graph (40%) still work.
+# pgmpy + torch only available in local dev (requirements.txt).
 
 # spaCy model for NLP pipeline (entity extraction)
 RUN python -m spacy download en_core_web_sm
