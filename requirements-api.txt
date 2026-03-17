@@ -19,9 +19,8 @@ spacy>=3.8.0  # Python 3.12 compatibility fix
 
 # Bayesian Layer
 # pgmpy pulls torch + full NVIDIA CUDA stack as transitive deps (~2GB).
-# Pin --no-deps and list only the deps pgmpy actually needs at runtime.
-# All of these are already installed by other packages above.
-pgmpy==0.1.24 --no-deps
+# Install pgmpy's real deps first, then pgmpy itself via --no-deps in Dockerfile.
+# See Dockerfile.railway RUN step for the --no-deps install.
 pandas>=2.0.0
 scipy>=1.10.0
 scikit-learn>=1.3.0
