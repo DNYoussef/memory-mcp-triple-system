@@ -33,4 +33,4 @@ except ImportError:
         BAYESIAN_AVAILABLE = False
         BAYESIAN_BACKEND = "none"
 
-__all__ = ["NetworkBuilder", "ProbabilisticQueryEngine", "BayesianGraphSync", "BAYESIAN_AVAILABLE"]
+__all__ = ["NetworkBuilder", "ProbabilisticQueryEngine", "BayesianGraphSync", "BAYESIAN_AVAILABLE", "BAYESIAN_BACKEND"]

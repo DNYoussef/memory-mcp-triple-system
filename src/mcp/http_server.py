@@ -41,13 +41,7 @@ from src.routing.unified_router import UnifiedRetrievalRouter
 from src.nexus.processor import NexusProcessor
 from src.services.graph_service import GraphService
 from src.services.graph_query_engine import GraphQueryEngine
-from src.bayesian import BAYESIAN_AVAILABLE, BAYESIAN_BACKEND
-if BAYESIAN_AVAILABLE:
-    from src.bayesian.network_builder import NetworkBuilder
-    from src.bayesian.probabilistic_query_engine import ProbabilisticQueryEngine
-else:
-    NetworkBuilder = None  # type: ignore[assignment,misc]
-    ProbabilisticQueryEngine = None  # type: ignore[assignment,misc]
+from src.bayesian import BAYESIAN_AVAILABLE, BAYESIAN_BACKEND, NetworkBuilder, ProbabilisticQueryEngine
 from src.stores.event_log import EventLog, EventType
 from src.stores.kv_store import KVStore
 from src.memory.lifecycle_manager import MemoryLifecycleManager

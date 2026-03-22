@@ -13,13 +13,7 @@ from ..services.graph_service import GraphService
 from ..services.graph_query_engine import GraphQueryEngine
 from ..services.entity_service import EntityService
 from ..services.hipporag_service import HippoRagService
-from ..bayesian import BAYESIAN_AVAILABLE
-if BAYESIAN_AVAILABLE:
-    from ..bayesian.network_builder import NetworkBuilder
-    from ..bayesian.probabilistic_query_engine import ProbabilisticQueryEngine
-else:
-    NetworkBuilder = None  # type: ignore[assignment,misc]
-    ProbabilisticQueryEngine = None  # type: ignore[assignment,misc]
+from ..bayesian import BAYESIAN_AVAILABLE, NetworkBuilder, ProbabilisticQueryEngine
 
 logger = logging.getLogger(__name__)
 
