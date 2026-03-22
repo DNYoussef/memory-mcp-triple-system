@@ -479,6 +479,49 @@ async def health_check() -> Dict[str, Any]:
     }
 
 
+@app.get("/tools/stats")
+async def system_stats() -> Dict[str, Any]:
+    """System statistics: vector count, graph nodes/edges, lifecycle stages."""
+    stats: Dict[str, Any] = {"timestamp": datetime.utcnow().isoformat()}
+    try:
+        indexer = get_indexer()
+        collection = indexer.collection
+        stats["vectors"] = {"count": collection.count() if collection else 0}
+    except Exception as e:
+        stats["vectors"] = {"error": str(e)}
+    try:
+        gs = get_graph_service()
+        stats["graph"] = {
+            "nodes": gs.get_node_count() if hasattr(gs, 'get_node_count') else len(gs.graph.nodes),
+            "edges": gs.get_edge_count() if hasattr(gs, 'get_edge_count') else len(gs.graph.edges),
+        }
+    except Exception as e:
+        stats["graph"] = {"error": str(e)}
+    try:
+        lm = get_lifecycle_manager()
+        stats["lifecycle"] = lm.get_stage_stats() if hasattr(lm, 'get_stage_stats') else {}
+    except Exception as e:
+        stats["lifecycle"] = {"error": str(e)}
+    try:
+        el = get_event_log()
+        stats["events"] = {"total": el.count() if hasattr(el, 'count') else "unknown"}
+    except Exception:
+        stats["events"] = {"total": "unknown"}
+    stats["bayesian_available"] = BAYESIAN_AVAILABLE
+    return stats
+
+
+@app.get("/tools/lifecycle_status")
+async def lifecycle_status() -> Dict[str, Any]:
+    """Get lifecycle stage statistics."""
+    try:
+        manager = get_lifecycle_manager()
+        stage_stats = manager.get_stage_stats() if hasattr(manager, 'get_stage_stats') else {}
+        return {"stats": stage_stats}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.on_event("startup")
 async def startup_event() -> None:
     global _lifecycle_scheduler

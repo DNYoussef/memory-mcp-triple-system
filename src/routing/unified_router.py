@@ -86,14 +86,22 @@ class UnifiedRetrievalRouter:
         mode: str,
     ) -> Dict[str, Any]:
         try:
+            # Try semantic_search first, fall back to process() (NexusProcessor)
             search = getattr(self._memory_service, "semantic_search", None)
             if search is None:
-                logger.warning("Memory service missing semantic_search")
+                search = getattr(self._memory_service, "process", None)
+            if search is None:
+                logger.warning("Memory service missing semantic_search and process")
                 return {"core": [], "extended": []}
             result = search(query=query, mode=mode, top_k=50, token_budget=budget)
             if hasattr(result, "__await__"):
-                return await result
-            return result
+                result = await result
+            # Normalize result shape: process() returns list, semantic_search returns dict
+            if isinstance(result, list):
+                return {"core": result[:10], "extended": result[10:]}
+            if isinstance(result, dict) and "core" in result:
+                return result
+            return {"core": [], "extended": []}
         except Exception as exc:
             logger.warning("Memory retrieval failed: %s", exc)
             return {"core": [], "extended": []}
