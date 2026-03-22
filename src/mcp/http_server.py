@@ -52,10 +52,12 @@ from src.stores.event_log import EventLog, EventType
 from src.stores.kv_store import KVStore
 from src.memory.lifecycle_manager import MemoryLifecycleManager
 from src.memory.lifecycle_scheduler import LifecycleScheduler
-from src.services.memory_ingestion_service import MemoryIngestionService
-from src.services.entity_service import EntityService
-from src.lifecycle.hotcold_classifier import HotColdClassifier
-from src.chunking.semantic_chunker import SemanticChunker
+# Lazy imports to avoid startup crashes if dependencies are missing
+# These are imported inside get_*() functions instead
+# from src.services.memory_ingestion_service import MemoryIngestionService
+# from src.services.entity_service import EntityService
+# from src.lifecycle.hotcold_classifier import HotColdClassifier
+# from src.chunking.semantic_chunker import SemanticChunker
 from src.integrations.beads_bridge import BeadsBridge
 from src.universal_components import (
     init_connascence_bridge,
@@ -129,9 +131,9 @@ _lifecycle_manager: Optional[MemoryLifecycleManager] = None
 _lifecycle_scheduler: Optional[LifecycleScheduler] = None
 _unified_router: Optional[UnifiedRetrievalRouter] = None
 _beads_bridge: Optional[BeadsBridge] = None
-_entity_service: Optional[EntityService] = None
-_classifier: Optional[HotColdClassifier] = None
-_ingestion_service: Optional[MemoryIngestionService] = None
+_entity_service: Optional[Any] = None  # EntityService (lazy import)
+_classifier: Optional[Any] = None  # HotColdClassifier (lazy import)
+_ingestion_service: Optional[Any] = None  # MemoryIngestionService (lazy import)
 
 _indexer_lock = threading.Lock()
 _embedder_lock = threading.Lock()
@@ -149,13 +151,14 @@ _entity_service_lock = threading.Lock()
 _ingestion_lock = threading.Lock()
 
 
-def get_entity_service() -> Optional[EntityService]:
+def get_entity_service():
     """Lazy initialize EntityService (spaCy NER)."""
     global _entity_service
     if _entity_service is None:
         with _entity_service_lock:
             if _entity_service is None:
                 try:
+                    from src.services.entity_service import EntityService
                     _entity_service = EntityService()
                     logger.info("EntityService initialized (spaCy NER)")
                 except Exception as e:
@@ -163,15 +166,19 @@ def get_entity_service() -> Optional[EntityService]:
     return _entity_service
 
 
-def get_classifier() -> Optional[HotColdClassifier]:
+def get_classifier():
     """Lazy initialize HotColdClassifier."""
     global _classifier
     if _classifier is None:
-        _classifier = HotColdClassifier()
+        try:
+            from src.lifecycle.hotcold_classifier import HotColdClassifier
+            _classifier = HotColdClassifier()
+        except Exception as e:
+            logger.warning(f"HotColdClassifier init failed: {e}")
     return _classifier
 
 
-def get_ingestion_service() -> MemoryIngestionService:
+def get_ingestion_service():
     """Lazy initialize the shared ingestion pipeline."""
     global _ingestion_service
     if _ingestion_service is None:
@@ -181,6 +188,7 @@ def get_ingestion_service() -> MemoryIngestionService:
                 config = load_config()
                 chunking_cfg = config.get("chunking", {})
                 try:
+                    from src.chunking.semantic_chunker import SemanticChunker
                     chunker = SemanticChunker(
                         min_chunk_size=chunking_cfg.get("min_chunk_size", 128),
                         max_chunk_size=chunking_cfg.get("max_chunk_size", 512),
@@ -191,6 +199,7 @@ def get_ingestion_service() -> MemoryIngestionService:
                     logger.warning(f"SemanticChunker init failed: {e}")
                     chunker = None
 
+                from src.services.memory_ingestion_service import MemoryIngestionService
                 _ingestion_service = MemoryIngestionService(
                     embedder=get_embedder(),
                     indexer=get_indexer(),
