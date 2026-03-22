@@ -42,7 +42,11 @@ RUN useradd -m -u 1000 memoryuser && \
     mkdir -p /data/chroma /data/graph && \
     chown -R memoryuser:memoryuser /data
 
-USER memoryuser
+# Railway volume at /data is mounted root-owned; running as memoryuser causes
+# chromadb PersistentClient startup failure (Permission denied os error 13).
+# Pragmatic production fix: run as root so the service can write to the mounted volume.
+# We can re-tighten this later with an entrypoint chown if Railway exposes a safe path.
+# USER memoryuser
 
 EXPOSE 8080
 
