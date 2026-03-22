@@ -39,7 +39,8 @@ COPY . .
 
 RUN useradd -m -u 1000 memoryuser && \
     chown -R memoryuser:memoryuser /app && \
-    mkdir -p /data && chown memoryuser:memoryuser /data
+    mkdir -p /data/chroma /data/graph && \
+    chown -R memoryuser:memoryuser /data
 
 USER memoryuser
 
