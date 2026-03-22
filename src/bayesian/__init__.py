@@ -11,16 +11,26 @@ Components:
 
 # Lazy imports -- pgmpy requires torch at import time (pgmpy.global_vars line 4).
 # On Railway API mode, torch is not installed (~2GB saving).
-# Graceful degradation: Bayesian layer returns empty results if pgmpy unavailable.
+# Strategy: try pgmpy first (full precision), fall back to lightweight (pure Python).
 try:
     from src.bayesian.network_builder import NetworkBuilder
     from src.bayesian.probabilistic_query_engine import ProbabilisticQueryEngine
     from src.bayesian.bayesian_graph_sync import BayesianGraphSync
     BAYESIAN_AVAILABLE = True
+    BAYESIAN_BACKEND = "pgmpy"
 except ImportError:
-    NetworkBuilder = None  # type: ignore[assignment,misc]
-    ProbabilisticQueryEngine = None  # type: ignore[assignment,misc]
-    BayesianGraphSync = None  # type: ignore[assignment,misc]
-    BAYESIAN_AVAILABLE = False
+    try:
+        # Lightweight pure-Python Bayesian — no torch dependency
+        from src.bayesian.lightweight_network_builder import LightweightNetworkBuilder as NetworkBuilder  # type: ignore[assignment]
+        from src.bayesian.lightweight_query_engine import LightweightQueryEngine as ProbabilisticQueryEngine  # type: ignore[assignment]
+        BayesianGraphSync = None  # type: ignore[assignment,misc]
+        BAYESIAN_AVAILABLE = True
+        BAYESIAN_BACKEND = "lightweight"
+    except ImportError:
+        NetworkBuilder = None  # type: ignore[assignment,misc]
+        ProbabilisticQueryEngine = None  # type: ignore[assignment,misc]
+        BayesianGraphSync = None  # type: ignore[assignment,misc]
+        BAYESIAN_AVAILABLE = False
+        BAYESIAN_BACKEND = "none"
 
 __all__ = ["NetworkBuilder", "ProbabilisticQueryEngine", "BayesianGraphSync", "BAYESIAN_AVAILABLE"]

@@ -41,7 +41,7 @@ from src.routing.unified_router import UnifiedRetrievalRouter
 from src.nexus.processor import NexusProcessor
 from src.services.graph_service import GraphService
 from src.services.graph_query_engine import GraphQueryEngine
-from src.bayesian import BAYESIAN_AVAILABLE
+from src.bayesian import BAYESIAN_AVAILABLE, BAYESIAN_BACKEND
 if BAYESIAN_AVAILABLE:
     from src.bayesian.network_builder import NetworkBuilder
     from src.bayesian.probabilistic_query_engine import ProbabilisticQueryEngine
@@ -499,7 +499,7 @@ async def health_check() -> Dict[str, Any]:
             "entity_service": "available" if get_entity_service() else "unavailable",
             "hot_cold_classifier": "available",
             "ingestion_pipeline": "available",
-            "bayesian": "available" if BAYESIAN_AVAILABLE else "degraded (no torch/pgmpy)",
+            "bayesian": f"available ({BAYESIAN_BACKEND})" if BAYESIAN_AVAILABLE else "unavailable",
         }
     }
 
