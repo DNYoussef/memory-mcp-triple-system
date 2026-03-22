@@ -28,7 +28,7 @@ class CurationService:
         self,
         chroma_client,
         collection_name: str = "memory_chunks",
-        data_dir: str = "./data"
+        data_dir: str = "/data"
     ):
         """
         Initialize curation service.

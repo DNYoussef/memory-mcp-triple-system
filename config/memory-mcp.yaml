@@ -8,17 +8,19 @@ system:
   environment: development  # development, staging, production
 
 storage:
-  data_dir: ./data  # Directory for SQLite databases (event_log, kv_store, query_traces)
+  # data_dir: resolved at runtime via MEMORY_MCP_DATA_DIR env var (default: /data on Railway)
+  # Local dev: override with MEMORY_MCP_DATA_DIR=./data
+  data_dir: /data  # Railway volume mount point
   # Obsidian integration (optional)
   # Set OBSIDIAN_VAULT_PATH environment variable or uncomment and set path below:
   # obsidian_vault: ~/Documents/Obsidian Vault
   vector_db:
     type: chromadb  # v5.0: Docker-free with ChromaDB
-    persist_directory: ./chroma_data
+    persist_directory: /data/chroma  # Railway volume — survives restarts
     collection_name: memory_chunks
   graph_db:
     type: networkx  # v5.0: Docker-free with NetworkX
-    persist_path: ./data/knowledge_graph.pkl
+    persist_path: /data/graph.json  # Was: ./data/knowledge_graph.pkl
   cache:
     type: memory  # v5.0: Docker-free with Python dict
     ttl_seconds: 3600

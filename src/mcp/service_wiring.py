@@ -1,3 +1,4 @@
+import os
 """
 Service Wiring Module - Dependency injection and initialization.
 
@@ -123,7 +124,7 @@ class NexusSearchTool:
     def _init_production_features(self, config: Dict[str, Any]) -> None:
         """Initialize production features (C3.2-C3.6). NASA Rule 10: 25 LOC"""
         import os
-        data_dir = Path(config.get('storage', {}).get('data_dir', './data'))
+        data_dir = Path(config.get('storage', {}).get('data_dir', os.getenv('MEMORY_MCP_DATA_DIR', '/data')))
         data_dir.mkdir(parents=True, exist_ok=True)
 
         # C3.3: Event logging
@@ -439,7 +440,7 @@ def load_config() -> Dict[str, Any]:
 def apply_migrations(config: Dict[str, Any]) -> None:
     """C3.7: Apply pending database migrations on startup."""
     migrations_dir = Path(__file__).parent.parent.parent / "migrations"
-    data_dir = Path(config.get('storage', {}).get('data_dir', './data'))
+    data_dir = Path(config.get('storage', {}).get('data_dir', os.getenv('MEMORY_MCP_DATA_DIR', '/data')))
     data_dir.mkdir(parents=True, exist_ok=True)
     db_path = data_dir / "query_traces.db"
 

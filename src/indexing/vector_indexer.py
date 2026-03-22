@@ -52,7 +52,7 @@ class VectorIndexer:
     @classmethod
     def get_instance(
         cls,
-        persist_directory: str = "./chroma_data",
+        persist_directory: str = "/data/chroma",
         collection_name: str = "memory_chunks"
     ) -> "VectorIndexer":
         """Return a shared VectorIndexer instance for given configuration."""
@@ -68,7 +68,7 @@ class VectorIndexer:
 
     def __init__(
         self,
-        persist_directory: str = "./chroma_data",
+        persist_directory: str = "/data/chroma",
         collection_name: str = "memory_chunks"
     ):
         """

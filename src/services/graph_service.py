@@ -53,7 +53,7 @@ class GraphService:
     EDGE_SIMILAR_TO = GraphEdgeManager.EDGE_SIMILAR_TO
     EDGE_RELATED_TO = GraphEdgeManager.EDGE_RELATED_TO
 
-    def __init__(self, data_dir: str = "./data"):
+    def __init__(self, data_dir: str = "/data"):
         """
         Initialize GraphService facade.
 

@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 class MemoryMCPQueryService:
     """Public API for external retrieval services."""
 
-    def __init__(self, data_dir: str = "./data") -> None:
+    def __init__(self, data_dir: str = "/data") -> None:
         self._data_dir = Path(data_dir)
         self._data_dir.mkdir(parents=True, exist_ok=True)
         self._config = _load_config()

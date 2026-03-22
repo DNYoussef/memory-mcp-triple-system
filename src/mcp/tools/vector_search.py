@@ -1,3 +1,4 @@
+import os
 """
 Vector Search Tool Implementation
 Implements vector similarity search using semantic chunking and embeddings.
@@ -66,7 +67,7 @@ class VectorSearchTool:
         if self._indexer is None:
             vector_config = self.config['storage']['vector_db']
             self._indexer = VectorIndexer.get_instance(
-                persist_directory=vector_config.get('persist_directory', './chroma_data'),
+                persist_directory=vector_config.get('persist_directory', os.getenv('CHROMA_PERSIST_DIR', '/data/chroma')),
                 collection_name=vector_config.get('collection_name', 'memory_chunks')
             )
         return self._indexer

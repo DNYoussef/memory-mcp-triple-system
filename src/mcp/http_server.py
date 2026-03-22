@@ -146,7 +146,7 @@ def get_indexer() -> VectorIndexer:
     if _indexer is None:
         with _indexer_lock:
             if _indexer is None:
-                persist_dir = os.getenv("CHROMA_PERSIST_DIR", "./chroma_data")
+                persist_dir = os.getenv("CHROMA_PERSIST_DIR", "/data/chroma")
                 _indexer = VectorIndexer.get_instance(persist_directory=persist_dir)
     return _indexer
 
@@ -183,13 +183,16 @@ def get_router() -> QueryRouter:
 
 def load_config() -> Dict[str, Any]:
     """Load configuration from YAML file."""
-    from src.mcp.stdio_server import load_config as stdio_load
+    # Use service_wiring's load_config — stdio_server has broken protocol_handler import
+    from src.mcp.service_wiring import load_config as _wiring_load_config
 
-    return stdio_load()
+    return _wiring_load_config()
 
 
 def _get_data_dir(config: Dict[str, Any]) -> str:
-    return config.get("storage", {}).get("data_dir", "./data")
+    """Resolve data directory. Env var takes priority for Railway deployment."""
+    return os.getenv("MEMORY_MCP_DATA_DIR",
+                     config.get("storage", {}).get("data_dir", "/data"))
 
 
 def get_graph_service() -> GraphService:

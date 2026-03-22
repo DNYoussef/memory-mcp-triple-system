@@ -1,3 +1,4 @@
+import os
 """
 Obsidian MCP Client - Refactored Facade (Week 7 - Phase 3)
 
@@ -46,7 +47,7 @@ def _get_indexer():
     global _INDEXER
     if _INDEXER is None:
         from ..indexing.vector_indexer import VectorIndexer
-        _INDEXER = VectorIndexer.get_instance(persist_directory="./chroma_data")
+        _INDEXER = VectorIndexer.get_instance(persist_directory=os.getenv("CHROMA_PERSIST_DIR", "/data/chroma"))
     return _INDEXER
 
 
@@ -112,7 +113,7 @@ class ObsidianMCPClient:
         """Lazy load VectorIndexer."""
         if self._indexer is None:
             from ..indexing.vector_indexer import VectorIndexer
-            self._indexer = VectorIndexer.get_instance(persist_directory="./chroma_data")
+            self._indexer = VectorIndexer.get_instance(persist_directory=os.getenv("CHROMA_PERSIST_DIR", "/data/chroma"))
         return self._indexer
 
     @property

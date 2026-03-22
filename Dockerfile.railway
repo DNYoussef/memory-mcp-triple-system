@@ -10,7 +10,10 @@ ENV PYTHONUNBUFFERED=1 \
     EMBEDDING_MODE=api \
     EMBEDDING_API_MODEL=text-embedding-3-small \
     EMBEDDING_API_DIMENSIONS=384 \
-    EMBEDDING_API_BASE=http://litellm.railway.internal:4000/v1
+    EMBEDDING_API_BASE=http://litellm.railway.internal:4000/v1 \
+    MEMORY_MCP_DATA_DIR=/data \
+    CHROMA_PERSIST_DIR=/data/chroma \
+    DATA_DIR=/data
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential curl git && \

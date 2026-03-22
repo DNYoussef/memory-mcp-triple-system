@@ -1,3 +1,4 @@
+import os
 """
 Request Router Module - Tool execution and routing.
 
@@ -169,7 +170,7 @@ def handle_vector_search(
     trace.output = f"Retrieved {len(results)} results"
     trace.total_latency_ms = trace.retrieval_ms
 
-    data_dir = tool.config.get('storage', {}).get('data_dir', './data')
+    data_dir = tool.config.get('storage', {}).get('data_dir', os.getenv('MEMORY_MCP_DATA_DIR', '/data'))
     try:
         trace.log(db_path=f"{data_dir}/query_traces.db")
     except Exception:
