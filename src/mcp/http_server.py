@@ -220,7 +220,10 @@ def get_indexer() -> VectorIndexer:
     if _indexer is None:
         with _indexer_lock:
             if _indexer is None:
-                persist_dir = os.getenv("CHROMA_PERSIST_DIR", "/data/chroma")
+                # Use /app/chroma_data (in-container) as fallback — Railway volume
+                # mount at /data causes chromadb rust bindings Permission denied.
+                # Chroma is reconstructable from ingestion, so container-local is OK.
+                persist_dir = os.getenv("CHROMA_PERSIST_DIR", "/app/chroma_data")
                 _indexer = VectorIndexer.get_instance(persist_directory=persist_dir)
     return _indexer
 
