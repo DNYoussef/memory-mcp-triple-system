@@ -69,6 +69,10 @@ class MemoryIngestionService:
         """
         t0 = time.monotonic()
 
+        # 0. Validate input
+        if not text or not text.strip():
+            return {"success": False, "error": "Empty text — nothing to ingest"}
+
         # 1. Stamp metadata
         now_iso = datetime.utcnow().isoformat()
         metadata = {**metadata, "stored_at": now_iso, "source": source}
@@ -83,12 +87,15 @@ class MemoryIngestionService:
 
         # 3. Chunk text (semantic chunking for long texts, single chunk for short)
         text_chunks = self._chunk_text(text, metadata)
+        if not text_chunks:
+            text_chunks = [text]  # Fallback: use original text as single chunk
 
         # 4. Process each chunk: ID → embed → index → graph
         all_entity_stats: Dict[str, Any] = {
             "entities_added": 0, "relationships_created": 0, "entity_types": []
         }
         chunk_ids = []
+        chunk_id = None  # Initialize to avoid NameError if loop is empty
 
         for idx, chunk_text in enumerate(text_chunks):
             chunk_id = self._make_chunk_id(chunk_text, source, f"{now_iso}:{idx}")
@@ -123,8 +130,8 @@ class MemoryIngestionService:
 
         entity_stats = all_entity_stats
 
-        # 7. Log event
-        self._log_event(text, metadata, chunk_id, entity_stats)
+        # 7. Log event (log all chunk IDs, not just last)
+        self._log_event(text, metadata, ",".join(chunk_ids) if chunk_ids else "none", entity_stats)
 
         # 8. Lifecycle maintenance (non-critical)
         self._run_lifecycle_maintenance()

@@ -20,7 +20,7 @@ from .lightweight_bayesian import (
 class LightweightNetworkBuilder:
     """Build Bayesian network from knowledge graph (no pgmpy/torch)."""
 
-    def __init__(self, max_nodes: int = 200, config_path: str = ""):
+    def __init__(self, max_nodes: int = 50, config_path: str = ""):
         self.max_nodes = max_nodes
         self._cache: Dict[str, LightweightBayesianNetwork] = {}
 
@@ -118,8 +118,9 @@ class LightweightNetworkBuilder:
         from itertools import product as iter_product
 
         for combo in iter_product(*[range(2)] * len(parents)):
-            # More parents true → higher probability of child being true
-            num_true_parents = sum(combo)
+            # State index 0 = "true", index 1 = "false"
+            # So count true parents as those with index 0
+            num_true_parents = sum(1 for c in combo if c == 0)
             if num_true_parents == 0:
                 p_true = 0.1  # No parents active → low probability
             else:
@@ -128,7 +129,7 @@ class LightweightNetworkBuilder:
 
             # Adjust by edge weight if available
             for i, parent in enumerate(parents):
-                if combo[i] == 1 and graph.has_edge(parent, node):
+                if combo[i] == 0 and graph.has_edge(parent, node):  # 0 = "true"
                     weight = graph[parent][node].get("weight", 1.0)
                     p_true = min(0.95, p_true * (1.0 + 0.1 * weight))
 

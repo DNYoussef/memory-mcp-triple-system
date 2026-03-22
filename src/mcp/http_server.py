@@ -142,6 +142,7 @@ _lifecycle_manager_lock = threading.Lock()
 _unified_router_lock = threading.Lock()
 _beads_bridge_lock = threading.Lock()
 _entity_service_lock = threading.Lock()
+_classifier_lock = threading.Lock()
 _ingestion_lock = threading.Lock()
 
 
@@ -161,14 +162,16 @@ def get_entity_service():
 
 
 def get_classifier():
-    """Lazy initialize HotColdClassifier."""
+    """Lazy initialize HotColdClassifier (thread-safe)."""
     global _classifier
     if _classifier is None:
-        try:
-            from src.lifecycle.hotcold_classifier import HotColdClassifier
-            _classifier = HotColdClassifier()
-        except Exception as e:
-            logger.warning(f"HotColdClassifier init failed: {e}")
+        with _classifier_lock:
+            if _classifier is None:
+                try:
+                    from src.lifecycle.hotcold_classifier import HotColdClassifier
+                    _classifier = HotColdClassifier()
+                except Exception as e:
+                    logger.warning(f"HotColdClassifier init failed: {e}")
     return _classifier
 
 
@@ -341,7 +344,9 @@ def get_nexus_processor() -> NexusProcessor:
                 probabilistic_engine = None
                 if NetworkBuilder is not None and ProbabilisticQueryEngine is not None:
                     try:
-                        builder = NetworkBuilder(max_nodes=1000)
+                        from src.bayesian import BAYESIAN_BACKEND
+                        max_n = 50 if BAYESIAN_BACKEND == "lightweight" else 1000
+                        builder = NetworkBuilder(max_nodes=max_n)
                         bayesian_network = builder.build_network(graph_service.graph)
                     except (ValueError, RuntimeError, TimeoutError) as exc:
                         logger.warning("Bayesian network build failed: %s", exc)
@@ -367,11 +372,8 @@ def get_beads_bridge() -> BeadsBridge:
     if _beads_bridge is None:
         with _beads_bridge_lock:
             if _beads_bridge is None:
-                # Use bd.exe path from environment or default Windows location
-                beads_binary = os.getenv(
-                    "BEADS_BINARY",
-                    r"C:\Users\17175\AppData\Local\beads\bd.exe"
-                )
+                # Use beads binary from environment (no hardcoded fallback)
+                beads_binary = os.getenv("BEADS_BINARY", "")
                 _beads_bridge = BeadsBridge(beads_binary=beads_binary, cache_ttl=60)
     return _beads_bridge
 

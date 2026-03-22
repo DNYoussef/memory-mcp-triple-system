@@ -82,7 +82,7 @@ class LightweightBayesianNetwork:
             cpd = self._cpds[node]
             for col_idx in range(len(cpd.values[0]) if cpd.values else 0):
                 col_sum = sum(row[col_idx] for row in cpd.values)
-                if abs(col_sum - 1.0) > 0.05:
+                if abs(col_sum - 1.0) > 1e-3:
                     return False
         return True
 

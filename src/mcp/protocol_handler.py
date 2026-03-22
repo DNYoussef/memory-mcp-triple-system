@@ -13,6 +13,9 @@ from typing import Any, Dict, List
 
 from loguru import logger
 
+# Module-level singleton for NexusSearchTool (avoid OOM from re-init per call)
+_nexus_tool = None
+
 from .tool_registry import get_tool_definitions
 
 
@@ -41,14 +44,15 @@ def handle_tools_call_method(params: Dict[str, Any]) -> Dict[str, Any]:
     tool_name = params.get("name", "")
     arguments = params.get("arguments", {})
 
-    # Lazy import to avoid circular deps
-    from .service_wiring import NexusSearchTool, load_config
-
-    config = load_config()
-    tool = NexusSearchTool(config)
+    # Singleton — do NOT re-create NexusSearchTool on every call (OOM risk)
+    global _nexus_tool
+    if _nexus_tool is None:
+        from .service_wiring import NexusSearchTool, load_config
+        config = load_config()
+        _nexus_tool = NexusSearchTool(config)
 
     from .request_router import handle_call_tool
-    return handle_call_tool(tool_name, arguments, tool)
+    return handle_call_tool(tool_name, arguments, _nexus_tool)
 
 
 def process_message(message: str) -> str:
