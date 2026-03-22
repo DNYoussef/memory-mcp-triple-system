@@ -104,7 +104,7 @@ def _get_connascence_bridge():
 app = FastAPI(
     title="Memory MCP HTTP API",
     description="HTTP wrapper for Memory MCP Triple System stdio server",
-    version="1.4.0"
+    version="1.5.0"
 )
 
 # CORS for Terminal Manager frontend
