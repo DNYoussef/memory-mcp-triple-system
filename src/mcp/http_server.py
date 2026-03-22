@@ -609,6 +609,13 @@ async def consolidate_entities() -> Dict[str, Any]:
 async def startup_event() -> None:
     global _lifecycle_scheduler
 
+    # Ensure persistence directories exist with correct permissions
+    # Railway volume mount at /data may not have subdirectories
+    for subdir in ["chroma", "graph"]:
+        path = os.path.join(os.getenv("MEMORY_MCP_DATA_DIR", "/data"), subdir)
+        os.makedirs(path, exist_ok=True)
+        logger.info(f"Ensured directory exists: {path}")
+
     lifecycle_manager = get_lifecycle_manager()
     _lifecycle_scheduler = LifecycleScheduler(lifecycle_manager)
     await _lifecycle_scheduler.start()
