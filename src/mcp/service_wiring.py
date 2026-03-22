@@ -41,16 +41,31 @@ from ..services.hipporag_service import HippoRagService
 from ..bayesian import BAYESIAN_AVAILABLE, NetworkBuilder, ProbabilisticQueryEngine
 
 # Beads integration for task management
-from ..integrations.beads_bridge import BeadsBridge
+try:
+    from ..integrations.beads_bridge import BeadsBridge
+except ImportError:
+    BeadsBridge = None  # type: ignore[assignment,misc]
 
-# MEM-QWEN-002: Cross-encoder reranker for precision refinement
-from ..services.reranker_service import RerankerService
+# MEM-QWEN-002: Cross-encoder reranker (optional — not installed on Railway)
+try:
+    from ..services.reranker_service import RerankerService
+except ImportError:
+    RerankerService = None  # type: ignore[assignment,misc]
 
-# MEM-QWEN-005: Visual Memory Sidecar
-from ..services.qwen3vl_embedder import Qwen3VLEmbedder
-from ..services.visual_memory_service import VisualMemoryService
-from ..indexing.visual_indexer import VisualMemoryIndexer
-from ..services.unified_search_router import UnifiedSearchRouter
+# MEM-QWEN-005: Visual Memory Sidecar (optional — torch-dependent, not on Railway)
+try:
+    from ..services.qwen3vl_embedder import Qwen3VLEmbedder
+    from ..services.visual_memory_service import VisualMemoryService
+    from ..indexing.visual_indexer import VisualMemoryIndexer
+except ImportError:
+    Qwen3VLEmbedder = None  # type: ignore[assignment,misc]
+    VisualMemoryService = None  # type: ignore[assignment,misc]
+    VisualMemoryIndexer = None  # type: ignore[assignment,misc]
+
+try:
+    from ..services.unified_search_router import UnifiedSearchRouter
+except ImportError:
+    UnifiedSearchRouter = None  # type: ignore[assignment,misc]
 
 REQUIRED_TAGS = ["who", "when", "project", "why"]
 
