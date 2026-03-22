@@ -52,6 +52,9 @@ from src.stores.event_log import EventLog, EventType
 from src.stores.kv_store import KVStore
 from src.memory.lifecycle_manager import MemoryLifecycleManager
 from src.memory.lifecycle_scheduler import LifecycleScheduler
+from src.services.memory_ingestion_service import MemoryIngestionService
+from src.services.entity_service import EntityService
+from src.lifecycle.hotcold_classifier import HotColdClassifier
 from src.integrations.beads_bridge import BeadsBridge
 from src.universal_components import (
     init_connascence_bridge,
@@ -125,6 +128,9 @@ _lifecycle_manager: Optional[MemoryLifecycleManager] = None
 _lifecycle_scheduler: Optional[LifecycleScheduler] = None
 _unified_router: Optional[UnifiedRetrievalRouter] = None
 _beads_bridge: Optional[BeadsBridge] = None
+_entity_service: Optional[EntityService] = None
+_classifier: Optional[HotColdClassifier] = None
+_ingestion_service: Optional[MemoryIngestionService] = None
 
 _indexer_lock = threading.Lock()
 _embedder_lock = threading.Lock()
@@ -138,6 +144,49 @@ _kv_store_lock = threading.Lock()
 _lifecycle_manager_lock = threading.Lock()
 _unified_router_lock = threading.Lock()
 _beads_bridge_lock = threading.Lock()
+_entity_service_lock = threading.Lock()
+_ingestion_lock = threading.Lock()
+
+
+def get_entity_service() -> Optional[EntityService]:
+    """Lazy initialize EntityService (spaCy NER)."""
+    global _entity_service
+    if _entity_service is None:
+        with _entity_service_lock:
+            if _entity_service is None:
+                try:
+                    _entity_service = EntityService()
+                    logger.info("EntityService initialized (spaCy NER)")
+                except Exception as e:
+                    logger.warning(f"EntityService init failed (NER disabled): {e}")
+    return _entity_service
+
+
+def get_classifier() -> Optional[HotColdClassifier]:
+    """Lazy initialize HotColdClassifier."""
+    global _classifier
+    if _classifier is None:
+        _classifier = HotColdClassifier()
+    return _classifier
+
+
+def get_ingestion_service() -> MemoryIngestionService:
+    """Lazy initialize the shared ingestion pipeline."""
+    global _ingestion_service
+    if _ingestion_service is None:
+        with _ingestion_lock:
+            if _ingestion_service is None:
+                _ingestion_service = MemoryIngestionService(
+                    embedder=get_embedder(),
+                    indexer=get_indexer(),
+                    graph_service=get_graph_service(),
+                    entity_service=get_entity_service(),
+                    classifier=get_classifier(),
+                    lifecycle_manager=get_lifecycle_manager(),
+                    event_log=get_event_log(),
+                )
+                logger.info("MemoryIngestionService initialized")
+    return _ingestion_service
 
 
 def get_indexer() -> VectorIndexer:
@@ -415,12 +464,17 @@ async def health_check() -> Dict[str, Any]:
     return {
         "status": "healthy",
         "service": "memory-mcp-http",
-        "version": "1.4.0",
+        "version": "1.5.0",
         "timestamp": datetime.utcnow().isoformat(),
         "components": {
             "vector_indexer": "available",
             "embedding_pipeline": "available",
-            "mode_detector": "available"
+            "mode_detector": "available",
+            "graph_service": "available",
+            "entity_service": "available" if get_entity_service() else "unavailable",
+            "hot_cold_classifier": "available",
+            "ingestion_pipeline": "available",
+            "bayesian": "available" if BAYESIAN_AVAILABLE else "degraded (no torch/pgmpy)",
         }
     }
 
@@ -488,16 +542,9 @@ async def vector_search(request: VectorSearchRequest) -> Dict[str, Any]:
 
 @app.post("/tools/memory_store")
 async def memory_store(request: MemoryStoreRequest) -> Dict[str, Any]:
-    """Store content in vector database."""
+    """Store content with full pipeline: embed → classify → index → graph → lifecycle."""
     try:
-        indexer = get_indexer()
-        embedder = get_embedder()
-        event_log = get_event_log()
-        lifecycle_manager = get_lifecycle_manager()
-
-        # Generate embedding
-        embedding = embedder.encode([request.text])[0]
-
+        # Validate/normalize metadata (tagging policy)
         metadata = _normalize_metadata(request.metadata)
         is_valid, missing = _validate_metadata(metadata)
         if not is_valid:
@@ -511,41 +558,20 @@ async def memory_store(request: MemoryStoreRequest) -> Dict[str, Any]:
                 metadata = _autofill_metadata(metadata, missing)
                 logger.warning("Auto-filled missing tags: %s", missing)
 
-        # Create chunk
-        chunk = {
-            "text": request.text,
-            "file_path": metadata.get("file_path", "/memory/stored.md"),
-            "chunk_index": 0,
-            "metadata": {
-                **metadata,
-                "stored_at": datetime.utcnow().isoformat(),
-                "source": "http_api"
-            }
-        }
-
-        # Index
-        indexer.index_chunks([chunk], [embedding.tolist()])
-
-        event_log.log_event(
-            EventType.CHUNK_ADDED,
-            {
-                "text_length": len(request.text),
-                "project": metadata.get("project"),
-                "tags_auto_filled": missing if not is_valid else [],
-                "timestamp": datetime.utcnow().isoformat()
-            }
+        # Use shared ingestion service (same pipeline as stdio transport)
+        ingestion = get_ingestion_service()
+        result = await asyncio.to_thread(
+            ingestion.ingest,
+            text=request.text,
+            metadata=metadata,
+            source="http_api",
         )
 
-        await asyncio.to_thread(lifecycle_manager.demote_stale_chunks)
-        await asyncio.to_thread(lifecycle_manager.archive_demoted_chunks)
-
-        return {
-            "success": True,
-            "stored_at": datetime.utcnow().isoformat(),
-            "text_length": len(request.text),
-            "metadata": metadata,
-            "tags_auto_filled": missing if not is_valid else []
-        }
+        # Add auto-fill info to response
+        result["tags_auto_filled"] = missing if not is_valid else []
+        return result
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Memory store failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
