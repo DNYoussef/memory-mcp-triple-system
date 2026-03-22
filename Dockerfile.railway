@@ -9,7 +9,9 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     EMBEDDING_MODE=api \
     EMBEDDING_API_MODEL=text-embedding-3-small \
-    EMBEDDING_API_DIMENSIONS=384
+    EMBEDDING_API_DIMENSIONS=384 \
+    EMBEDDING_API_BASE=http://litellm.railway.internal:4000/v1 \
+    LITELLM_API_KEY=sk-guardspine-master-2026
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential curl git && \
