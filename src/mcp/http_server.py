@@ -55,6 +55,7 @@ from src.memory.lifecycle_scheduler import LifecycleScheduler
 from src.services.memory_ingestion_service import MemoryIngestionService
 from src.services.entity_service import EntityService
 from src.lifecycle.hotcold_classifier import HotColdClassifier
+from src.chunking.semantic_chunker import SemanticChunker
 from src.integrations.beads_bridge import BeadsBridge
 from src.universal_components import (
     init_connascence_bridge,
@@ -176,6 +177,20 @@ def get_ingestion_service() -> MemoryIngestionService:
     if _ingestion_service is None:
         with _ingestion_lock:
             if _ingestion_service is None:
+                # Initialize semantic chunker
+                config = load_config()
+                chunking_cfg = config.get("chunking", {})
+                try:
+                    chunker = SemanticChunker(
+                        min_chunk_size=chunking_cfg.get("min_chunk_size", 128),
+                        max_chunk_size=chunking_cfg.get("max_chunk_size", 512),
+                        overlap=chunking_cfg.get("overlap", 50),
+                        embedding_pipeline=get_embedder(),
+                    )
+                except Exception as e:
+                    logger.warning(f"SemanticChunker init failed: {e}")
+                    chunker = None
+
                 _ingestion_service = MemoryIngestionService(
                     embedder=get_embedder(),
                     indexer=get_indexer(),
@@ -184,6 +199,7 @@ def get_ingestion_service() -> MemoryIngestionService:
                     classifier=get_classifier(),
                     lifecycle_manager=get_lifecycle_manager(),
                     event_log=get_event_log(),
+                    chunker=chunker,
                 )
                 logger.info("MemoryIngestionService initialized")
     return _ingestion_service
@@ -519,6 +535,64 @@ async def lifecycle_status() -> Dict[str, Any]:
         stage_stats = manager.get_stage_stats() if hasattr(manager, 'get_stage_stats') else {}
         return {"stats": stage_stats}
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/tools/raptor_cluster")
+async def raptor_cluster() -> Dict[str, Any]:
+    """Run RAPTOR hierarchical clustering on all active chunks."""
+    try:
+        from src.clustering.raptor_clusterer import RAPTORClusterer
+        indexer = get_indexer()
+        collection = indexer.collection
+
+        all_data = collection.get(include=["documents", "embeddings", "metadatas"])
+        if not all_data.get("documents"):
+            return {"status": "no_chunks", "clusters": 0}
+
+        chunks = [{"text": doc, "metadata": meta}
+                  for doc, meta in zip(all_data["documents"], all_data["metadatas"] or [{}] * len(all_data["documents"]))]
+        embeddings = all_data.get("embeddings", [])
+
+        clusterer = RAPTORClusterer()
+        result = await asyncio.to_thread(clusterer.cluster_chunks, chunks, embeddings)
+
+        return {
+            "status": "success",
+            "num_clusters": result.get("num_clusters", 0),
+            "quality_score": result.get("quality_score", 0.0),
+        }
+    except Exception as e:
+        logger.error(f"RAPTOR clustering failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/tools/consolidate")
+async def consolidate_memories() -> Dict[str, Any]:
+    """Consolidate similar memories (merge if cosine > 0.95)."""
+    try:
+        manager = get_lifecycle_manager()
+        if hasattr(manager, 'consolidate_similar'):
+            count = await asyncio.to_thread(manager.consolidate_similar, 0.95)
+            return {"consolidated_count": count}
+        return {"consolidated_count": 0, "note": "consolidation not available"}
+    except Exception as e:
+        logger.error(f"Consolidation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/tools/consolidate_entities")
+async def consolidate_entities() -> Dict[str, Any]:
+    """Consolidate duplicate entities in knowledge graph."""
+    try:
+        from src.services.entity_service import EntityConsolidator
+        graph_service = get_graph_service()
+        consolidator = EntityConsolidator(similarity_threshold=0.85)
+        result = await asyncio.to_thread(consolidator.consolidate_all, graph_service.graph)
+        graph_service.save_graph()
+        return result
+    except Exception as e:
+        logger.error(f"Entity consolidation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

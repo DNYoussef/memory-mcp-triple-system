@@ -28,6 +28,10 @@ from loguru import logger
 class MemoryIngestionService:
     """Orchestrates the full memory ingestion pipeline."""
 
+    # Minimum text length (in chars) to attempt semantic chunking.
+    # Below this, store as single chunk (no point splitting a sentence).
+    MIN_CHUNKING_LENGTH = 300
+
     def __init__(
         self,
         embedder,
@@ -37,6 +41,7 @@ class MemoryIngestionService:
         classifier,
         lifecycle_manager,
         event_log,
+        chunker=None,
     ):
         self._embedder = embedder
         self._indexer = indexer
@@ -45,6 +50,7 @@ class MemoryIngestionService:
         self._classifier = classifier
         self._lifecycle_manager = lifecycle_manager
         self._event_log = event_log
+        self._chunker = chunker
 
     # ------------------------------------------------------------------
     # Public API
@@ -75,24 +81,47 @@ class MemoryIngestionService:
         metadata["last_accessed"] = now_iso
         metadata["access_count"] = 0
 
-        # 3. Generate stable chunk ID
-        chunk_id = self._make_chunk_id(text, source, now_iso)
+        # 3. Chunk text (semantic chunking for long texts, single chunk for short)
+        text_chunks = self._chunk_text(text, metadata)
 
-        # 4. Generate embedding
-        embedding = self._embedder.encode([text])[0]
-
-        # 5. Index to vector store
-        chunk = {
-            "text": text,
-            "file_path": metadata.get("file_path", "/memory/stored.md"),
-            "chunk_index": 0,
-            "metadata": metadata,
-            "id": chunk_id,
+        # 4. Process each chunk: ID → embed → index → graph
+        all_entity_stats: Dict[str, Any] = {
+            "entities_added": 0, "relationships_created": 0, "entity_types": []
         }
-        self._indexer.index_chunks([chunk], [embedding.tolist()])
+        chunk_ids = []
 
-        # 6. Entity extraction → graph population
-        entity_stats = self._populate_graph(chunk_id, text, metadata)
+        for idx, chunk_text in enumerate(text_chunks):
+            chunk_id = self._make_chunk_id(chunk_text, source, f"{now_iso}:{idx}")
+            chunk_ids.append(chunk_id)
+
+            # Generate embedding
+            embedding = self._embedder.encode([chunk_text])[0]
+
+            # Index to vector store
+            chunk_meta = {
+                **metadata,
+                "chunk_index": idx,
+                "total_chunks": len(text_chunks),
+                "parent_text_length": len(text),
+            }
+            chunk = {
+                "text": chunk_text,
+                "file_path": metadata.get("file_path", "/memory/stored.md"),
+                "chunk_index": idx,
+                "metadata": chunk_meta,
+                "id": chunk_id,
+            }
+            self._indexer.index_chunks([chunk], [embedding.tolist()])
+
+            # Entity extraction → graph population
+            stats = self._populate_graph(chunk_id, chunk_text, chunk_meta)
+            all_entity_stats["entities_added"] += stats.get("entities_added", 0)
+            all_entity_stats["relationships_created"] += stats.get("relationships_created", 0)
+            for et in stats.get("entity_types", []):
+                if et not in all_entity_stats["entity_types"]:
+                    all_entity_stats["entity_types"].append(et)
+
+        entity_stats = all_entity_stats
 
         # 7. Log event
         self._log_event(text, metadata, chunk_id, entity_stats)
@@ -103,7 +132,8 @@ class MemoryIngestionService:
         elapsed_ms = (time.monotonic() - t0) * 1000
         return {
             "success": True,
-            "chunk_id": chunk_id,
+            "chunk_ids": chunk_ids,
+            "chunks_stored": len(text_chunks),
             "stored_at": now_iso,
             "text_length": len(text),
             "metadata": metadata,
@@ -115,6 +145,20 @@ class MemoryIngestionService:
     # ------------------------------------------------------------------
     # Pipeline steps
     # ------------------------------------------------------------------
+
+    def _chunk_text(self, text: str, metadata: Dict[str, Any]) -> List[str]:
+        """Split text into semantic chunks. Falls back to single chunk for short texts."""
+        if not self._chunker or len(text) < self.MIN_CHUNKING_LENGTH:
+            return [text]
+        try:
+            file_path = metadata.get("file_path", "/memory/stored.md")
+            chunks = self._chunker.chunk_text(text, file_path)
+            if chunks:
+                return [c["text"] for c in chunks if c.get("text")]
+            return [text]
+        except Exception as e:
+            logger.warning(f"Semantic chunking failed, using single chunk: {e}")
+            return [text]
 
     @staticmethod
     def _make_chunk_id(text: str, source: str, timestamp: str) -> str:
