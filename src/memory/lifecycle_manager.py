@@ -231,15 +231,16 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
             logger.error(f"Failed to query vector store: {e}")
 
         # Count archived and rehydratable (in KV store)
+        # KVStore exposes list_keys(prefix), not keys()
         archived_keys = [
-            key for key in self.kv_store.keys()
-            if key.startswith("archived:") and ":metadata" not in key
+            key for key in self.kv_store.list_keys("archived:")
+            if ":metadata" not in key
         ]
         stats['archived'] = len(archived_keys)
 
         rehydratable_keys = [
-            key for key in self.kv_store.keys()
-            if key.startswith("rehydratable:") and ":metadata" not in key
+            key for key in self.kv_store.list_keys("rehydratable:")
+            if ":metadata" not in key
         ]
         stats['rehydratable'] = len(rehydratable_keys)
 
