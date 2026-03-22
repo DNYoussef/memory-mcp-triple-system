@@ -1,16 +1,20 @@
 """
 Nexus Processor module for unified multi-tier RAG retrieval.
 
-This module provides the final integration layer that combines:
-- Vector RAG (Chromabd)
-- HippoRAG (Multi-hop graph reasoning)
-- Bayesian Graph RAG (Probabilistic inference)
-
-Key Components:
-- NexusProcessor: 5-step SOP pipeline (Recall → Filter → Deduplicate → Rank → Compress)
+Lazy imports to avoid cascade crashes from optional Railway dependencies.
+Production entrypoint: python -m src.mcp.http_server
 """
 
-from .processor import NexusProcessor
-from .public_api import MemoryMCPQueryService
-
 __all__ = ["NexusProcessor", "MemoryMCPQueryService"]
+
+
+def __getattr__(name):
+    if name == 'NexusProcessor':
+        from .processor import NexusProcessor
+        globals()['NexusProcessor'] = NexusProcessor
+        return NexusProcessor
+    if name == 'MemoryMCPQueryService':
+        from .public_api import MemoryMCPQueryService
+        globals()['MemoryMCPQueryService'] = MemoryMCPQueryService
+        return MemoryMCPQueryService
+    raise AttributeError(f"module 'src.nexus' has no attribute {name!r}")
