@@ -22,7 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Cache bust to force fresh build (increment to invalidate)
-ARG CACHE_BUST=4
+ARG CACHE_BUST=5
 
 # Use slim requirements (no torch/sentence-transformers)
 COPY requirements-api.txt requirements.txt ./
