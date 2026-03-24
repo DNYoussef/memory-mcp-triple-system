@@ -166,8 +166,8 @@ class StageTransitionsMixin:
 
         # Query archived chunks from KV store
         archived_keys = [
-            key for key in self.kv_store.keys()
-            if key.startswith("archived:") and ":metadata" not in key
+            key for key in self.kv_store.list_keys("archived:")
+            if ":metadata" not in key
         ]
 
         rehydratable_count = 0
