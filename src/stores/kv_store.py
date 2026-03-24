@@ -281,7 +281,7 @@ class KVStore:
             logger.error(f"KV delete failed for key '{key}': {e}")
             return False
 
-    def list_keys(self, prefix: str = "") -> List[str]:
+    def keys(self, prefix: str = "") -> List[str]:
         """
         List all keys with optional prefix filter.
 
@@ -308,6 +308,10 @@ class KVStore:
         except sqlite3.Error as e:
             logger.error(f"KV list_keys failed: {e}")
             return []
+
+    def list_keys(self, prefix: str = "") -> List[str]:
+        """Backwards-compatible alias for keys()."""
+        return self.keys(prefix)
 
     def get_json(self, key: str) -> Optional[Dict[str, Any]]:
         """
