@@ -18,6 +18,7 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 import asyncio
 import json
 import os
+import secrets
 import sys
 import threading
 from typing import Dict, Any, Optional, Tuple, List
@@ -26,7 +27,8 @@ from datetime import datetime
 # Add src to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Security
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import uvicorn
@@ -65,6 +67,8 @@ _tagger = None
 _memory_client = None
 _telemetry_bridge = None
 _connascence_bridge = None
+MCP_API_KEY = os.getenv("MCP_API_KEY") or os.getenv("MEMORY_MCP_API_KEY", "")
+_tool_bearer = HTTPBearer(auto_error=False)
 
 
 def _get_tagger():
@@ -93,6 +97,39 @@ def _get_connascence_bridge():
     if _connascence_bridge is None:
         _connascence_bridge = init_connascence_bridge()
     return _connascence_bridge
+
+
+def _extract_tool_api_key(
+    credentials: Optional[HTTPAuthorizationCredentials],
+    x_mcp_api_key: Optional[str],
+) -> str:
+    """Extract API key from bearer auth or X-MCP-API-Key."""
+    if x_mcp_api_key:
+        return x_mcp_api_key.strip()
+    if credentials and credentials.credentials:
+        return credentials.credentials.strip()
+    return ""
+
+
+def _is_authorized_tool_request(provided_key: str) -> bool:
+    """Health stays public; tool routes require a configured key."""
+    if not MCP_API_KEY:
+        return True
+    return bool(provided_key) and secrets.compare_digest(provided_key, MCP_API_KEY)
+
+
+async def require_tool_api_key(
+    credentials: Optional[HTTPAuthorizationCredentials] = Security(_tool_bearer),
+    x_mcp_api_key: Optional[str] = Header(default=None, alias="X-MCP-API-Key"),
+) -> None:
+    """Require auth for tool routes when MCP_API_KEY is configured."""
+    provided_key = _extract_tool_api_key(credentials, x_mcp_api_key)
+    if _is_authorized_tool_request(provided_key):
+        return
+    raise HTTPException(
+        status_code=401,
+        detail="Unauthorized. Provide Authorization: Bearer <token> or X-MCP-API-Key.",
+    )
 
 
 app = FastAPI(
@@ -211,16 +248,42 @@ def get_ingestion_service():
     return _ingestion_service
 
 
+def _verify_volume_writable(path: str) -> None:
+    """Fail fast if the persistent volume is not writable."""
+    parent = os.path.dirname(path) or path
+    if not os.path.isdir(parent):
+        try:
+            os.makedirs(parent, exist_ok=True)
+        except OSError as exc:
+            raise RuntimeError(
+                f"ChromaDB persist directory {path} is not writable: {exc}. "
+                f"Ensure RAILWAY_VOLUME_MOUNT_PATH=/data is configured and "
+                f"CHROMA_PERSIST_DIR points to a path under the mounted volume."
+            ) from exc
+    test_file = os.path.join(parent, ".volume_check")
+    try:
+        with open(test_file, "w") as f:
+            f.write("ok")
+        os.remove(test_file)
+    except OSError as exc:
+        raise RuntimeError(
+            f"ChromaDB persist directory {parent} exists but is not writable: {exc}. "
+            f"Check volume permissions."
+        ) from exc
+
+
 def get_indexer() -> VectorIndexer:
     """Lazy initialize VectorIndexer."""
     global _indexer
     if _indexer is None:
         with _indexer_lock:
             if _indexer is None:
-                # Use /app/chroma_data (in-container) as fallback — Railway volume
-                # mount at /data causes chromadb rust bindings Permission denied.
-                # Chroma is reconstructable from ingestion, so container-local is OK.
-                persist_dir = os.getenv("CHROMA_PERSIST_DIR", "/app/chroma_data")
+                # Durable storage: ChromaDB MUST persist on the Railway volume.
+                # Default /data/chroma matches config/memory-mcp.yaml:18.
+                # /app/chroma_data was a broken workaround that made every
+                # redeploy amnesia. Do not revert to container-local.
+                persist_dir = os.getenv("CHROMA_PERSIST_DIR", "/data/chroma")
+                _verify_volume_writable(persist_dir)
                 _indexer = VectorIndexer.get_instance(persist_directory=persist_dir)
     return _indexer
 
@@ -490,6 +553,9 @@ async def health_check() -> Dict[str, Any]:
         "service": "memory-mcp-http",
         "version": "1.5.0",
         "timestamp": datetime.utcnow().isoformat(),
+        "auth": {
+            "tool_routes_protected": bool(MCP_API_KEY),
+        },
         "components": {
             "vector_indexer": "available",
             "embedding_pipeline": "available",
@@ -503,7 +569,7 @@ async def health_check() -> Dict[str, Any]:
     }
 
 
-@app.get("/tools/stats")
+@app.get("/tools/stats", dependencies=[Depends(require_tool_api_key)])
 async def system_stats() -> Dict[str, Any]:
     """System statistics: vector count, graph nodes/edges, lifecycle stages."""
     stats: Dict[str, Any] = {"timestamp": datetime.utcnow().isoformat()}
@@ -535,7 +601,7 @@ async def system_stats() -> Dict[str, Any]:
     return stats
 
 
-@app.get("/tools/lifecycle_status")
+@app.get("/tools/lifecycle_status", dependencies=[Depends(require_tool_api_key)])
 async def lifecycle_status() -> Dict[str, Any]:
     """Get lifecycle stage statistics."""
     try:
@@ -546,7 +612,7 @@ async def lifecycle_status() -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/tools/raptor_cluster")
+@app.post("/tools/raptor_cluster", dependencies=[Depends(require_tool_api_key)])
 async def raptor_cluster() -> Dict[str, Any]:
     """Run RAPTOR hierarchical clustering on all active chunks."""
     try:
@@ -575,7 +641,7 @@ async def raptor_cluster() -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/tools/consolidate")
+@app.post("/tools/consolidate", dependencies=[Depends(require_tool_api_key)])
 async def consolidate_memories() -> Dict[str, Any]:
     """Consolidate similar memories (merge if cosine > 0.95)."""
     try:
@@ -589,7 +655,7 @@ async def consolidate_memories() -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/tools/consolidate_entities")
+@app.post("/tools/consolidate_entities", dependencies=[Depends(require_tool_api_key)])
 async def consolidate_entities() -> Dict[str, Any]:
     """Consolidate duplicate entities in knowledge graph."""
     try:
@@ -632,7 +698,7 @@ async def shutdown_event() -> None:
     logger.info("Memory MCP HTTP server shutdown complete")
 
 
-@app.post("/tools/vector_search")
+@app.post("/tools/vector_search", dependencies=[Depends(require_tool_api_key)])
 async def vector_search(request: VectorSearchRequest) -> Dict[str, Any]:
     """Semantic vector search (NexusProcessor pipeline)."""
     try:
@@ -672,7 +738,7 @@ async def vector_search(request: VectorSearchRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/tools/memory_store")
+@app.post("/tools/memory_store", dependencies=[Depends(require_tool_api_key)])
 async def memory_store(request: MemoryStoreRequest) -> Dict[str, Any]:
     """Store content with full pipeline: embed → classify → index → graph → lifecycle."""
     try:
@@ -709,7 +775,7 @@ async def memory_store(request: MemoryStoreRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/tools/detect_mode")
+@app.post("/tools/detect_mode", dependencies=[Depends(require_tool_api_key)])
 async def detect_mode(request: DetectModeRequest) -> Dict[str, Any]:
     """Detect query mode."""
     try:
@@ -728,7 +794,7 @@ async def detect_mode(request: DetectModeRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/tools/graph_query")
+@app.post("/tools/graph_query", dependencies=[Depends(require_tool_api_key)])
 async def graph_query(request: GraphQueryRequest) -> Dict[str, Any]:
     """Graph-based query (HippoRAG multi-hop)."""
     try:
@@ -749,7 +815,7 @@ async def graph_query(request: GraphQueryRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/tools/search")
+@app.post("/tools/search", dependencies=[Depends(require_tool_api_key)])
 async def search(request: SearchRequest) -> Dict[str, Any]:
     """Unified search via NexusProcessor 5-step SOP."""
     try:
@@ -788,7 +854,7 @@ async def search(request: SearchRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/tools/obsidian_sync")
+@app.post("/tools/obsidian_sync", dependencies=[Depends(require_tool_api_key)])
 async def obsidian_sync(request: ObsidianSyncRequest) -> Dict[str, Any]:
     """Sync Obsidian vault to memory."""
     try:
@@ -814,7 +880,7 @@ async def obsidian_sync(request: ObsidianSyncRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/tools/unified_retrieve")
+@app.post("/tools/unified_retrieve", dependencies=[Depends(require_tool_api_key)])
 async def unified_retrieve(request: UnifiedRetrievalRequest) -> Dict[str, Any]:
     """Unified retrieval combining Beads (procedural) and Memory MCP (semantic).
 

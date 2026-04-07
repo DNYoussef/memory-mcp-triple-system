@@ -36,15 +36,15 @@ class StageTransitionsMixin:
         """
         threshold = threshold_days or self.demote_threshold
         cutoff = datetime.now() - timedelta(days=threshold)
-        cutoff_str = cutoff.isoformat()
+        cutoff_ts = cutoff.timestamp()
 
-        # Query chunks with last_accessed > threshold
+        # Query chunks with last_accessed_ts > threshold (float for ChromaDB $lt)
         try:
             stale_chunks = self.vector_indexer.collection.get(
                 where={
                     "$and": [
                         {"stage": "active"},
-                        {"last_accessed": {"$lt": cutoff_str}}
+                        {"last_accessed_ts": {"$lt": cutoff_ts}}
                     ]
                 },
                 include=['metadatas']
@@ -61,12 +61,14 @@ class StageTransitionsMixin:
 
         for chunk_id in chunk_ids:
             try:
+                _now = datetime.now()
                 self.vector_indexer.collection.update(
                     ids=[chunk_id],
                     metadatas=[{
                         'stage': 'demoted',
                         'score_multiplier': 0.5,
-                        'demoted_at': datetime.now().isoformat()
+                        'demoted_at': _now.isoformat(),
+                        'demoted_at_ts': _now.timestamp()
                     }]
                 )
             except Exception as e:
@@ -108,14 +110,14 @@ class StageTransitionsMixin:
     def _query_old_demoted(self, threshold_days: int) -> Optional[Dict]:
         """Query old demoted chunks."""
         cutoff = datetime.now() - timedelta(days=threshold_days)
-        cutoff_str = cutoff.isoformat()
+        cutoff_ts = cutoff.timestamp()
 
         try:
             old_chunks = self.vector_indexer.collection.get(
                 where={
                     "$and": [
                         {"stage": "demoted"},
-                        {"demoted_at": {"$lt": cutoff_str}}
+                        {"demoted_at_ts": {"$lt": cutoff_ts}}
                     ]
                 },
                 include=['documents', 'metadatas']

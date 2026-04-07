@@ -67,6 +67,18 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
 
         logger.info("MemoryLifecycleManager initialized")
 
+    def cleanup_expired(self) -> int:
+        """Clean up expired entries from KV store.
+
+        Delegates to kv_store.cleanup_expired() which purges
+        entries past their TTL. Called by LifecycleScheduler daily at midnight.
+        """
+        try:
+            return self.kv_store.cleanup_expired()
+        except Exception as e:
+            logger.error(f"cleanup_expired failed: {e}")
+            return 0
+
     # ISS-006 FIX: Stage transition methods extracted to StageTransitionsMixin:
     # - demote_stale_chunks, archive_demoted_chunks, _query_old_demoted,
     #   _archive_chunks_batch, make_rehydratable

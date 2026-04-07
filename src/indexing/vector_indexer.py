@@ -96,6 +96,12 @@ class VectorIndexer:
         # Initialize collection immediately (fixes VectorIndexer bug)
         self.create_collection()
 
+        # Backfill legacy chunks missing *_ts metadata fields.
+        # Old chunks were indexed before the _ts enrichment code was added.
+        # Without these fields, lifecycle queries using $lt on last_accessed_ts
+        # throw "Expected operand value to be an int or a float" errors.
+        self._backfill_legacy_metadata()
+
         logger.info(f"Initialized ChromaDB at {persist_directory}")
 
     def create_collection(self, vector_size: int = 384) -> None:
@@ -128,6 +134,80 @@ class VectorIndexer:
                 }
             )
             logger.info(f"Created collection '{self.collection_name}'")
+
+    def _backfill_legacy_metadata(self) -> None:
+        """Backfill created_at_ts and last_accessed_ts on legacy chunks.
+
+        Older chunks were indexed before the _ts enrichment code existed.
+        Without numeric _ts fields, lifecycle queries ($lt on floats) fail
+        with ChromaDB type errors. This runs once at startup and is idempotent.
+        """
+        if self.collection is None:
+            return
+
+        try:
+            # Get all chunks (ChromaDB returns all if no filter)
+            result = self.collection.get(include=["metadatas"])
+            ids = result.get("ids", [])
+            metadatas = result.get("metadatas", [])
+            if not ids:
+                return
+
+            from datetime import datetime
+            now_ts = datetime.now().timestamp()
+            now_iso = datetime.now().isoformat()
+            repaired = 0
+
+            for i, (chunk_id, meta) in enumerate(zip(ids, metadatas)):
+                if meta is None:
+                    meta = {}
+                needs_update = False
+                updated_meta = meta.copy()
+
+                if "last_accessed_ts" not in updated_meta:
+                    # Use last_accessed ISO string if available, else now
+                    if "last_accessed" in updated_meta and updated_meta["last_accessed"]:
+                        try:
+                            updated_meta["last_accessed_ts"] = datetime.fromisoformat(
+                                str(updated_meta["last_accessed"])
+                            ).timestamp()
+                        except (ValueError, TypeError):
+                            updated_meta["last_accessed_ts"] = now_ts
+                    else:
+                        updated_meta["last_accessed_ts"] = now_ts
+                        updated_meta["last_accessed"] = now_iso
+                    needs_update = True
+
+                if "created_at_ts" not in updated_meta:
+                    if "created_at" in updated_meta and updated_meta["created_at"]:
+                        try:
+                            updated_meta["created_at_ts"] = datetime.fromisoformat(
+                                str(updated_meta["created_at"])
+                            ).timestamp()
+                        except (ValueError, TypeError):
+                            updated_meta["created_at_ts"] = now_ts
+                    else:
+                        updated_meta["created_at_ts"] = now_ts
+                        updated_meta["created_at"] = now_iso
+                    needs_update = True
+
+                if "stage" not in updated_meta:
+                    updated_meta["stage"] = "active"
+                    needs_update = True
+
+                if needs_update:
+                    self.collection.update(
+                        ids=[chunk_id],
+                        metadatas=[updated_meta],
+                    )
+                    repaired += 1
+
+            if repaired > 0:
+                logger.info(f"Backfilled _ts metadata on {repaired}/{len(ids)} legacy chunks")
+            else:
+                logger.info(f"All {len(ids)} chunks have _ts metadata (no backfill needed)")
+        except Exception as e:
+            logger.error(f"Legacy metadata backfill failed: {e}")
 
     @db_retry
     def index_chunks(
