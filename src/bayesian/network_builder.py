@@ -225,14 +225,18 @@ class NetworkBuilder:
         node: str,
         row: Dict[str, str]
     ) -> float:
-        """Calculate probability for child node based on edge weights. NASA Rule 10: 14 LOC"""
+        """Calculate child probability from edge weights and sampled parent states."""
         total_weight = 0.0
         for parent in parents:
             if graph.has_edge(parent, node):
                 edge_data = graph.edges[parent, node]
                 weight = edge_data.get("weight", DEFAULT_EDGE_CONFIDENCE)
                 weight *= edge_data.get("confidence", DEFAULT_EDGE_CONFIDENCE)
-                total_weight += weight
+                weight = min(1.0, max(0.0, weight))
+                parent_active = str(row.get(parent, "false")).lower() in {
+                    "true", "yes", "active", "hot", "1"
+                }
+                total_weight += weight if parent_active else (1.0 - weight)
 
         avg_weight = total_weight / len(parents) if parents else 0.5
         return min(0.9, max(0.1, avg_weight))
@@ -281,6 +285,8 @@ class NetworkBuilder:
         )
 
         data = pd.DataFrame(data_rows)
+        network.graph["cpd_evidence_type"] = "synthetic_topology_prior"
+        network.graph["independent_observations"] = False
 
         # Estimate CPDs using Maximum Likelihood
         estimator = MaximumLikelihoodEstimator(network, data)

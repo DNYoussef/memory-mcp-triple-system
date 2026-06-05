@@ -1,0 +1,350 @@
+{
+  "summary": {
+    "corpus_size": 100,
+    "num_queries": 16,
+    "avg_baseline_latency_ms": 10.4236900806427,
+    "avg_rerank_latency_ms": 105.67253828048706,
+    "avg_total_latency_ms": 116.09622836112976,
+    "orders_changed": 16,
+    "orders_changed_pct": 100.0,
+    "avg_top_rerank_score": 2.9559219870716333
+  },
+  "results": [
+    {
+      "query": "What is the Nexus processor pipeline?",
+      "baseline_latency_ms": 32.9129695892334,
+      "rerank_latency_ms": 110.06331443786621,
+      "baseline_top5": [
+        "mem-000",
+        "mem-046",
+        "mem-042",
+        "mem-037",
+        "mem-011"
+      ],
+      "reranked_top5": [
+        "mem-000",
+        "mem-016",
+        "mem-010",
+        "mem-011",
+        "mem-062"
+      ],
+      "order_changed": true,
+      "rerank_score_delta": 5.675653457641602
+    },
+    {
+      "query": "How does ChromaDB store embeddings?",
+      "baseline_latency_ms": 8.947372436523438,
+      "rerank_latency_ms": 106.71329498291016,
+      "baseline_top5": [
+        "mem-002",
+        "mem-008",
+        "mem-092",
+        "mem-085",
+        "mem-095"
+      ],
+      "reranked_top5": [
+        "mem-002",
+        "mem-008",
+        "mem-003",
+        "mem-085",
+        "mem-016"
+      ],
+      "order_changed": true,
+      "rerank_score_delta": 8.832524299621582
+    },
+    {
+      "query": "What are the three retrieval tiers?",
+      "baseline_latency_ms": 7.979869842529297,
+      "rerank_latency_ms": 112.07294464111328,
+      "baseline_top5": [
+        "mem-074",
+        "mem-019",
+        "mem-000",
+        "mem-006",
+        "mem-075"
+      ],
+      "reranked_top5": [
+        "mem-001",
+        "mem-005",
+        "mem-019",
+        "mem-006",
+        "mem-072"
+      ],
+      "order_changed": true,
+      "rerank_score_delta": 8.107368469238281
+    },
+    {
+      "query": "How do I save information to memory?",
+      "baseline_latency_ms": 8.975505828857422,
+      "rerank_latency_ms": 109.73763465881348,
+      "baseline_top5": [
+        "mem-061",
+        "mem-001",
+        "mem-015",
+        "mem-023",
+        "mem-013"
+      ],
+      "reranked_top5": [
+        "mem-001",
+        "mem-061",
+        "mem-013",
+        "mem-092",
+        "mem-023"
+      ],
+      "order_changed": true,
+      "rerank_score_delta": -8.515321731567383
+    },
+    {
+      "query": "What scoring formula combines the tiers?",
+      "baseline_latency_ms": 8.946895599365234,
+      "rerank_latency_ms": 109.17329788208008,
+      "baseline_top5": [
+        "mem-033",
+        "mem-074",
+        "mem-051",
+        "mem-000",
+        "mem-021"
+      ],
+      "reranked_top5": [
+        "mem-033",
+        "mem-007",
+        "mem-005",
+        "mem-000",
+        "mem-021"
+      ],
+      "order_changed": true,
+      "rerank_score_delta": 0.3925025165081024
+    },
+    {
+      "query": "How does the system handle old data?",
+      "baseline_latency_ms": 8.974313735961914,
+      "rerank_latency_ms": 113.69705200195312,
+      "baseline_top5": [
+        "mem-007",
+        "mem-023",
+        "mem-014",
+        "mem-058",
+        "mem-015"
+      ],
+      "reranked_top5": [
+        "mem-007",
+        "mem-058",
+        "mem-009",
+        "mem-052",
+        "mem-048"
+      ],
+      "order_changed": true,
+      "rerank_score_delta": -3.038644313812256
+    },
+    {
+      "query": "How do confidence and source type relate?",
+      "baseline_latency_ms": 8.975982666015625,
+      "rerank_latency_ms": 93.13774108886719,
+      "baseline_top5": [
+        "mem-021",
+        "mem-025",
+        "mem-019",
+        "mem-005",
+        "mem-034"
+      ],
+      "reranked_top5": [
+        "mem-021",
+        "mem-025",
+        "mem-019",
+        "mem-031",
+        "mem-005"
+      ],
+      "order_changed": true,
+      "rerank_score_delta": 3.3651206493377686
+    },
+    {
+      "query": "What happens when a query is classified as brainst",
+      "baseline_latency_ms": 7.977962493896484,
+      "rerank_latency_ms": 113.69562149047852,
+      "baseline_top5": [
+        "mem-032",
+        "mem-043",
+        "mem-006",
+        "mem-075",
+        "mem-079"
+      ],
+      "reranked_top5": [
+        "mem-006",
+        "mem-032",
+        "mem-075",
+        "mem-076",
+        "mem-079"
+      ],
+      "order_changed": true,
+      "rerank_score_delta": -0.3318728804588318
+    },
+    {
+      "query": "Why am I getting file locking errors?",
+      "baseline_latency_ms": 8.975744247436523,
+      "rerank_latency_ms": 58.843135833740234,
+      "baseline_top5": [
+        "mem-085",
+        "mem-089",
+        "mem-052",
+        "mem-093",
+        "mem-053"
+      ],
+      "reranked_top5": [
+        "mem-085",
+        "mem-093",
+        "mem-052",
+        "mem-092",
+        "mem-089"
+      ],
+      "order_changed": true,
+      "rerank_score_delta": -2.115443229675293
+    },
+    {
+      "query": "How to fix Unicode errors on Windows?",
+      "baseline_latency_ms": 7.978200912475586,
+      "rerank_latency_ms": 82.7794075012207,
+      "baseline_top5": [
+        "mem-086",
+        "mem-090",
+        "mem-092",
+        "mem-099",
+        "mem-094"
+      ],
+      "reranked_top5": [
+        "mem-086",
+        "mem-069",
+        "mem-092",
+        "mem-096",
+        "mem-093"
+      ],
+      "order_changed": true,
+      "rerank_score_delta": 5.237278938293457
+    },
+    {
+      "query": "What's the difference between dense and sparse ret",
+      "baseline_latency_ms": 8.975505828857422,
+      "rerank_latency_ms": 117.68674850463867,
+      "baseline_top5": [
+        "mem-073",
+        "mem-071",
+        "mem-072",
+        "mem-019",
+        "mem-074"
+      ],
+      "reranked_top5": [
+        "mem-071",
+        "mem-072",
+        "mem-073",
+        "mem-074",
+        "mem-001"
+      ],
+      "order_changed": true,
+      "rerank_score_delta": 5.069356918334961
+    },
+    {
+      "query": "How does reranking improve search quality?",
+      "baseline_latency_ms": 8.974313735961914,
+      "rerank_latency_ms": 112.69855499267578,
+      "baseline_top5": [
+        "mem-074",
+        "mem-019",
+        "mem-079",
+        "mem-072",
+        "mem-051"
+      ],
+      "reranked_top5": [
+        "mem-074",
+        "mem-051",
+        "mem-073",
+        "mem-060",
+        "mem-019"
+      ],
+      "order_changed": true,
+      "rerank_score_delta": 1.4187060594558716
+    },
+    {
+      "query": "How does the Beads integration work?",
+      "baseline_latency_ms": 8.975982666015625,
+      "rerank_latency_ms": 102.72622108459473,
+      "baseline_top5": [
+        "mem-037",
+        "mem-035",
+        "mem-050",
+        "mem-041",
+        "mem-040"
+      ],
+      "reranked_top5": [
+        "mem-037",
+        "mem-035",
+        "mem-013",
+        "mem-050",
+        "mem-040"
+      ],
+      "order_changed": true,
+      "rerank_score_delta": 7.325989723205566
+    },
+    {
+      "query": "What external services does Memory MCP connect to?",
+      "baseline_latency_ms": 9.973287582397461,
+      "rerank_latency_ms": 119.68064308166504,
+      "baseline_top5": [
+        "mem-039",
+        "mem-001",
+        "mem-022",
+        "mem-009",
+        "mem-013"
+      ],
+      "reranked_top5": [
+        "mem-009",
+        "mem-013",
+        "mem-039",
+        "mem-001",
+        "mem-022"
+      ],
+      "order_changed": true,
+      "rerank_score_delta": 1.488696575164795
+    },
+    {
+      "query": "What retry strategy is used for database locks?",
+      "baseline_latency_ms": 8.975028991699219,
+      "rerank_latency_ms": 117.68674850463867,
+      "baseline_top5": [
+        "mem-052",
+        "mem-089",
+        "mem-063",
+        "mem-053",
+        "mem-074"
+      ],
+      "reranked_top5": [
+        "mem-052",
+        "mem-089",
+        "mem-074",
+        "mem-063",
+        "mem-030"
+      ],
+      "order_changed": true,
+      "rerank_score_delta": 6.298659324645996
+    },
+    {
+      "query": "How is thread safety achieved in the system?",
+      "baseline_latency_ms": 10.26010513305664,
+      "rerank_latency_ms": 110.36825180053711,
+      "baseline_top5": [
+        "mem-053",
+        "mem-063",
+        "mem-052",
+        "mem-066",
+        "mem-064"
+      ],
+      "reranked_top5": [
+        "mem-053",
+        "mem-008",
+        "mem-066",
+        "mem-028",
+        "mem-064"
+      ],
+      "order_changed": true,
+      "rerank_score_delta": 8.084177017211914
+    }
+  ]
+}

@@ -44,12 +44,18 @@ class EmbeddingPipelineAPI:
         """Call embedding API and return vectors."""
         url = f"{self.api_base.rstrip('/')}/embeddings"
 
-        payload = json.dumps({
+        body = {
             "model": self.model_name,
             "input": texts,
-            "dimensions": self.dimensions,
-            "encoding_format": "float",
-        }).encode("utf-8")
+        }
+        # Only include OpenAI-specific params for direct OpenAI API calls.
+        # LiteLLM proxy routes to Gemini which rejects: dimensions, encoding_format.
+        is_proxy = "railway.internal" in self.api_base or "openrouter" in self.api_base
+        if not is_proxy:
+            body["encoding_format"] = "float"
+            if self.dimensions:
+                body["dimensions"] = self.dimensions
+        payload = json.dumps(body).encode("utf-8")
 
         req = urllib.request.Request(
             url,

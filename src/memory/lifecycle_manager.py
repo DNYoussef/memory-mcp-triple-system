@@ -246,13 +246,13 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
         # KVStore exposes list_keys(prefix), not keys()
         archived_keys = [
             key for key in self.kv_store.list_keys("archived:")
-            if ":metadata" not in key
+            if key.startswith("archived:") and ":metadata" not in key
         ]
         stats['archived'] = len(archived_keys)
 
         rehydratable_keys = [
             key for key in self.kv_store.list_keys("rehydratable:")
-            if ":metadata" not in key
+            if key.startswith("rehydratable:") and ":metadata" not in key
         ]
         stats['rehydratable'] = len(rehydratable_keys)
 

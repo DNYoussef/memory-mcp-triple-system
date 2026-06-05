@@ -15,6 +15,24 @@ from ...indexing.embedding_pipeline import EmbeddingPipeline
 from ...indexing.vector_indexer import VectorIndexer
 
 
+def _require_config_section(config: Dict[str, Any], section: str) -> None:
+    """Validate required config without relying on assert statements."""
+    if not isinstance(config, dict) or section not in config:
+        raise ValueError(f"Missing {section} config")
+
+
+def _validate_search_request(query: str, limit: int) -> None:
+    """Validate vector-search request under normal and optimized Python."""
+    if not isinstance(query, str) or len(query) == 0:
+        raise ValueError("Query cannot be empty")
+    if not isinstance(limit, int):
+        raise ValueError("Limit must be an integer")
+    if limit <= 0:
+        raise ValueError("Limit must be positive")
+    if limit > 100:
+        raise ValueError("Limit too large (max 100)")
+
+
 class VectorSearchTool:
     """Vector search tool for MCP server."""
 
@@ -25,8 +43,8 @@ class VectorSearchTool:
         Args:
             config: System configuration dictionary
         """
-        assert 'embeddings' in config, "Missing embeddings config"
-        assert 'storage' in config, "Missing storage config"
+        _require_config_section(config, 'embeddings')
+        _require_config_section(config, 'storage')
 
         self.config = config
 
@@ -114,9 +132,7 @@ class VectorSearchTool:
         Returns:
             List of search results with scores
         """
-        assert len(query) > 0, "Query cannot be empty"
-        assert limit > 0, "Limit must be positive"
-        assert limit <= 100, "Limit too large (max 100)"
+        _validate_search_request(query, limit)
 
         logger.info(f"Vector search: '{query}' (limit={limit})")
 

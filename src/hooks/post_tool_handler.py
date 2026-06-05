@@ -39,11 +39,22 @@ SESSION_FILE = os.path.join(
 
 # Privacy tag regex
 PRIVATE_RE = re.compile(r"<private>.*?</private>", re.DOTALL)
+SECRET_PATTERNS = [
+    re.compile(
+        r"(?i)\b([A-Z0-9_]*(?:API[_-]?KEY|TOKEN|SECRET|PASSWORD|PRIVATE[_-]?KEY)[A-Z0-9_]*)\s*[:=]\s*([^\s,;]+)"
+    ),
+    re.compile(r"\bsk-[A-Za-z0-9_-]{16,}\b"),
+    re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~-]{16,}\b"),
+]
 
 
 def strip_private(text: str) -> str:
-    """Remove <private>...</private> tagged content before storage."""
-    return PRIVATE_RE.sub("[REDACTED]", text)
+    """Remove private tags and common secret tokens before storage."""
+    redacted = PRIVATE_RE.sub("[REDACTED]", text)
+    redacted = SECRET_PATTERNS[0].sub(lambda m: f"{m.group(1)}=[REDACTED]", redacted)
+    for pattern in SECRET_PATTERNS[1:]:
+        redacted = pattern.sub("[REDACTED]", redacted)
+    return redacted
 
 
 def get_current_session() -> dict:

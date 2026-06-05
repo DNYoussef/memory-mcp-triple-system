@@ -76,14 +76,27 @@ class PPRAlgorithmsMixin:
         cache_key = (
             frozenset(personalization.items()),
             alpha, max_iter, tol,
-            len(self.graph.nodes), len(self.graph.edges),
+            self._graph_structure_signature(),
         )
         return self._cached_pagerank(cache_key)
 
+    def _graph_structure_signature(self) -> tuple:
+        """Hash-equivalent structural signature for cache invalidation."""
+        nodes = tuple(sorted(str(node) for node in self.graph.nodes))
+        edges = tuple(sorted(
+            (
+                str(source),
+                str(target),
+                tuple(sorted((str(key), repr(value)) for key, value in data.items()))
+            )
+            for source, target, data in self.graph.edges(data=True)
+        ))
+        return nodes, edges
+
     @lru_cache(maxsize=64)
     def _cached_pagerank(self, cache_key: tuple) -> Dict[str, float]:
-        """LRU-cached PPR computation. cache_key includes graph size for invalidation."""
-        personalization_items, alpha, max_iter, tol, _n, _e = cache_key
+        """LRU-cached PPR computation. cache_key includes graph structure."""
+        personalization_items, alpha, max_iter, tol, _signature = cache_key
         return nx.pagerank(
             self.graph,
             alpha=alpha,

@@ -8,6 +8,8 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
 from typing import Dict, Any, Optional
+from datetime import datetime, timezone
+import math
 import networkx as nx
 from loguru import logger
 
@@ -93,3 +95,64 @@ class GraphNodeManager:
     def get_node_count(self) -> int:
         """Get total number of nodes."""
         return self.graph.number_of_nodes()
+
+    def increment_frequency(self, node_id: str) -> bool:
+        """Increment node access frequency and last-access timestamp."""
+        if node_id not in self.graph:
+            logger.warning(f"Node not found for frequency update: {node_id}")
+            return False
+        node = self.graph.nodes[node_id]
+        node["frequency"] = int(node.get("frequency", 0)) + 1
+        node["last_accessed"] = datetime.now(timezone.utc).isoformat()
+        return True
+
+    def update_importance(self, node_id: str, explicit_weight: float = 0.5) -> bool:
+        """Update importance from explicit weight, frequency, and decay."""
+        if node_id not in self.graph:
+            logger.warning(f"Node not found for importance update: {node_id}")
+            return False
+        node = self.graph.nodes[node_id]
+        frequency_score = min(1.0, math.log1p(float(node.get("frequency", 0))) / math.log(101))
+        decay_score = float(node.get("decay_score", 1.0))
+        explicit_weight = max(0.0, min(1.0, explicit_weight))
+        node["importance"] = max(
+            0.0,
+            min(1.0, (0.5 * explicit_weight) + (0.3 * frequency_score) + (0.2 * decay_score)),
+        )
+        return True
+
+    def update_decay_score(self, node_id: str) -> bool:
+        """Update exponential decay score from last access/creation timestamp."""
+        if node_id not in self.graph:
+            logger.warning(f"Node not found for decay update: {node_id}")
+            return False
+        node = self.graph.nodes[node_id]
+        timestamp = node.get("last_accessed") or node.get("created_at")
+        age_days = _age_days(timestamp)
+        node["decay_score"] = math.exp(-age_days / 30.0)
+        return True
+
+    def get_nodes_by_importance(
+        self,
+        min_importance: float = 0.0,
+        max_importance: float = 1.0
+    ) -> list[tuple]:
+        """Return nodes whose importance is within the requested range."""
+        matches = []
+        for node_id, attrs in self.graph.nodes(data=True):
+            importance = float(attrs.get("importance", 0.0))
+            if min_importance <= importance <= max_importance:
+                matches.append((node_id, attrs))
+        return sorted(matches, key=lambda item: float(item[1].get("importance", 0.0)), reverse=True)
+
+
+def _age_days(timestamp: Optional[str]) -> float:
+    if not timestamp:
+        return 0.0
+    try:
+        parsed = datetime.fromisoformat(str(timestamp).replace("Z", "+00:00"))
+    except ValueError:
+        return 0.0
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return max(0.0, (datetime.now(timezone.utc) - parsed.astimezone(timezone.utc)).total_seconds() / 86400.0)

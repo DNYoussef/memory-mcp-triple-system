@@ -1,0 +1,11 @@
+# MEM-QWEN-001 POC Requirements
+# Cross-encoder reranking for Memory MCP
+
+# Core ML
+torch>=2.0.0
+sentence-transformers>=2.2.0
+transformers>=4.35.0
+
+# Existing Memory MCP deps
+chromadb>=0.4.0
+loguru>=0.7.0

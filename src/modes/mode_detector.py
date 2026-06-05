@@ -51,7 +51,12 @@ class ModeDetector:
             r"\bwhat\s+should\b",
             r"\bhow\s+can\s+i\b",
             r"\bhow\s+should\b",
+            r"\bwhat\s+approach\b",
             r"\bwhat\s+are\s+the\s+options\b",
+            r"\bdesign\b",
+            r"\bplan\b",
+            r"\bstrategy\b",
+            r"\brecommend\b",
             r"\bcompare\b",
             r"\bwhich\s+is\s+better\b",
             r"\bshould\s+i\b",
@@ -69,7 +74,8 @@ class ModeDetector:
             r"\bwhat\s+other\b",
             r"\blist\s+all\b",
             r"\bbrainstorm\b",
-            r"\bideas\s+for\b"
+            r"\bideas\s+for\b",
+            r"\bpossibilities\s+for\b"
         ]
 
         logger.info("ModeDetector initialized")
@@ -145,11 +151,11 @@ class ModeDetector:
             if re.search(pattern, query):
                 matches += 1
 
-        # Normalize score (1 match = 0.8, 2+ matches = 1.0)
+        # Normalize score (1 match = 0.85, 2+ matches = 1.0)
         if matches == 0:
             return 0.0
         elif matches == 1:
-            return 0.8
+            return 0.85
         else:
             return 1.0
 
@@ -169,11 +175,11 @@ class ModeDetector:
             if re.search(pattern, query):
                 matches += 1
 
-        # Normalize score (1 match = 0.8, 2+ matches = 1.0)
+        # Normalize score (1 match = 0.85, 2+ matches = 1.0)
         if matches == 0:
             return 0.0
         elif matches == 1:
-            return 0.8
+            return 0.85
         else:
             return 1.0
 
@@ -193,10 +199,10 @@ class ModeDetector:
             if re.search(pattern, query):
                 matches += 1
 
-        # Normalize score (1 match = 0.8, 2+ matches = 1.0)
+        # Normalize score (1 match = 0.85, 2+ matches = 1.0)
         if matches == 0:
             return 0.0
         elif matches == 1:
-            return 0.8
+            return 0.85
         else:
             return 1.0

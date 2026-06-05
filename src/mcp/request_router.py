@@ -1,4 +1,3 @@
-import os
 """
 Request Router Module - Tool execution and routing.
 
@@ -9,18 +8,22 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
 import json
+import os
 import time
 import hashlib
 import asyncio
+import threading
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, TYPE_CHECKING
 
 from loguru import logger
+from ..modes.mode_detector import ModeDetector
 
 if TYPE_CHECKING:
     from .service_wiring import NexusSearchTool
 
 REQUIRED_TAGS = ["who", "when", "project", "why"]
+MODE_DETECTOR = ModeDetector()
 
 
 # === Metadata Helpers ===
@@ -436,37 +439,38 @@ def handle_detect_mode(
     tool: "NexusSearchTool"
 ) -> Dict[str, Any]:
     """Handle detect_mode - Classify query intent."""
-    query = arguments.get("query", "").lower()
-
-    execution_patterns = ["what is", "define", "explain", "show me", "find", "get"]
-    planning_patterns = ["how should", "what approach", "design", "plan", "strategy", "recommend"]
-    brainstorming_patterns = ["what if", "imagine", "explore", "could we", "ideas for", "possibilities"]
-
-    mode = "execution"
-    confidence = 0.5
-
-    for pattern in execution_patterns:
-        if pattern in query:
-            mode = "execution"
-            confidence = 0.85
-            break
-
-    for pattern in planning_patterns:
-        if pattern in query:
-            mode = "planning"
-            confidence = 0.85
-            break
-
-    for pattern in brainstorming_patterns:
-        if pattern in query:
-            mode = "brainstorming"
-            confidence = 0.85
-            break
+    query = arguments.get("query", "")
+    profile, confidence = MODE_DETECTOR.detect(query)
+    mode = profile.name
 
     return {
         "content": [{"type": "text", "text": f"Detected mode: {mode}\nConfidence: {confidence:.0%}\nQuery: {query[:100]}"}],
         "isError": False
     }
+
+
+def _run_coroutine_sync(coro):
+    """Run a coroutine from sync handlers, even if caller already owns an event loop."""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+
+    result = {}
+
+    def runner():
+        try:
+            result["value"] = asyncio.run(coro)
+        except BaseException as exc:
+            result["error"] = exc
+
+    thread = threading.Thread(target=runner, daemon=True)
+    thread.start()
+    thread.join()
+
+    if "error" in result:
+        raise result["error"]
+    return result.get("value")
 
 
 def handle_lifecycle_status(
@@ -589,7 +593,7 @@ def handle_beads_ready_tasks(
     brief = arguments.get("brief", True)
 
     try:
-        tasks = asyncio.run(tool.beads_bridge.get_ready_tasks(limit=limit, brief=brief))
+        tasks = _run_coroutine_sync(tool.beads_bridge.get_ready_tasks(limit=limit, brief=brief))
 
         if not tasks:
             return {"content": [{"type": "text", "text": "No ready tasks found"}], "isError": False}
@@ -618,7 +622,7 @@ def handle_beads_task_detail(
         return {"content": [{"type": "text", "text": "Error: task_id is required"}], "isError": True}
 
     try:
-        task = asyncio.run(tool.beads_bridge.get_task_detail(task_id))
+        task = _run_coroutine_sync(tool.beads_bridge.get_task_detail(task_id))
 
         if task.status == "unknown":
             return {"content": [{"type": "text", "text": f"Task {task_id} not found"}], "isError": True}
@@ -655,7 +659,7 @@ def handle_beads_query_tasks(
     limit = arguments.get("limit", 20)
 
     try:
-        tasks = asyncio.run(tool.beads_bridge.query_tasks(
+        tasks = _run_coroutine_sync(tool.beads_bridge.query_tasks(
             status=status, priority=priority, assignee=assignee, limit=limit, brief=True
         ))
 
@@ -696,9 +700,7 @@ def handle_observation_timeline(
     limit = arguments.get("limit", 30)
     detail = arguments.get("detail", "compact")
 
-    after = (
-        datetime.utcnow() - timedelta(hours=hours_back)
-    ).isoformat() + "Z"
+    after = (datetime.now() - timedelta(hours=hours_back)).isoformat()
 
     try:
         observations = tool.kv_store.get_observations(

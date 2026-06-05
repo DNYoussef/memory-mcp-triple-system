@@ -12,6 +12,7 @@ NASA Rule 10 Compliant: All functions ≤60 LOC
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 from enum import Enum
+import math
 from loguru import logger
 
 
@@ -92,8 +93,9 @@ class HotColdClassifier:
         NASA Rule 10: 28 LOC
         """
         # New content always starts as HOT (ACTIVE)
-        # Decay score starts at 1.0 (freshest)
+        # Decay score is 1.0 for fresh content and decays exponentially by age.
         stage = LifecycleStage.ACTIVE
+        decay_score = self._decay_score(metadata)
 
         # Check if metadata suggests lower priority
         intent = metadata.get('intent', 'storage')
@@ -109,12 +111,25 @@ class HotColdClassifier:
 
         result = {
             "tier": tier_map.get(stage, "hot"),
-            "decay_score": 1.0,
+            "decay_score": decay_score,
             "lifecycle_stage": stage.value
         }
 
         logger.debug(f"Classified new content: tier={result['tier']}, intent={intent}")
         return result
+
+    def _decay_score(self, metadata: Dict[str, Any]) -> float:
+        """Compute e^(-age_days/30) from timestamp metadata."""
+        timestamp = metadata.get("timestamp") or metadata.get("created_at")
+        if not timestamp:
+            return 1.0
+        try:
+            created_at = datetime.fromisoformat(str(timestamp).replace("Z", "+00:00"))
+        except ValueError:
+            return 1.0
+        now = datetime.now(created_at.tzinfo) if created_at.tzinfo else datetime.now()
+        age_days = max(0.0, (now - created_at).total_seconds() / 86400.0)
+        return max(0.0, min(1.0, math.exp(-age_days / 30.0)))
 
     def classify_chunk(
         self,

@@ -1,0 +1,54 @@
+{
+  "total_hypotheses": 5,
+  "issues_found": 5,
+  "issues": [
+    {
+      "hypothesis": "H1",
+      "title": "Signal confidence values inconsistency",
+      "findings": {
+        "memory_mcp_0.90_refs": 0,
+        "context_cascade_0.90_refs": 0,
+        "context_cascade_0.75_refs": 0,
+        "context_cascade_0.55_refs": 0
+      },
+      "verdict": "POTENTIAL_ISSUE"
+    },
+    {
+      "hypothesis": "H2",
+      "title": "Namespace format inconsistency",
+      "findings": {
+        "context_cascade_expertise_refs": 0,
+        "context_cascade_findings_refs": 0
+      },
+      "verdict": "POTENTIAL_GAP"
+    },
+    {
+      "hypothesis": "H3",
+      "title": "Loop interface consumer missing",
+      "findings": {
+        "context_cascade_loop15_imports": 0,
+        "context_cascade_loop3_imports": 0
+      },
+      "verdict": "INTEGRATION_GAP"
+    },
+    {
+      "hypothesis": "H4",
+      "title": "NASA Rule 10 compliance gap",
+      "findings": {
+        "memory_mcp_nasa_markers": 3,
+        "context_cascade_nasa_markers": 0
+      },
+      "verdict": "COMPLIANCE_GAP"
+    },
+    {
+      "hypothesis": "H5",
+      "title": "Telemetry packet schema not used",
+      "findings": {
+        "context_cascade_packet_refs": 0,
+        "context_cascade_builder_refs": 0
+      },
+      "verdict": "NOT_INTEGRATED"
+    }
+  ],
+  "timestamp": "2026-01-21T04:22:32.972235"
+}

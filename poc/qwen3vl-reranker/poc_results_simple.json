@@ -1,0 +1,66 @@
+{
+  "summary": {
+    "avg_p5_improvement": 0.0,
+    "avg_mrr_improvement": 0.0,
+    "avg_rerank_latency_ms": 82.29093551635742,
+    "queries_improved": 0,
+    "total_queries": 5
+  },
+  "results": [
+    {
+      "query": "How does the NexusProcessor work?",
+      "baseline_p5": 0.4,
+      "reranked_p5": 0.4,
+      "p5_improvement": 0.0,
+      "baseline_mrr": 1.0,
+      "reranked_mrr": 1.0,
+      "mrr_improvement": 0.0,
+      "baseline_latency_ms": 0.0,
+      "rerank_latency_ms": 202.43215560913086
+    },
+    {
+      "query": "What is the WHO/WHEN/PROJECT/WHY protocol?",
+      "baseline_p5": 0.2,
+      "reranked_p5": 0.2,
+      "p5_improvement": 0.0,
+      "baseline_mrr": 1.0,
+      "reranked_mrr": 1.0,
+      "mrr_improvement": 0.0,
+      "baseline_latency_ms": 0.0,
+      "rerank_latency_ms": 53.438663482666016
+    },
+    {
+      "query": "How are the three retrieval tiers weighted?",
+      "baseline_p5": 0.4,
+      "reranked_p5": 0.4,
+      "p5_improvement": 0.0,
+      "baseline_mrr": 1.0,
+      "reranked_mrr": 1.0,
+      "mrr_improvement": 0.0,
+      "baseline_latency_ms": 0.0,
+      "rerank_latency_ms": 51.86128616333008
+    },
+    {
+      "query": "What confidence scores are assigned to different s",
+      "baseline_p5": 0.2,
+      "reranked_p5": 0.2,
+      "p5_improvement": 0.0,
+      "baseline_mrr": 1.0,
+      "reranked_mrr": 1.0,
+      "mrr_improvement": 0.0,
+      "baseline_latency_ms": 0.0,
+      "rerank_latency_ms": 49.83973503112793
+    },
+    {
+      "query": "How does HippoRAG implement multi-hop reasoning?",
+      "baseline_p5": 0.2,
+      "reranked_p5": 0.2,
+      "p5_improvement": 0.0,
+      "baseline_mrr": 1.0,
+      "reranked_mrr": 1.0,
+      "mrr_improvement": 0.0,
+      "baseline_latency_ms": 0.0,
+      "rerank_latency_ms": 53.88283729553223
+    }
+  ]
+}

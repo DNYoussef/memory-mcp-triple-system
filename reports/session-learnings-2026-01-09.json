@@ -1,0 +1,46 @@
+{
+  "session_id": "session_92a76495_readme_update",
+  "project": "cognitive-architecture-integration",
+  "learnings": [
+    {
+      "content": "When updating documentation across multiple integrated repositories, all READMEs must be updated atomically with bidirectional cross-references and consistent terminology",
+      "skill": "documenter",
+      "confidence": 0.90,
+      "signal_type": "observation",
+      "ground": "session-observation:2026-01-09",
+      "context": "Successfully updated context-cascade, connascence, and memory-mcp READMEs with integration details"
+    },
+    {
+      "content": "Integration documentation should include: architecture diagram (ASCII), component status table, key files table, and cross-references to detailed docs",
+      "skill": "documenter",
+      "confidence": 0.85,
+      "signal_type": "observation",
+      "ground": "pattern-recognition:2026-01-09",
+      "context": "Documentation structure that proved effective for cognitive architecture integration"
+    },
+    {
+      "content": "For multi-repository git operations, use parallel Bash tool calls for independent operations (e.g., staging files in 3 repos simultaneously)",
+      "skill": "development",
+      "confidence": 0.75,
+      "signal_type": "observation",
+      "ground": "efficiency-improvement:2026-01-09",
+      "context": "Could have batched git operations more efficiently using parallel tool calls"
+    },
+    {
+      "content": "Use docs: prefix for documentation commits, with bullet point summaries and version numbers when applicable",
+      "skill": "development",
+      "confidence": 0.80,
+      "signal_type": "observation",
+      "ground": "pattern-recognition:2026-01-09",
+      "context": "Consistent commit message format used across three repositories"
+    },
+    {
+      "content": "The /reflect skill generates reflection text but does NOT automatically store to Memory MCP - must run reflect_to_memory.py script explicitly",
+      "skill": "reflect",
+      "confidence": 0.95,
+      "signal_type": "correction",
+      "ground": "system-discovery:2026-01-09",
+      "context": "Discovered that reflection storage requires explicit script execution"
+    }
+  ]
+}

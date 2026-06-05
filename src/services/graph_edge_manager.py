@@ -105,3 +105,16 @@ class GraphEdgeManager:
     def get_edge_count(self) -> int:
         """Get total number of edges."""
         return self.graph.number_of_edges()
+
+    def update_edge_confidence(
+        self,
+        source: str,
+        target: str,
+        confidence: float
+    ) -> bool:
+        """Update an existing edge confidence value."""
+        if not self.graph.has_edge(source, target):
+            logger.warning(f"Edge not found for confidence update: {source} -> {target}")
+            return False
+        self.graph.edges[source, target]["confidence"] = max(0.0, min(1.0, confidence))
+        return True

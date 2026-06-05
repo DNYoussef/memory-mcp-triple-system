@@ -1,4 +1,3 @@
-import os
 """
 Service Wiring Module - Dependency injection and initialization.
 
@@ -9,6 +8,7 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
 import json
+import os
 import sqlite3
 from typing import Dict, Any, List, Optional
 from pathlib import Path
@@ -435,10 +435,14 @@ class NexusSearchTool:
         return formatted
 
 
-def load_config() -> Dict[str, Any]:
+def load_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
     """Load configuration from YAML file."""
-    config_path = Path(__file__).parent.parent.parent / "config" / "memory-mcp.yaml"
-    assert config_path.exists(), f"Config not found: {config_path}"
+    if config_path is None:
+        config_path = Path(__file__).parent.parent.parent / "config" / "memory-mcp.yaml"
+    else:
+        config_path = Path(config_path)
+    if not config_path.exists():
+        raise FileNotFoundError(f"Config not found: {config_path}")
 
     with open(config_path, 'r', encoding='utf-8') as f:
         config = yaml.safe_load(f)
