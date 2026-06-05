@@ -63,12 +63,11 @@ def test_rlm004_trajectory_logging():
             logger.close()
 
         print("  [PASS] Trajectory logging works correctly")
-        return True
     except Exception as e:
         print(f"  [FAIL] {e}")
         import traceback
         traceback.print_exc()
-        return False
+        raise
 
 
 def test_rlm005_memory_environment():
@@ -120,12 +119,11 @@ def test_rlm005_memory_environment():
         assert isinstance(results, list)
 
         print("  [PASS] Memory MCP environment works correctly")
-        return True
     except Exception as e:
         print(f"  [FAIL] {e}")
         import traceback
         traceback.print_exc()
-        return False
+        raise
 
 
 def test_rlm009_codebase_environment():
@@ -142,7 +140,7 @@ def test_rlm009_codebase_environment():
 
         # Check project list
         assert "memory-mcp" in AI_EXOSKELETON_PROJECTS
-        assert "context-cascade" in AI_EXOSKELETON_PROJECTS
+        assert "connascence" in AI_EXOSKELETON_PROJECTS
         assert len(AI_EXOSKELETON_PROJECTS) >= 10
 
         # Check language extensions
@@ -197,12 +195,11 @@ def test_rlm009_codebase_environment():
 
         print(f"  Indexed {stats['total_files']} files in memory-mcp")
         print("  [PASS] Codebase environment works correctly")
-        return True
     except Exception as e:
         print(f"  [FAIL] {e}")
         import traceback
         traceback.print_exc()
-        return False
+        raise
 
 
 def test_rlm_module_imports():
@@ -233,15 +230,14 @@ def test_rlm_module_imports():
         )
 
         from src import rlm
-        assert rlm.__version__ == "0.2.0"
+        assert rlm.__version__ == "0.3.0"
 
         print("  [PASS] All RLM module imports work correctly")
-        return True
     except Exception as e:
         print(f"  [FAIL] {e}")
         import traceback
         traceback.print_exc()
-        return False
+        raise
 
 
 def test_rlm_integration():
@@ -288,12 +284,11 @@ def test_rlm_integration():
             rlm_logger.close()
 
         print("  [PASS] RLM integration works correctly")
-        return True
     except Exception as e:
         print(f"  [FAIL] {e}")
         import traceback
         traceback.print_exc()
-        return False
+        raise
 
 
 def main():
@@ -305,20 +300,19 @@ def main():
 
     results = []
 
-    results.append(("RLM-004", test_rlm004_trajectory_logging()))
-    print()
-
-    results.append(("RLM-005", test_rlm005_memory_environment()))
-    print()
-
-    results.append(("RLM-009", test_rlm009_codebase_environment()))
-    print()
-
-    results.append(("Imports", test_rlm_module_imports()))
-    print()
-
-    results.append(("Integration", test_rlm_integration()))
-    print()
+    for name, test_func in [
+        ("RLM-004", test_rlm004_trajectory_logging),
+        ("RLM-005", test_rlm005_memory_environment),
+        ("RLM-009", test_rlm009_codebase_environment),
+        ("Imports", test_rlm_module_imports),
+        ("Integration", test_rlm_integration),
+    ]:
+        try:
+            test_func()
+            results.append((name, True))
+        except Exception:
+            results.append((name, False))
+        print()
 
     # Summary
     print("=" * 60)

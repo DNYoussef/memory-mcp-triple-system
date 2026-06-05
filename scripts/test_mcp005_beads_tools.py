@@ -19,8 +19,26 @@ import os
 import asyncio
 from datetime import datetime
 
+import pytest
+
+pytestmark = pytest.mark.anyio
+
+
+@pytest.fixture
+def anyio_backend():
+    return "asyncio"
+
+
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+def _skip_pytest_if_beads_workspace_unavailable(result):
+    """Skip pytest-only when the external Beads workspace is not mounted/configured."""
+    error = str(result.get("error", ""))
+    unavailable = "WinError 267" in error or "directory name is invalid" in error
+    if not result.get("success") and unavailable and "PYTEST_CURRENT_TEST" in os.environ:
+        pytest.skip(f"Beads CLI workspace unavailable: {error}")
 
 
 def test_imports():
@@ -38,10 +56,10 @@ def test_imports():
         )
         print("[PASS] All imports successful")
         print(f"  Tool definitions: {len(BEADS_TOOL_DEFINITIONS)}")
-        return True
+        assert len(BEADS_TOOL_DEFINITIONS) > 0
     except Exception as e:
         print(f"[FAIL] Import error: {e}")
-        return False
+        raise AssertionError(f"Import error: {e}") from e
 
 
 async def test_beads_list():
@@ -64,6 +82,7 @@ async def test_beads_list():
             print(f"    - {task.get('task_id', 'unknown')}: {task.get('title', 'no title')[:50]}")
     else:
         print(f"  Error: {result.get('error', 'unknown')}")
+        _skip_pytest_if_beads_workspace_unavailable(result)
 
     # Test with priority filter
     result_p2 = await tools.beads_list(priority="P2", limit=3)
@@ -71,7 +90,6 @@ async def test_beads_list():
 
     assert result['success']
     print("[PASS] beads_list tool working")
-    return True
 
 
 async def test_beads_ready():
@@ -93,10 +111,10 @@ async def test_beads_ready():
             print(f"    - [{task.get('priority', '?')}] {task.get('title', 'no title')[:50]}")
     else:
         print(f"  Error: {result.get('error', 'unknown')}")
+        _skip_pytest_if_beads_workspace_unavailable(result)
 
     assert result['success']
     print("[PASS] beads_ready tool working")
-    return True
 
 
 async def test_beads_show():
@@ -113,12 +131,13 @@ async def test_beads_show():
     list_result = await tools.beads_list(limit=1)
     if not list_result['success'] or not list_result.get('tasks'):
         print("  [SKIP] No tasks available to show")
-        return True
+        _skip_pytest_if_beads_workspace_unavailable(list_result)
+        return
 
     task_id = list_result['tasks'][0].get('task_id')
     if not task_id:
         print("  [SKIP] Could not get task ID")
-        return True
+        return
 
     result = await tools.beads_show(task_id)
 
@@ -134,10 +153,10 @@ async def test_beads_show():
             print(f"  Description: {desc[:100]}...")
     else:
         print(f"  Error: {result.get('error', 'unknown')}")
+        _skip_pytest_if_beads_workspace_unavailable(result)
 
     assert result['success']
     print("[PASS] beads_show tool working")
-    return True
 
 
 async def test_beads_search():
@@ -164,8 +183,8 @@ async def test_beads_search():
         print(f"  Note: {result.get('error', 'no results')}")
 
     # Even if no results, the command worked
+    assert "success" in result
     print("[PASS] beads_search tool working")
-    return True
 
 
 async def test_beads_stats():
@@ -188,10 +207,10 @@ async def test_beads_stats():
         print(f"  By priority: {stats.get('by_priority', {})}")
     else:
         print(f"  Error: {result.get('error', 'unknown')}")
+        _skip_pytest_if_beads_workspace_unavailable(result)
 
     assert result['success']
     print("[PASS] beads_stats tool working")
-    return True
 
 
 async def test_tool_definitions():
@@ -206,15 +225,12 @@ async def test_tool_definitions():
 
     for tool_def in BEADS_TOOL_DEFINITIONS:
         for field in required_fields:
-            if field not in tool_def:
-                print(f"  [FAIL] Tool {tool_def.get('name', 'unknown')} missing {field}")
-                return False
+            assert field in tool_def, f"Tool {tool_def.get('name', 'unknown')} missing {field}"
 
         print(f"  [OK] {tool_def['name']}: {tool_def['description'][:50]}...")
 
     print(f"\n  Total tools defined: {len(BEADS_TOOL_DEFINITIONS)}")
     print("[PASS] Tool definitions valid")
-    return True
 
 
 def verify_no_mocks():
@@ -238,28 +254,17 @@ def verify_no_mocks():
 
 async def async_main():
     """Run all async tests."""
-    all_passed = True
-
-    # Test 2-6 are async
-    if not await test_beads_list():
-        all_passed = False
-
-    if not await test_beads_ready():
-        all_passed = False
-
-    if not await test_beads_show():
-        all_passed = False
-
-    if not await test_beads_search():
-        all_passed = False
-
-    if not await test_beads_stats():
-        all_passed = False
-
-    if not await test_tool_definitions():
-        all_passed = False
-
-    return all_passed
+    try:
+        await test_beads_list()
+        await test_beads_ready()
+        await test_beads_show()
+        await test_beads_search()
+        await test_beads_stats()
+        await test_tool_definitions()
+        return True
+    except Exception as e:
+        print(f"[FAIL] Async Beads tool test failed: {e}")
+        return False
 
 
 def main():
@@ -272,7 +277,9 @@ def main():
     all_passed = True
 
     # Test 1: Imports (sync)
-    if not test_imports():
+    try:
+        test_imports()
+    except Exception:
         all_passed = False
         return False
 
