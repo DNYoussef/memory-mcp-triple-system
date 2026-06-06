@@ -1,0 +1,218 @@
+{
+  "analyzer": "god_object",
+  "path": "D:\\Projects\\memory-mcp-triple-system",
+  "success": true,
+  "threshold": 15,
+  "violations": [
+    {
+      "description": "God Object detected: Class 'CircuitBreaker' has 19 methods (threshold: 15)",
+      "file_path": "D:\\Projects\\memory-mcp-triple-system\\lib\\library\\circuit_breaker\\circuit_breaker.py",
+      "id": "god_object_CircuitBreaker_circuit_breaker",
+      "line_number": 179,
+      "rule_id": "GOD_OBJECT_METHODS",
+      "severity": "high",
+      "type": "CoA",
+      "weight": 4.0
+    },
+    {
+      "description": "God Object detected: Class 'NexusSearchTool' has 16 methods (threshold: 15)",
+      "file_path": "D:\\Projects\\memory-mcp-triple-system\\src\\mcp\\service_wiring.py",
+      "id": "god_object_NexusSearchTool_service_wiring",
+      "line_number": 111,
+      "rule_id": "GOD_OBJECT_METHODS",
+      "severity": "high",
+      "type": "CoA",
+      "weight": 4.0
+    },
+    {
+      "description": "God Object detected: Class 'NexusProcessor' has 20 methods (threshold: 15)",
+      "file_path": "D:\\Projects\\memory-mcp-triple-system\\src\\nexus\\processor.py",
+      "id": "god_object_NexusProcessor_processor",
+      "line_number": 26,
+      "rule_id": "GOD_OBJECT_METHODS",
+      "severity": "high",
+      "type": "CoA",
+      "weight": 4.0
+    },
+    {
+      "description": "God Object detected: Class 'RLMCodebaseEnvironment' has 19 methods (threshold: 15)",
+      "file_path": "D:\\Projects\\memory-mcp-triple-system\\src\\rlm\\rlm_codebase_env.py",
+      "id": "god_object_RLMCodebaseEnvironment_rlm_codebase_env",
+      "line_number": 333,
+      "rule_id": "GOD_OBJECT_METHODS",
+      "severity": "high",
+      "type": "CoA",
+      "weight": 4.0
+    },
+    {
+      "description": "God Object detected: Class 'GraphQueryEngine' has 16 methods (threshold: 15)",
+      "file_path": "D:\\Projects\\memory-mcp-triple-system\\src\\services\\graph_query_engine.py",
+      "id": "god_object_GraphQueryEngine_graph_query_engine",
+      "line_number": 38,
+      "rule_id": "GOD_OBJECT_METHODS",
+      "severity": "high",
+      "type": "CoA",
+      "weight": 4.0
+    },
+    {
+      "description": "God Object detected: Class 'GraphService' has 30 methods (threshold: 15)",
+      "file_path": "D:\\Projects\\memory-mcp-triple-system\\src\\services\\graph_service.py",
+      "id": "god_object_GraphService_graph_service",
+      "line_number": 31,
+      "rule_id": "GOD_OBJECT_METHODS",
+      "severity": "high",
+      "type": "CoA",
+      "weight": 4.0
+    },
+    {
+      "description": "God Object detected: Class 'OntologyBridge' has 20 methods (threshold: 15)",
+      "file_path": "D:\\Projects\\memory-mcp-triple-system\\src\\services\\ontology_bridge.py",
+      "id": "god_object_OntologyBridge_ontology_bridge",
+      "line_number": 45,
+      "rule_id": "GOD_OBJECT_METHODS",
+      "severity": "high",
+      "type": "CoA",
+      "weight": 4.0
+    },
+    {
+      "description": "God Object detected: Class 'OwnershipRegistry' has 19 methods (threshold: 15)",
+      "file_path": "D:\\Projects\\memory-mcp-triple-system\\src\\services\\ownership_registry.py",
+      "id": "god_object_OwnershipRegistry_ownership_registry",
+      "line_number": 33,
+      "rule_id": "GOD_OBJECT_METHODS",
+      "severity": "high",
+      "type": "CoA",
+      "weight": 4.0
+    },
+    {
+      "description": "God Object detected: Class 'ProactiveContextInjector' has 16 methods (threshold: 15)",
+      "file_path": "D:\\Projects\\memory-mcp-triple-system\\src\\services\\proactive_context_injector.py",
+      "id": "god_object_ProactiveContextInjector_proactive_context_injector",
+      "line_number": 27,
+      "rule_id": "GOD_OBJECT_METHODS",
+      "severity": "high",
+      "type": "CoA",
+      "weight": 4.0
+    },
+    {
+      "description": "God Object detected: Class 'KVStore' has 28 methods (threshold: 15)",
+      "file_path": "D:\\Projects\\memory-mcp-triple-system\\src\\stores\\kv_store.py",
+      "id": "god_object_KVStore_kv_store",
+      "line_number": 22,
+      "rule_id": "GOD_OBJECT_METHODS",
+      "severity": "high",
+      "type": "CoA",
+      "weight": 4.0
+    },
+    {
+      "description": "God Object detected: Class 'QualityValidator' has 21 methods (threshold: 15)",
+      "file_path": "D:\\Projects\\memory-mcp-triple-system\\src\\validation\\quality_validator.py",
+      "id": "god_object_QualityValidator_quality_validator",
+      "line_number": 297,
+      "rule_id": "GOD_OBJECT_METHODS",
+      "severity": "high",
+      "type": "CoA",
+      "weight": 4.0
+    },
+    {
+      "description": "God Object detected: Class 'EscalationService' has 22 methods (threshold: 15)",
+      "file_path": "D:\\Projects\\memory-mcp-triple-system\\src\\services\\confidence\\escalation_service.py",
+      "id": "god_object_EscalationService_escalation_service",
+      "line_number": 41,
+      "rule_id": "GOD_OBJECT_METHODS",
+      "severity": "high",
+      "type": "CoA",
+      "weight": 4.0
+    },
+    {
+      "description": "God Object detected: Class 'TagAssignmentScorer' has 16 methods (threshold: 15)",
+      "file_path": "D:\\Projects\\memory-mcp-triple-system\\src\\services\\confidence\\tag_scorer.py",
+      "id": "god_object_TagAssignmentScorer_tag_scorer",
+      "line_number": 139,
+      "rule_id": "GOD_OBJECT_METHODS",
+      "severity": "high",
+      "type": "CoA",
+      "weight": 4.0
+    },
+    {
+      "description": "God Object detected: Class 'ImprovementCoordinator' has 16 methods (threshold: 15)",
+      "file_path": "D:\\Projects\\memory-mcp-triple-system\\src\\services\\improvement\\improvement_coordinator.py",
+      "id": "god_object_ImprovementCoordinator_improvement_coordinator",
+      "line_number": 94,
+      "rule_id": "GOD_OBJECT_METHODS",
+      "severity": "high",
+      "type": "CoA",
+      "weight": 4.0
+    },
+    {
+      "description": "God Object detected: Class 'RuleProposalGenerator' has 16 methods (threshold: 15)",
+      "file_path": "D:\\Projects\\memory-mcp-triple-system\\src\\services\\improvement\\rule_proposal.py",
+      "id": "god_object_RuleProposalGenerator_rule_proposal",
+      "line_number": 97,
+      "rule_id": "GOD_OBJECT_METHODS",
+      "severity": "high",
+      "type": "CoA",
+      "weight": 4.0
+    },
+    {
+      "description": "God Object detected: Class 'WatcherManager' has 16 methods (threshold: 15)",
+      "file_path": "D:\\Projects\\memory-mcp-triple-system\\src\\services\\trigger_watchers\\watcher_manager.py",
+      "id": "god_object_WatcherManager_watcher_manager",
+      "line_number": 54,
+      "rule_id": "GOD_OBJECT_METHODS",
+      "severity": "high",
+      "type": "CoA",
+      "weight": 4.0
+    },
+    {
+      "description": "God Object detected: Class 'TestNetworkBuilder' has 19 methods (threshold: 15)",
+      "file_path": "D:\\Projects\\memory-mcp-triple-system\\tests\\unit\\test_bayesian_network_builder.py",
+      "id": "god_object_TestNetworkBuilder_test_bayesian_network_builder",
+      "line_number": 15,
+      "rule_id": "GOD_OBJECT_METHODS",
+      "severity": "high",
+      "type": "CoA",
+      "weight": 4.0
+    },
+    {
+      "description": "God Object detected: Class 'TestNexusProcessor' has 20 methods (threshold: 15)",
+      "file_path": "D:\\Projects\\memory-mcp-triple-system\\tests\\unit\\test_nexus_processor.py",
+      "id": "god_object_TestNexusProcessor_test_nexus_processor",
+      "line_number": 18,
+      "rule_id": "GOD_OBJECT_METHODS",
+      "severity": "high",
+      "type": "CoA",
+      "weight": 4.0
+    },
+    {
+      "description": "God Object detected: Class 'TestNexusProcessorRerank' has 17 methods (threshold: 15)",
+      "file_path": "D:\\Projects\\memory-mcp-triple-system\\tests\\unit\\test_nexus_processor.py",
+      "id": "god_object_TestNexusProcessorRerank_test_nexus_processor",
+      "line_number": 306,
+      "rule_id": "GOD_OBJECT_METHODS",
+      "severity": "high",
+      "type": "CoA",
+      "weight": 4.0
+    },
+    {
+      "description": "God Object detected: Class 'TestLostInMiddleMitigation' has 16 methods (threshold: 15)",
+      "file_path": "D:\\Projects\\memory-mcp-triple-system\\tests\\unit\\test_nexus_processor.py",
+      "id": "god_object_TestLostInMiddleMitigation_test_nexus_processor",
+      "line_number": 577,
+      "rule_id": "GOD_OBJECT_METHODS",
+      "severity": "high",
+      "type": "CoA",
+      "weight": 4.0
+    },
+    {
+      "description": "God Object detected: Class 'TestVectorIndexer' has 16 methods (threshold: 15)",
+      "file_path": "D:\\Projects\\memory-mcp-triple-system\\tests\\unit\\test_vector_indexer.py",
+      "id": "god_object_TestVectorIndexer_test_vector_indexer",
+      "line_number": 13,
+      "rule_id": "GOD_OBJECT_METHODS",
+      "severity": "high",
+      "type": "CoA",
+      "weight": 4.0
+    }
+  ]
+}

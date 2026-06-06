@@ -1,0 +1,112 @@
+{
+  "absolute_path": "D:\\Projects\\memory-mcp-triple-system",
+  "commands": [
+    {
+      "argv": [
+        "C:\\Python312\\python.exe",
+        "-m",
+        "analyzer",
+        "C:\\Users\\17175\\Desktop\\_SCRATCH\\connascence-portfolio-scan-2026-06-06\\raw-results\\memory-mcp-triple-system\\mirror",
+        "--format",
+        "json",
+        "--output",
+        "C:\\Users\\17175\\Desktop\\_SCRATCH\\connascence-portfolio-scan-2026-06-06\\raw-results\\memory-mcp-triple-system\\connascence.raw.json",
+        "--no-duplication",
+        "--compliance-threshold",
+        "0",
+        "--max-god-objects",
+        "999999"
+      ],
+      "command": "C:\\Python312\\python.exe -m analyzer C:\\Users\\17175\\Desktop\\_SCRATCH\\connascence-portfolio-scan-2026-06-06\\raw-results\\memory-mcp-triple-system\\mirror --format json --output C:\\Users\\17175\\Desktop\\_SCRATCH\\connascence-portfolio-scan-2026-06-06\\raw-results\\memory-mcp-triple-system\\connascence.raw.json --no-duplication --compliance-threshold 0 --max-god-objects 999999",
+      "end_time": "2026-06-06T16:02:37.847596+00:00",
+      "exit_code": 0,
+      "start_time": "2026-06-06T16:01:28.780378+00:00",
+      "stderr": "Optimization components not available for benchmarking\nStreaming components not available for benchmarking\nOptimization components not available for benchmarking\nStreaming components not available for benchmarking",
+      "stdout": ""
+    },
+    {
+      "argv": [
+        "connascence_portfolio_runner.py",
+        "generate-sarif-from-json",
+        "D:\\Projects\\memory-mcp-triple-system\\docs\\connascence\\scan-2026-06-06\\connascence.json"
+      ],
+      "command": "connascence_portfolio_runner.py generate-sarif-from-json D:\\Projects\\memory-mcp-triple-system\\docs\\connascence\\scan-2026-06-06\\connascence.json",
+      "end_time": "2026-06-06T16:02:42.328135+00:00",
+      "exit_code": 0,
+      "start_time": "2026-06-06T16:02:40.377869+00:00",
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "argv": [
+        "C:\\Python312\\python.exe",
+        "-m",
+        "analyzer.ast_engine",
+        "--path",
+        "C:\\Users\\17175\\Desktop\\_SCRATCH\\connascence-portfolio-scan-2026-06-06\\raw-results\\memory-mcp-triple-system\\mirror",
+        "--analyzer",
+        "god_object",
+        "--output",
+        "C:\\Users\\17175\\Desktop\\_SCRATCH\\connascence-portfolio-scan-2026-06-06\\raw-results\\memory-mcp-triple-system\\god-object.raw.json"
+      ],
+      "command": "C:\\Python312\\python.exe -m analyzer.ast_engine --path C:\\Users\\17175\\Desktop\\_SCRATCH\\connascence-portfolio-scan-2026-06-06\\raw-results\\memory-mcp-triple-system\\mirror --analyzer god_object --output C:\\Users\\17175\\Desktop\\_SCRATCH\\connascence-portfolio-scan-2026-06-06\\raw-results\\memory-mcp-triple-system\\god-object.raw.json",
+      "end_time": "2026-06-06T16:02:43.461614+00:00",
+      "exit_code": 0,
+      "start_time": "2026-06-06T16:02:42.328135+00:00",
+      "stderr": "",
+      "stdout": ""
+    }
+  ],
+  "end_time": "2026-06-06T16:02:43.461614+00:00",
+  "excluded_patterns": [
+    ".git",
+    ".mypy_cache",
+    ".next",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tox",
+    ".venv",
+    "__pycache__",
+    "archive",
+    "archives",
+    "build",
+    "coverage",
+    "dist",
+    "htmlcov",
+    "node_modules",
+    "target",
+    "vendor",
+    "venv",
+    "data/profiles",
+    "data-source",
+    ".env",
+    "*.db",
+    "*.sqlite",
+    "*.sqlite3"
+  ],
+  "exit_code": 0,
+  "git": {
+    "branch": "main",
+    "dirty": true,
+    "head": "46c5f0f5c561ef7eda26d65fe65e2882553e1234",
+    "is_git_repo": true,
+    "status_porcelain": "?? docs/connascence/"
+  },
+  "god_object_fallback_result_path": "D:\\Projects\\memory-mcp-triple-system\\docs\\connascence\\scan-2026-06-06\\god-object.json",
+  "god_object_parse_error": null,
+  "god_object_succeeded": true,
+  "json_parse_error": null,
+  "json_result_path": "D:\\Projects\\memory-mcp-triple-system\\docs\\connascence\\scan-2026-06-06\\connascence.json",
+  "project": "memory-mcp-triple-system",
+  "python_files_skipped": 19800,
+  "python_files_staged": 398,
+  "raw_results_dir": "C:\\Users\\17175\\Desktop\\_SCRATCH\\connascence-portfolio-scan-2026-06-06\\raw-results\\memory-mcp-triple-system",
+  "sarif_parse_error": null,
+  "sarif_result_path": "D:\\Projects\\memory-mcp-triple-system\\docs\\connascence\\scan-2026-06-06\\connascence.sarif",
+  "sarif_succeeded": true,
+  "scan_command": "C:\\Python312\\python.exe -m analyzer C:\\Users\\17175\\Desktop\\_SCRATCH\\connascence-portfolio-scan-2026-06-06\\raw-results\\memory-mcp-triple-system\\mirror --format json --output C:\\Users\\17175\\Desktop\\_SCRATCH\\connascence-portfolio-scan-2026-06-06\\raw-results\\memory-mcp-triple-system\\connascence.raw.json --no-duplication --compliance-threshold 0 --max-god-objects 999999",
+  "scan_succeeded": true,
+  "staging_errors": [],
+  "start_time": "2026-06-06T16:01:28.780378+00:00",
+  "summary_markdown_path": "D:\\Projects\\memory-mcp-triple-system\\docs\\connascence\\scan-2026-06-06\\summary.md"
+}
