@@ -1,0 +1,11 @@
+# Example Codex MCP server stanza for Memory MCP.
+# Merge this into your Codex config.toml and adjust paths for your machine.
+
+[mcp_servers.memory-mcp]
+command = 'C:\Python312\python.exe'
+args = ['C:\path\to\memory_mcp_wrapper.py']
+cwd = 'C:\path\to\workspace'
+
+[mcp_servers.memory-mcp.env]
+MEMORY_MCP_ROOT = 'D:\path\to\memory-mcp-triple-system'
+PYTHONUTF8 = "1"
