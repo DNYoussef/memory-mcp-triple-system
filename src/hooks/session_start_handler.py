@@ -139,6 +139,24 @@ def build_context_block(store: KVStore, project: str, mode: str = "execution") -
     return header + "\n\n" + "\n\n".join(sections) + footer
 
 
+def _emit_context(context: str) -> None:
+    """Write hook output as UTF-8 so non-ASCII memory content cannot crash the
+    hook on Windows, where stdout defaults to cp1252 and print() would raise
+    UnicodeEncodeError. Writes raw UTF-8 bytes via the binary buffer (bypassing
+    the text encoding); never raises.
+    """
+    data = (context + "\n").encode("utf-8", "replace")
+    try:
+        sys.stdout.buffer.write(data)
+        sys.stdout.flush()
+    except (AttributeError, ValueError, OSError):
+        # stdout has no binary buffer (e.g. redirected to a text stream).
+        try:
+            sys.stdout.write(context + "\n")
+        except Exception:
+            pass
+
+
 def main():
     """Main entry point for SessionStart hook."""
     # Read hook payload from stdin
@@ -160,9 +178,13 @@ def main():
         # No database yet -- nothing to inject
         return
 
-    store = KVStore(db_path)
+    store = None
 
     try:
+        # KVStore() itself can raise (locked/corrupt DB); keep it inside the
+        # guard so the hook degrades gracefully rather than crashing the session.
+        store = KVStore(db_path)
+
         # Create new session record
         session = Session(
             project=project,
@@ -187,8 +209,9 @@ def main():
         # Build and output context injection
         context = build_context_block(store, project)
         if context:
-            # hookSpecificOutput: Claude Code reads stdout from hook scripts
-            print(context)
+            # hookSpecificOutput: Claude Code reads stdout from hook scripts.
+            # UTF-8-safe write so non-ASCII memory content cannot crash the hook.
+            _emit_context(context)
 
             # Token economics: track injection cost
             est_tokens = len(context) // 4
@@ -203,8 +226,18 @@ def main():
                 }),
             )
 
+    except Exception as exc:
+        # Best-effort context injection: a memory/store error must never crash
+        # the session. Note it on stderr (ASCII-only) and continue.
+        sys.stderr.write(
+            f"session_start_handler: skipped context injection ({type(exc).__name__})\n"
+        )
     finally:
-        store.close()
+        if store is not None:
+            try:
+                store.close()
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":
