@@ -105,8 +105,8 @@ class BayesianGraphSync:
             related_edges = self._find_related_edges(var, evidence)
 
             for source, target in related_edges:
-                # Get posterior for positive state
-                posterior = probabilities.get("true", probabilities.get(True, 0.5))
+                # Get posterior for positive state across pgmpy/lightweight encodings.
+                posterior = self._positive_state_probability(probabilities)
 
                 # Update edge confidence
                 success = self.graph_service.update_edge_from_bayesian(
@@ -133,6 +133,15 @@ class BayesianGraphSync:
             "updates": updates,
             "skipped": skipped
         }
+
+    @staticmethod
+    def _positive_state_probability(probabilities: Dict[Any, Any]) -> float:
+        """Return P(positive) for common state encodings."""
+        for key in ("true", True, "1", 1, "yes", "present"):
+            value = probabilities.get(key)
+            if isinstance(value, (int, float)):
+                return float(value)
+        return 0.5
 
     def _find_related_edges(
         self,
@@ -269,14 +278,34 @@ class BayesianGraphSync:
             if source in network.predecessors(target):
                 cpd = network.get_cpds(target)
                 if cpd is not None:
-                    # Get P(target=true | source=true)
-                    values = cpd.values
-                    if len(values) > 0:
-                        return float(values.flatten()[0])
+                    values = self._cpd_values_as_lists(cpd)
+                    if values:
+                        row = self._positive_state_row(cpd, target)
+                        return float(values[row][0])
             return None
         except Exception as e:
             logger.debug(f"CPD extraction failed: {e}")
             return None
+
+    @staticmethod
+    def _cpd_values_as_lists(cpd: Any) -> List[List[float]]:
+        """Return CPD values as a two-dimensional list."""
+        values = cpd.get_values() if hasattr(cpd, "get_values") else cpd.values
+        if hasattr(values, "tolist"):
+            values = values.tolist()
+        if values and not isinstance(values[0], list):
+            return [values]
+        return values
+
+    @staticmethod
+    def _positive_state_row(cpd: Any, variable: str) -> int:
+        """Find the CPD row for the positive state."""
+        state_names = getattr(cpd, "state_names", {}) or {}
+        states = state_names.get(variable, [])
+        for key in ("true", True, "1", 1, "yes", "present"):
+            if key in states:
+                return states.index(key)
+        return 0
 
     def get_sync_status(self) -> Dict[str, Any]:
         """

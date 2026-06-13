@@ -204,12 +204,14 @@ class RerankerService:
             hybrid = doc.get("hybrid_score", doc.get("score", 0.0))
             rerank = doc.get("rerank_score", 0.0)
 
+            hybrid_normalized = max(0.0, min(1.0, float(hybrid)))
             # Normalize rerank score to 0-1 range (cross-encoder outputs unbounded)
             rerank_normalized = self._sigmoid(rerank)
 
-            doc["final_score"] = hybrid_weight * hybrid + rerank_weight * rerank_normalized
+            doc["final_score"] = hybrid_weight * hybrid_normalized + rerank_weight * rerank_normalized
             doc["score"] = doc["final_score"]
             doc["score_breakdown"] = doc.get("score_breakdown", {})
+            doc["score_breakdown"]["hybrid"] = hybrid_normalized
             doc["score_breakdown"]["rerank"] = rerank
 
         # Re-sort by final score

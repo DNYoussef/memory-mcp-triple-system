@@ -57,10 +57,9 @@ class TierQueryMixin:
             # Convert to standard format
             results = []
             for result in raw_results:
-                # ISS-021 FIX: Normalize L2 distance to [0,1] similarity
-                # L2 distance can be > 1, so use max(0, 1 - d/2) to ensure [0,1] range
+                # Chroma cosine distance is 1 - cosine similarity.
                 distance = result.get("distance", 1.0)
-                similarity = max(0.0, min(1.0, 1.0 - (distance / 2.0)))
+                similarity = max(0.0, min(1.0, 1.0 - distance))
                 results.append({
                     "text": result.get("document", ""),
                     "score": similarity,
@@ -104,10 +103,16 @@ class TierQueryMixin:
 
             # Convert to standard format
             results = []
+            max_score = max(
+                (float(r.get("ppr_score", r.get("score", 0.0))) for r in raw_results),
+                default=0.0,
+            )
             for result in raw_results:
+                raw_score = float(result.get("ppr_score", result.get("score", 0.5)))
+                score = raw_score / max_score if max_score > 0 else raw_score
                 results.append({
                     "text": result.get("text", result.get("content", "")),
-                    "score": result.get("ppr_score", result.get("score", 0.5)),
+                    "score": max(0.0, min(1.0, score)),
                     "tier": "hipporag",
                     "metadata": result.get("metadata", {}),
                     "id": result.get("chunk_id", result.get("id", ""))
@@ -146,11 +151,7 @@ class TierQueryMixin:
             query_entity = self._extract_query_entity(query)
 
             # Query Bayesian network
-            raw_results = self.probabilistic_query_engine.query_conditional(
-                network=None,  # Network passed separately in production
-                query_vars=[query_entity],
-                evidence=None
-            )
+            raw_results = self._query_bayesian_conditional(query_entity)
 
             if raw_results is None:
                 logger.debug("Bayesian tier timeout/skip")
@@ -194,6 +195,21 @@ class TierQueryMixin:
         except Exception as e:
             logger.warning(f"Bayesian tier query failed (expected): {e}")
             return None
+
+    def _query_bayesian_conditional(self, query_entity: str) -> Optional[Dict[str, Any]]:
+        """Call pgmpy or lightweight Bayesian engines despite signature drift."""
+        try:
+            return self.probabilistic_query_engine.query_conditional(
+                network=None,
+                query_vars=[query_entity],
+                evidence={},
+            )
+        except TypeError:
+            return self.probabilistic_query_engine.query_conditional(
+                query_variables=[query_entity],
+                evidence={},
+                network=None,
+            )
 
     def _apply_bayesian_feedback(
         self,

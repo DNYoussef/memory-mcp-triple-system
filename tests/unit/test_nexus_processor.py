@@ -162,7 +162,7 @@ class TestNexusProcessor:
         ranked = processor.rank(candidates)
 
         # Verify hybrid scores calculated correctly
-        assert ranked[0]["hybrid_score"] == pytest.approx(0.9 * 0.4)  # HippoRAG: 0.36
+        assert ranked[0]["hybrid_score"] == pytest.approx(1.0 * 0.4)  # HippoRAG normalized: 0.40
         assert ranked[1]["hybrid_score"] == pytest.approx(0.8 * 0.4)  # Vector: 0.32
         assert ranked[2]["hybrid_score"] == pytest.approx(0.5 * 0.2)  # Bayesian: 0.10
 
@@ -170,6 +170,21 @@ class TestNexusProcessor:
         assert ranked[0]["tier"] == "hipporag"
         assert ranked[1]["tier"] == "vector"
         assert ranked[2]["tier"] == "bayesian"
+
+    def test_combine_normalizes_raw_graph_ppr_before_fusion(self, processor):
+        """Raw PPR scores should not make the graph tier effectively dead."""
+        candidates = [
+            {"id": "vector", "text": "vector chunk", "score": 0.8, "tier": "vector"},
+            {"id": "graph", "text": "graph chunk", "score": 0.05, "tier": "hipporag"},
+            {"id": "bayes", "text": "bayesian chunk", "score": 0.5, "tier": "bayesian"},
+        ]
+
+        combined = processor._combine_tier_scores(candidates)
+        by_id = {item["id"]: item for item in combined}
+
+        assert by_id["graph"]["graph_score"] == pytest.approx(1.0)
+        assert by_id["graph"]["hybrid_score"] == pytest.approx(0.4)
+        assert by_id["vector"]["hybrid_score"] == pytest.approx(0.32)
 
     def test_compress_execution_mode(self, processor):
         """Test compression in execution mode (5 core + 0 extended)."""

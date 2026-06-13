@@ -109,7 +109,7 @@ class ProbabilisticQueryEngine:
 
     def query_marginal(
         self,
-        network: BayesianNetwork,
+        network: Optional[BayesianNetwork],
         query_vars: List[str]
     ) -> Optional[Dict[str, Any]]:
         """
@@ -132,7 +132,7 @@ class ProbabilisticQueryEngine:
 
     def get_most_probable_explanation(
         self,
-        network: BayesianNetwork,
+        network: Optional[BayesianNetwork],
         evidence: Dict[str, str]
     ) -> Optional[Dict[str, Any]]:
         """
@@ -154,8 +154,13 @@ class ProbabilisticQueryEngine:
 
         NASA Rule 10: 45 LOC (≤60) ✅
         """
+        effective_network = network if network is not None else self._network
+        if effective_network is None:
+            logger.warning("No Bayesian network available (pass network or call set_network)")
+            return None
+
         result = self.execute_with_timeout(
-            lambda: self._map_query_impl(network, evidence)
+            lambda: self._map_query_impl(effective_network, evidence)
         )
 
         if result is None:

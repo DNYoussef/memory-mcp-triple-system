@@ -251,7 +251,7 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         """
         grouped: Dict[str, Dict[str, Any]] = {}
 
-        for candidate in candidates:
+        for candidate in self._normalize_candidates_by_tier(candidates):
             key = self._candidate_key(candidate)
             entry = grouped.setdefault(key, {
                 "id": candidate.get("id", key),
@@ -573,6 +573,7 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         if not candidates:
             return []
 
+        candidates = self._normalize_candidates_by_tier(candidates)
         for candidate in candidates:
             vector_score = float(candidate.get("vector_score", 0.0))
             graph_score = float(candidate.get("graph_score", 0.0))

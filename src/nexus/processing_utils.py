@@ -53,6 +53,40 @@ class ProcessingUtilsMixin:
             self.weights.get("bayesian", 0.2) * bayesian_score
         )
 
+    def _normalize_candidates_by_tier(
+        self,
+        candidates: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """Normalize raw tier scores before cross-tier weighted fusion."""
+        max_by_tier: Dict[str, float] = {}
+        for candidate in candidates:
+            tier = candidate.get("tier", "vector")
+            score = max(0.0, float(candidate.get("score", 0.0)))
+            max_by_tier[tier] = max(max_by_tier.get(tier, 0.0), score)
+
+        normalized = []
+        for candidate in candidates:
+            item = dict(candidate)
+            tier = item.get("tier", "vector")
+            raw_score = float(item.get("score", 0.0))
+            item["raw_score"] = raw_score
+            item["score"] = self._normalize_tier_score(tier, raw_score, max_by_tier)
+            normalized.append(item)
+        return normalized
+
+    @staticmethod
+    def _normalize_tier_score(
+        tier: str,
+        raw_score: float,
+        max_by_tier: Dict[str, float]
+    ) -> float:
+        """Normalize one score to [0,1], scaling raw PPR within graph tier."""
+        if tier == "hipporag":
+            max_score = max_by_tier.get(tier, 0.0)
+            if max_score > 0:
+                return max(0.0, min(1.0, raw_score / max_score))
+        return max(0.0, min(1.0, raw_score))
+
     def _get_mode_config(self, mode: str) -> Dict[str, int]:
         """Get mode-specific core/extended split configuration."""
         configs = {
