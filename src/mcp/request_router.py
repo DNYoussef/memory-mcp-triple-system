@@ -173,7 +173,10 @@ def handle_vector_search(
     trace.output = f"Retrieved {len(results)} results"
     trace.total_latency_ms = trace.retrieval_ms
 
-    data_dir = tool.config.get('storage', {}).get('data_dir', os.getenv('MEMORY_MCP_DATA_DIR', '/data'))
+    data_dir = os.getenv(
+        'MEMORY_MCP_DATA_DIR',
+        tool.config.get('storage', {}).get('data_dir', '/data')
+    )
     try:
         trace.log(db_path=f"{data_dir}/query_traces.db")
     except Exception:
@@ -194,7 +197,7 @@ def handle_memory_store(
     arguments: Dict[str, Any],
     tool: "NexusSearchTool"
 ) -> Dict[str, Any]:
-    """Handle memory_store with tagging, lifecycle, and event logging."""
+    """Handle memory_store through the shared ingestion service."""
     text = arguments.get("text", "")
     metadata = _normalize_metadata_tags(arguments.get("metadata", {}))
     is_valid, missing = _validate_metadata(metadata)
@@ -220,62 +223,50 @@ def handle_memory_store(
         enriched_metadata = _enrich_metadata_with_tagging(metadata)
         enriched_metadata["confidence"] = _assign_confidence(enriched_metadata)
 
-        embedder = tool.vector_search_tool.embedder
-        indexer = tool.vector_search_tool.indexer
-
-        try:
-            classification = tool.hot_cold_classifier.classify(text, enriched_metadata)
-            enriched_metadata['lifecycle_tier'] = classification.get('tier', 'hot')
-            enriched_metadata['decay_score'] = classification.get('decay_score', 1.0)
-        except Exception:
-            enriched_metadata['lifecycle_tier'] = 'hot'
-            enriched_metadata['decay_score'] = 1.0
-
-        chunks = [{
-            'text': text,
-            'file_path': enriched_metadata.get('key', 'manual_entry'),
-            'chunk_index': 0,
-            'metadata': enriched_metadata
-        }]
-
-        try:
-            embeddings = embedder.encode([text])
-            if embeddings is None or len(embeddings) == 0:
-                raise ValueError("Embedding generation failed")
-            indexer.index_chunks(chunks, embeddings.tolist())
-        except Exception as embed_err:
+        ingestion = _get_ingestion_service(tool)
+        result = ingestion.ingest(text=text, metadata=enriched_metadata, source="stdio")
+        if not result.get("success"):
             return {
-                "content": [{"type": "text", "text": f"Storage failed: {embed_err}"}],
+                "content": [{"type": "text", "text": f"Storage failed: {result.get('error', 'unknown error')}"}],
                 "isError": True
             }
 
-        try:
-            tool.lifecycle_manager.demote_stale_chunks()
-            tool.lifecycle_manager.archive_demoted_chunks()
-        except Exception:
-            pass
-
-        entities_added = _store_entities_to_graph(text, enriched_metadata, tool, embedder)
-
-        tool.log_event("memory_store", {
-            "text_length": len(text),
-            "agent": enriched_metadata.get('agent', {}).get('name', 'unknown'),
-            "project": enriched_metadata.get('project', 'unknown'),
-            "lifecycle_tier": enriched_metadata.get('lifecycle_tier', 'hot'),
-            "entities_extracted": entities_added
-        })
-
-        tagging_info = f"Tagged: WHO={enriched_metadata['agent_name']}, PROJECT={enriched_metadata['project']}"
-        lifecycle_info = f"Lifecycle: {enriched_metadata.get('lifecycle_tier', 'hot')}"
+        returned_meta = result.get("metadata", enriched_metadata)
+        tagging_info = f"Tagged: WHO={returned_meta['agent_name']}, PROJECT={returned_meta['project']}"
+        lifecycle_info = f"Lifecycle: {result.get('lifecycle_tier', returned_meta.get('lifecycle_tier', 'hot'))}"
+        chunk_info = f"Chunks: {', '.join(result.get('chunk_ids', []))}"
 
         return {
-            "content": [{"type": "text", "text": f"Stored memory: {text[:100]}...\n{tagging_info}\n{lifecycle_info}"}],
+            "content": [{"type": "text", "text": f"Stored memory: {text[:100]}...\n{tagging_info}\n{lifecycle_info}\n{chunk_info}"}],
             "isError": False,
             "tags_auto_filled": missing if not is_valid else []
         }
 
     except Exception as e:
         return {"content": [{"type": "text", "text": f"Memory store error: {e}"}], "isError": True}
+
+
+def _get_ingestion_service(tool: "NexusSearchTool"):
+    """Build or reuse the shared ingestion service for stdio transport."""
+    existing = getattr(tool, "__dict__", {}).get("_ingestion_service")
+    if existing is not None:
+        return existing
+
+    from ..services.memory_ingestion_service import MemoryIngestionService
+
+    vector_tool = tool.vector_search_tool
+    service = MemoryIngestionService(
+        embedder=vector_tool.embedder,
+        indexer=vector_tool.indexer,
+        graph_service=getattr(tool, "graph_service", None),
+        entity_service=getattr(tool, "entity_service", None),
+        classifier=getattr(tool, "hot_cold_classifier", None),
+        lifecycle_manager=getattr(tool, "lifecycle_manager", None),
+        event_log=getattr(tool, "event_log", None),
+        chunker=getattr(vector_tool, "chunker", None),
+    )
+    setattr(tool, "_ingestion_service", service)
+    return service
 
 
 def _store_entities_to_graph(

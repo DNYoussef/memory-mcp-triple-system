@@ -84,8 +84,13 @@ class VectorSearchTool:
         """Lazy load vector indexer."""
         if self._indexer is None:
             vector_config = self.config['storage']['vector_db']
+            persist_directory = (
+                os.getenv('CHROMA_PERSIST_DIR') or
+                vector_config.get('persist_directory') or
+                '/data/chroma'
+            )
             self._indexer = VectorIndexer.get_instance(
-                persist_directory=vector_config.get('persist_directory', os.getenv('CHROMA_PERSIST_DIR', '/data/chroma')),
+                persist_directory=persist_directory,
                 collection_name=vector_config.get('collection_name', 'memory_chunks')
             )
         return self._indexer
@@ -150,12 +155,9 @@ class VectorSearchTool:
         if search_results['ids'] and len(search_results['ids'][0]) > 0:
             for i in range(len(search_results['ids'][0])):
                 metadata = search_results['metadatas'][0][i]
-                # B3.1 FIX: Normalize L2 distance to [0,1] similarity
-                # L2 distance can be > 1, so use max(0, 1 - d) or sigmoid
+                # Chroma collection uses cosine distance: distance = 1 - cosine.
                 distance = search_results['distances'][0][i]
-                # For normalized embeddings, L2 distance is in [0, 2]
-                # Map to similarity: 1 - (distance / 2) ensures [0, 1] range
-                similarity = max(0.0, min(1.0, 1.0 - (distance / 2.0)))
+                similarity = max(0.0, min(1.0, 1.0 - distance))
 
                 results.append({
                     'text': search_results['documents'][0][i],

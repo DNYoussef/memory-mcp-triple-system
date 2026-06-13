@@ -85,6 +85,43 @@ class TestVectorIndexer:
         assert len(result['ids']) == 2
         assert len(result['documents']) == 2
 
+    def test_index_chunks_preserves_explicit_ids(self, indexer):
+        """Explicit chunk IDs must be used as Chroma row IDs."""
+        chunks = [{
+            'id': 'stable-chunk-id',
+            'text': 'Test chunk',
+            'file_path': '/test/file.md',
+            'chunk_index': 0,
+            'metadata': {'title': 'Test'}
+        }]
+
+        indexer.index_chunks(chunks, [[0.1] * 384])
+
+        result = indexer.collection.get(ids=['stable-chunk-id'])
+        assert result['ids'] == ['stable-chunk-id']
+        assert result['documents'][0] == 'Test chunk'
+
+    def test_index_chunks_sanitizes_nested_metadata(self, indexer):
+        """Nested metadata must be converted before writing to Chroma."""
+        chunks = [{
+            'id': 'nested-metadata-id',
+            'text': 'Test chunk',
+            'file_path': '/test/file.md',
+            'chunk_index': 0,
+            'metadata': {
+                'agent': {'name': 'codex'},
+                'tags': ['a', 'b'],
+                'empty': None,
+            }
+        }]
+
+        indexer.index_chunks(chunks, [[0.1] * 384])
+
+        metadata = indexer.collection.get(ids=['nested-metadata-id'])['metadatas'][0]
+        assert metadata['agent'] == '{"name": "codex"}'
+        assert metadata['tags'] == '["a", "b"]'
+        assert 'empty' not in metadata
+
     def test_index_chunks_mismatched_lengths_raises(self, indexer):
         """Test that mismatched lengths raise error."""
         indexer.create_collection(vector_size=384)

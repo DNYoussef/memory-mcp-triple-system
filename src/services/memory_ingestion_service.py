@@ -102,7 +102,7 @@ class MemoryIngestionService:
             chunk_ids.append(chunk_id)
 
             # Generate embedding
-            embedding = self._embedder.encode([chunk_text])[0]
+            embedding = self._encode_single_chunk(chunk_text)
 
             # Index to vector store
             chunk_meta = {
@@ -118,7 +118,7 @@ class MemoryIngestionService:
                 "metadata": chunk_meta,
                 "id": chunk_id,
             }
-            self._indexer.index_chunks([chunk], [embedding.tolist()])
+            self._indexer.index_chunks([chunk], [embedding])
 
             # Entity extraction → graph population
             stats = self._populate_graph(chunk_id, chunk_text, chunk_meta)
@@ -139,6 +139,7 @@ class MemoryIngestionService:
         elapsed_ms = (time.monotonic() - t0) * 1000
         return {
             "success": True,
+            "chunk_id": chunk_ids[0] if chunk_ids else None,
             "chunk_ids": chunk_ids,
             "chunks_stored": len(text_chunks),
             "stored_at": now_iso,
@@ -166,6 +167,18 @@ class MemoryIngestionService:
         except Exception as e:
             logger.warning(f"Semantic chunking failed, using single chunk: {e}")
             return [text]
+
+    def _encode_single_chunk(self, text: str) -> List[float]:
+        """Encode one chunk and normalize common ndarray/list return shapes."""
+        embeddings = self._embedder.encode([text])
+        if hasattr(embeddings, "tolist"):
+            values = embeddings.tolist()
+            return values[0] if values and isinstance(values[0], list) else values
+
+        embedding = embeddings[0]
+        if hasattr(embedding, "tolist"):
+            return embedding.tolist()
+        return list(embedding)
 
     @staticmethod
     def _make_chunk_id(text: str, source: str, timestamp: str) -> str:

@@ -97,15 +97,48 @@ def process_message(message: str) -> str:
             "id": req_id,
         })
 
+def _read_stdio_message() -> tuple[str, bool]:
+    """Read either Content-Length framed MCP or newline-delimited JSON."""
+    first = sys.stdin.buffer.readline()
+    if not first:
+        return "", False
+
+    if b":" in first and not first.lstrip().startswith(b"{"):
+        content_length = None
+        header = first
+        while True:
+            if header.lower().startswith(b"content-length:"):
+                content_length = int(header.split(b":", 1)[1].strip())
+            header = sys.stdin.buffer.readline()
+            if not header or header in (b"\r\n", b"\n"):
+                break
+        if not content_length:
+            return "", True
+        return sys.stdin.buffer.read(content_length).decode("utf-8"), True
+
+    return first.decode("utf-8").strip(), False
+
+
+def _write_stdio_response(response: str, framed: bool) -> None:
+    """Write a JSON-RPC response using the request framing mode."""
+    if framed:
+        data = response.encode("utf-8")
+        sys.stdout.buffer.write(f"Content-Length: {len(data)}\r\n\r\n".encode("ascii"))
+        sys.stdout.buffer.write(data)
+        sys.stdout.buffer.flush()
+        return
+
+    sys.stdout.write(response + "\n")
+    sys.stdout.flush()
+
 
 def main():
     """Main stdio loop — read JSON-RPC messages from stdin, write to stdout."""
     logger.info("Memory MCP stdio server starting...")
-    for line in sys.stdin:
-        line = line.strip()
-        if not line:
-            continue
-        response = process_message(line)
+    while True:
+        message, framed = _read_stdio_message()
+        if not message:
+            break
+        response = process_message(message)
         if response:
-            sys.stdout.write(response + "\n")
-            sys.stdout.flush()
+            _write_stdio_response(response, framed)

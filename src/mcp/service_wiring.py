@@ -76,6 +76,12 @@ _telemetry_bridge = None
 _connascence_bridge = None
 
 
+def _get_data_dir(config: Dict[str, Any]) -> Path:
+    """Resolve data directory with environment taking precedence."""
+    value = os.getenv("MEMORY_MCP_DATA_DIR") or config.get("storage", {}).get("data_dir") or "/data"
+    return Path(value)
+
+
 def get_tagger():
     """Lazy init tagger (only when first accessed)."""
     global _tagger
@@ -132,8 +138,7 @@ class NexusSearchTool:
 
     def _init_production_features(self, config: Dict[str, Any]) -> None:
         """Initialize production features (C3.2-C3.6). NASA Rule 10: 25 LOC"""
-        import os
-        data_dir = Path(config.get('storage', {}).get('data_dir', os.getenv('MEMORY_MCP_DATA_DIR', '/data')))
+        data_dir = _get_data_dir(config)
         data_dir.mkdir(parents=True, exist_ok=True)
 
         # C3.3: Event logging
@@ -146,7 +151,8 @@ class NexusSearchTool:
         self.hot_cold_classifier = HotColdClassifier()
         self.lifecycle_manager = MemoryLifecycleManager(
             vector_indexer=self.vector_search_tool.indexer,
-            kv_store=self.kv_store
+            kv_store=self.kv_store,
+            embedding_pipeline=self.vector_search_tool.embedder
         )
 
         # C3.2: Obsidian client (lazy init)
@@ -453,7 +459,7 @@ def load_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
 def apply_migrations(config: Dict[str, Any]) -> None:
     """C3.7: Apply pending database migrations on startup."""
     migrations_dir = Path(__file__).parent.parent.parent / "migrations"
-    data_dir = Path(config.get('storage', {}).get('data_dir', os.getenv('MEMORY_MCP_DATA_DIR', '/data')))
+    data_dir = _get_data_dir(config)
     data_dir.mkdir(parents=True, exist_ok=True)
     db_path = data_dir / "query_traces.db"
 

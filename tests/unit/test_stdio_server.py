@@ -33,10 +33,10 @@ class TestLoadConfig:
         # These are the minimum keys expected
         assert "storage" in config or "embeddings" in config or "mcp" in config
 
-    def test_load_config_assertion_on_missing_file(self):
-        """Test config raises assertion when file missing."""
+    def test_load_config_file_not_found_on_missing_file(self):
+        """Test config raises explicit exception when file missing."""
         with patch.object(Path, 'exists', return_value=False):
-            with pytest.raises(AssertionError):
+            with pytest.raises(FileNotFoundError):
                 load_config()
 
 

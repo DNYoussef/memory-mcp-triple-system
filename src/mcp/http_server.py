@@ -68,6 +68,9 @@ _memory_client = None
 _telemetry_bridge = None
 _connascence_bridge = None
 MCP_API_KEY = os.getenv("MCP_API_KEY") or os.getenv("MEMORY_MCP_API_KEY", "")
+ALLOW_UNAUTHENTICATED_TOOLS = os.getenv(
+    "MEMORY_MCP_ALLOW_UNAUTHENTICATED_TOOLS", ""
+).strip().lower() in {"1", "true", "yes", "on"}
 _tool_bearer = HTTPBearer(auto_error=False)
 
 
@@ -114,7 +117,7 @@ def _extract_tool_api_key(
 def _is_authorized_tool_request(provided_key: str) -> bool:
     """Health stays public; tool routes require a configured key."""
     if not MCP_API_KEY:
-        return True
+        return ALLOW_UNAUTHENTICATED_TOOLS
     return bool(provided_key) and secrets.compare_digest(provided_key, MCP_API_KEY)
 
 
@@ -389,7 +392,8 @@ def get_lifecycle_manager() -> MemoryLifecycleManager:
             if _lifecycle_manager is None:
                 _lifecycle_manager = MemoryLifecycleManager(
                     vector_indexer=get_indexer(),
-                    kv_store=get_kv_store()
+                    kv_store=get_kv_store(),
+                    embedding_pipeline=get_embedder()
                 )
     return _lifecycle_manager
 
@@ -554,7 +558,9 @@ async def health_check() -> Dict[str, Any]:
         "version": "1.5.0",
         "timestamp": datetime.utcnow().isoformat(),
         "auth": {
-            "tool_routes_protected": bool(MCP_API_KEY),
+            "api_key_configured": bool(MCP_API_KEY),
+            "tool_routes_protected": not ALLOW_UNAUTHENTICATED_TOOLS,
+            "unauthenticated_override": ALLOW_UNAUTHENTICATED_TOOLS,
         },
         "components": {
             "vector_indexer": "available",

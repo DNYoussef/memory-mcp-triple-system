@@ -6,6 +6,7 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
 from typing import List, Dict, Any, Optional, Tuple
+import json
 import uuid
 import time
 import sqlite3
@@ -154,8 +155,8 @@ class VectorIndexer:
                 return
 
             from datetime import datetime
-            now_ts = datetime.now().timestamp()
-            now_iso = datetime.now().isoformat()
+            now_ts = datetime.utcnow().timestamp()
+            now_iso = datetime.utcnow().isoformat()
             repaired = 0
 
             for i, (chunk_id, meta) in enumerate(zip(ids, metadatas)):
@@ -229,15 +230,12 @@ class VectorIndexer:
             logger.warning("ChromaDB unavailable -- skipping index_chunks")
             return
 
-        # Prepare data for ChromaDB batch add
-        ids = [str(uuid.uuid4()) for _ in chunks]
+        # Prepare data for ChromaDB batch add. Prefer caller-provided IDs so
+        # vector, graph, lifecycle, and event-log tiers can address one row.
+        ids = [str(chunk.get("id") or uuid.uuid4()) for chunk in chunks]
         documents = [chunk['text'] for chunk in chunks]
         metadatas = [
-            {
-                'file_path': chunk['file_path'],
-                'chunk_index': chunk['chunk_index'],
-                **chunk.get('metadata', {})
-            }
+            self._prepare_chunk_metadata(chunk)
             for chunk in chunks
         ]
 
@@ -252,6 +250,29 @@ class VectorIndexer:
         elapsed_ms = (time.perf_counter() - start) * 1000
 
         logger.info(f"Indexed {len(chunks)} chunks in {elapsed_ms:.2f}ms")      
+
+    @staticmethod
+    def sanitize_metadata(metadata: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """Return Chroma-safe scalar metadata."""
+        sanitized: Dict[str, Any] = {}
+        for key, value in (metadata or {}).items():
+            if value is None:
+                continue
+            if isinstance(value, (str, int, float, bool)):
+                sanitized[str(key)] = value
+            else:
+                sanitized[str(key)] = json.dumps(value, sort_keys=True, default=str)
+        return sanitized
+
+    @classmethod
+    def _prepare_chunk_metadata(cls, chunk: Dict[str, Any]) -> Dict[str, Any]:
+        """Merge required chunk fields with sanitized caller metadata."""
+        metadata = {
+            "file_path": chunk.get("file_path", ""),
+            "chunk_index": chunk.get("chunk_index", 0),
+            **chunk.get("metadata", {}),
+        }
+        return cls.sanitize_metadata(metadata)
 
     @db_retry
     def add_document(
@@ -284,8 +305,8 @@ class VectorIndexer:
 
         # Ensure timestamp fields for lifecycle queries
         from datetime import datetime
-        now = datetime.now()
-        enriched_metadata = metadata.copy() if metadata else {}
+        now = datetime.utcnow()
+        enriched_metadata = self.sanitize_metadata(metadata)
         if 'last_accessed_ts' not in enriched_metadata:
             enriched_metadata['last_accessed_ts'] = now.timestamp()
             enriched_metadata['last_accessed'] = now.isoformat()
@@ -346,12 +367,12 @@ class VectorIndexer:
             return False
 
         # VEC-005: Build truth layer metadata
-        fact_metadata = {
+        fact_metadata = self.sanitize_metadata({
             "is_fact": True,
             "source": source,
             "promoted_at": datetime.utcnow().isoformat(),
             **(metadata or {})
-        }
+        })
 
         try:
             self.collection.add(
@@ -393,7 +414,7 @@ class VectorIndexer:
         metadatas = []
 
         from datetime import datetime
-        now = datetime.now()
+        now = datetime.utcnow()
 
         for doc in docs:
             doc_id = doc.get("id")
@@ -406,7 +427,7 @@ class VectorIndexer:
             embeddings.append(embedding)
 
             # Ensure timestamp fields for lifecycle queries
-            meta = doc.get("metadata", {}).copy() if doc.get("metadata") else {}
+            meta = self.sanitize_metadata(doc.get("metadata", {}))
             if 'last_accessed_ts' not in meta:
                 meta['last_accessed_ts'] = now.timestamp()
                 meta['last_accessed'] = now.isoformat()
@@ -491,7 +512,10 @@ class VectorIndexer:
             if embeddings is not None:
                 update_params['embeddings'] = embeddings
             if metadatas is not None:
-                update_params['metadatas'] = metadatas
+                update_params['metadatas'] = [
+                    self.sanitize_metadata(metadata)
+                    for metadata in metadatas
+                ]
             if documents is not None:
                 update_params['documents'] = documents
 
