@@ -6,7 +6,7 @@ NASA Rule 10 Compliant: All functions ≤60 LOC
 """
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import os
 import chromadb
 from loguru import logger
@@ -22,20 +22,41 @@ def init_services() -> CurationService:
     """
     Initialize ChromaDB client and CurationService.
 
+    The data directory honors MEMORY_MCP_DATA_DIR (env-first, consistent with
+    service_wiring) and falls back to a project-relative ./data.
+
     Returns:
         CurationService instance
     """
-    client = chromadb.PersistentClient(path="./data/chroma")
+    data_dir = os.getenv("MEMORY_MCP_DATA_DIR", "./data")
+    chroma_path = os.path.join(data_dir, "chroma")
+    client = chromadb.PersistentClient(path=chroma_path)
     service = CurationService(
         chroma_client=client,
         collection_name="memory_chunks",
-        data_dir="./data"
+        data_dir=data_dir
     )
     logger.info("Initialized CurationService")
     return service
 
 
-curation_service = init_services()
+# Lazily-initialized singleton, kept at module scope so tests can patch it.
+# Starts as None so importing this module no longer constructs a ChromaDB client
+# (the previous import-time call created ./data/chroma as a side effect, e.g.
+# during pytest collection). The service is built on first request instead.
+curation_service: Optional[CurationService] = None
+
+
+def get_curation_service() -> CurationService:
+    """Return the process-wide CurationService, initializing on first use.
+
+    A non-None value (including a test mock patched onto ``curation_service``)
+    is returned as-is, so the module attribute remains the injection seam.
+    """
+    global curation_service
+    if curation_service is None:
+        curation_service = init_services()
+    return curation_service
 
 
 @app.route('/')
@@ -58,15 +79,15 @@ def curate():
         Rendered template with chunks and preferences
     """
     # Get user preferences
-    prefs = curation_service.get_preferences()
+    prefs = get_curation_service().get_preferences()
     batch_size = prefs.get('batch_size', 20)
 
     # Get unverified chunks
-    chunks = curation_service.get_unverified_chunks(limit=batch_size)
+    chunks = get_curation_service().get_unverified_chunks(limit=batch_size)
 
     # Auto-suggest lifecycle for each chunk
     for chunk in chunks:
-        chunk['suggested_lifecycle'] = curation_service.auto_suggest_lifecycle(chunk)
+        chunk['suggested_lifecycle'] = get_curation_service().auto_suggest_lifecycle(chunk)
 
     return render_template(
         'curate.html',
@@ -100,7 +121,7 @@ def api_tag_lifecycle():
     lifecycle = data['lifecycle']
 
     # Tag lifecycle
-    success = curation_service.tag_lifecycle(chunk_id, lifecycle)
+    success = get_curation_service().tag_lifecycle(chunk_id, lifecycle)
 
     if success:
         return jsonify({'success': True, 'chunk_id': chunk_id, 'lifecycle': lifecycle})
@@ -130,7 +151,7 @@ def api_mark_verified():
     chunk_id = data['chunk_id']
 
     # Mark verified
-    success = curation_service.mark_verified(chunk_id)
+    success = get_curation_service().mark_verified(chunk_id)
 
     if success:
         return jsonify({'success': True, 'chunk_id': chunk_id})
@@ -162,7 +183,7 @@ def api_log_time():
     chunks_curated = data.get('chunks_curated', 0)
 
     # Log time
-    curation_service.log_time(
+    get_curation_service().log_time(
         duration_seconds=duration,
         chunks_curated=chunks_curated
     )
@@ -193,13 +214,13 @@ def settings():
             'default_lifecycle': request.form.get('default_lifecycle', 'temporary')
         }
 
-        curation_service.save_preferences('default', new_prefs)
+        get_curation_service().save_preferences('default', new_prefs)
         logger.info("Updated user preferences")
 
         return redirect(url_for('settings'))
 
     # GET - display current preferences
-    prefs = curation_service.get_preferences()
+    prefs = get_curation_service().get_preferences()
     return render_template('settings.html', preferences=prefs)
 
 
@@ -222,13 +243,13 @@ def api_settings():
 
         # Save preferences
         try:
-            curation_service.save_preferences('default', data)
+            get_curation_service().save_preferences('default', data)
             return jsonify({'success': True, 'preferences': data})
         except AssertionError as e:
             return jsonify({'success': False, 'error': str(e)}), 400
 
     # GET - return current preferences
-    prefs = curation_service.get_preferences()
+    prefs = get_curation_service().get_preferences()
     return jsonify(prefs)
 
 
