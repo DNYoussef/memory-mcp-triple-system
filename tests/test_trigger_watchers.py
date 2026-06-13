@@ -376,6 +376,32 @@ class TestActivityDetector:
 
         assert len(detector._activities) == 0
 
+    @pytest.mark.asyncio
+    async def test_trigger_pattern_records_cooldown_on_injector_failure(self, mock_injector):
+        """MECE G7: a failing injection must still record a cooldown.
+
+        Previously the cooldown was added only after a successful
+        handle_trigger(); on injector failure the except swallowed the error
+        and the pattern re-fired every detection cycle, unbounded.
+        """
+        mock_injector.handle_trigger = AsyncMock(side_effect=RuntimeError("boom"))
+        detector = ActivityDetector(mock_injector)
+
+        pattern = DetectedPattern(
+            pattern_id="debugging-sequence",
+            pattern_type="sequential",
+            confidence=0.9,
+            evidence=["error", "error"],
+            context_query="debugging error fix",
+            priority=ContextPriority.HIGH,
+        )
+
+        # Must not raise even though the injector blows up.
+        await detector._trigger_pattern(pattern)
+
+        cooldown_key = f"{pattern.pattern_id}:{pattern.pattern_type}"
+        assert cooldown_key in detector._recently_triggered
+
 
 # ========== PATTERN MATCHER TESTS ==========
 

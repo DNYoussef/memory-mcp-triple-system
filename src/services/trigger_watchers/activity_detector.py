@@ -418,6 +418,11 @@ class ActivityDetector:
 
     async def _trigger_pattern(self, pattern: DetectedPattern) -> None:
         """Trigger context injection for detected pattern."""
+        # Compute the cooldown key up front so it is registered even if the
+        # injection raises. Otherwise a failing injector would never record a
+        # cooldown and the same pattern would re-fire every detection cycle
+        # (MECE G7: cooldown was previously added only after success).
+        cooldown_key = f"{pattern.pattern_id}:{pattern.pattern_type}"
         try:
             event = TriggerEvent.from_activity_pattern(
                 pattern=pattern.pattern_type,
@@ -432,13 +437,6 @@ class ActivityDetector:
 
             context = await self.injector.handle_trigger(event)
 
-            # Mark as recently triggered
-            cooldown_key = f"{pattern.pattern_id}:{pattern.pattern_type}"
-            self._recently_triggered.add(cooldown_key)
-
-            # Schedule cooldown removal
-            asyncio.create_task(self._remove_cooldown(cooldown_key))
-
             if context:
                 logger.info(
                     f"Pattern triggered injection: {pattern.pattern_id}, "
@@ -448,6 +446,13 @@ class ActivityDetector:
 
         except Exception as e:
             logger.error(f"Failed to trigger pattern injection: {e}")
+
+        finally:
+            # Record the cooldown whether or not injection succeeded, so a
+            # broken injector backs off for the cooldown window instead of
+            # re-firing the pattern unbounded.
+            self._recently_triggered.add(cooldown_key)
+            asyncio.create_task(self._remove_cooldown(cooldown_key))
 
     async def _remove_cooldown(self, key: str) -> None:
         """Remove a pattern from cooldown after delay."""
