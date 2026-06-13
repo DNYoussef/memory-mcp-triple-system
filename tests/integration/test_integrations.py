@@ -9,6 +9,7 @@ Tests:
 NASA Rule 10 Compliant: All test methods <=60 LOC
 """
 import pytest
+import asyncio
 import shutil
 import tempfile
 from pathlib import Path
@@ -21,6 +22,7 @@ from src.mcp.request_router import (
     handle_beads_task_detail,
     handle_beads_query_tasks,
     handle_obsidian_sync,
+    _run_coroutine_sync,
 )
 
 
@@ -76,6 +78,40 @@ class TestBeadsBridge:
         assert task.status == 'open'
         assert task.priority == 2
 
+    @pytest.mark.asyncio
+    async def test_run_command_times_out_and_kills_process(self, bridge):
+        """A hung bd must not block the tool call: _run_command should time out,
+        kill the process, and return []."""
+        proc = MagicMock()
+
+        async def never_returns():
+            await asyncio.sleep(10)
+
+        async def fake_wait():
+            return None
+
+        proc.communicate = never_returns
+        proc.kill = MagicMock()
+        proc.wait = fake_wait
+
+        async def fake_exec(*args, **kwargs):
+            return proc
+
+        with patch("asyncio.create_subprocess_exec", side_effect=fake_exec):
+            result = await bridge._run_command(['bd', 'list'], timeout=0.05)
+
+        assert result == []
+        proc.kill.assert_called_once()
+
+    def test_run_coroutine_sync_bounds_wait_with_timeout(self):
+        """The sync wrapper must raise (not hang) when the coroutine exceeds the
+        timeout - the outer guard around a wedged Beads call."""
+        async def slow():
+            await asyncio.sleep(10)
+
+        with pytest.raises((TimeoutError, asyncio.TimeoutError)):
+            _run_coroutine_sync(slow(), timeout=0.05)
+
 
 class TestBeadsMCPHandlers:
     """Test Beads MCP request handlers."""
@@ -92,7 +128,7 @@ class TestBeadsMCPHandlers:
         async def mock_get_ready():
             return []
 
-        with patch('asyncio.run', return_value=[]):
+        with patch('src.mcp.request_router._run_coroutine_sync', return_value=[]):
             result = handle_beads_ready_tasks({'limit': 10}, mock_tool)
 
         assert 'content' in result
@@ -108,7 +144,7 @@ class TestBeadsMCPHandlers:
         mock_task = BeadTask(
             id='test', title='Test', status='open', priority=2, issue_type='task'
         )
-        with patch('asyncio.run', return_value=[mock_task]):
+        with patch('src.mcp.request_router._run_coroutine_sync', return_value=[mock_task]):
             result = handle_beads_query_tasks({'status': 'open'}, mock_tool)
 
         assert 'content' in result
@@ -137,7 +173,9 @@ class TestObsidianMCPClient:
     def mock_chunker(self):
         """Mock chunker."""
         chunker = MagicMock()
-        chunker.chunk_file.return_value = [
+        # The sync path reads file content then calls chunk_text(content, path);
+        # chunk_file(path) is a separate API that is not exercised here.
+        chunker.chunk_text.return_value = [
             {'text': 'Chunk 1', 'start': 0, 'end': 100},
             {'text': 'Chunk 2', 'start': 100, 'end': 200},
         ]
