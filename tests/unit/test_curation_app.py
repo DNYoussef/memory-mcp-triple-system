@@ -7,7 +7,9 @@ import pytest
 import json
 from unittest.mock import Mock, MagicMock, patch
 
-from src.ui.curation_app import app, init_services
+pytest.importorskip("flask")
+
+from src.ui.curation_app import app, init_services, _get_run_options
 
 
 @pytest.fixture
@@ -69,6 +71,32 @@ class TestIndexRoute:
 
         assert response.status_code == 302
         assert '/curate' in response.location
+
+
+class TestRunOptions:
+    """Test standalone curation app bind/debug defaults."""
+
+    def test_run_options_default_to_localhost_no_debug(self, monkeypatch):
+        monkeypatch.delenv("MEMORY_MCP_CURATION_HOST", raising=False)
+        monkeypatch.delenv("MEMORY_MCP_CURATION_DEBUG", raising=False)
+        monkeypatch.delenv("MEMORY_MCP_CURATION_PORT", raising=False)
+
+        options = _get_run_options()
+
+        assert options["host"] == "127.0.0.1"
+        assert options["debug"] is False
+        assert options["port"] == 5000
+
+    def test_run_options_allow_explicit_override(self, monkeypatch):
+        monkeypatch.setenv("MEMORY_MCP_CURATION_HOST", "0.0.0.0")
+        monkeypatch.setenv("MEMORY_MCP_CURATION_DEBUG", "true")
+        monkeypatch.setenv("MEMORY_MCP_CURATION_PORT", "5050")
+
+        options = _get_run_options()
+
+        assert options["host"] == "0.0.0.0"
+        assert options["debug"] is True
+        assert options["port"] == 5050
 
 
 class TestCurateRoute:

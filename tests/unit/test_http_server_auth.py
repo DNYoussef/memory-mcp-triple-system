@@ -17,6 +17,7 @@ def _reload_http_server(
     monkeypatch.delenv("MCP_API_KEY", raising=False)
     monkeypatch.delenv("MEMORY_MCP_API_KEY", raising=False)
     monkeypatch.delenv("MEMORY_MCP_ALLOW_UNAUTHENTICATED_TOOLS", raising=False)
+    monkeypatch.delenv("MEMORY_MCP_HTTP_HOST", raising=False)
     if allow_unauthenticated:
         monkeypatch.setenv("MEMORY_MCP_ALLOW_UNAUTHENTICATED_TOOLS", "true")
     if key is not None:
@@ -39,6 +40,19 @@ def test_tool_auth_can_be_explicitly_disabled(monkeypatch: pytest.MonkeyPatch):
     module = _reload_http_server(monkeypatch, key=None, allow_unauthenticated=True)
 
     assert module._is_authorized_tool_request("")
+
+
+def test_http_bind_host_defaults_to_loopback(monkeypatch: pytest.MonkeyPatch):
+    module = _reload_http_server(monkeypatch, key=None)
+
+    assert module._get_http_bind_host() == "127.0.0.1"
+
+
+def test_http_bind_host_can_be_explicitly_overridden(monkeypatch: pytest.MonkeyPatch):
+    module = _reload_http_server(monkeypatch, key=None)
+    monkeypatch.setenv("MEMORY_MCP_HTTP_HOST", "0.0.0.0")
+
+    assert module._get_http_bind_host() == "0.0.0.0"
 
 
 def test_tool_auth_uses_primary_or_alias_env(monkeypatch: pytest.MonkeyPatch):

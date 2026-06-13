@@ -7,6 +7,7 @@ NASA Rule 10 Compliant: All functions ≤60 LOC
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from typing import Dict, Any, List
+import os
 import chromadb
 from loguru import logger
 
@@ -231,5 +232,22 @@ def api_settings():
     return jsonify(prefs)
 
 
+def _env_flag(name: str, default: bool = False) -> bool:
+    """Parse a boolean environment flag."""
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _get_run_options() -> Dict[str, Any]:
+    """Standalone curation UI defaults to local-only and no debugger."""
+    return {
+        "debug": _env_flag("MEMORY_MCP_CURATION_DEBUG", False),
+        "host": os.getenv("MEMORY_MCP_CURATION_HOST", "127.0.0.1"),
+        "port": int(os.getenv("MEMORY_MCP_CURATION_PORT", "5000")),
+    }
+
+
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(**_get_run_options())

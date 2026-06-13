@@ -958,12 +958,17 @@ async def unified_retrieve(request: UnifiedRetrievalRequest) -> Dict[str, Any]:
 
 def main():
     """Run HTTP server."""
-    host = os.getenv("MEMORY_MCP_HTTP_HOST", "0.0.0.0")
+    host = _get_http_bind_host()
     # Railway injects PORT, fall back to MEMORY_MCP_HTTP_PORT or 8080
     port = int(os.getenv("PORT", os.getenv("MEMORY_MCP_HTTP_PORT", "8080")))
 
     logger.info(f"Starting Memory MCP HTTP server on {host}:{port}")
     uvicorn.run(app, host=host, port=port)
+
+
+def _get_http_bind_host() -> str:
+    """Resolve HTTP bind host. Default local runs to loopback only."""
+    return os.getenv("MEMORY_MCP_HTTP_HOST", "127.0.0.1")
 
 
 if __name__ == "__main__":
