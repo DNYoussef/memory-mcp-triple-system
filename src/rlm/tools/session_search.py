@@ -14,6 +14,7 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
 import sys
+import os
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -97,9 +98,9 @@ class RLMSessionSearch:
     NASA Rule 10 Compliant: All methods <=60 LOC
     """
 
-    # Memory MCP paths
-    MEMORY_MCP_DATA_PATH = "C:/Users/17175/.claude/memory-mcp-data"
-    MEMORY_MCP_PROJECT_PATH = "D:/Projects/memory-mcp-triple-system"
+    # Memory MCP paths (env-first, portable fallbacks; no hardcoded host paths)
+    MEMORY_MCP_DATA_PATH = os.getenv("MEMORY_MCP_DATA_DIR") or str(Path.home() / ".claude" / "memory-mcp-data")
+    MEMORY_MCP_PROJECT_PATH = os.getenv("MEMORY_MCP_PROJECT_DIR") or str(Path(__file__).resolve().parents[3])
 
     # Namespace prefixes for reflect learnings
     REFLECT_NAMESPACE = "sessions/reflect"

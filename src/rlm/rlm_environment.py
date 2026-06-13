@@ -13,10 +13,12 @@ The RLM paradigm allows models to:
 NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
+import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from typing import Dict, Any, Optional, List, Callable
 from loguru import logger
 
@@ -46,7 +48,10 @@ class RLMConfig:
     enable_caching: bool = True
     sandbox_mode: bool = True
     cost_limit_usd: float = 1.0
-    projects_root: str = "D:\\Projects"
+    projects_root: str = field(
+        default_factory=lambda: os.getenv("MEMORY_MCP_PROJECTS_ROOT")
+        or str(Path(__file__).resolve().parents[3])
+    )
 
 
 @dataclass

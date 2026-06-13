@@ -114,7 +114,7 @@ class RLMMemoryEnvironment(RLMEnvironment):
         """
         super().__init__(config)
 
-        self.data_dir = Path(data_dir or "C:/Users/17175/.claude/memory-mcp-data")
+        self.data_dir = Path(data_dir or os.getenv("MEMORY_MCP_DATA_DIR") or (Path.home() / ".claude" / "memory-mcp-data"))
         self._kv_data: Dict[str, Any] = {}
         self._graph_data: Dict[str, Any] = {}
         self._vector_metadata: List[Dict[str, Any]] = []

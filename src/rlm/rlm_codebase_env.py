@@ -31,23 +31,26 @@ from loguru import logger
 from .rlm_environment import RLMEnvironment, RLMConfig, RLMResult, ExecutionContext
 
 
-# GuardSpine Autonomous Business System -- all indexed codebases
+# GuardSpine Autonomous Business System -- all indexed codebases.
+# Rooted at the sibling-projects directory (env MEMORY_MCP_PROJECTS_ROOT, else
+# the parent of this repo) so no host-specific absolute paths are baked in.
+_PROJECTS_ROOT = os.getenv("MEMORY_MCP_PROJECTS_ROOT") or str(Path(__file__).resolve().parents[3])
 GUARDSPINE_PROJECTS = {
     # Core Product
-    "guardspine": "D:/Projects/GuardSpine",
-    "guardspine-kernel": "D:/Projects/guardspine-kernel",
-    "guardspine-kernel-py": "D:/Projects/guardspine-kernel-py",
-    "codeguard-action": "D:/Projects/codeguard-action",
+    "guardspine": os.path.join(_PROJECTS_ROOT, "GuardSpine"),
+    "guardspine-kernel": os.path.join(_PROJECTS_ROOT, "guardspine-kernel"),
+    "guardspine-kernel-py": os.path.join(_PROJECTS_ROOT, "guardspine-kernel-py"),
+    "codeguard-action": os.path.join(_PROJECTS_ROOT, "codeguard-action"),
     # Execution Layer
-    "openclaw-upstream": "D:/Projects/openclaw-upstream",
-    "paperclip": "D:/Projects/paperclip",
+    "openclaw-upstream": os.path.join(_PROJECTS_ROOT, "openclaw-upstream"),
+    "paperclip": os.path.join(_PROJECTS_ROOT, "paperclip"),
     # Workflow & Integration
-    "n8n-nodes-guardspine": "D:/Projects/n8n-nodes-guardspine",
-    "guardspine-ops": "D:/Projects/guardspine-ops",
+    "n8n-nodes-guardspine": os.path.join(_PROJECTS_ROOT, "n8n-nodes-guardspine"),
+    "guardspine-ops": os.path.join(_PROJECTS_ROOT, "guardspine-ops"),
     # Infrastructure
-    "memory-mcp": "D:/Projects/memory-mcp-triple-system",
-    "connascence": "D:/Projects/connascence",
-    "slop-detector": "D:/Projects/slop-detector",
+    "memory-mcp": os.path.join(_PROJECTS_ROOT, "memory-mcp-triple-system"),
+    "connascence": os.path.join(_PROJECTS_ROOT, "connascence"),
+    "slop-detector": os.path.join(_PROJECTS_ROOT, "slop-detector"),
 }
 # Legacy alias
 AI_EXOSKELETON_PROJECTS = GUARDSPINE_PROJECTS
