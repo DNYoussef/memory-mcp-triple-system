@@ -42,9 +42,13 @@ from ..bayesian import BAYESIAN_AVAILABLE, NetworkBuilder, ProbabilisticQueryEng
 
 # Beads integration for task management
 try:
-    from ..integrations.beads_bridge import BeadsBridge
+    from ..integrations.beads_bridge import BeadsBridge, resolve_beads_binary
 except ImportError:
     BeadsBridge = None  # type: ignore[assignment,misc]
+
+    def resolve_beads_binary(explicit=None):  # type: ignore[misc]
+        return (explicit or os.environ.get("MEMORY_MCP_BEADS_CLI")
+                or os.environ.get("BEADS_BINARY") or "bd")
 
 # MEM-QWEN-002: Cross-encoder reranker (optional — not installed on Railway)
 try:
@@ -192,8 +196,8 @@ class NexusSearchTool:
             self.entity_service = None
             self.hipporag_service = None
 
-        # Beads task management integration
-        beads_binary = os_module.environ.get('BEADS_BINARY', 'bd')
+        # Beads task management integration (MEMORY_MCP_BEADS_CLI, then BEADS_BINARY)
+        beads_binary = resolve_beads_binary()
         self.beads_bridge = BeadsBridge(beads_binary=beads_binary, cache_ttl=60)
         logger.info(f"BeadsBridge initialized: binary={beads_binary}")
 

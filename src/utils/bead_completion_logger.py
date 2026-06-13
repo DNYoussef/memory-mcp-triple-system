@@ -8,7 +8,10 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
 import json
+import os
 import subprocess
+
+from src.integrations.beads_bridge import resolve_beads_binary
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 from pathlib import Path
@@ -159,16 +162,16 @@ def log_bead_completion(
 
 def verify_bead_unblocked(
     bead_id: str,
-    beads_cli: str = r"C:\Users\17175\AppData\Local\beads\bd.exe",
-    working_dir: str = r"D:\2026-AI-EXOSKELETON"
+    beads_cli: Optional[str] = None,
+    working_dir: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Verify bead has no open blockers before claiming.
 
     Args:
         bead_id: Bead identifier
-        beads_cli: Path to beads CLI
-        working_dir: Working directory for beads CLI
+        beads_cli: Path to beads CLI (default: MEMORY_MCP_BEADS_CLI env or "bd")
+        working_dir: Working directory (default: MEMORY_MCP_BEADS_DIR env or cwd)
 
     Returns:
         {
@@ -179,6 +182,9 @@ def verify_bead_unblocked(
 
     NASA Rule 10: 45 LOC
     """
+    beads_cli = beads_cli or resolve_beads_binary()
+    working_dir = working_dir or os.getenv("MEMORY_MCP_BEADS_DIR") or os.getcwd()
+
     result = {
         "unblocked": True,
         "blockers": [],

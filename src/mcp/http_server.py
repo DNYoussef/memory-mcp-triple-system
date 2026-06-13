@@ -54,7 +54,7 @@ from src.memory.lifecycle_scheduler import LifecycleScheduler
 # from src.services.entity_service import EntityService
 # from src.lifecycle.hotcold_classifier import HotColdClassifier
 # from src.chunking.semantic_chunker import SemanticChunker
-from src.integrations.beads_bridge import BeadsBridge
+from src.integrations.beads_bridge import BeadsBridge, resolve_beads_binary
 from src.universal_components import (
     init_connascence_bridge,
     init_memory_client,
@@ -439,8 +439,8 @@ def get_beads_bridge() -> BeadsBridge:
     if _beads_bridge is None:
         with _beads_bridge_lock:
             if _beads_bridge is None:
-                # Use beads binary from environment (no hardcoded fallback)
-                beads_binary = os.getenv("BEADS_BINARY", "")
+                # Beads binary from env (MEMORY_MCP_BEADS_CLI, then BEADS_BINARY)
+                beads_binary = resolve_beads_binary()
                 _beads_bridge = BeadsBridge(beads_binary=beads_binary, cache_ttl=60)
     return _beads_bridge
 

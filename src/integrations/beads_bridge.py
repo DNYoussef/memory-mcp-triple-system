@@ -5,12 +5,29 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+
+def resolve_beads_binary(explicit: Optional[str] = None) -> str:
+    """Resolve the bd binary with one precedence across every surface.
+
+    explicit arg, then MEMORY_MCP_BEADS_CLI, then BEADS_BINARY (back-compat),
+    then "bd" on PATH. Keeps a single source of truth so configuring one env
+    var reaches the main MCP BeadsBridge, the MCP tools, and the completion
+    logger alike.
+    """
+    return (
+        explicit
+        or os.getenv("MEMORY_MCP_BEADS_CLI")
+        or os.getenv("BEADS_BINARY")
+        or "bd"
+    )
 
 
 @dataclass(frozen=True)
@@ -120,13 +137,15 @@ class BeadTask:
 
     id: str
     title: str
-    description: Optional[str]
     status: str
     priority: int
     issue_type: str
-    assignee: Optional[str]
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
+    # Nullable fields default to None (constructed by keyword in from_dict);
+    # required fields lead so the dataclass ordering stays valid.
+    description: Optional[str] = None
+    assignee: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     estimated_minutes: int = 0
     dependency_count: int = 0
     dependent_count: int = 0
@@ -262,18 +281,32 @@ class BeadsBridge:
     def _set_cached(self, key: str, payload: Any) -> None:
         self._cache[key] = (time.time(), payload)
 
-    async def _run_command(self, cmd: List[str]) -> Any:
+    async def _run_command(self, cmd: List[str], timeout: float = 30.0) -> Any:
+        process = None
         try:
             process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, stderr = await process.communicate()
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(), timeout=timeout
+            )
             if process.returncode != 0:
                 logger.warning("Beads CLI failed: %s", stderr.decode().strip())
                 return []
             return json.loads(stdout.decode() or "[]")
+        except asyncio.TimeoutError:
+            # A hung bd must not block the tool call indefinitely (the caller
+            # joins this on a thread with no timeout). Kill and reap it.
+            logger.error("Beads CLI timed out after %ss: %s", timeout, " ".join(cmd))
+            if process is not None:
+                try:
+                    process.kill()
+                    await process.wait()
+                except ProcessLookupError:
+                    pass
+            return []
         except Exception as exc:
             logger.error("Beads CLI error: %s", exc)
             return []

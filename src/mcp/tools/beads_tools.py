@@ -16,11 +16,15 @@ import re
 import subprocess
 from typing import Optional, Dict, Any, List
 
+from src.integrations.beads_bridge import resolve_beads_binary
+
 logger = logging.getLogger(__name__)
 
-# Default Beads CLI path
-DEFAULT_BEADS_CLI = r"C:\Users\17175\AppData\Local\beads\bd.exe"
-DEFAULT_BEADS_DIR = r"D:\2026-AI-EXOSKELETON"
+# Beads CLI + working dir, env-first so no machine-specific path is baked in.
+# CLI resolves via MEMORY_MCP_BEADS_CLI, then BEADS_BINARY, then "bd" on PATH
+# (shared with the main BeadsBridge); working dir falls back to the cwd.
+DEFAULT_BEADS_CLI = resolve_beads_binary()
+DEFAULT_BEADS_DIR = os.getenv("MEMORY_MCP_BEADS_DIR", "")
 
 
 class BeadsTools:
@@ -39,7 +43,7 @@ class BeadsTools:
             beads_dir: Working directory for beads operations
         """
         self.beads_cli = beads_cli_path or DEFAULT_BEADS_CLI
-        self.beads_dir = beads_dir or DEFAULT_BEADS_DIR
+        self.beads_dir = beads_dir or DEFAULT_BEADS_DIR or os.getcwd()
         self.graph_service = graph_service
 
     def _run_beads_command(

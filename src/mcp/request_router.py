@@ -14,7 +14,7 @@ import hashlib
 import asyncio
 import threading
 from datetime import datetime, timedelta
-from typing import Dict, Any, List, TYPE_CHECKING
+from typing import Dict, Any, List, Optional, TYPE_CHECKING
 
 from loguru import logger
 from ..modes.mode_detector import ModeDetector
@@ -440,8 +440,23 @@ def handle_detect_mode(
     }
 
 
-def _run_coroutine_sync(coro):
-    """Run a coroutine from sync handlers, even if caller already owns an event loop."""
+# Bound Beads CLI calls so a wedged bd (or stuck startup/cleanup) cannot hang the
+# MCP handler. Slightly above BeadsBridge._run_command's own 30s subprocess timeout
+# so the inner timeout normally fires first and this is the backstop.
+_BEADS_SYNC_TIMEOUT = 35.0
+
+
+def _run_coroutine_sync(coro, timeout: Optional[float] = None):
+    """Run a coroutine from sync handlers, even if caller already owns an event loop.
+
+    When ``timeout`` is set, the wait is bounded: the coroutine is wrapped in
+    asyncio.wait_for and the worker-thread join uses the timeout as well, so a
+    wedged operation raises TimeoutError instead of blocking forever (the daemon
+    worker thread is then abandoned).
+    """
+    if timeout is not None:
+        coro = asyncio.wait_for(coro, timeout)
+
     try:
         asyncio.get_running_loop()
     except RuntimeError:
@@ -457,7 +472,9 @@ def _run_coroutine_sync(coro):
 
     thread = threading.Thread(target=runner, daemon=True)
     thread.start()
-    thread.join()
+    thread.join(None if timeout is None else timeout + 5)
+    if thread.is_alive():
+        raise TimeoutError(f"Async operation did not complete within {timeout}s")
 
     if "error" in result:
         raise result["error"]
@@ -584,7 +601,10 @@ def handle_beads_ready_tasks(
     brief = arguments.get("brief", True)
 
     try:
-        tasks = _run_coroutine_sync(tool.beads_bridge.get_ready_tasks(limit=limit, brief=brief))
+        tasks = _run_coroutine_sync(
+            tool.beads_bridge.get_ready_tasks(limit=limit, brief=brief),
+            timeout=_BEADS_SYNC_TIMEOUT,
+        )
 
         if not tasks:
             return {"content": [{"type": "text", "text": "No ready tasks found"}], "isError": False}
@@ -613,7 +633,10 @@ def handle_beads_task_detail(
         return {"content": [{"type": "text", "text": "Error: task_id is required"}], "isError": True}
 
     try:
-        task = _run_coroutine_sync(tool.beads_bridge.get_task_detail(task_id))
+        task = _run_coroutine_sync(
+            tool.beads_bridge.get_task_detail(task_id),
+            timeout=_BEADS_SYNC_TIMEOUT,
+        )
 
         if task.status == "unknown":
             return {"content": [{"type": "text", "text": f"Task {task_id} not found"}], "isError": True}
@@ -650,9 +673,12 @@ def handle_beads_query_tasks(
     limit = arguments.get("limit", 20)
 
     try:
-        tasks = _run_coroutine_sync(tool.beads_bridge.query_tasks(
-            status=status, priority=priority, assignee=assignee, limit=limit, brief=True
-        ))
+        tasks = _run_coroutine_sync(
+            tool.beads_bridge.query_tasks(
+                status=status, priority=priority, assignee=assignee, limit=limit, brief=True
+            ),
+            timeout=_BEADS_SYNC_TIMEOUT,
+        )
 
         if not tasks:
             filter_info = []
