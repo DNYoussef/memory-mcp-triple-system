@@ -337,6 +337,27 @@ class TestRehydration:
         assert metadata['score_multiplier'] == 1.0
         assert 'rekindled_at' in metadata
 
+    def test_rekindle_reembeds_full_text_when_embedder_available(self):
+        """Rekindle should index the document embedding, not the wake-up query vector."""
+        mock_indexer = Mock()
+        mock_kv_store = Mock()
+        mock_embedder = Mock()
+        mock_embedder.encode_single.return_value = [0.9, 0.8, 0.7]
+        manager = MemoryLifecycleManager(mock_indexer, mock_kv_store, mock_embedder)
+        manager.kv_store.get.side_effect = lambda key: (
+            "Summary" if key == "archived:chunk1" else
+            "file_path: /path/to/file.md" if key == "archived:chunk1:metadata" else
+            None
+        )
+
+        with patch('builtins.open', mock_open(read_data='Full text from file')):
+            success = manager.rekindle_archived([0.1, 0.2, 0.3], 'chunk1')
+
+        assert success is True
+        mock_embedder.encode_single.assert_called_once_with('Full text from file')
+        call_args = mock_indexer.index_chunks.call_args
+        assert call_args[1]['embeddings'] == [[0.9, 0.8, 0.7]]
+
 
 class TestConsolidation:
     """Test suite for consolidation (merge similar chunks)."""
@@ -401,6 +422,30 @@ class TestConsolidation:
             assert 'tag1' in merged_metadata['tags'] or 'tag2' in merged_metadata['tags']
             # Should take newer timestamp
             assert merged_metadata['last_accessed'] == '2024-01-02'
+
+    def test_consolidate_reembeds_merged_text(self):
+        """Merged chunks should update the vector to match merged text."""
+        mock_indexer = Mock()
+        mock_kv_store = Mock()
+        mock_embedder = Mock()
+        mock_embedder.encode_single.return_value = [0.4, 0.6]
+        manager = MemoryLifecycleManager(mock_indexer, mock_kv_store, mock_embedder)
+        manager.vector_indexer.collection.get.return_value = {
+            'ids': ['chunk1', 'chunk2'],
+            'documents': ['Text A', 'Text B'],
+            'embeddings': [[1.0, 0.0], [1.0, 0.0]],
+            'metadatas': [
+                {'stage': 'active', 'score': 0.9, 'tags': ['tag1']},
+                {'stage': 'active', 'score': 0.8, 'tags': ['tag2']},
+            ],
+        }
+
+        count = manager.consolidate_similar(threshold=0.95)
+
+        assert count == 1
+        mock_embedder.encode_single.assert_called_once_with('Text A\n\nText B')
+        call_args = manager.vector_indexer.collection.update.call_args
+        assert call_args[1]['embeddings'] == [[0.4, 0.6]]
 
     def test_consolidate_performance(self, manager):
         """Test consolidation of 100 chunks completes quickly."""

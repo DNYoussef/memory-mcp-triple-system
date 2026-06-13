@@ -17,6 +17,8 @@ See: stage_transitions.py, consolidation.py
 
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
+import ast
+import json
 import numpy as np
 from loguru import logger
 
@@ -41,16 +43,18 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
     NASA Rule 10 Compliant: All methods ≤60 LOC
     """
 
-    def __init__(self, vector_indexer, kv_store):
+    def __init__(self, vector_indexer, kv_store, embedding_pipeline=None):
         """
         Initialize lifecycle manager.
 
         Args:
             vector_indexer: VectorIndexer instance
             kv_store: KeyValueStore instance
+            embedding_pipeline: Optional embedder for merged/rehydrated documents
         """
         self.vector_indexer = vector_indexer
         self.kv_store = kv_store
+        self.embedding_pipeline = embedding_pipeline
 
         # Stage configuration
         self.stages = {
@@ -99,7 +103,7 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
         re-index in vector store → promote to active
 
         Args:
-            query_embedding: Query embedding for re-indexing
+            query_embedding: Fallback embedding if document re-embedding is unavailable
             chunk_id: Chunk ID to rekindle
 
         Returns:
@@ -122,7 +126,7 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
             return False
 
         # Re-index and promote
-        self._reindex_and_promote(chunk_id, full_text, file_path, query_embedding)
+        self._reindex_and_promote(chunk_id, full_text, file_path, query_embedding, metadata_str)
 
         # Clean up KV store
         self._cleanup_archived_keys(chunk_id)
@@ -151,6 +155,9 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
 
     def _extract_file_path(self, metadata_str: str) -> Optional[str]:
         """Extract file path from metadata string."""
+        metadata = self._metadata_from_string(metadata_str)
+        if metadata.get("file_path"):
+            return str(metadata["file_path"])
         if not metadata_str or "file_path" not in metadata_str:
             return None
 
@@ -177,28 +184,37 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
         chunk_id: str,
         full_text: str,
         file_path: str,
-        query_embedding: List[float]
+        query_embedding: List[float],
+        metadata_str: Optional[str] = None
     ):
         """Re-index chunk and promote to active."""
-        # Re-index in vector store
+        now = datetime.utcnow()
+        metadata = self._metadata_from_string(metadata_str or "")
+        metadata.update({
+            'stage': 'active',
+            'score_multiplier': 1.0,
+            'last_accessed': now.isoformat(),
+            'last_accessed_ts': now.timestamp(),
+            'rekindled_at': now.isoformat(),
+            'rekindled_at_ts': now.timestamp(),
+        })
+
+        embedding = self._embed_text(full_text, fallback_embedding=query_embedding)
+
         self.vector_indexer.index_chunks(
             chunks=[{
+                'id': chunk_id,
                 'text': full_text,
                 'file_path': file_path,
-                'chunk_index': 0
+                'chunk_index': 0,
+                'metadata': metadata,
             }],
-            embeddings=[query_embedding]
+            embeddings=[embedding]
         )
 
-        # Promote to active
         self.vector_indexer.collection.update(
             ids=[chunk_id],
-            metadatas=[{
-                'stage': 'active',
-                'score_multiplier': 1.0,
-                'last_accessed': datetime.now().isoformat(),
-                'rekindled_at': datetime.now().isoformat()
-            }]
+            metadatas=[metadata]
         )
 
     def _cleanup_archived_keys(self, chunk_id: str):
@@ -206,6 +222,50 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
         for prefix in ['archived', 'rehydratable']:
             self.kv_store.delete(f"{prefix}:{chunk_id}")
             self.kv_store.delete(f"{prefix}:{chunk_id}:metadata")
+
+    @staticmethod
+    def _metadata_from_string(metadata_str: str) -> Dict[str, Any]:
+        """Parse archived metadata from JSON or legacy repr strings."""
+        if not metadata_str:
+            return {}
+        try:
+            parsed = json.loads(metadata_str)
+            return parsed if isinstance(parsed, dict) else {}
+        except json.JSONDecodeError:
+            try:
+                parsed = ast.literal_eval(metadata_str)
+                return parsed if isinstance(parsed, dict) else {}
+            except (ValueError, SyntaxError):
+                return {}
+
+    def _embed_text(
+        self,
+        text: str,
+        fallback_embedding: Optional[List[float]] = None
+    ) -> Optional[List[float]]:
+        """Embed document text, falling back only when no embedder is available."""
+        if self.embedding_pipeline is not None:
+            try:
+                if hasattr(self.embedding_pipeline, "encode_single"):
+                    return self._embedding_to_list(
+                        self.embedding_pipeline.encode_single(text)
+                    )
+                embeddings = self.embedding_pipeline.encode([text])
+                return self._embedding_to_list(embeddings[0])
+            except Exception as e:
+                logger.warning(f"Document re-embedding failed, using fallback: {e}")
+        return self._embedding_to_list(fallback_embedding)
+
+    @staticmethod
+    def _embedding_to_list(embedding: Any) -> Optional[List[float]]:
+        """Normalize ndarray/list embeddings to a plain vector list."""
+        if embedding is None:
+            return None
+        if hasattr(embedding, "tolist"):
+            embedding = embedding.tolist()
+        if isinstance(embedding, list) and embedding and isinstance(embedding[0], list):
+            return list(embedding[0])
+        return list(embedding)
 
     # Consolidation methods provided by ConsolidationMixin:
     # consolidate_similar, _get_active_chunks, _find_and_merge_similar,

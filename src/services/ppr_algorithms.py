@@ -6,7 +6,6 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
 from typing import List, Dict, Tuple
-from functools import lru_cache
 import networkx as nx
 from loguru import logger
 
@@ -78,7 +77,16 @@ class PPRAlgorithmsMixin:
             alpha, max_iter, tol,
             self._graph_structure_signature(),
         )
-        return self._cached_pagerank(cache_key)
+        cache = getattr(self, "_ppr_cache", None)
+        if cache is None:
+            cache = {}
+            setattr(self, "_ppr_cache", cache)
+
+        if cache_key not in cache:
+            if len(cache) >= 64:
+                cache.pop(next(iter(cache)))
+            cache[cache_key] = self._calculate_pagerank(cache_key)
+        return cache[cache_key]
 
     def _graph_structure_signature(self) -> tuple:
         """Hash-equivalent structural signature for cache invalidation."""
@@ -93,9 +101,8 @@ class PPRAlgorithmsMixin:
         ))
         return nodes, edges
 
-    @lru_cache(maxsize=64)
-    def _cached_pagerank(self, cache_key: tuple) -> Dict[str, float]:
-        """LRU-cached PPR computation. cache_key includes graph structure."""
+    def _calculate_pagerank(self, cache_key: tuple) -> Dict[str, float]:
+        """Calculate PPR for a cache key. cache_key includes graph structure."""
         personalization_items, alpha, max_iter, tol, _signature = cache_key
         return nx.pagerank(
             self.graph,

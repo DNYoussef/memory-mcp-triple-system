@@ -110,13 +110,19 @@ class ConsolidationMixin:
     ):
         """Merge two similar chunks."""
         merged_text, merged_metadata = self._merge_chunks(doc1, doc2, meta1, meta2)
+        merged_embedding = None
+        if hasattr(self, "_embed_text"):
+            merged_embedding = self._embed_text(merged_text)
 
         # Update first chunk
-        self.vector_indexer.collection.update(
-            ids=[id1],
-            documents=[merged_text],
-            metadatas=[merged_metadata]
-        )
+        update_args = {
+            "ids": [id1],
+            "documents": [merged_text],
+            "metadatas": [merged_metadata],
+        }
+        if merged_embedding is not None:
+            update_args["embeddings"] = [merged_embedding]
+        self.vector_indexer.collection.update(**update_args)
 
         # Delete second chunk
         self.vector_indexer.collection.delete(ids=[id2])
@@ -192,6 +198,6 @@ class ConsolidationMixin:
 
         # Add consolidation marker
         merged_metadata['consolidated'] = True
-        merged_metadata['consolidated_at'] = datetime.now().isoformat()
+        merged_metadata['consolidated_at'] = datetime.utcnow().isoformat()
 
         return merged_text, merged_metadata

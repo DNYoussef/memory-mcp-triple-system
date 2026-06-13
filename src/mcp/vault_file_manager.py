@@ -72,6 +72,26 @@ class VaultFileManager:
             logger.error(f"Failed to read {file_path}: {e}")
             return None
 
+    def write_file(self, file_path: Path, content: str) -> bool:
+        """
+        Write file content with error handling.
+
+        Args:
+            file_path: Path to file
+            content: File content
+
+        Returns:
+            True when written, False on error
+        """
+        try:
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to write {file_path}: {e}")
+            return False
+
     def get_file_metadata(self, file_path: Path) -> Dict[str, Any]:
         """
         Get metadata for a file.

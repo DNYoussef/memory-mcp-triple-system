@@ -109,17 +109,26 @@ class SchemaValidator:
             ))
             return ValidationResult(valid=False, errors=self.errors)
 
+        if not isinstance(schema, dict):
+            self.errors.append(ValidationError(
+                field="root",
+                message="Schema root must be a mapping",
+                severity="error"
+            ))
+            return ValidationResult(valid=False, errors=self.errors)
+
         # Run validation checks
         self._validate_root_fields(schema)
         self._validate_storage_tiers(schema.get("storage_tiers", {}))
         self._validate_lifecycle(schema.get("lifecycle", {}))
         self._validate_query_processing(schema.get("query_processing", {}))
         self._validate_performance_targets(schema.get("performance_targets", {}))
+        valid = not any(error.severity == "error" for error in self.errors)
 
         return ValidationResult(
-            valid=len(self.errors) == 0,
+            valid=valid,
             errors=self.errors,
-            schema=schema if len(self.errors) == 0 else None
+            schema=schema if valid else None
         )
 
     def _validate_root_fields(self, schema: Dict[str, Any]) -> None:
@@ -149,8 +158,23 @@ class SchemaValidator:
                 severity="error"
             ))
             return
+        if not isinstance(tiers, dict):
+            self.errors.append(ValidationError(
+                field="storage_tiers",
+                message="Storage tiers must be a mapping",
+                severity="error"
+            ))
+            return
 
         for tier_name, tier_config in tiers.items():
+            if not isinstance(tier_config, dict):
+                self.errors.append(ValidationError(
+                    field=f"storage_tiers.{tier_name}",
+                    message="Storage tier config must be a mapping",
+                    severity="error"
+                ))
+                continue
+
             # Check required fields
             for field in self.REQUIRED_TIER_FIELDS:
                 if field not in tier_config:

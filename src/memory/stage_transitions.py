@@ -6,6 +6,7 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
 from typing import Dict, List, Optional
+import json
 from datetime import datetime, timedelta
 from loguru import logger
 
@@ -35,7 +36,7 @@ class StageTransitionsMixin:
             Number of chunks demoted
         """
         threshold = threshold_days or self.demote_threshold
-        cutoff = datetime.now() - timedelta(days=threshold)
+        cutoff = datetime.utcnow() - timedelta(days=threshold)
         cutoff_ts = cutoff.timestamp()
 
         # Query chunks with last_accessed_ts > threshold (float for ChromaDB $lt)
@@ -59,17 +60,20 @@ class StageTransitionsMixin:
             logger.info("No chunks to demote")
             return 0
 
-        for chunk_id in chunk_ids:
+        metadatas = stale_chunks.get('metadatas', []) or [{}] * len(chunk_ids)
+        for idx, chunk_id in enumerate(chunk_ids):
             try:
-                _now = datetime.now()
+                _now = datetime.utcnow()
+                metadata = dict(metadatas[idx] or {})
+                metadata.update({
+                    'stage': 'demoted',
+                    'score_multiplier': 0.5,
+                    'demoted_at': _now.isoformat(),
+                    'demoted_at_ts': _now.timestamp()
+                })
                 self.vector_indexer.collection.update(
                     ids=[chunk_id],
-                    metadatas=[{
-                        'stage': 'demoted',
-                        'score_multiplier': 0.5,
-                        'demoted_at': _now.isoformat(),
-                        'demoted_at_ts': _now.timestamp()
-                    }]
+                    metadatas=[metadata]
                 )
             except Exception as e:
                 logger.error(f"Failed to demote chunk {chunk_id}: {e}")
@@ -109,7 +113,7 @@ class StageTransitionsMixin:
 
     def _query_old_demoted(self, threshold_days: int) -> Optional[Dict]:
         """Query old demoted chunks."""
-        cutoff = datetime.now() - timedelta(days=threshold_days)
+        cutoff = datetime.utcnow() - timedelta(days=threshold_days)
         cutoff_ts = cutoff.timestamp()
 
         try:
@@ -134,11 +138,21 @@ class StageTransitionsMixin:
         for i, chunk_id in enumerate(old_chunks['ids']):
             full_text = old_chunks['documents'][i]
             metadata = old_chunks['metadatas'][i]
+            now = datetime.utcnow()
+            metadata = dict(metadata or {})
+            metadata.update({
+                "stage": "archived",
+                "archived_at": now.isoformat(),
+                "archived_at_ts": now.timestamp(),
+            })
 
             # Compress and store
             summary = self._summarize(full_text)
             self.kv_store.set(f"archived:{chunk_id}", summary)
-            self.kv_store.set(f"archived:{chunk_id}:metadata", str(metadata))
+            self.kv_store.set(
+                f"archived:{chunk_id}:metadata",
+                json.dumps(metadata, sort_keys=True, default=str)
+            )
 
             # Delete from vector store
             try:
@@ -181,15 +195,21 @@ class StageTransitionsMixin:
             if not metadata_str:
                 continue
 
-            # Parse timestamp from metadata (simplified)
-            # In production, use proper JSON parsing
-            if "archived_at" in metadata_str:
+            metadata = self._load_archived_metadata(metadata_str)
+            archived_at_ts = metadata.get("archived_at_ts")
+            if archived_at_ts is None:
+                continue
+
+            cutoff = (datetime.utcnow() - timedelta(days=threshold)).timestamp()
+            if float(archived_at_ts) < cutoff:
                 # Mark as rehydratable in metadata
                 self.kv_store.set(
                     f"rehydratable:{chunk_id}",
                     self.kv_store.get(f"archived:{chunk_id}")
                 )
+                self.kv_store.set(f"rehydratable:{chunk_id}:metadata", metadata_str)
                 self.kv_store.delete(f"archived:{chunk_id}")
+                self.kv_store.delete(f"archived:{chunk_id}:metadata")
                 rehydratable_count += 1
 
         logger.info(
@@ -197,3 +217,22 @@ class StageTransitionsMixin:
             f"(>{threshold} days archived)"
         )
         return rehydratable_count
+
+    @staticmethod
+    def _load_archived_metadata(metadata_str: str) -> Dict:
+        """Load archived metadata from JSON, with legacy fallback."""
+        try:
+            return json.loads(metadata_str)
+        except (TypeError, json.JSONDecodeError):
+            if metadata_str and "archived_at" in metadata_str:
+                raw_value = metadata_str.split("archived_at", 1)[1].split(",", 1)[0]
+                raw_value = raw_value.strip(": '\"")
+                try:
+                    archived_at = datetime.fromisoformat(raw_value)
+                    return {
+                        "archived_at": raw_value,
+                        "archived_at_ts": archived_at.timestamp(),
+                    }
+                except ValueError:
+                    return {"archived_at": raw_value, "archived_at_ts": 0.0}
+            return {}

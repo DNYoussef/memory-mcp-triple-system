@@ -15,6 +15,7 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 
 import re
 import sys
+import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -370,25 +371,35 @@ class ConfigGuard:
 
         NASA Rule 10: 40 LOC (<=60)
         """
-        # Scan new content
-        temp_path = f"/tmp/configguard_temp_{datetime.utcnow().timestamp()}"
+        # Scan new content via a portable temporary file. If scanning fails, fail closed.
+        temp_path = None
         try:
-            with open(temp_path, "w") as f:
+            with tempfile.NamedTemporaryFile(
+                "w",
+                delete=False,
+                encoding="utf-8",
+                suffix=Path(file_path).suffix,
+            ) as f:
+                temp_path = f.name
                 f.write(new_content)
             result = self.scan_file(temp_path)
-        except Exception:
-            result = ConfigScanResult(
-                file_path=file_path,
-                config_type=self._detect_config_type(file_path),
-                violations=[],
-                risk_score=0.0,
-                passed=True,
-            )
+        except Exception as exc:
+            logger.error(f"ConfigGuard scan failed closed for {file_path}: {exc}")
+            return {
+                "action": "BLOCK",
+                "reason": f"Config scan failed: {exc}",
+                "risk_score": 1.0,
+                "violations": 0,
+                "l4_critical": 0,
+                "l3_high": 0,
+                "scan_result": None,
+            }
         finally:
-            try:
-                Path(temp_path).unlink()
-            except Exception:
-                pass
+            if temp_path:
+                try:
+                    Path(temp_path).unlink()
+                except Exception:
+                    pass
 
         # Determine gate action
         l4_count = sum(1 for v in result.violations if v.risk_level == RiskLevel.L4_CRITICAL)

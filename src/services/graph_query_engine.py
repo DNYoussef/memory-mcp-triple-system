@@ -80,6 +80,7 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
         Returns:
             Dict mapping node_id -> PPR score (sum = 1.0)
         """
+        personalization: Dict[str, float] = {}
         try:
             # Validate nodes exist in graph
             valid_nodes = self._validate_nodes(query_nodes)

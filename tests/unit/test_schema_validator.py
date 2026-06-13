@@ -97,3 +97,60 @@ def test_validate_lifecycle_stages(validator, valid_schema_path):
     stage_names = [s["name"] for s in lifecycle["stages"]]
     assert "active" in stage_names
     assert "archived" in stage_names
+
+
+def test_validate_warnings_do_not_make_schema_invalid(validator, tmp_path):
+    """Warnings should not flip the overall valid flag."""
+    schema = {
+        "version": "1.0",
+        "storage_tiers": {
+            "kv": {
+                "type": "key-value",
+                "backend": "sqlite",
+                "use_cases": [],
+                "performance": {},
+            }
+        },
+        "lifecycle": {
+            "stages": [{"name": "active"}],
+            "rekindling": {},
+        },
+        "query_processing": {
+            "mode_detection": {},
+            "routing": {},
+            "curated_core": {},
+            "verification": {},
+        },
+    }
+    schema_file = tmp_path / "schema.yaml"
+    schema_file.write_text(yaml.dump(schema))
+
+    result = validator.validate(str(schema_file))
+
+    assert result.valid is True
+    assert any(error.severity == "warning" for error in result.errors)
+
+
+def test_validate_non_dict_storage_tier_reports_error(validator, tmp_path):
+    """Malformed tier config should report an error instead of crashing."""
+    schema = {
+        "version": "1.0",
+        "storage_tiers": {"kv": "not-a-dict"},
+        "lifecycle": {
+            "stages": [{"name": "active"}],
+            "rekindling": {},
+        },
+        "query_processing": {
+            "mode_detection": {},
+            "routing": {},
+            "curated_core": {},
+            "verification": {},
+        },
+    }
+    schema_file = tmp_path / "schema.yaml"
+    schema_file.write_text(yaml.dump(schema))
+
+    result = validator.validate(str(schema_file))
+
+    assert result.valid is False
+    assert any(error.field == "storage_tiers.kv" for error in result.errors)
