@@ -136,6 +136,31 @@ class TestNexusProcessor:
         assert len(filtered) == 2  # 0.5 and 0.4 pass threshold
         assert all(r["score"] >= 0.3 for r in filtered)
 
+    def test_candidate_confidence_is_max_tier_evidence(self, processor):
+        """Confidence = strongest single-tier signal, not the weighted hybrid."""
+        # Strong vector evidence (0.576) but a deflated hybrid 'score' (0.23).
+        assert processor._candidate_confidence({
+            "score": 0.23, "vector_score": 0.576,
+            "graph_score": 0.0, "bayesian_score": 0.0,
+        }) == 0.576
+        # Raw candidate (no per-tier fields) falls back to 'score'.
+        assert processor._candidate_confidence({"score": 0.42}) == 0.42
+
+    def test_filter_keeps_strong_single_tier_candidate(self, processor):
+        """Regression: a vector-only candidate whose weighted-sum 'score' is below
+        the threshold but whose per-tier evidence is strong must survive."""
+        candidates = [
+            {"text": "vec-only", "score": 0.23, "vector_score": 0.576,
+             "graph_score": 0.0, "bayesian_score": 0.0, "tier": "hybrid"},
+            {"text": "weak", "score": 0.1, "vector_score": 0.1,
+             "graph_score": 0.0, "bayesian_score": 0.0, "tier": "hybrid"},
+        ]
+
+        texts = [c["text"] for c in processor.filter_by_confidence(candidates)]
+
+        assert "vec-only" in texts
+        assert "weak" not in texts
+
     def test_deduplicate_similar_chunks(self, processor):
         """Test deduplication removes similar chunks (cosine >0.95)."""
         candidates = [

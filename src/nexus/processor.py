@@ -435,6 +435,23 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         logger.info(f"Recall: {len(candidates)} total candidates from all tiers")
         return candidates
 
+    def _candidate_confidence(self, candidate: Dict[str, Any]) -> float:
+        """Confidence used for filtering = strongest single-tier evidence.
+
+        The hybrid 'score' is a weighted SUM across tiers (vector .4 / graph .4 /
+        bayesian .2), so a candidate that matched only one tier is capped at that
+        tier's weight (a vector-only match maxes at 0.4, bayesian-only at 0.2) and
+        would be wrongly dropped by a flat 0.3 threshold. Filter on the best
+        per-tier signal so strong single-tier matches survive; ranking still uses
+        the hybrid score. Falls back to 'score' for raw (uncombined) candidates.
+        """
+        return max(
+            candidate.get("vector_score", 0.0),
+            candidate.get("graph_score", 0.0),
+            candidate.get("bayesian_score", 0.0),
+            candidate.get("score", 0.0),
+        )
+
     def filter_by_confidence(
         self,
         candidates: List[Dict[str, Any]]
@@ -450,7 +467,7 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         """
         filtered = [
             c for c in candidates
-            if c.get("score", 0.0) >= self.confidence_threshold
+            if self._candidate_confidence(c) >= self.confidence_threshold
         ]
 
         logger.debug(
