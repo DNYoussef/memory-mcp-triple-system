@@ -31,6 +31,8 @@ fastapi==0.104.1
 uvicorn[standard]==0.24.0
 watchdog==3.0.0
 python-multipart==0.0.6
+flask==3.0.3  # Curation UI (src/ui/curation_app.py)
+aiofiles==23.2.1  # Async file IO for capture buffer (src/services/capture)
 # redis removed (v5.0: using Python dict cache instead)
 
 # Logging
