@@ -93,16 +93,18 @@ class HippoRagService:
         logger.info(f"HippoRAG retrieve: '{query}' (top_k={top_k})")
 
         try:
-            # Step 1: Extract entities from query
+            # Step 1+2: Extract entities (NER) and match to graph nodes.
             query_entities = self._extract_query_entities(query)
-            if not query_entities:
-                logger.warning(f"No entities extracted from query: {query}")
-                return []
-
-            # Step 2: Match entities to graph nodes
             query_nodes = self._match_entities_to_nodes(query_entities)
+
+            # Fallback for short/keyword queries (e.g. "Tesla") where spaCy NER
+            # extracts nothing from the lack of sentence context: match the
+            # normalized query phrase and tokens directly against graph nodes.
             if not query_nodes:
-                logger.warning("No query entities found in graph")
+                query_nodes = self._match_query_tokens_to_nodes(query)
+
+            if not query_nodes:
+                logger.warning(f"No query entities found in graph for: {query}")
                 return []
 
             # Step 3: Run PPR and rank chunks
@@ -264,6 +266,33 @@ class HippoRagService:
         """
         return text.lower().replace(' ', '_').replace('.', '')
 
+    def _match_query_tokens_to_nodes(self, query: str) -> List[str]:
+        """
+        Fallback seed selection when NER extracts no entities.
+
+        Matches the normalized whole-query phrase first (catches multi-word
+        entities like "United States" -> "united_states") and then individual
+        tokens, against existing graph entity nodes.
+
+        Args:
+            query: User query text
+
+        Returns:
+            List of matched node IDs (empty if none match)
+        """
+        if not query or not query.strip():
+            return []
+
+        candidates: List[str] = []
+        seen = set()
+        for raw in [query.strip()] + query.split():
+            norm = self._normalize_entity_text(raw)
+            if norm and norm not in seen:
+                seen.add(norm)
+                candidates.append(norm)
+
+        return self._match_entities_to_nodes(candidates)
+
     def retrieve_multi_hop(
         self,
         query: str,
@@ -327,13 +356,15 @@ class HippoRagService:
             List of matched node IDs
         """
         query_entities = self._extract_query_entities(query)
-        if not query_entities:
-            logger.warning(f"No entities extracted from query: {query}")
-            return []
-
         query_nodes = self._match_entities_to_nodes(query_entities)
+
+        # Same keyword fallback as retrieve() for short queries where NER finds
+        # nothing.
         if not query_nodes:
-            logger.warning("No query entities found in graph")
+            query_nodes = self._match_query_tokens_to_nodes(query)
+
+        if not query_nodes:
+            logger.warning(f"No query entities found in graph: {query}")
             return []
 
         return query_nodes

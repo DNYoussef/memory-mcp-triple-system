@@ -444,6 +444,19 @@ class TestRetrievalQuality:
         assert 'tesla' in top_result.text.lower() or \
                'elon' in top_result.text.lower()
 
+    def test_match_query_tokens_fallback(self, integrated_system):
+        """Keyword fallback maps normalized query phrase/tokens to graph nodes
+        when NER finds nothing (regression for bare-keyword retrieval)."""
+        hippo = integrated_system['hippo']
+
+        # Single keyword -> entity node id.
+        assert 'tesla' in hippo._match_query_tokens_to_nodes("Tesla")
+        # Multi-word phrase normalizes to a single node id.
+        assert 'united_states' in hippo._match_query_tokens_to_nodes("United States")
+        # No graph match and empty query -> empty list.
+        assert hippo._match_query_tokens_to_nodes("Nonexistent Thing") == []
+        assert hippo._match_query_tokens_to_nodes("") == []
+
     def test_ranking_quality(self, integrated_system):
         """Test results are ranked by relevance."""
         hippo = integrated_system['hippo']
