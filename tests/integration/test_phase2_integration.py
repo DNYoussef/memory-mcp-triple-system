@@ -121,15 +121,20 @@ class TestTaggingProtocolIntegration:
             "memory_store not using metadata enrichment"
 
     def test_tagging_includes_all_fields(self):
-        """Verify tagging includes WHO/WHEN/PROJECT/WHY."""
-        stdio_server_path = Path(__file__).parent.parent.parent / "src" / "mcp" / "stdio_server.py"
-        content = stdio_server_path.read_text(encoding='utf-8')
+        """Verify tagging produces WHO/WHEN/PROJECT/WHY in the enriched metadata.
 
-        # Check enrichment function has all fields
-        assert "'agent'" in content, "WHO (agent) field missing"
-        assert "'timestamp'" in content, "WHEN (timestamp) field missing"
-        assert "'project'" in content, "PROJECT field missing"
-        assert "'intent'" in content, "WHY (intent) field missing"
+        Asserts on the runtime result rather than grepping source text (which was
+        brittle to quote style: the code writes "agent" but the old test looked
+        for the single-quoted literal 'agent').
+        """
+        from src.mcp.stdio_server import _enrich_metadata_with_tagging
+
+        result = _enrich_metadata_with_tagging({})
+
+        assert 'agent' in result, "WHO (agent) field missing"
+        assert 'timestamp' in result, "WHEN (timestamp) field missing"
+        assert 'project' in result, "PROJECT field missing"
+        assert 'intent' in result, "WHY (intent) field missing"
 
 
 class TestMetadataEnrichment:

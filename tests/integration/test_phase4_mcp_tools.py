@@ -20,15 +20,26 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 
 class TestMCPToolsExposed:
-    """Test C1.2-C1.6: All 13 MCP tools are exposed."""
+    """Test C1.2-C1.6: All MCP tools are exposed."""
 
-    def test_handle_list_tools_returns_thirteen_tools(self):
-        """Verify 13 tools are returned by handle_list_tools."""
+    def test_handle_list_tools_returns_all_tools(self):
+        """Verify the full set of MCP tools is exposed, by name (not a brittle count)."""
         from src.mcp.stdio_server import handle_list_tools
 
         tools = handle_list_tools()
+        tool_names = {t["name"] for t in tools}
 
-        assert len(tools) == 13, f"Expected 13 tools, got {len(tools)}"
+        expected = {
+            "vector_search", "unified_search", "memory_store", "graph_query",
+            "bayesian_inference", "entity_extraction", "hipporag_retrieve",
+            "detect_mode", "lifecycle_status", "obsidian_sync",
+            "beads_ready_tasks", "beads_task_detail", "beads_query_tasks",
+            "observation_timeline",
+        }
+
+        assert tool_names == expected, (
+            f"Tool set drift: missing={expected - tool_names}, extra={tool_names - expected}"
+        )
 
     def test_all_required_tools_present(self):
         """Verify all required tool names are present."""
