@@ -8,6 +8,7 @@ PROJECT: memory-mcp-triple-system
 WHY: implementation (RETRIEVE-001)
 """
 
+import copy
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from loguru import logger
@@ -41,6 +42,10 @@ class ProactiveContextInjector:
         stats = injector.get_stats()
     """
 
+    # Weight on retrieved-chunk relevance vs. the trigger's own confidence when
+    # the trigger is probabilistic. 0.7 keeps chunk quality dominant.
+    _CHUNK_RELEVANCE_WEIGHT = 0.7
+
     def __init__(
         self,
         ontology_bridge: OntologyBridge,
@@ -56,7 +61,10 @@ class ProactiveContextInjector:
         """
         self.ontology_bridge = ontology_bridge
         self.nexus_processor = nexus_processor
-        self.rules = {r.rule_id: r for r in (rules or DEFAULT_RULES)}
+        # Deep-copy so each injector owns its rules. DEFAULT_RULES is a shared
+        # module-level list of mutable dataclasses; without copying, disabling a
+        # rule on one injector (or in one test) would leak to every other.
+        self.rules = {r.rule_id: copy.deepcopy(r) for r in (rules or DEFAULT_RULES)}
 
         # Track injections and cooldowns
         self._injection_history: List[InjectedContext] = []
@@ -276,7 +284,14 @@ class ProactiveContextInjector:
         chunks: List[Dict[str, Any]],
         event: TriggerEvent,
     ) -> float:
-        """Calculate relevance score for retrieved chunks."""
+        """Calculate relevance score for retrieved chunks.
+
+        When the trigger is probabilistic (carries its own ``confidence`` in
+        source_data, e.g. an activity pattern), the detection confidence is
+        blended in so a strong signal is not suppressed by middling chunk
+        scores. Deterministic triggers (file open, git checkout, time of day)
+        have no confidence and use the chunk-score average directly.
+        """
         if not chunks:
             return 0.0
 
@@ -285,8 +300,15 @@ class ProactiveContextInjector:
         for chunk in chunks:
             score = chunk.get("score") or chunk.get("confidence") or chunk.get("relevance") or 0.5
             scores.append(score)
+        chunk_relevance = sum(scores) / len(scores) if scores else 0.0
 
-        return sum(scores) / len(scores) if scores else 0.0
+        trigger_confidence = event.source_data.get("confidence")
+        if trigger_confidence is None:
+            return chunk_relevance
+        return (
+            self._CHUNK_RELEVANCE_WEIGHT * chunk_relevance
+            + (1.0 - self._CHUNK_RELEVANCE_WEIGHT) * trigger_confidence
+        )
 
     def _estimate_tokens(self, chunks: List[Dict[str, Any]]) -> int:
         """Estimate token count for chunks."""
