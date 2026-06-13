@@ -150,10 +150,14 @@ class VaultSyncService:
             for chunk in chunks:
                 chunk['metadata'] = {**metadata, **chunk.get('metadata', {})}
 
-            # Generate embeddings and index
+            # Generate embeddings and index. Embedders may return an ndarray
+            # (sentence-transformers) or a list of lists (e.g. qwen3vl / mocks);
+            # normalize so index_chunks always receives List[List[float]].
             texts = [c['text'] for c in chunks]
             embeddings = self.embedder.encode(texts)
-            self.indexer.index_chunks(chunks, embeddings.tolist())
+            if hasattr(embeddings, "tolist"):
+                embeddings = embeddings.tolist()
+            self.indexer.index_chunks(chunks, embeddings)
 
             logger.info(f"Synced {file_path.name}: {len(chunks)} chunks")
             return {"success": True, "chunks": len(chunks), "error": None}

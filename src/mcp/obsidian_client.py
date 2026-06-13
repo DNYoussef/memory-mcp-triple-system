@@ -208,7 +208,9 @@ class ObsidianMCPClient:
 
             texts = [c["text"] for c in chunks]
             embeddings = embedder.encode(texts)
-            indexer.index_chunks(chunks, embeddings.tolist())
+            if hasattr(embeddings, "tolist"):
+                embeddings = embeddings.tolist()
+            indexer.index_chunks(chunks, embeddings)
 
             return {"success": True, "chunks": len(chunks), "error": None}
         except Exception as e:
