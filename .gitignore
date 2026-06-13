@@ -65,6 +65,7 @@ htmlcov/
 
 # ChromaDB vector database (generated data)
 chroma_data/
+test_chroma_data/
 *.chroma
 
 # Archive (old/temporary files)
