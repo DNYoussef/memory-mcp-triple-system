@@ -357,9 +357,13 @@ class OntologyBridge:
 
             target_ontology = self._infer_ontology(neighbor_node)
 
-            # Get edge data
-            edge_data = self.graph.graph.edges.get((entity_id, neighbor), {})
-            edge_link_type = edge_data.get("link_type")
+            # Get edge data. add_relationship nests our fields under "metadata"
+            # (edge attrs are {"type": ..., "metadata": {...}}), so read from
+            # there, not the top level. Use get_edge_data for a reliable attr
+            # dict (EdgeView.get is not a Mapping.get).
+            edge_data = self.graph.graph.get_edge_data(entity_id, neighbor) or {}
+            edge_meta = edge_data.get("metadata", edge_data)
+            edge_link_type = edge_meta.get("link_type")
             if link_type and edge_link_type != link_type.value:
                 continue
 
@@ -372,13 +376,13 @@ class OntologyBridge:
                     link_type=CrossLinkType(edge_link_type)
                     if edge_link_type
                     else CrossLinkType.MEMORY_REFERENCES_TASK,
-                    confidence=edge_data.get("confidence", 1.0),
-                    created_at=datetime.fromisoformat(edge_data["created_at"])
-                    if edge_data.get("created_at")
+                    confidence=edge_meta.get("confidence", 1.0),
+                    created_at=datetime.fromisoformat(edge_meta["created_at"])
+                    if edge_meta.get("created_at")
                     else None,
                     metadata={
                         k: v
-                        for k, v in edge_data.items()
+                        for k, v in edge_meta.items()
                         if k not in ["link_type", "confidence", "created_at"]
                     },
                 )
@@ -460,22 +464,30 @@ class OntologyBridge:
         return results
 
     async def _query_beads(self, query_text: str, limit: int) -> List[Dict]:
-        """Query Beads tasks by text search."""
-        tasks = await self.beads.query_tasks(limit=limit * 2)  # Over-fetch
-        results = []
+        """Query Beads ontology entities stored in the graph.
 
-        for task in tasks:
-            # Simple text matching (could be enhanced with embeddings)
-            if query_text.lower() in task.title.lower() or (
-                task.description and query_text.lower() in task.description.lower()
+        The mode-aware query searches the ontology graph (like _query_life /
+        _query_projects); it must read the beads entities added via
+        add_beads_entity, not the external bd CLI (self.beads is for live-task
+        sync, and is unavailable in many contexts).
+        """
+        entities = self.list_beads_entities()
+        results = []
+        needle = query_text.lower()
+
+        for entity in entities:
+            description = getattr(entity, "description", None)
+            if needle in entity.title.lower() or (
+                description and needle in description.lower()
             ):
+                status = entity.status
                 results.append(
                     {
-                        "id": task.id,
-                        "title": task.title,
-                        "status": task.status,
-                        "estimated_minutes": task.estimated_minutes,
-                        "labels": task.labels,
+                        "id": entity.id,
+                        "title": entity.title,
+                        "status": status.value if hasattr(status, "value") else status,
+                        "estimated_minutes": entity.estimated_minutes,
+                        "labels": entity.labels,
                     }
                 )
 
