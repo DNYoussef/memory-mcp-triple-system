@@ -717,7 +717,10 @@ def handle_observation_timeline(
     limit = arguments.get("limit", 30)
     detail = arguments.get("detail", "compact")
 
-    after = (datetime.now() - timedelta(hours=hours_back)).isoformat()
+    # Observations are stored with UTC timestamps (datetime.utcnow), so the
+    # cutoff must be UTC too - datetime.now() (local) skewed it by the host's
+    # UTC offset and fetched the wrong window.
+    after = (datetime.utcnow() - timedelta(hours=hours_back)).isoformat()
 
     try:
         observations = tool.kv_store.get_observations(
