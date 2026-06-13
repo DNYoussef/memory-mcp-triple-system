@@ -44,12 +44,12 @@ class TestVectorSearchTool:
 
     def test_initialization_missing_embeddings_config(self):
         """Test initialization fails without embeddings config."""
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             VectorSearchTool({'storage': {}})
 
     def test_initialization_missing_storage_config(self):
         """Test initialization fails without storage config."""
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             VectorSearchTool({'embeddings': {}})
 
     def test_lazy_loading_chunker(self, tool):
@@ -164,17 +164,17 @@ class TestVectorSearchExecution:
 
     def test_execute_empty_query_fails(self, tool):
         """Test execute fails with empty query."""
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             tool.execute("", limit=5)
 
     def test_execute_zero_limit_fails(self, tool):
         """Test execute fails with zero limit."""
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             tool.execute("test query", limit=0)
 
     def test_execute_limit_too_large_fails(self, tool):
         """Test execute fails with limit >100."""
-        with pytest.raises(AssertionError):
+        with pytest.raises(ValueError):
             tool.execute("test query", limit=101)
 
     def test_execute_calls_embedder(self, tool):
