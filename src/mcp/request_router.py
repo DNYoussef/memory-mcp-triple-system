@@ -139,12 +139,16 @@ def _format_result_compact(idx: int, result: Dict[str, Any]) -> Dict[str, Any]:
 def _format_result_full(idx: int, result: Dict[str, Any]) -> Dict[str, Any]:
     """Format a search result in full mode (~500 tokens)."""
     tier_info = f"Tier: {result.get('tier', 'unknown')}\n" if "tier" in result else ""
+    # Use .get() defaults (like _format_result_compact): the vector-search
+    # fallback path can return results missing score/file_path, and direct
+    # indexing made the most-used tool KeyError -> isError.
+    score = result.get("score", 0.0)
     return {
         "type": "text",
         "text": (
-            f"Result {idx}:\n{result['text']}\n\n"
-            f"{tier_info}Score: {result['score']:.4f}\n"
-            f"File: {result['file_path']}\n"
+            f"Result {idx}:\n{result.get('text', '')}\n\n"
+            f"{tier_info}Score: {score:.4f}\n"
+            f"File: {result.get('file_path', '')}\n"
         )
     }
 
@@ -501,10 +505,23 @@ def handle_bayesian_inference(
     if not tool.nexus_processor or not tool.nexus_processor.probabilistic_query_engine:
         return {"content": [{"type": "text", "text": "Bayesian engine unavailable"}], "isError": True}
 
-    query_var = tool.nexus_processor._extract_query_entity(query)
-    result = tool.nexus_processor.probabilistic_query_engine.query_conditional(
-        network=None, query_vars=[query_var], evidence=evidence
-    )
+    try:
+        # network=None is intentional: query_conditional falls back to the
+        # engine's stored network (ISS-018). Guard the whole path so an
+        # extraction/inference error returns a clear message, not a generic crash.
+        query_var = tool.nexus_processor._extract_query_entity(query)
+        if not query_var:
+            return {"content": [{"type": "text", "text": "No query entity extracted from query"}], "isError": True}
+        result = tool.nexus_processor.probabilistic_query_engine.query_conditional(
+            network=None, query_vars=[query_var], evidence=evidence
+        )
+    except Exception as exc:
+        logger.error(f"Bayesian inference failed: {exc}")
+        return {"content": [{"type": "text", "text": f"Bayesian inference failed: {exc}"}], "isError": True}
+
+    if result is None:
+        # No network loaded or query timed out - not an error, but say so clearly.
+        return {"content": [{"type": "text", "text": "No Bayesian inference available (no network or timeout)"}], "isError": False}
 
     return {"content": [{"type": "text", "text": json.dumps(result)}], "isError": False}
 
