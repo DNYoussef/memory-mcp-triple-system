@@ -122,6 +122,81 @@ class TestNexusProcessor:
         assert "hipporag" in tiers
         # Bayesian may be None (timeout), so optional
 
+    def test_bayesian_var_state_rows_never_appear_in_results(self, processor):
+        """D7: Bayesian VAR=state rows contribute signal through recall/fusion
+        but must never surface as document results."""
+        real_doc = {"text": "Tesla makes electric cars", "score": 0.8,
+                    "tier": "vector", "id": "doc1", "metadata": {}}
+        bayes_row = {"text": "Tesla=true", "score": 0.9, "tier": "bayesian",
+                     "id": "bayesian_Tesla_true",
+                     "metadata": {"variable": "Tesla", "state": "true"}}
+
+        processor._query_vector_tier = lambda q, k: [dict(real_doc)]
+        processor._query_hipporag_tier = lambda q, k: []
+        processor._query_bayesian_tier = lambda q, k: [dict(bayes_row)]
+
+        # The Bayesian row contributes to recall (signal present).
+        recalled = processor.recall("Tesla")
+        assert any(str(c.get("id", "")).startswith("bayesian_") for c in recalled)
+
+        # ...but it never appears in the final document results.
+        result = processor.process(query="Tesla", mode="execution", top_k=10)
+        docs = result["core"] + result["extended"]
+        assert all(not str(d.get("id", "")).startswith("bayesian_") for d in docs)
+        assert "Tesla=true" not in [d.get("text", "") for d in docs]
+        # The real document is still returned (not over-filtered).
+        assert any(d.get("id") == "doc1" for d in docs)
+
+    def test_real_doc_with_bayesian_id_survives(self, processor):
+        """D7: ids are caller-stable data, not a reserved namespace. A real
+        document recalled from the vector tier whose id happens to start with
+        'bayesian_' is NOT a pseudo-row (source_tiers == ['vector'], no
+        variable/state metadata) and must reach the results - the structural
+        predicate must not drop it on the id prefix alone."""
+        real_doc = {"text": "Bayesian methods explained", "score": 0.8,
+                    "tier": "vector", "id": "bayesian_real_doc", "metadata": {}}
+        processor._query_vector_tier = lambda q, k: [dict(real_doc)]
+        processor._query_hipporag_tier = lambda q, k: []
+        processor._query_bayesian_tier = lambda q, k: []
+
+        result = processor.process(query="bayesian", mode="execution", top_k=10)
+        docs = result["core"] + result["extended"]
+        assert any(d.get("id") == "bayesian_real_doc" for d in docs)
+        assert "Bayesian methods explained" in [d.get("text", "") for d in docs]
+
+    def test_pseudo_docs_filtered_before_rerank(self, processor):
+        """D7: pseudo-rows are not documents, so they must be removed AFTER rank
+        and BEFORE rerank - otherwise they consume rerank slots and distort the
+        reranker's stats/scoring. Assert the reranker never sees the pseudo-row."""
+        real_doc = {"text": "Tesla makes electric cars", "score": 0.8,
+                    "tier": "vector", "id": "doc1", "metadata": {}}
+        bayes_row = {"text": "Tesla=true", "score": 0.9, "tier": "bayesian",
+                     "id": "bayesian_Tesla_true",
+                     "metadata": {"variable": "Tesla", "state": "true"}}
+        processor._query_vector_tier = lambda q, k: [dict(real_doc)]
+        processor._query_hipporag_tier = lambda q, k: []
+        processor._query_bayesian_tier = lambda q, k: [dict(bayes_row)]
+
+        seen = {}
+
+        class FakeReranker:
+            def rerank(self, query, documents, top_k):
+                seen["documents"] = [d.get("id") for d in documents]
+                return list(documents), {"rerank_count": len(documents)}
+
+            def merge_scores(self, reranked, hybrid_weight, rerank_weight):
+                return reranked
+
+        processor.reranker = FakeReranker()
+        processor.rerank_enabled = True
+
+        processor.process(query="Tesla", mode="execution", top_k=10)
+
+        # The reranker saw only the real document; the pseudo-row was dropped
+        # before it could consume a rerank slot or skew rerank stats.
+        assert seen["documents"] == ["doc1"]
+        assert "bayesian_Tesla_true" not in seen["documents"]
+
     def test_filter_low_confidence(self, processor):
         """Test filtering removes low confidence results."""
         candidates = [

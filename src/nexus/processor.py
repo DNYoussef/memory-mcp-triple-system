@@ -214,6 +214,12 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         deduplicated, stats = self._step_deduplicate(filtered, stats)
         ranked, stats = self._step_rank(deduplicated, stats)
 
+        # D7: drop Bayesian VAR=state pseudo-rows after ranking and BEFORE
+        # rerank/compress. They contribute signal through recall/fusion/feedback
+        # but are not documents - leaving them in would let them consume rerank
+        # slots, distort reranker stats/scoring, and surface as results.
+        ranked = [c for c in ranked if not self._is_bayesian_pseudo_doc(c)]
+
         # Step 4.5: Rerank with cross-encoder (MEM-QWEN-002)
         if self.reranker and self.rerank_enabled:
             reranked, stats = self._step_rerank(query, ranked, stats)
@@ -224,6 +230,29 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         result, stats = self._step_compress(reranked, mode, token_budget, stats)
 
         return result, stats
+
+    @staticmethod
+    def _is_bayesian_pseudo_doc(candidate: Dict[str, Any]) -> bool:
+        """True only for a Bayesian VAR=state pseudo-row, identified
+        structurally (NOT by id, which is now caller-stable data and may
+        legitimately start with "bayesian_").
+
+        A genuine pseudo-row, after _combine_tier_scores, comes ONLY from the
+        bayesian tier (source_tiers == ["bayesian"]), carries variable/state
+        metadata, and has text exactly "VAR=state" - the shape emitted by
+        _query_bayesian_tier. A real document that happens to share one of these
+        traits (e.g. id "bayesian_real_doc" recalled from the vector tier) has
+        source_tiers == ["vector"] and no variable/state, so it survives. When
+        any signal is ambiguous, the predicate returns False (keep the doc).
+        """
+        if candidate.get("source_tiers") != ["bayesian"]:
+            return False
+        metadata = candidate.get("metadata") or {}
+        variable = metadata.get("variable")
+        state = metadata.get("state")
+        if variable is None or state is None:
+            return False
+        return candidate.get("text", "") == f"{variable}={state}"
 
     def _candidate_key(self, candidate: Dict[str, Any]) -> str:
         """Build a stable key for combining tier scores."""
