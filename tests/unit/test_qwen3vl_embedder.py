@@ -194,10 +194,21 @@ class TestQwen3VLEmbedderHelpers:
         assert embedder.is_available() == False
 
     def test_is_available_when_model_not_loaded(self):
-        """Test is_available returns False when model not loaded."""
-        embedder = Qwen3VLEmbedder(enabled=True)
-        # Model not loaded yet
-        assert embedder.is_available() == False
+        """Test is_available returns False when the model is not loaded.
+
+        V-QWEN: is_available() reads the `model` property, which LAZY-LOADS via
+        _load_model() whenever enabled and _model is None. Calling it bare made
+        the test depend on whether the model actually loads on this machine/run
+        (it failed where the load succeeded). Patch _load_model to a no-op so
+        the property cannot pull in a real model; _model stays None and the
+        assertion is hermetic. (Setting _model=None alone is insufficient - the
+        property would re-trigger the load.)
+        """
+        with patch.object(Qwen3VLEmbedder, "_load_model", return_value=None):
+            embedder = Qwen3VLEmbedder(enabled=True)
+            embedder._model = None
+            embedder._processor = None
+            assert embedder.is_available() == False
 
     def test_is_available_when_enabled_and_loaded(self):
         """Test is_available returns True when enabled and loaded."""
