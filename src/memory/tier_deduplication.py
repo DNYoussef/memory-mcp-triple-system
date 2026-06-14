@@ -71,6 +71,11 @@ class DeduplicationResult:
     bytes_freed: int
     pairs: List[DuplicatePair]
     errors: List[str] = field(default_factory=list)
+    # Potential savings if the merge plan were executed. run_deduplication is an
+    # ANALYSIS pass and performs no merges, so duplicates_merged/bytes_freed
+    # report actual work (0 here); reclaimable reports what get_merge_plan could
+    # free. Kept separate so found-candidates are never mislabeled as merged.
+    bytes_reclaimable: int = 0
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -81,6 +86,7 @@ class DeduplicationResult:
             "duplicates_found": self.duplicates_found,
             "duplicates_merged": self.duplicates_merged,
             "bytes_freed": self.bytes_freed,
+            "bytes_reclaimable": self.bytes_reclaimable,
             "pairs": [p.to_dict() for p in self.pairs],
             "errors": self.errors
         }
@@ -302,6 +308,13 @@ class TierDeduplicator:
 
         return pairs
 
+    @staticmethod
+    def _pair_key(pair: DuplicatePair) -> frozenset:
+        """Orientation-independent identity of a duplicate pair (the unordered
+        set of the two chunk ids), so the same two chunks are never counted
+        twice when phases disagree on which is primary."""
+        return frozenset({pair.primary.chunk_id, pair.duplicate.chunk_id})
+
     def run_deduplication(
         self,
         chunks: List[ChunkReference],
@@ -322,8 +335,7 @@ class TierDeduplicator:
         started_at = datetime.utcnow()
 
         all_pairs = []
-        bytes_freed = 0
-        merged_count = 0
+        bytes_reclaimable = 0
         errors = []
 
         try:
@@ -335,14 +347,16 @@ class TierDeduplicator:
             # Phase 2: Find semantic duplicates
             embedding_pairs = self.find_duplicates_by_embedding(chunks)
 
-            # Filter out pairs already found by hash
-            existing_pairs = {
-                (p.primary.chunk_id, p.duplicate.chunk_id)
-                for p in hash_pairs
-            }
+            # Filter out pairs already found by hash. The key is
+            # orientation-independent: the SAME two chunks can appear with
+            # primary/duplicate swapped across phases (e.g. exact-hash picks one
+            # primary, the embedding phase picks the other), and a directional
+            # key would let both through - inflating duplicates_found and
+            # double-counting bytes below.
+            existing_pairs = {self._pair_key(p) for p in hash_pairs}
             new_embedding_pairs = [
                 p for p in embedding_pairs
-                if (p.primary.chunk_id, p.duplicate.chunk_id) not in existing_pairs
+                if self._pair_key(p) not in existing_pairs
             ]
             all_pairs.extend(new_embedding_pairs)
             logger.info(f"Found {len(new_embedding_pairs)} semantic duplicate pairs")
@@ -354,24 +368,28 @@ class TierDeduplicator:
 
             cross_pairs = self.find_cross_tier_duplicates(short, mid, long)
 
-            # Filter already found
-            existing_ids = {
-                (p.primary.chunk_id, p.duplicate.chunk_id)
-                for p in all_pairs
-            }
+            # Filter already found (orientation-independent, same rationale).
+            existing_ids = {self._pair_key(p) for p in all_pairs}
             new_cross_pairs = [
                 p for p in cross_pairs
-                if (p.primary.chunk_id, p.duplicate.chunk_id) not in existing_ids
+                if self._pair_key(p) not in existing_ids
             ]
             all_pairs.extend(new_cross_pairs)
             logger.info(f"Found {len(new_cross_pairs)} cross-tier duplicate pairs")
 
-            # Calculate potential savings
+            # Potential savings IF the merge plan were executed (analysis only).
+            # A duplicate CLUSTER of N identical chunks yields N-1 distinct pairs
+            # that can share the same duplicate target (e.g. newest->middle and
+            # oldest->middle both name `middle`). Summing per pair would count
+            # `middle` twice. Sum each unique duplicate target's bytes once - a
+            # chunk reclaims its bytes exactly once when it is removed, no matter
+            # how many pairs nominate it.
+            seen_duplicate_ids = set()
             for pair in all_pairs:
-                bytes_freed += pair.duplicate.byte_size
-
-            if not dry_run:
-                merged_count = len(all_pairs)  # Would be actual merge count
+                if pair.duplicate.chunk_id in seen_duplicate_ids:
+                    continue
+                seen_duplicate_ids.add(pair.duplicate.chunk_id)
+                bytes_reclaimable += pair.duplicate.byte_size
 
         except Exception as e:
             logger.error(f"Deduplication error: {e}")
@@ -379,21 +397,29 @@ class TierDeduplicator:
 
         completed_at = datetime.utcnow()
 
+        # This method only FINDS duplicates and (via get_merge_plan) plans the
+        # work; it never updates/deletes chunks. So actual merges and freed
+        # bytes are always 0 - reporting len(all_pairs) here (the old behavior)
+        # fabricated merges that never happened. The reclaimable figure carries
+        # the potential honestly. dry_run is retained for API compatibility but
+        # does not change accounting, since nothing executes either way.
         result = DeduplicationResult(
             run_id=run_id,
             started_at=started_at,
             completed_at=completed_at,
             chunks_scanned=len(chunks),
             duplicates_found=len(all_pairs),
-            duplicates_merged=merged_count if not dry_run else 0,
-            bytes_freed=bytes_freed if not dry_run else 0,
+            duplicates_merged=0,
+            bytes_freed=0,
+            bytes_reclaimable=bytes_reclaimable,
             pairs=all_pairs,
             errors=errors
         )
 
         logger.info(
             f"Deduplication {run_id}: {len(chunks)} scanned, "
-            f"{len(all_pairs)} duplicates, {bytes_freed} bytes potential savings"
+            f"{len(all_pairs)} duplicate candidates, "
+            f"{bytes_reclaimable} bytes reclaimable (no merges executed)"
         )
 
         return result
