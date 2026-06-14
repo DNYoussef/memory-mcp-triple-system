@@ -137,6 +137,41 @@ class TestFileWatcher:
         assert "watch_paths" in stats
         assert "extensions" in stats
 
+    @pytest.mark.asyncio
+    async def test_on_file_event_from_thread_reaches_queue(self, mock_injector):
+        """G4: an event raised from a non-loop thread (like the watchdog thread)
+        still reaches the event queue. Old code called asyncio.get_event_loop()
+        in that thread, which raises on Py3.10+ and was silently dropped."""
+        watcher = FileWatcher(mock_injector)
+        watcher._loop = asyncio.get_running_loop()  # captured by start() in real use
+
+        loop = asyncio.get_running_loop()
+        # A thread-pool executor thread has no event loop, like the watchdog thread.
+        await loop.run_in_executor(None, watcher._on_file_event, "/x/a.py", "modified")
+
+        item = await asyncio.wait_for(watcher._event_queue.get(), timeout=1.0)
+        assert item == ("/x/a.py", "modified")
+
+    def test_add_watch_path_reuses_single_handler(self, mock_injector, temp_dir, monkeypatch):
+        """G5: add_watch_path reuses the shared handler and does not re-schedule
+        an already-watched path (no duplicate handler / double-fire)."""
+        import src.services.trigger_watchers.file_watcher as fw
+        monkeypatch.setattr(fw, "WATCHDOG_AVAILABLE", True)
+
+        watcher = FileWatcher(mock_injector)
+        watcher._running = True
+        watcher._observer = MagicMock()
+        shared = MagicMock()
+        watcher._handler = shared
+
+        assert watcher.add_watch_path(temp_dir) is True
+        watcher._observer.schedule.assert_called_once_with(shared, temp_dir, recursive=True)
+
+        # Re-adding the same path must not register another watch.
+        watcher._observer.schedule.reset_mock()
+        assert watcher.add_watch_path(temp_dir) is True
+        watcher._observer.schedule.assert_not_called()
+
 
 # ========== GIT WATCHER TESTS ==========
 

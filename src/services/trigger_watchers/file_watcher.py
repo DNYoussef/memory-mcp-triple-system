@@ -269,6 +269,11 @@ class FileWatcher:
         self._running = False
         self._event_queue: asyncio.Queue = asyncio.Queue()
         self._processor_task: Optional[asyncio.Task] = None
+        # Captured at start() in the event-loop thread so watchdog-thread events
+        # can be dispatched without asyncio.get_event_loop() (G4). One shared
+        # handler so add_watch_path() never registers a duplicate (G5).
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._handler: Optional["FileEventHandler"] = None
 
         logger.info(
             f"FileWatcher initialized for {len(self.config.paths)} paths, "
@@ -276,15 +281,23 @@ class FileWatcher:
         )
 
     def _on_file_event(self, file_path: str, event_type: str) -> None:
-        """Handle file event (called from watchdog thread)."""
+        """Handle file event (called from the watchdog thread).
+
+        Uses the loop captured at start(), not asyncio.get_event_loop() - the
+        latter raises in the watchdog thread on Python 3.10+ and the old bare
+        except silently dropped every file event (G4).
+        """
+        loop = self._loop
+        if loop is None:
+            # Watcher not started inside an event loop; nothing to dispatch to.
+            return
         try:
-            # Queue event for async processing
-            asyncio.get_event_loop().call_soon_threadsafe(
+            loop.call_soon_threadsafe(
                 self._event_queue.put_nowait,
                 (file_path, event_type),
             )
         except RuntimeError:
-            # No event loop running
+            # Loop is closed/closing.
             pass
 
     async def _process_events(self) -> None:
@@ -336,17 +349,21 @@ class FileWatcher:
 
         self._running = True
 
+        # Capture the running loop for cross-thread event dispatch (G4).
+        self._loop = asyncio.get_running_loop()
+
         # Start event processor
         self._processor_task = asyncio.create_task(self._process_events())
 
         if WATCHDOG_AVAILABLE:
             # Use watchdog for efficient file system monitoring
             self._observer = Observer()
-            handler = FileEventHandler(self._on_file_event, self.config)
+            # One shared handler reused by add_watch_path (G5).
+            self._handler = FileEventHandler(self._on_file_event, self.config)
 
             for path in self.config.paths:
                 if os.path.exists(path):
-                    self._observer.schedule(handler, path, recursive=True)
+                    self._observer.schedule(self._handler, path, recursive=True)
                     logger.info(f"Watching directory: {path}")
                 else:
                     logger.warning(f"Watch path does not exist: {path}")
@@ -404,8 +421,11 @@ class FileWatcher:
         self.config.paths.append(path)
 
         if self._running and self._observer and WATCHDOG_AVAILABLE:
-            handler = FileEventHandler(self._on_file_event, self.config)
-            self._observer.schedule(handler, path, recursive=True)
+            # Reuse the single shared handler - creating a new one per path
+            # registered a duplicate handler and double-fired events (G5).
+            if self._handler is None:
+                self._handler = FileEventHandler(self._on_file_event, self.config)
+            self._observer.schedule(self._handler, path, recursive=True)
             logger.info(f"Added watch path: {path}")
 
         return True
