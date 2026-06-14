@@ -101,6 +101,40 @@ class TestProbabilisticQueryEngine:
         assert "probability" in result
         assert isinstance(result["assignment"], dict)
 
+    # ---- D5: network=None must fall back to the engine's stored network ----
+
+    def test_query_marginal_network_none_uses_stored(self, engine, simple_network):
+        """D5: query_marginal(network=None) uses the engine's stored network."""
+        engine.set_network(simple_network)
+
+        result = engine.query_marginal(network=None, query_vars=["C"])
+
+        assert result is not None
+        assert "results" in result and "C" in result["results"]
+
+    def test_query_marginal_network_none_no_stored_returns_none(self, engine):
+        """D5: query_marginal(network=None) with no stored network returns None (no crash)."""
+        assert engine._network is None
+        assert engine.query_marginal(network=None, query_vars=["C"]) is None
+
+    def test_mpe_network_none_uses_stored(self, engine, simple_network):
+        """D5: get_most_probable_explanation(network=None) uses the stored network.
+
+        Pre-fix this method used the passed-in network directly, so None crashed
+        in _map_query_impl (no effective_network fallback).
+        """
+        engine.set_network(simple_network)
+
+        result = engine.get_most_probable_explanation(network=None, evidence={"A": 0})
+
+        assert result is not None
+        assert "assignment" in result and "probability" in result
+
+    def test_mpe_network_none_no_stored_returns_none(self, engine):
+        """D5: MPE(network=None) with no stored network returns None (no crash)."""
+        assert engine._network is None
+        assert engine.get_most_probable_explanation(network=None, evidence={"A": 0}) is None
+
     def test_timeout_fallback(self, engine):
         """Test 1s timeout triggers fallback (returns None)."""
         # Create engine with very short timeout
