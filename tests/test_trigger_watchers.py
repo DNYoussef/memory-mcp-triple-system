@@ -300,6 +300,61 @@ class TestTimeScheduler:
         assert len(schedules) > 0
         assert all(isinstance(s, ScheduledTrigger) for s in schedules)
 
+    @pytest.mark.asyncio
+    async def test_check_schedules_survives_failing_schedule(self, mock_injector):
+        """G6: a schedule that raises in matches_now must not kill the loop -
+        the scheduler keeps cycling instead of dying with _running stuck True."""
+        bad = MagicMock()
+        bad.trigger_id = "bad"
+        bad.matches_now.side_effect = RuntimeError("bad schedule")
+
+        scheduler = TimeScheduler(mock_injector, schedules=[bad], check_interval=0.01)
+        scheduler._running = True
+        task = asyncio.create_task(scheduler._check_schedules())
+
+        await asyncio.sleep(0.05)  # allow several check cycles
+
+        # Old code: the first raise killed the task. Fixed: it kept cycling.
+        assert not task.done()
+        assert bad.matches_now.call_count >= 2
+
+        scheduler._running = False
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    @pytest.mark.asyncio
+    async def test_check_schedules_bad_schedule_does_not_block_good(self, mock_injector):
+        """G6 contract: a bad schedule earlier in the snapshot must NOT prevent a
+        later good schedule from being evaluated each cycle (per-schedule guard)."""
+        bad = MagicMock()
+        bad.trigger_id = "bad"
+        bad.matches_now.side_effect = RuntimeError("bad schedule")
+        good = MagicMock()
+        good.trigger_id = "good"
+        good.matches_now.return_value = False  # evaluated, but does not trigger
+
+        # bad is inserted first, so it is iterated before good.
+        scheduler = TimeScheduler(mock_injector, schedules=[bad, good], check_interval=0.01)
+        scheduler._running = True
+        task = asyncio.create_task(scheduler._check_schedules())
+
+        await asyncio.sleep(0.05)  # allow several check cycles
+
+        # Both are evaluated every cycle - the bad one is skipped, not fatal.
+        assert not task.done()
+        assert bad.matches_now.call_count >= 2
+        assert good.matches_now.call_count >= 2  # the good schedule after bad still runs
+
+        scheduler._running = False
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
 
 # ========== ACTIVITY DETECTOR TESTS ==========
 

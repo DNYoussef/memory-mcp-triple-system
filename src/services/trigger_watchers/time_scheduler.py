@@ -194,10 +194,23 @@ class TimeScheduler:
         """Check and trigger scheduled events."""
         while self._running:
             now = datetime.now()
-
-            for schedule in self._schedules.values():
-                if schedule.matches_now(now):
-                    await self._trigger_scheduled(schedule, now)
+            # Iterate a snapshot so a concurrent add/remove_schedule cannot
+            # raise "dict changed size during iteration".
+            for schedule in list(self._schedules.values()):
+                try:
+                    if schedule.matches_now(now):
+                        await self._trigger_scheduled(schedule, now)
+                except asyncio.CancelledError:
+                    # stop() cancels this task - propagate so it exits cleanly.
+                    raise
+                except Exception as exc:
+                    # Guard PER schedule: one bad schedule is skipped so every
+                    # other schedule in the snapshot still runs this cycle, and
+                    # the loop never dies (no restart; _running stays True).
+                    logger.error(
+                        f"Schedule '{getattr(schedule, 'trigger_id', '?')}' "
+                        f"failed (skipping): {exc}"
+                    )
 
             await asyncio.sleep(self.check_interval)
 
