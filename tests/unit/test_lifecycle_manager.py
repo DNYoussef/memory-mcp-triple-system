@@ -8,6 +8,7 @@ Tests 4-stage lifecycle with rekindling:
 4. Rehydratable (1% score, >90 days, lossy key)
 """
 
+import json
 import pytest
 from unittest.mock import Mock, patch, mock_open
 from datetime import datetime, timedelta
@@ -336,6 +337,66 @@ class TestRehydration:
         assert metadata['stage'] == 'active'
         assert metadata['score_multiplier'] == 1.0
         assert 'rekindled_at' in metadata
+
+    def test_rekindle_sets_valid_last_accessed_ts(self, manager):
+        """E4: rekindling must not drop last_accessed_ts to missing/None.
+
+        A chunk with no last_accessed_ts never matches the demote query
+        ({"last_accessed_ts": {"$lt": cutoff}}), so it would look permanently
+        active / unclassifiable. The current code (fixed in 5adb4df)
+        INTENTIONALLY refreshes access time on rekindle, so the invariant we pin
+        is a bounded "now": the promoted ts is a valid float in [before, after]
+        and strictly newer than the stale archived ts. Pre-5adb4df,
+        _reindex_and_promote wrote a fresh metadata dict with only
+        last_accessed/rekindled_at and NO last_accessed_ts (and no chunk
+        metadata at all), which this test catches.
+        """
+        # Archived chunk carries an OLD last_accessed_ts (demote-eligible).
+        old_ts = (datetime.utcnow() - timedelta(days=120)).timestamp()
+        archived_meta = json.dumps({
+            "file_path": "/path/to/file.md",
+            "stage": "archived",
+            "last_accessed_ts": old_ts,
+        })
+        manager.kv_store.get.side_effect = lambda key: (
+            "Summary of chunk" if key == "archived:chunk1" else
+            archived_meta if key == "archived:chunk1:metadata" else
+            None
+        )
+
+        # Bound "now" with the SAME conversion the code uses
+        # (datetime.utcnow().timestamp()) so the comparison is tz-consistent.
+        before = datetime.utcnow().timestamp()
+        with patch('builtins.open', mock_open(read_data='Full text from file')):
+            success = manager.rekindle_archived([0.1, 0.2, 0.3], 'chunk1')
+        after = datetime.utcnow().timestamp()
+
+        assert success is True
+
+        # Primary E4 invariant: the PROMOTED vector metadata (collection.update)
+        # carries a valid, freshly-set last_accessed_ts - never None/missing.
+        promoted = manager.vector_indexer.collection.update.call_args[1]['metadatas'][0]
+        ts = promoted.get('last_accessed_ts')
+        assert ts is not None, "promoted: last_accessed_ts dropped to None/missing"
+        assert isinstance(ts, (int, float)), f"promoted: last_accessed_ts not numeric: {ts!r}"
+        assert before <= ts <= after, f"promoted: ts {ts} not bounded by [{before}, {after}]"
+        assert ts > old_ts, "promoted: ts not refreshed past the stale archived ts"
+
+        # The re-indexed chunk metadata (index_chunks) must carry it too, so the
+        # stored document and the collection agree.
+        indexed = manager.vector_indexer.index_chunks.call_args[1]['chunks'][0].get('metadata', {})
+        ts_indexed = indexed.get('last_accessed_ts')
+        assert ts_indexed is not None, "index_chunks: last_accessed_ts dropped to None/missing"
+        assert before <= ts_indexed <= after, f"index_chunks: ts {ts_indexed} not bounded"
+
+        # Downstream hot/cold recency: with a demote cutoff between the stale
+        # archived ts and now, the OLD ts would be demoted ($lt cutoff) but the
+        # rekindled chunk is fresh and must NOT be.
+        cutoff = (datetime.utcnow() - timedelta(days=7)).timestamp()
+        assert old_ts < cutoff, "precondition: archived ts should be demote-eligible"
+        assert promoted['last_accessed_ts'] >= cutoff, (
+            "rekindled chunk must read as recent (not < demote cutoff)"
+        )
 
     def test_rekindle_reembeds_full_text_when_embedder_available(self):
         """Rekindle should index the document embedding, not the wake-up query vector."""
