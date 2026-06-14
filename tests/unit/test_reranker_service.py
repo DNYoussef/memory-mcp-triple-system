@@ -288,6 +288,28 @@ class TestRerankerServiceMergeScores:
         merged = service.merge_scores(docs, hybrid_weight=1.0, rerank_weight=0.0)
         assert merged[0]["final_score"] == 1.0
 
+    def test_merge_scores_clamps_unnormalized_hybrid(self, service):
+        """D2: an un-normalized hybrid_score (>1) is clamped to 1.0 before
+        weighting, so 50/50 stays 50/50. sigmoid(0) = 0.5, so the rerank term is
+        0.5 * 0.5 = 0.25. Pre-fix used the raw hybrid: 0.5*2.0 + 0.25 = 1.25;
+        fixed clamps hybrid to 1.0: 0.5*1.0 + 0.25 = 0.75."""
+        docs = [{"id": "d", "hybrid_score": 2.0, "rerank_score": 0.0}]
+
+        merged = service.merge_scores(docs, hybrid_weight=0.5, rerank_weight=0.5)
+
+        assert merged[0]["final_score"] == pytest.approx(0.75)
+
+    def test_merge_scores_both_inputs_in_unit_range(self, service):
+        """Both blended inputs are normalized to [0,1], so final_score never
+        exceeds 1.0 even for extreme/unbounded inputs."""
+        docs = [{"id": "d", "hybrid_score": 99.0, "rerank_score": 50.0}]
+
+        merged = service.merge_scores(docs, hybrid_weight=0.5, rerank_weight=0.5)
+
+        # hybrid clamped to 1.0; rerank sigmoid(50) ~ 1.0 -> sum ~ 1.0, never > 1.
+        assert merged[0]["final_score"] <= 1.0
+        assert merged[0]["final_score"] == pytest.approx(1.0, abs=1e-3)
+
     def test_merge_scores_handles_missing_hybrid_score(self, service):
         """Test handling of missing hybrid_score (falls back to 'score')."""
         docs = [
