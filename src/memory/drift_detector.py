@@ -435,7 +435,12 @@ class DriftDetector:
         Returns:
             List of chunk IDs to consider for cleanup
         """
+        # NONE must be included: _score_to_severity returns it for any drift
+        # below the LOW threshold (e.g. detect_confidence_drift just under the
+        # confidence threshold), so signal.severity / min_severity can be NONE.
+        # Omitting it made severity_order.index(...) raise ValueError (E11).
         severity_order = [
+            DriftSeverity.NONE,
             DriftSeverity.LOW,
             DriftSeverity.MEDIUM,
             DriftSeverity.HIGH,
