@@ -10,6 +10,8 @@ import json
 from datetime import datetime, timedelta
 from loguru import logger
 
+from ._mutation_lock import guarded_mutation
+
 
 class StageTransitionsMixin:
     """
@@ -23,6 +25,7 @@ class StageTransitionsMixin:
         - self.rehydrate_threshold
     """
 
+    @guarded_mutation
     def demote_stale_chunks(self, threshold_days: Optional[int] = None) -> int:
         """
         Demote chunks not accessed in N days.
@@ -81,6 +84,7 @@ class StageTransitionsMixin:
         logger.info(f"Demoted {len(chunk_ids)} chunks (>{threshold} days old)")
         return len(chunk_ids)
 
+    @guarded_mutation
     def archive_demoted_chunks(
         self,
         threshold_days: Optional[int] = None
@@ -163,6 +167,7 @@ class StageTransitionsMixin:
 
         return archived_count
 
+    @guarded_mutation
     def make_rehydratable(
         self,
         threshold_days: Optional[int] = None

@@ -10,6 +10,8 @@ from datetime import datetime
 import numpy as np
 from loguru import logger
 
+from ._mutation_lock import guarded_mutation
+
 
 class ConsolidationMixin:
     """
@@ -19,6 +21,7 @@ class ConsolidationMixin:
         - self.vector_indexer
     """
 
+    @guarded_mutation
     def consolidate_similar(self, threshold: float = 0.95) -> int:
         """
         Consolidate similar chunks (merge if cosine >threshold).

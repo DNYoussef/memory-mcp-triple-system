@@ -19,12 +19,14 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
 import ast
 import json
+import threading
 import numpy as np
 from loguru import logger
 
 # Import mixins for modular architecture (ISS-006 fix)
 from .stage_transitions import StageTransitionsMixin
 from .consolidation import ConsolidationMixin
+from ._mutation_lock import guarded_mutation
 
 
 class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
@@ -56,6 +58,14 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
         self.kv_store = kv_store
         self.embedding_pipeline = embedding_pipeline
 
+        # Cross-subsystem mutation lock (E7). Every mutating entry point on this
+        # manager - demote/archive/cleanup/rekindle/make_rehydratable across the
+        # mixins, plus consolidate - acquires this lock (via @guarded_mutation)
+        # so concurrent to_thread workers cannot interleave Chroma mutations.
+        # RLock so a guarded method calling another on the same thread re-enters
+        # instead of self-deadlocking.
+        self._mutation_lock = threading.RLock()
+
         # Stage configuration
         self.stages = {
             'active': 1.0,
@@ -71,6 +81,7 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
 
         logger.info("MemoryLifecycleManager initialized")
 
+    @guarded_mutation
     def cleanup_expired(self) -> int:
         """Clean up expired entries from KV store.
 
@@ -91,6 +102,7 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
     #   _merge_chunk_pair, _calculate_similarity, _merge_chunks
     # This reduces lifecycle_manager.py from ~614 LOC to ~280 LOC (54% reduction)
 
+    @guarded_mutation
     def rekindle_archived(
         self,
         query_embedding: List[float],
