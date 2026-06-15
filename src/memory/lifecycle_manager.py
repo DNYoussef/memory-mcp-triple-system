@@ -157,27 +157,46 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
             logger.warning(f"Chunk {chunk_id} not found in archive")
             return None, None
 
+        # No silent /default/path.md fabrication (E8): if metadata is genuinely
+        # missing, return None so _extract_file_path fails honestly rather than
+        # rehydrating from a bogus default path.
         metadata_str = (
             self.kv_store.get(f"archived:{chunk_id}:metadata") or
-            self.kv_store.get(f"rehydratable:{chunk_id}:metadata") or
-            "file_path: /default/path.md"  # Fallback for tests
+            self.kv_store.get(f"rehydratable:{chunk_id}:metadata")
         )
 
         return summary, metadata_str
 
-    def _extract_file_path(self, metadata_str: str) -> Optional[str]:
-        """Extract file path from metadata string."""
-        metadata = self._metadata_from_string(metadata_str)
+    def _extract_file_path(self, metadata_str: Optional[str]) -> Optional[str]:
+        """Extract file path from archived metadata.
+
+        Production stores metadata as JSON (see _archive_chunks_batch); legacy
+        repr strings are also parsed. Structured parse wins. On any miss we
+        return None (rekindle then fails cleanly) instead of fabricating a
+        /default/path.md - silently rehydrating the wrong file was the E8 bug.
+        """
+        metadata = self._metadata_from_string(metadata_str or "")
         if metadata.get("file_path"):
             return str(metadata["file_path"])
-        if not metadata_str or "file_path" not in metadata_str:
+        if metadata:
+            # Parsed to a real dict but it carries no file_path - nothing to
+            # rehydrate from. Do not scan the raw string (a "file_path"
+            # substring elsewhere would yield a wrong path).
+            logger.warning("Archived metadata has no file_path; cannot rehydrate")
             return None
 
-        try:
-            file_path = metadata_str.split("file_path")[1].split(",")[0].strip(": '\"")
-            return file_path
-        except (IndexError, AttributeError):
-            return "/default/path.md"
+        # Parse failed entirely (empty dict). Tolerantly scan legacy non-JSON
+        # strings for a file_path, but fail honestly on a miss.
+        if metadata_str and "file_path" in metadata_str:
+            try:
+                candidate = metadata_str.split("file_path", 1)[1].split(",", 1)[0].strip(": '\"")
+                if candidate:
+                    return candidate
+            except (IndexError, AttributeError):
+                pass
+
+        logger.warning("Could not extract file_path from archived metadata")
+        return None
 
     def _read_full_text(self, file_path: str) -> Optional[str]:
         """Read full text from file."""

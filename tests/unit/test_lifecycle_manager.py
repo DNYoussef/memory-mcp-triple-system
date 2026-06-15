@@ -419,6 +419,56 @@ class TestRehydration:
         call_args = mock_indexer.index_chunks.call_args
         assert call_args[1]['embeddings'] == [[0.9, 0.8, 0.7]]
 
+    def test_rekindle_missing_metadata_does_not_read_default_path(self, manager):
+        """E8: when a chunk's metadata is absent, rekindle must fail honestly,
+        NOT silently fabricate 'file_path: /default/path.md' and try to read it.
+        Old code injected that default string in _get_archived_data and resolved
+        it via string-splitting, masking the real 'metadata missing' error."""
+        manager.kv_store.get.side_effect = lambda key: (
+            "Summary present but no metadata" if key == "archived:chunk1" else
+            None  # no metadata under archived: or rehydratable:
+        )
+
+        read_paths = []
+        original_read = manager._read_full_text
+
+        def spy_read(path):
+            read_paths.append(path)
+            return original_read(path)
+
+        with patch.object(manager, "_read_full_text", side_effect=spy_read):
+            success = manager.rekindle_archived([0.1, 0.2, 0.3], "chunk1")
+
+        assert success is False
+        assert "/default/path.md" not in read_paths, (
+            "rekindle silently read the fabricated /default/path.md on a parse miss"
+        )
+        manager.vector_indexer.index_chunks.assert_not_called()
+
+    def test_rekindle_with_json_metadata_reads_real_file(self, manager, tmp_path):
+        """E8: the PRODUCTION metadata format is json.dumps(...) (see
+        _archive_chunks_batch). Rekindle must resolve file_path from that JSON
+        and rehydrate from the real file - not depend on the legacy colon
+        string-splitting path."""
+        real_file = tmp_path / "doc.md"
+        real_file.write_text("FULL DOCUMENT TEXT")
+        metadata = json.dumps(
+            {"file_path": str(real_file), "stage": "archived"}, sort_keys=True
+        )
+        manager.kv_store.get.side_effect = lambda key: (
+            "Summary" if key == "archived:chunk1" else
+            metadata if key == "archived:chunk1:metadata" else
+            None
+        )
+
+        success = manager.rekindle_archived([0.1, 0.2, 0.3], "chunk1")
+
+        assert success is True
+        manager.vector_indexer.index_chunks.assert_called_once()
+        indexed_chunk = manager.vector_indexer.index_chunks.call_args[1]["chunks"][0]
+        assert indexed_chunk["file_path"] == str(real_file)
+        assert indexed_chunk["text"] == "FULL DOCUMENT TEXT"
+
 
 class TestConsolidation:
     """Test suite for consolidation (merge similar chunks)."""
