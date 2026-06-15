@@ -118,7 +118,9 @@ def parse_namespace_key(key: str) -> Optional[ParsedNamespace]:
     segments = {}
     for i, segment_name in enumerate(expected_segments):
         if i < len(segments_values):
-            segments[segment_name] = segments_values[i]
+            value = segments_values[i]
+            if value:
+                segments[segment_name] = value
 
     return ParsedNamespace(
         namespace=namespace,
@@ -149,11 +151,19 @@ def build_namespace_key(
 
     parts = [namespace.value]
 
-    for segment_name in expected_segments:
+    last_provided = -1
+    for index, segment_name in enumerate(expected_segments):
+        if kwargs.get(segment_name) is not None:
+            last_provided = index
+
+    for index, segment_name in enumerate(expected_segments):
+        if index > last_provided:
+            break
         value = kwargs.get(segment_name)
         if value is None:
             # Use placeholder for missing optional segments
-            break
+            parts.append("")
+            continue
         parts.append(str(value))
 
     return ":".join(parts)
