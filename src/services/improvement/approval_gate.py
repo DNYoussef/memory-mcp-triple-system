@@ -125,6 +125,8 @@ class HumanApprovalGate:
         if priority is None:
             priority = self._calculate_priority(proposal)
 
+        self._stats["total_submitted"] += 1
+
         # Check for auto-approval
         if self._can_auto_approve(proposal, priority):
             logger.info(f"Auto-approving low-risk proposal: {proposal.proposal_id}")
@@ -152,7 +154,6 @@ class HumanApprovalGate:
         )
 
         self._pending[request.request_id] = request
-        self._stats["total_submitted"] += 1
 
         logger.info(f"Submitted proposal {proposal.proposal_id} for approval (priority: {priority.name})")
 
