@@ -32,6 +32,7 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
         _kv_get_tool(),
         _kv_set_tool(),
         _kv_delete_tool(),
+        _context_retrieve_tool(),
     ]
 
 
@@ -380,6 +381,24 @@ def _kv_delete_tool() -> Dict[str, Any]:
             "type": "object",
             "properties": {"key": {"type": "string", "description": "Key to delete"}},
             "required": ["key"]
+        }
+    }
+
+
+def _context_retrieve_tool() -> Dict[str, Any]:
+    """Context-retrieve tool definition (P5 - server side of context injection)."""
+    return {
+        "name": "context_retrieve",
+        "version": REGISTRY_VERSION,
+        "description": "Surface relevant stored memory to inject as context for a query",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Current query/work to find context for"},
+                "limit": {"type": "integer", "description": "Max context items (default 5)", "default": 5},
+                "mode": {"type": "string", "enum": ["execution", "planning", "brainstorming"], "default": "planning"}
+            },
+            "required": ["query"]
         }
     }
 

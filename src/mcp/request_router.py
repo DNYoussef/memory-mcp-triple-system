@@ -846,6 +846,32 @@ def handle_kv_delete(arguments: Dict[str, Any], tool: "NexusSearchTool") -> Dict
     return _text_result("deleted" if tool.kv_store.delete(key) else "not found", False)
 
 
+def handle_context_retrieve(arguments: Dict[str, Any], tool: "NexusSearchTool") -> Dict[str, Any]:
+    """Handle context_retrieve - surface relevant stored memory to inject for a query.
+
+    This is the server side of proactive context injection: given the current
+    query/work, return the relevant memory the client should inject into context.
+    (The richer ProactiveContextInjector adds trigger automation + ontology on top
+    of this same retrieval.)
+    """
+    query = arguments.get("query", "")
+    if not query:
+        return _text_result("context_retrieve requires a non-empty 'query'", True)
+    limit = arguments.get("limit", 5)
+    mode = arguments.get("mode", "planning")
+    try:
+        results = tool.execute(query, limit, mode)
+    except Exception as exc:
+        return _text_result(f"context_retrieve failed: {exc}", True)
+
+    lines = ["Relevant context to inject:"]
+    for r in results:
+        text = r.get("text", "") if isinstance(r, dict) else getattr(r, "text", "")
+        score = r.get("score", 0.0) if isinstance(r, dict) else getattr(r, "score", 0.0)
+        lines.append(f"[{score:.2f}] {text[:300]}")
+    return _text_result("\n".join(lines) if results else "No relevant context found", False)
+
+
 # === Main Router ===
 
 def handle_call_tool(
@@ -872,6 +898,7 @@ def handle_call_tool(
         "kv_get": handle_kv_get,
         "kv_set": handle_kv_set,
         "kv_delete": handle_kv_delete,
+        "context_retrieve": handle_context_retrieve,
     }
 
     try:

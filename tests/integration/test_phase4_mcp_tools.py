@@ -35,7 +35,7 @@ class TestMCPToolsExposed:
             "detect_mode", "lifecycle_status", "obsidian_sync",
             "beads_ready_tasks", "beads_task_detail", "beads_query_tasks",
             "observation_timeline",
-            "kv_get", "kv_set", "kv_delete",
+            "kv_get", "kv_set", "kv_delete", "context_retrieve",
         }
 
         assert tool_names == expected, (

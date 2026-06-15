@@ -52,7 +52,7 @@ class TestHandleListTools:
         """All registered tools returned, including the KV tools (B4)."""
         tools = handle_list_tools()
         names = {t["name"] for t in tools}
-        assert len(tools) == 17
+        assert len(tools) == 18
         assert {"kv_get", "kv_set", "kv_delete"} <= names
 
     def test_vector_search_tool_present(self):
@@ -357,7 +357,7 @@ class TestStdioMainLoop:
 
         assert "result" in response
         assert "tools" in response["result"]
-        assert len(response["result"]["tools"]) == 17
+        assert len(response["result"]["tools"]) == 18
 
     def test_error_response_format(self):
         """Test error response format for unknown method."""

@@ -26,9 +26,7 @@ CANARY = f"CANARY-{uuid.uuid4().hex}"
 TEXT = f"{CANARY}: GuardSpine zebra-quasar reactor tuned by Wilhelmina Ashgrove in project triplecheck."
 
 # Known-broken today -> xfail (recorded, not a gate failure). Flipped by their phase.
-XFAIL = {
-    "context_injection": "B5/P5: proactive injection not a registered tool",
-}
+XFAIL = {}  # all capabilities now have a working path
 
 # Reinforcing memories so the knowledge graph has real entity co-occurrence
 # edges for the Bayesian network to learn CPDs from (not synthetic).
@@ -169,8 +167,12 @@ def main():
     except Exception as e:
         record("lifecycle_aging", False, e)
 
-    # context injection (xfail) --------------------------------------------
-    record("context_injection", False, "no registered injection tool")
+    # context injection: relevant memory surfaced for a query --------------
+    try:
+        out = call("context_retrieve", {"query": "Wilhelmina Ashgrove reactor", "limit": 5})
+        record("context_injection", CANARY in out or "Wilhelmina" in out, out)
+    except Exception as e:
+        record("context_injection", False, e)
 
     # report ----------------------------------------------------------------
     shutil.rmtree(data_dir, ignore_errors=True)
