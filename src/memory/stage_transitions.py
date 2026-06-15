@@ -111,7 +111,7 @@ class StageTransitionsMixin:
 
         logger.info(
             f"Archived {archived_count} chunks "
-            f"(compressed 100:1, >{threshold} days demoted)"
+            f"(compressed to bounded summary, >{threshold} days demoted)"
         )
         return archived_count
 

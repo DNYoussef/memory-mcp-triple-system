@@ -164,8 +164,11 @@ class TestArchival:
         assert manager.vector_indexer.collection.delete.call_count == 2
 
     def test_archive_compression(self, manager):
-        """Test 100:1 compression ratio."""
-        # Mock chunk with 1000 character text
+        """A document larger than the summary budget is compressed to <= the
+        budget (E9: summaries are bounded, with a flat documented budget)."""
+        from src.memory.lifecycle_manager import SUMMARY_MAX_LEN
+
+        # Mock chunk with 1000 character text (well over the budget)
         long_text = "A" * 1000
         manager.vector_indexer.collection.get.return_value = {
             'ids': ['chunk1'],
@@ -179,9 +182,47 @@ class TestArchival:
         call_args = manager.kv_store.set.call_args_list[0]
         summary = call_args[0][1]  # Second argument is the summary
 
-        # Summary should be much shorter (target: ~10 chars for 1000-char text)
-        assert len(summary) < len(long_text) / 5  # At least 5:1 compression
+        assert len(summary) <= SUMMARY_MAX_LEN
+        assert len(summary) < len(long_text)
         assert count == 1
+
+    def test_summarize_keeps_within_budget_doc_verbatim(self, manager):
+        """E9: a document that already fits the summary budget must be kept
+        VERBATIM. The old bound min(200, max(50, len/5 - 1)) floored at 50 for
+        docs in (50, 255], truncating a complete short document to ~50 chars +
+        '...' - needless irreversible loss, since only the summary survives
+        archival and the storage saved is trivial."""
+        from src.memory.lifecycle_manager import SUMMARY_MAX_LEN
+
+        doc = (
+            "Alpha Bravo met Charlie at Delta Station near the river. "
+            "They reviewed the Echo report before the Foxtrot deadline."
+        )
+        # Regime this test targets: long enough that the old code summarized it
+        # (>50), but within the budget so it should be preserved whole.
+        assert 50 < len(doc) <= SUMMARY_MAX_LEN
+
+        summary = manager._summarize(doc)
+
+        assert summary == doc, "a within-budget document must not be truncated"
+        assert "..." not in summary
+
+    def test_summarize_bounds_oversize_doc(self, manager):
+        """E9: a document larger than the budget is summarized to <= the budget
+        and is never longer than the source."""
+        from src.memory.lifecycle_manager import SUMMARY_MAX_LEN
+
+        doc = (
+            "Sentence one has several distinct Words about Alpha and Bravo. "
+            * 20
+        )
+        assert len(doc) > SUMMARY_MAX_LEN
+
+        summary = manager._summarize(doc)
+
+        assert len(summary) <= SUMMARY_MAX_LEN
+        assert len(summary) < len(doc)
+        assert len(summary) > 0
 
     def test_archive_lossy_key_storage(self, manager):
         """Test lossy key (summary) stored in KV."""

@@ -4,7 +4,7 @@ Memory Lifecycle Manager: 4-stage lifecycle with rekindling.
 Implements gradual memory degradation:
 1. Active (100% score, <7 days)
 2. Demoted (50% score, 7-30 days, decay applied)
-3. Archived (10% score, 30-90 days, compressed 100:1)
+3. Archived (10% score, 30-90 days, compressed to bounded summary)
 4. Rehydratable (1% score, >90 days, lossy key only)
 
 Rekindling: Query matches archived -> rehydrate -> promote to active
@@ -27,6 +27,12 @@ from loguru import logger
 from .stage_transitions import StageTransitionsMixin
 from .consolidation import ConsolidationMixin
 from ._mutation_lock import guarded_mutation
+
+# Archival keeps ONLY the summary (the chunk is deleted from the vector store),
+# so this budget is the bound on irreversible loss. A document within budget is
+# kept verbatim - truncating it to save a few dozen bytes of cold storage is not
+# worth the loss; only larger documents are compressed down to this length.
+SUMMARY_MAX_LEN = 200
 
 
 class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
@@ -374,16 +380,19 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
 
         NASA Rule 10: 55 LOC (<=60)
         """
-        if not full_text or len(full_text) < 50:
+        # Anything already within the summary budget is kept verbatim - the
+        # old bound min(200, max(50, len/5 - 1)) floored at 50 and truncated
+        # short documents for a trivial storage saving (E9: irreversible loss).
+        if not full_text or len(full_text) <= SUMMARY_MAX_LEN:
             return full_text
 
         # Split into sentences
         import re
         sentences = re.split(r'(?<=[.!?])\s+', full_text.strip())
         if not sentences:
-            return full_text[:100] + "..." if len(full_text) > 100 else full_text
+            return self._truncate_with_entities(full_text, max_len=SUMMARY_MAX_LEN)
 
-        max_len = min(200, max(50, int(len(full_text) / 5) - 1))
+        max_len = SUMMARY_MAX_LEN
         if len(sentences) == 1:
             return self._truncate_with_entities(sentences[0], max_len=max_len)
 
