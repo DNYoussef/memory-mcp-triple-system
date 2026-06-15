@@ -546,6 +546,30 @@ class TestConsolidation:
         assert manager.vector_indexer.collection.update.call_count >= 1
         assert manager.vector_indexer.collection.delete.call_count >= 1
 
+    def test_consolidate_accepts_numpy_embeddings(self, manager):
+        """Chroma returns ndarray embeddings; consolidation must not truth-test them."""
+        import numpy as np
+
+        manager.vector_indexer.collection.get.return_value = {
+            'ids': ['chunk1', 'chunk2', 'chunk3'],
+            'documents': ['Text A', 'Text A similar', 'Text B different'],
+            'embeddings': np.array([
+                [1.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+            ]),
+            'metadatas': [
+                {'stage': 'active', 'score': 0.9, 'tags': ['tag1']},
+                {'stage': 'active', 'score': 0.8, 'tags': ['tag2']},
+                {'stage': 'active', 'score': 0.7, 'tags': ['tag3']},
+            ],
+        }
+
+        count = manager.consolidate_similar(threshold=0.95)
+
+        assert count == 1
+        manager.vector_indexer.collection.delete.assert_called_once_with(ids=['chunk2'])
+
     def test_consolidate_preserves_metadata(self, manager):
         """Test consolidation merges metadata correctly."""
         manager.vector_indexer.collection.get.return_value = {

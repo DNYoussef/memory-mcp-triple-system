@@ -55,6 +55,24 @@ def test_http_bind_host_can_be_explicitly_overridden(monkeypatch: pytest.MonkeyP
     assert module._get_http_bind_host() == "0.0.0.0"
 
 
+def test_http_metadata_normalization_drops_uppercase_aliases(monkeypatch: pytest.MonkeyPatch):
+    module = _reload_http_server(monkeypatch, key="test-key")
+
+    metadata = module._normalize_metadata({
+        "WHO": "codex",
+        "WHEN": "2026-06-15T12:00:00Z",
+        "PROJECT": "memory-mcp-triple-system",
+        "WHY": "smoke-test",
+        "file_path": "/smoke/test.md",
+    })
+
+    assert metadata["who"] == "codex"
+    assert metadata["when"] == "2026-06-15T12:00:00Z"
+    assert metadata["project"] == "memory-mcp-triple-system"
+    assert metadata["why"] == "smoke-test"
+    assert not (set(metadata) & {"WHO", "WHEN", "PROJECT", "WHY"})
+
+
 def test_tool_auth_uses_primary_or_alias_env(monkeypatch: pytest.MonkeyPatch):
     module = _reload_http_server(monkeypatch, key="primary-key")
     assert module.MCP_API_KEY == "primary-key"

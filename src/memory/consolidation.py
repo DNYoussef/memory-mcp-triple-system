@@ -59,7 +59,8 @@ class ConsolidationMixin:
             logger.info("Not enough chunks to consolidate")
             return None
 
-        if not active_chunks.get('embeddings'):
+        embeddings = active_chunks.get('embeddings')
+        if embeddings is None or len(embeddings) == 0:
             logger.warning("No embeddings available for consolidation")
             return None
 

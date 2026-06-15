@@ -79,12 +79,15 @@ class RAPTORClusterer:
 
         NASA Rule 10: 39 LOC (≤60) ✅
         """
-        if not chunks or not embeddings:
+        if not chunks or embeddings is None:
             logger.warning("Empty chunks or embeddings provided")
             return self._empty_cluster_result()
 
         # Convert to numpy array and find optimal k
         X = np.array(embeddings)
+        if X.size == 0 or len(X) == 0:
+            logger.warning("Empty chunks or embeddings provided")
+            return self._empty_cluster_result()
         optimal_k = self._select_optimal_clusters(X)
 
         # Fit GMM with optimal k
@@ -239,7 +242,7 @@ class RAPTORClusterer:
         n_samples = X.shape[0]
 
         # Edge case: too few samples
-        if n_samples < self.min_clusters:
+        if n_samples <= self.min_clusters:
             return 1
 
         best_k = self.min_clusters

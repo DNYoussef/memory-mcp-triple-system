@@ -81,6 +81,23 @@ class TestRAPTORClusterer:
         assert result["quality_score"] == 0.0
         assert result["bic_score"] == 0.0
 
+    def test_cluster_chunks_accepts_numpy_embeddings(
+        self, clusterer, sample_chunks, sample_embeddings
+    ):
+        """Chroma returns ndarray embeddings; do not truth-test arrays."""
+        result = clusterer.cluster_chunks(sample_chunks, np.array(sample_embeddings))
+
+        assert result["num_clusters"] > 0
+        assert len(result["cluster_assignments"]) == len(sample_chunks)
+
+    def test_cluster_chunks_handles_two_samples(self, clusterer, sample_chunks, sample_embeddings):
+        """Two chunks should return one cluster, not crash silhouette scoring."""
+        result = clusterer.cluster_chunks(sample_chunks[:2], sample_embeddings[:2])
+
+        assert result["num_clusters"] == 1
+        assert result["cluster_assignments"] == [0, 0]
+        assert result["quality_score"] == 0.0
+
     def test_build_hierarchy_creates_tree(self, clusterer, sample_chunks, sample_embeddings):
         """Test that build_hierarchy creates valid tree structure."""
         clusters = clusterer.cluster_chunks(sample_chunks, sample_embeddings)

@@ -504,8 +504,10 @@ def _normalize_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
     normalized = dict(metadata)
     for tag in REQUIRED_TAGS:
         upper = tag.upper()
-        if upper in normalized and tag not in normalized:
-            normalized[tag] = normalized[upper]
+        if upper in normalized:
+            if tag not in normalized:
+                normalized[tag] = normalized[upper]
+            normalized.pop(upper, None)
     return normalized
 
 
