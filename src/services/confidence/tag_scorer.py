@@ -8,8 +8,11 @@ PROJECT: memory-mcp-triple-system
 WHY: infrastructure (CAPTURE-003)
 """
 
-import re
+import copy
+import hashlib
+import json
 import logging
+import re
 from typing import Dict, Any, List, Optional, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -174,9 +177,9 @@ class TagAssignmentScorer:
         context = context or {}
 
         # Check cache
-        cache_key = content[:300].lower()
+        cache_key = self._cache_key(content, context)
         if self.config.enable_caching and cache_key in self._cache:
-            return self._cache[cache_key]
+            return self._copy_assignments(self._cache[cache_key])
 
         # Assign each tag type
         tags = {
@@ -188,11 +191,32 @@ class TagAssignmentScorer:
 
         # Update cache and stats
         if self.config.enable_caching:
-            self._cache[cache_key] = tags
+            self._cache[cache_key] = self._copy_assignments(tags)
 
         self._update_stats(tags)
 
         return tags
+
+    def _cache_key(self, content: str, context: Dict[str, Any]) -> str:
+        """Build a cache key from every input that can affect tag assignment."""
+        payload = {
+            "content": content,
+            "context": context,
+        }
+        encoded = json.dumps(
+            payload,
+            sort_keys=True,
+            default=str,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
+
+    def _copy_assignments(
+        self,
+        tags: Dict[str, TagAssignment],
+    ) -> Dict[str, TagAssignment]:
+        """Return mutable tag assignments without sharing cache state."""
+        return copy.deepcopy(tags)
 
     def assign_tags_with_result(
         self,
