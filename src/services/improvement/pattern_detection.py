@@ -437,10 +437,12 @@ class PatternDetectionService:
         first_rates = calc_success_by_category(first_half)
         second_rates = calc_success_by_category(second_half)
 
-        # Find categories with significant drift
-        for category in set(first_rates.keys()) | set(second_rates.keys()):
-            first_rate = first_rates.get(category, 0.5)
-            second_rate = second_rates.get(category, 0.5)
+        # Find categories with significant drift. Only categories present in
+        # BOTH halves have a comparable baseline; a category in just one half
+        # (H5) used to default the missing rate to 0.5 and fabricate drift.
+        for category in set(first_rates.keys()) & set(second_rates.keys()):
+            first_rate = first_rates[category]
+            second_rate = second_rates[category]
             drift = first_rate - second_rate
 
             if abs(drift) >= 0.15:
