@@ -19,6 +19,7 @@ import os
 import shutil
 import sys
 import tempfile
+import time
 import uuid
 
 CANARY = f"CANARY-{uuid.uuid4().hex}"
@@ -27,9 +28,7 @@ TEXT = f"{CANARY}: GuardSpine zebra-quasar reactor tuned by Wilhelmina Ashgrove 
 # Known-broken today -> xfail (recorded, not a gate failure). Flipped by their phase.
 XFAIL = {
     "bayesian_inference": "B1: Bayesian tier offline (P4)",
-    "kv": "B4: KV tools not exposed (P2)",
     "context_injection": "B5/P5: proactive injection not a registered tool",
-    "lifecycle_aging": "A2/P3: lifecycle never ages under stdio",
 }
 
 
@@ -140,8 +139,22 @@ def main():
     except Exception as e:
         record("kv", False, e)
 
-    # lifecycle aging (xfail) ----------------------------------------------
-    record("lifecycle_aging", False, "no aging trigger probed in-process yet")
+    # lifecycle aging: ingestion must write numeric last_accessed_ts (A2),
+    # and a chunk older than the threshold must demote.
+    try:
+        coll = tool.lifecycle_manager.vector_indexer.collection
+        got = coll.get(include=["metadatas"])
+        ids, mds = got.get("ids", []), got.get("metadatas", [])
+        has_ts = bool(ids) and isinstance(mds[0].get("last_accessed_ts"), (int, float))
+        if not has_ts:
+            record("lifecycle_aging", False, "ingested chunk missing numeric last_accessed_ts (A2)")
+        else:
+            md = dict(mds[0]); md["last_accessed_ts"] = time.time() - 10 * 86400  # 10 days stale
+            coll.update(ids=[ids[0]], metadatas=[md])
+            demoted = tool.lifecycle_manager.demote_stale_chunks()  # default 7-day threshold
+            record("lifecycle_aging", demoted >= 1, f"ingest_ts=ok demoted={demoted}")
+    except Exception as e:
+        record("lifecycle_aging", False, e)
 
     # context injection (xfail) --------------------------------------------
     record("context_injection", False, "no registered injection tool")

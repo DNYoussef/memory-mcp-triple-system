@@ -74,7 +74,8 @@ class MemoryIngestionService:
             return {"success": False, "error": "Empty text — nothing to ingest"}
 
         # 1. Stamp metadata
-        now_iso = datetime.utcnow().isoformat()
+        now = datetime.utcnow()
+        now_iso = now.isoformat()
         metadata = {**metadata, "stored_at": now_iso, "source": source}
 
         # 2. Classify hot/cold
@@ -83,6 +84,9 @@ class MemoryIngestionService:
         metadata["decay_score"] = classification.get("decay_score", 1.0)
         metadata["stage"] = classification.get("lifecycle_stage", "active")
         metadata["last_accessed"] = now_iso
+        # Numeric ts the demote query filters on ({"last_accessed_ts": {"$lt": cutoff}}).
+        # Without it, ingested chunks never match the demote query and never age (A2).
+        metadata["last_accessed_ts"] = now.timestamp()
         metadata["access_count"] = 0
 
         # 3. Chunk text (semantic chunking for long texts, single chunk for short)
