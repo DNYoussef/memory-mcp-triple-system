@@ -113,6 +113,11 @@ class RuleDeploymentService:
 
         # Deployment history
         self._deployments: Dict[str, DeploymentResult] = {}
+
+        # Expected occurrence count after each remove, so _verify_change can
+        # prove a single-occurrence remove actually happened (set by
+        # _apply_change; absent -> verification cannot be proven post-hoc).
+        self._expected_remove_counts: Dict[tuple, int] = {}
         self._rollbacks: Dict[str, RollbackResult] = {}
 
         # Statistics
@@ -360,11 +365,15 @@ class RuleDeploymentService:
                 if not file_path.exists():
                     return False, f"File does not exist: {file_path}"
 
-                # For modify, check current value exists
-                if change.change_type == "modify":
-                    content = file_path.read_text(encoding="utf-8")
-                    if change.current_value not in content:
-                        return False, f"Current value not found in {file_path}"
+                # Both target current_value; it must be present or the op
+                # no-ops. H4: remove used to validate only file existence here.
+                # remove also requires non-empty (empty-modify is a separate
+                # pre-existing issue, left as-is to match the real modify path).
+                if change.change_type == "remove" and not change.current_value:
+                    return False, "remove requires a non-empty current_value"
+                content = file_path.read_text(encoding="utf-8")
+                if change.current_value not in content:
+                    return False, f"Current value not found in {file_path}"
 
                 return True, ""
 
@@ -395,8 +404,21 @@ class RuleDeploymentService:
 
             elif change.change_type == "remove":
                 content = file_path.read_text(encoding="utf-8")
-                content = content.replace(change.current_value, "")
+
+                # H4: guard the remove like modify does. An empty or absent
+                # current_value would no-op (silent false success); replacing
+                # all occurrences would strip the value file-wide.
+                if not change.current_value:
+                    return False, "Remove requires a non-empty current_value"
+                if change.current_value not in content:
+                    return False, f"Current value not found in {file_path}"
+
+                # Remove a single occurrence, not every match.
+                content = content.replace(change.current_value, "", 1)
                 file_path.write_text(content, encoding="utf-8")
+                self._expected_remove_counts[
+                    (change.rule_path, change.current_value)
+                ] = content.count(change.current_value)
 
             return True, ""
 
@@ -438,10 +460,19 @@ class RuleDeploymentService:
                     result["reason"] = "Proposed value not found in file"
 
             elif change.change_type == "remove":
-                if change.current_value not in content:
-                    result["verified"] = True
+                # remove deletes ONE occurrence (H4), so a remaining match is
+                # not a failure. Verify against the count _apply_change recorded
+                # right after removing; without that record (e.g. verify called
+                # standalone) a single-occurrence remove can't be proven post-hoc.
+                key = (change.rule_path, change.current_value)
+                if key in self._expected_remove_counts:
+                    expected = self._expected_remove_counts[key]
+                    if content.count(change.current_value) == expected:
+                        result["verified"] = True
+                    else:
+                        result["reason"] = "Remove count does not match expected"
                 else:
-                    result["reason"] = "Removed value still present"
+                    result["reason"] = "No recorded remove to verify"
 
         except Exception as e:
             result["reason"] = str(e)
