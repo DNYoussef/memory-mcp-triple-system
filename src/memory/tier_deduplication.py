@@ -508,16 +508,25 @@ class TierDeduplicator:
         self,
         chunks: List[ChunkReference]
     ) -> List[ChunkReference]:
-        """Sort chunks by priority (highest first)"""
-        return sorted(
-            chunks,
-            key=lambda c: (
-                self.TIER_PRIORITY.get(c.tier, 0) * 10 +
-                c.confidence * 5 +
-                (1 if c.created_at else 0)
-            ),
-            reverse=True
-        )
+        """Sort chunks by priority, highest first (chunks[0] becomes primary).
+
+        Lexicographic: higher tier, then higher confidence, then OLDER wins
+        (consistent with _determine_primary). The old key folded recency in as
+        (1 if c.created_at else 0) - a constant - so 'oldest wins' was never
+        implemented and equal tier+confidence ties fell back to input order. A
+        chunk missing created_at ranks below any chunk that has one.
+        """
+        def priority_key(c):
+            created_ts = c.created_at.timestamp() if c.created_at else None
+            return (
+                self.TIER_PRIORITY.get(c.tier, 0),
+                c.confidence,
+                # reverse=True sorts descending, so negate the timestamp to put
+                # the OLDEST (smallest timestamp) first; missing -> ranks last.
+                -created_ts if created_ts is not None else float('-inf'),
+            )
+
+        return sorted(chunks, key=priority_key, reverse=True)
 
     def _get_merge_recommendation(
         self,

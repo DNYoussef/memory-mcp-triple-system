@@ -23,7 +23,8 @@ from src.memory.tier_deduplication import (
 )
 
 
-def _chunk(chunk_id, content_hash, byte_size=100, tier=MemoryTier.SHORT_TERM):
+def _chunk(chunk_id, content_hash, byte_size=100, tier=MemoryTier.SHORT_TERM,
+           created_at=datetime(2024, 1, 1)):
     """Build a ChunkReference with no embedding (exercises the hash path; the
     embedding path skips None embeddings)."""
     return ChunkReference(
@@ -32,7 +33,7 @@ def _chunk(chunk_id, content_hash, byte_size=100, tier=MemoryTier.SHORT_TERM):
         content_hash=content_hash,
         embedding=None,
         confidence=0.9,
-        created_at=datetime(2024, 1, 1),
+        created_at=created_at,
         last_accessed=datetime(2024, 1, 1),
         access_count=1,
         byte_size=byte_size,
@@ -104,11 +105,16 @@ class TestRunDeduplicationAccounting:
 
     def test_same_pair_via_hash_and_embedding_counted_once(self):
         """The same two chunks can match BOTH the hash phase and the embedding
-        phase with primary/duplicate SWAPPED (equal tier+confidence makes the
-        hash sort a stable-order tie -> input order, while the embedding phase
-        tie-breaks to older=primary). A directional pair-filter let both through
-        -> duplicates_found==2 and bytes_reclaimable double-counted (111+222).
-        The orientation-independent _pair_key counts the pair once."""
+        phase. A directional (primary, duplicate) pair-filter let both through
+        whenever the phases disagreed on orientation -> duplicates_found==2 and
+        bytes_reclaimable double-counted (111+222). The orientation-independent
+        _pair_key counts the unordered pair once regardless of orientation.
+
+        (Before E10 the phases disagreed here - the hash sort fell back to input
+        order while the embedding phase picked older=primary. E10 made the hash
+        tiebreaker also pick oldest, so both phases now agree on older=primary;
+        the frozenset _pair_key still collapses them to one pair, which is what
+        this test pins.)"""
         emb = np.array([1.0, 0.0, 0.0])
         newer = ChunkReference(
             chunk_id="newer", tier=MemoryTier.SHORT_TERM, content_hash="same",
@@ -121,8 +127,8 @@ class TestRunDeduplicationAccounting:
             last_accessed=datetime(2024, 1, 1), access_count=1, byte_size=111,
         )
         dedup = TierDeduplicator()
-        # Input order [newer, older] makes the hash phase pick newer as primary
-        # and the embedding phase pick older as primary - opposite orientations.
+        # Both phases now select older=primary; the hash and embedding phases
+        # emit the same unordered pair, which _pair_key must collapse to one.
         result = dedup.run_deduplication([newer, older], dry_run=False)
 
         assert result.duplicates_found == 1, "the same two chunks were paired twice"
@@ -133,12 +139,13 @@ class TestRunDeduplicationAccounting:
 
     def test_cluster_of_three_counts_each_duplicate_target_once(self):
         """A cluster of THREE identical chunks yields multiple distinct pairs
-        that can share one duplicate target (e.g. newest->middle and
-        oldest->middle both name `middle`). Summing per pair double-counts
-        `middle`'s bytes. bytes_reclaimable must sum each UNIQUE duplicate
-        target once: a chunk reclaims its bytes once when removed, regardless of
-        how many pairs nominate it. Repro before fix: found 3, reclaimable 555
-        (middle counted twice); unique duplicate bytes are 333."""
+        that can share one duplicate target. With E10 the oldest chunk is
+        primary, so the pairs are oldest->middle, oldest->newest and
+        middle->newest - `newest` is the duplicate in two of them. Summing per
+        pair would double-count `newest`'s bytes; bytes_reclaimable must sum
+        each UNIQUE duplicate target once (a chunk reclaims its bytes once when
+        removed, regardless of how many pairs nominate it). The assertions below
+        are computed from result.pairs so they hold whichever chunk is primary."""
         emb = np.array([1.0, 0.0, 0.0])
         newest = ChunkReference(
             chunk_id="newest", tier=MemoryTier.SHORT_TERM, content_hash="same",
@@ -171,3 +178,42 @@ class TestRunDeduplicationAccounting:
         # Still no real merge happened.
         assert result.duplicates_merged == 0
         assert result.bytes_freed == 0
+
+
+class TestHashTiebreakerRecency:
+    """E10: the hash-duplicate tiebreaker must use recency (oldest wins)."""
+
+    def test_hash_duplicate_primary_is_oldest(self):
+        """With equal tier and equal confidence, the OLDEST chunk must become
+        primary regardless of input order. The old _sort_by_priority folded
+        recency in as (1 if c.created_at else 0) - a constant - so among such
+        ties the stable sort just kept input order; 'oldest wins' was never
+        implemented."""
+        older = _chunk("older", "same", created_at=datetime(2024, 1, 1))
+        newer = _chunk("newer", "same", created_at=datetime(2024, 6, 1))
+        dedup = TierDeduplicator()
+
+        # Both input orders must select the oldest as primary.
+        for order in ([older, newer], [newer, older]):
+            pairs = dedup.find_duplicates_by_hash(order)
+            ids = [c.chunk_id for c in order]
+            assert len(pairs) == 1, f"input {ids}"
+            assert pairs[0].primary.chunk_id == "older", (
+                f"input {ids}: oldest must win as primary"
+            )
+            assert pairs[0].duplicate.chunk_id == "newer", f"input {ids}"
+
+    def test_hash_tiebreaker_only_breaks_ties(self):
+        """Recency must not override a higher tier: a higher-tier but newer
+        chunk still beats a lower-tier older one."""
+        old_low = _chunk("old_low", "same", tier=MemoryTier.SHORT_TERM,
+                         created_at=datetime(2024, 1, 1))
+        new_high = _chunk("new_high", "same", tier=MemoryTier.LONG_TERM,
+                          created_at=datetime(2024, 6, 1))
+        dedup = TierDeduplicator()
+
+        pairs = dedup.find_duplicates_by_hash([old_low, new_high])
+        assert len(pairs) == 1
+        assert pairs[0].primary.chunk_id == "new_high", (
+            "higher tier must win over recency"
+        )
