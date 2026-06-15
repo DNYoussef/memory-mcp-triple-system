@@ -179,7 +179,9 @@ class UsageAggregator:
             ops = self._filter_operations(day_start, day_end)
 
             daily.append({
-                "date": day_start.strftime("%Y-%m-%d"),
+                # Label by the day the window ends on (i=0 ends at now = today).
+                # day_start labeled every bucket one day early (H6).
+                "date": day_end.strftime("%Y-%m-%d"),
                 "stores": len([o for o in ops if o["type"] in ("store", "update")]),
                 "retrievals": len([o for o in ops if o["type"] == "retrieve"]),
                 "searches": len([o for o in ops if o["type"] == "search"]),
