@@ -246,12 +246,15 @@ class QualityGateAggregator:
 
         # Calculate overall score
         if self.config.aggregation_method == "weighted_min":
-            # Weighted minimum (conservative)
+            # Weighted minimum (conservative): the lowest weighted check score
+            # drives the gate. The old code found the min-weighted check but
+            # then returned its RAW score (scores[min_idx].score), discarding
+            # the weighting entirely (H3). Return the weighted minimum itself,
+            # clamped to [0, 1] since a weight > 1 can push it past 1.0.
             weighted_scores = [
                 s.score * w for s, w in zip(scores, weights)
             ]
-            min_idx = weighted_scores.index(min(weighted_scores))
-            overall_score = scores[min_idx].score
+            overall_score = min(1.0, max(0.0, min(weighted_scores)))
         elif self.config.aggregation_method == "weighted_avg":
             # Weighted average
             total_weight = sum(weights)
