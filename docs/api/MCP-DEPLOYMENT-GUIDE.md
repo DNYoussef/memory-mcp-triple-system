@@ -154,7 +154,7 @@ tests/unit/test_mode_detector.py::...    PASSED
 
 ```bash
 cd /path/to/memory-mcp-triple-system
-python -m src.mcp.server
+python -m src.mcp.http_server
 ```
 
 Expected output:
@@ -168,13 +168,13 @@ INFO:     Uvicorn running on http://localhost:8080
 ### Option 2: Uvicorn Command
 
 ```bash
-uvicorn src.mcp.server:create_app --factory --host localhost --port 8080
+uvicorn src.mcp.http_server:app --host localhost --port 8080
 ```
 
 ### Option 3: Background Service (Linux/macOS)
 
 ```bash
-nohup python -m src.mcp.server > logs/mcp-server.log 2>&1 &
+nohup python -m src.mcp.http_server > logs/mcp-server.log 2>&1 &
 ```
 
 ### Option 4: Docker (Future Enhancement)
@@ -200,39 +200,17 @@ Expected response:
 }
 ```
 
-### List Available Tools
+### Tool Routes
 
-```bash
-curl http://localhost:8080/tools
-```
-
-Expected response:
-```json
-{
-  "tools": [
-    {
-      "name": "vector_search",
-      "description": "Search memory vault using semantic similarity",
-      "parameters": {
-        "query": {
-          "type": "string",
-          "description": "Search query text"
-        },
-        "limit": {
-          "type": "integer",
-          "description": "Number of results to return",
-          "default": 5
-        }
-      }
-    }
-  ]
-}
-```
+Current tool names are documented in [../CURRENT.md](../CURRENT.md). HTTP tool routes are JSON-body POST endpoints and require an API key by default.
 
 ### Test Vector Search
 
 ```bash
-curl -X POST "http://localhost:8080/tools/vector_search?query=What%20is%20Python&limit=5"
+curl -X POST "http://localhost:8080/tools/vector_search" \
+  -H "X-MCP-API-Key: $MCP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"query":"What is Python?","limit":5}'
 ```
 
 ## Mode-Aware Context Integration
@@ -432,7 +410,7 @@ netstat -ano | findstr :8080  # Windows
 rm -rf chroma_data
 
 # Restart server (will recreate database)
-python -m src.mcp.server
+python -m src.mcp.http_server
 ```
 
 ### Issue: Embedding model download fails
@@ -527,8 +505,8 @@ async def vector_search(...):
 - [ ] Install all dependencies (`pip install -r requirements.txt`)
 - [ ] Configure `config/memory-mcp.yaml` with production paths
 - [ ] Create required directories (`chroma_data`, `data`, `logs`)
-- [ ] Run test suite (`pytest tests/` - all tests passing)
-- [ ] Start MCP server (`python -m src.mcp.server`)
+- [ ] Check current test/audit status: [../../audits/STATUS-2026-06-13.md](../../audits/STATUS-2026-06-13.md)
+- [ ] Start MCP server (`python -m src.mcp.http_server`)
 - [ ] Verify health check (`curl http://localhost:8080/health`)
 - [ ] Test vector search endpoint
 - [ ] Configure LLM client (Claude Desktop or ChatGPT)
@@ -549,11 +527,8 @@ async def vector_search(...):
 
 ## Conclusion
 
-The Memory MCP Triple System is **production-ready** with:
-- ✅ 100% test coverage (27/27 tests passing)
-- ✅ Perfect audit scores (100/100 on Theater, Functionality, Style)
-- ✅ Mode-aware context (100% detection accuracy)
-- ✅ Zero technical debt
+The Memory MCP Triple System current runtime contract is tracked in [../CURRENT.md](../CURRENT.md).
+Current test and audit status is tracked in [../../audits/STATUS-2026-06-13.md](../../audits/STATUS-2026-06-13.md).
 
 The system seamlessly integrates with Claude Desktop, ChatGPT, and other LLM clients, providing intelligent memory retrieval with automatic mode detection and context adaptation.
 

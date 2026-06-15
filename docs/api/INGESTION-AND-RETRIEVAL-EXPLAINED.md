@@ -297,6 +297,8 @@ While we demonstrated **Vector Search** above, the full system uses **three comp
 
 ## API Endpoints for AI Integration
 
+Full current tool list is in [../CURRENT.md](../CURRENT.md), including `kv_get`, `kv_set`, `kv_delete`, and `context_retrieve`.
+
 ### Store Information
 
 ```http
@@ -304,7 +306,7 @@ POST /tools/memory_store
 Content-Type: application/json
 
 {
-  "content": "Python is a programming language...",
+  "text": "Python is a programming language...",
   "metadata": {
     "title": "Python Basics",
     "tags": ["programming", "python"],
@@ -411,7 +413,7 @@ This is **not just storage** - it's **intelligent memory** with:
 - ✅ Automatic context adaptation (mode-aware)
 - ✅ Fast retrieval (<200ms typical)
 - ✅ Scalable architecture (millions of chunks)
-- ✅ Production-ready (100% test coverage, perfect audits)
+- ✅ Current test/audit status: [../../audits/STATUS-2026-06-13.md](../../audits/STATUS-2026-06-13.md)
 
 The system is **ready for real AI interactions** right now!
 

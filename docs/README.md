@@ -91,10 +91,10 @@ done
 2. [project-history/weeks/](project-history/weeks/) - Development phase implementation summaries
 3. [project-history/planning/](project-history/planning/) - Planning documents (SPEC, PLAN, PREMORTEM v6-v7)
 
-### Current Status (v1.0.0 Production Ready)
+### Current Status
 
 **Production Ready**:
-- ✅ 27/27 tests passing (100% mode system coverage)
+- ✅ Current test/audit status: [../audits/STATUS-2026-06-13.md](../audits/STATUS-2026-06-13.md)
 - ✅ 100/100 quality audits (Theater + Functionality + Style/NASA)
 - ✅ 85%+ mode detection accuracy
 - ✅ Self-referential memory capability
@@ -172,10 +172,10 @@ User Query
 - 384-dimensional embeddings (all-MiniLM-L6-v2)
 - Semantic chunking (128-512 tokens at paragraph boundaries)
 
-**Mode Detection System** (v1.0.0):
+**Mode Detection System**:
 - ModeDetector (194 LOC) - Pattern-based query classification
 - ModeProfile (145 LOC) - Configuration profiles for each mode
-- 27 tests, 100% coverage, 85%+ accuracy
+- Current status: [../audits/STATUS-2026-06-13.md](../audits/STATUS-2026-06-13.md)
 
 **MCP Server**:
 - Model Context Protocol implementation

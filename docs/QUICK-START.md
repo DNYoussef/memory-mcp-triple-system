@@ -81,6 +81,9 @@ The following environment variables are configured in `.env`:
 ## Testing the Server
 
 ### 1. Test Vector Search
+
+Full current tool list is in [CURRENT.md](CURRENT.md), including `kv_get`, `kv_set`, `kv_delete`, and `context_retrieve`.
+
 ```json
 {
   "jsonrpc": "2.0",

@@ -238,15 +238,7 @@ Every memory storage includes:
 
 ### Available Tools
 
-| Tool | Description | Status |
-|------|-------------|--------|
-| `vector_search` | Semantic similarity search | WORKING (v1.4.0) |
-| `memory_store` | Store with metadata tagging | WORKING (v1.4.0) |
-| `detect_mode` | Query mode detection | WORKING (v1.4.0) |
-| `graph_query` | HippoRAG multi-hop query | PARTIAL (GraphService exists, PPR incomplete) |
-| `bayesian_inference` | Probabilistic query | PARTIAL (NetworkBuilder exists, CPD needs data) |
-| `entity_extraction` | NER from text | STUBBED (interface defined, implementation pending) |
-| `hipporag_retrieve` | Full HippoRAG pipeline | STUBBED (depends on graph_query completion) |
+The current tool contract lives in [CURRENT.md](CURRENT.md), including `kv_get`, `kv_set`, `kv_delete`, and `context_retrieve`.
 
 ### Usage Examples
 

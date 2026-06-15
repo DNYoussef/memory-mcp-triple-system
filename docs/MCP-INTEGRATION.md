@@ -45,6 +45,8 @@ Add to your MCP configuration (`C:\Users\<username>\AppData\Roaming\Claude\claud
 
 ## Available MCP Tools
 
+This section shows common examples. The full current tool list is in [CURRENT.md](CURRENT.md), including `kv_get`, `kv_set`, `kv_delete`, and `context_retrieve`.
+
 ### 1. `vector_search`
 
 Semantic search with mode-aware context adaptation.
@@ -275,7 +277,7 @@ pytest tests/unit/test_mode_profile.py -v
 Expected results:
 - Mode Detector: 14/14 tests passed
 - Mode Profiles: 13/13 tests passed
-- Total: 27/27 tests (100% pass rate)
+- Current test/audit status: [../audits/STATUS-2026-06-13.md](../audits/STATUS-2026-06-13.md)
 
 ### Mode Detection Test
 
@@ -348,7 +350,7 @@ pip install chromadb
 - **Vector Search**: Sub-second retrieval with HNSW indexing
 - **Embedding Generation**: 384-dimensional vectors (all-MiniLM-L6-v2)
 - **Chunking**: Semantic chunking (128-512 tokens)
-- **Test Coverage**: 27/27 tests (100% pass rate)
+- **Test/Audit Status**: [../audits/STATUS-2026-06-13.md](../audits/STATUS-2026-06-13.md)
 
 ## Support
 

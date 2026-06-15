@@ -188,7 +188,7 @@ To deploy the MCP server:
 1. Install dependencies: pip install -r requirements.txt
 2. Configure config/memory-mcp.yaml with your vault path
 3. Create directories: mkdir -p chroma_data data logs
-4. Run server: python -m src.mcp.server
+4. Run server: python -m src.mcp.http_server
 
 The server will start on http://localhost:8080
 
@@ -285,7 +285,7 @@ Memory System → AI: [Returns port conflict solution]
 AI → User: "Port 8080 is already in use. Try:
 1. Find process: lsof -i :8080
 2. Kill process or change port in config/memory-mcp.yaml
-3. Restart: python -m src.mcp.server"
+3. Restart: python -m src.mcp.http_server"
 ```
 
 ### Use Case 3: Feature Discovery

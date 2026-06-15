@@ -49,7 +49,7 @@ The Memory MCP Triple System integrates seamlessly with intelligent code analysi
 - **Pattern-Based Mode Detection**: 29 regex patterns achieving 85%+ accuracy in query classification
 - **Curated Core Results**: Intelligent result curation (5 core + variable extended results based on mode)
 - **MCP-Compatible**: Full MCP protocol support for seamless integration with Claude Desktop, Continue, and other MCP clients
-- **Production-Ready**: 100% test coverage, NASA Rule 10 compliant, zero theater detection
+- **Production Status**: See [audits/STATUS-2026-06-13.md](audits/STATUS-2026-06-13.md)
 
 ## Architecture Overview
 
@@ -137,7 +137,7 @@ All paths support `~` expansion for cross-platform compatibility.
 python -m src.mcp.stdio_server
 
 # The server listens on stdio for MCP protocol messages
-# 11 MCP tools available:
+# Current MCP tool list: see docs/CURRENT.md, including context_retrieve:
 # - vector_search: Semantic similarity search with mode-aware context adaptation
 # - memory_store: Store information with automatic layer assignment
 # - kv_get/kv_set/kv_delete: Key-value storage operations
@@ -292,7 +292,7 @@ See [docs/SELF-REFERENTIAL-MEMORY.md](docs/SELF-REFERENTIAL-MEMORY.md) for detai
 - ✅ Memory storage with automatic layer assignment
 - ✅ Event logging and query tracing
 - ✅ Lifecycle management with TTL support
-- ✅ MCP stdio server (6 tools exposed)
+- ✅ MCP stdio server (current tool set documented in docs/CURRENT.md)
 - ✅ Self-referential memory capability
 - ✅ **Loop 1.5 Integration**: Session reflection storage (reflect_to_memory.py)
 - ✅ **Loop 3 Integration**: Meta-optimization aggregation (meta_loop_runner.py)
@@ -300,11 +300,9 @@ See [docs/SELF-REFERENTIAL-MEMORY.md](docs/SELF-REFERENTIAL-MEMORY.md) for detai
 - ✅ **Scheduled Automation**: Windows Task Scheduler for 3-day meta-loop cycle
 
 ### Known Limitations
-- **HippoRAG Integration**: Graph query tier partially implemented, Personalized PageRank (PPR) needs completion
-- **Bayesian Inference**: Network builder implemented, CPD estimation requires real data
-- **NexusProcessor**: 5-step SOP pipeline implemented but falls back to vector-only search until all tiers are complete
-- **Dependency Issue**: ChromaDB opentelemetry module incompatibility on some environments (workaround: use vector operations directly)
-- **Test Coverage**: Integration tests have import issues with ChromaDB telemetry (unit tests passing)
+- Current runtime contract and known remaining items are tracked in [docs/CURRENT.md](docs/CURRENT.md).
+- Retrieval is vector+graph fused, with Bayesian inference rebuilt from the live stored-memory graph.
+- Live test/audit status is tracked in [audits/STATUS-2026-06-13.md](audits/STATUS-2026-06-13.md).
 
 See [docs/REMEDIATION-PLAN.md](docs/REMEDIATION-PLAN.md) for detailed remediation roadmap and [docs/MECE-CONSOLIDATED-ISSUES.md](docs/MECE-CONSOLIDATED-ISSUES.md) for complete issue tracking.
 
