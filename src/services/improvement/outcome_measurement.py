@@ -260,23 +260,7 @@ class OutcomeMeasurementService:
             List of outcomes
         """
         outcome_ids = self._by_category.get(category, [])
-        outcomes = []
-
-        for oid in reversed(outcome_ids[-limit * 2:]):
-            outcome = self._outcomes.get(oid)
-            if not outcome:
-                continue
-
-            if since:
-                outcome_time = datetime.fromisoformat(outcome.timestamp.replace("Z", "+00:00"))
-                if outcome_time < since:
-                    continue
-
-            outcomes.append(outcome)
-            if len(outcomes) >= limit:
-                break
-
-        return outcomes
+        return self._get_filtered_outcomes(outcome_ids, limit, since)
 
     def get_outcomes_by_type(
         self,
@@ -295,9 +279,18 @@ class OutcomeMeasurementService:
             List of outcomes
         """
         outcome_ids = self._by_type.get(outcome_type.value, [])
+        return self._get_filtered_outcomes(outcome_ids, limit, since)
+
+    def _get_filtered_outcomes(
+        self,
+        outcome_ids: List[str],
+        limit: int,
+        since: Optional[datetime],
+    ) -> List[Outcome]:
+        """Scan indexed outcomes newest-first, applying filters before limit."""
         outcomes = []
 
-        for oid in reversed(outcome_ids[-limit * 2:]):
+        for oid in reversed(outcome_ids):
             outcome = self._outcomes.get(oid)
             if not outcome:
                 continue
