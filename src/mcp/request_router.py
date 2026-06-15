@@ -793,6 +793,39 @@ def handle_observation_timeline(
         }
 
 
+# === KV tools (B4) ===
+
+def _text_result(text: str, is_error: bool = False) -> Dict[str, Any]:
+    return {"content": [{"type": "text", "text": text}], "isError": is_error}
+
+
+def handle_kv_get(arguments: Dict[str, Any], tool: "NexusSearchTool") -> Dict[str, Any]:
+    """Handle kv_get - read a value from the KV store."""
+    key = arguments.get("key", "")
+    if not key:
+        return _text_result("kv_get requires a non-empty 'key'", True)
+    value = tool.kv_store.get(key)
+    # Missing key is an empty read, not an error.
+    return _text_result(value if value is not None else "", False)
+
+
+def handle_kv_set(arguments: Dict[str, Any], tool: "NexusSearchTool") -> Dict[str, Any]:
+    """Handle kv_set - write a value to the KV store."""
+    key = arguments.get("key", "")
+    if not key:
+        return _text_result("kv_set requires a non-empty 'key'", True)
+    ok = tool.kv_store.set(key, arguments.get("value", ""), ttl=arguments.get("ttl"))
+    return _text_result("ok" if ok else "failed", not ok)
+
+
+def handle_kv_delete(arguments: Dict[str, Any], tool: "NexusSearchTool") -> Dict[str, Any]:
+    """Handle kv_delete - remove a key from the KV store."""
+    key = arguments.get("key", "")
+    if not key:
+        return _text_result("kv_delete requires a non-empty 'key'", True)
+    return _text_result("deleted" if tool.kv_store.delete(key) else "not found", False)
+
+
 # === Main Router ===
 
 def handle_call_tool(
@@ -816,6 +849,9 @@ def handle_call_tool(
         "beads_task_detail": handle_beads_task_detail,
         "beads_query_tasks": handle_beads_query_tasks,
         "observation_timeline": handle_observation_timeline,
+        "kv_get": handle_kv_get,
+        "kv_set": handle_kv_set,
+        "kv_delete": handle_kv_delete,
     }
 
     try:

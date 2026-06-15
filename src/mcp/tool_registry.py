@@ -29,6 +29,9 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
         _beads_task_detail_tool(),
         _beads_query_tasks_tool(),
         _observation_timeline_tool(),
+        _kv_get_tool(),
+        _kv_set_tool(),
+        _kv_delete_tool(),
     ]
 
 
@@ -331,6 +334,52 @@ def _observation_timeline_tool() -> Dict[str, Any]:
                 }
             },
             "required": []
+        }
+    }
+
+
+def _kv_get_tool() -> Dict[str, Any]:
+    """KV get tool definition (B4)."""
+    return {
+        "name": "kv_get",
+        "version": REGISTRY_VERSION,
+        "description": "Read a value from the key-value store by key",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"key": {"type": "string", "description": "Key to read"}},
+            "required": ["key"]
+        }
+    }
+
+
+def _kv_set_tool() -> Dict[str, Any]:
+    """KV set tool definition (B4)."""
+    return {
+        "name": "kv_set",
+        "version": REGISTRY_VERSION,
+        "description": "Write a value to the key-value store (optional ttl seconds)",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "key": {"type": "string", "description": "Key to write"},
+                "value": {"type": "string", "description": "Value to store"},
+                "ttl": {"type": "integer", "description": "Optional time-to-live in seconds"}
+            },
+            "required": ["key", "value"]
+        }
+    }
+
+
+def _kv_delete_tool() -> Dict[str, Any]:
+    """KV delete tool definition (B4)."""
+    return {
+        "name": "kv_delete",
+        "version": REGISTRY_VERSION,
+        "description": "Delete a key from the key-value store",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"key": {"type": "string", "description": "Key to delete"}},
+            "required": ["key"]
         }
     }
 
