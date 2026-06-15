@@ -37,6 +37,11 @@ def test_format_result_full_full_result_unchanged():
 def _tool_with_engine():
     tool = MagicMock()
     tool.nexus_processor._extract_query_entity.return_value = "rain"
+    # P4: the handler rebuilds the network from the current graph and only
+    # queries entities that are nodes in it. Give it a net containing "rain".
+    net = MagicMock()
+    net.nodes.return_value = ["rain"]
+    tool._build_bayesian_network.return_value = net
     return tool
 
 

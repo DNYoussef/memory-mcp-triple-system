@@ -27,9 +27,15 @@ TEXT = f"{CANARY}: GuardSpine zebra-quasar reactor tuned by Wilhelmina Ashgrove 
 
 # Known-broken today -> xfail (recorded, not a gate failure). Flipped by their phase.
 XFAIL = {
-    "bayesian_inference": "B1: Bayesian tier offline (P4)",
     "context_injection": "B5/P5: proactive injection not a registered tool",
 }
+
+# Reinforcing memories so the knowledge graph has real entity co-occurrence
+# edges for the Bayesian network to learn CPDs from (not synthetic).
+REINFORCE = [
+    "GuardSpine and Wilhelmina Ashgrove ran the zebra-quasar reactor in project triplecheck.",
+    "In project triplecheck, Wilhelmina Ashgrove tuned the GuardSpine reactor again.",
+]
 
 
 def _hermetic_env():
@@ -69,6 +75,9 @@ def main():
     try:
         out = call("memory_store", {"text": TEXT, "metadata": {
             "who": "harness", "when": "2026-06-15", "project": "triplecheck", "why": "acceptance"}})
+        for extra in REINFORCE:
+            call("memory_store", {"text": extra, "metadata": {
+                "who": "harness", "when": "2026-06-15", "project": "triplecheck", "why": "reinforce"}})
         record("store", CANARY in out or "chunk" in out.lower(), out)
     except Exception as e:
         record("store", False, e)
@@ -94,10 +103,14 @@ def main():
     except Exception as e:
         record("unified", False, e)
 
-    # bayesian (xfail) ------------------------------------------------------
+    # bayesian: inference over a net built from real stored co-occurrence ----
     try:
-        out = call("bayesian_inference", {"query": "GuardSpine"})
-        record("bayesian_inference", "available" in out.lower() and "no bayesian" not in out.lower(), out)
+        out = call("bayesian_inference", {"query": "Wilhelmina Ashgrove"})
+        low = out.lower()
+        ran = ("unavailable" not in low and "no bayesian" not in low
+               and "no query entity" not in low and "no co-occurrence" not in low
+               and any(ch.isdigit() for ch in out))
+        record("bayesian_inference", ran, out)
     except Exception as e:
         record("bayesian_inference", False, e)
 

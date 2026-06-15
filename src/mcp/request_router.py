@@ -506,24 +506,44 @@ def handle_bayesian_inference(
         return {"content": [{"type": "text", "text": "Bayesian engine unavailable"}], "isError": True}
 
     try:
-        # network=None is intentional: query_conditional falls back to the
-        # engine's stored network (ISS-018). Guard the whole path so an
-        # extraction/inference error returns a clear message, not a generic crash.
         query_var = tool.nexus_processor._extract_query_entity(query)
         if not query_var:
             return {"content": [{"type": "text", "text": "No query entity extracted from query"}], "isError": True}
+
+        # P4: build the network from the CURRENT graph (the init-time net is
+        # built before anything is ingested, so stored entities are not nodes).
+        # CPDs are estimated from real graph co-occurrence, not fabricated.
+        # ponytail: rebuilt per call; cache keyed on graph version if it ever matters.
+        network = None
+        if hasattr(tool, "_build_bayesian_network") and getattr(tool, "graph_service", None):
+            network = tool._build_bayesian_network(tool.graph_service)
+        if network is None:
+            return {"content": [{"type": "text", "text": (
+                "Bayesian inference unavailable: not enough entity co-occurrence in stored "
+                "memory to build a network yet (store related memories first)")}], "isError": False}
+
+        # Graph nodes are normalized (lowercase, spaces->underscores); the query
+        # extractor returns the raw surface form. Match against both.
+        nodes = set(network.nodes())
+        node_var = next(
+            (v for v in (query_var, query_var.lower().replace(" ", "_")) if v in nodes),
+            None,
+        )
+        if node_var is None:
+            return {"content": [{"type": "text", "text": (
+                f"Bayesian: '{query_var}' is not a node in the stored-memory network yet")}], "isError": False}
+
         result = tool.nexus_processor.probabilistic_query_engine.query_conditional(
-            network=None, query_vars=[query_var], evidence=evidence
+            network=network, query_vars=[node_var], evidence=evidence
         )
     except Exception as exc:
         logger.error(f"Bayesian inference failed: {exc}")
         return {"content": [{"type": "text", "text": f"Bayesian inference failed: {exc}"}], "isError": True}
 
     if result is None:
-        # No network loaded or query timed out - not an error, but say so clearly.
-        return {"content": [{"type": "text", "text": "No Bayesian inference available (no network or timeout)"}], "isError": False}
+        return {"content": [{"type": "text", "text": "No Bayesian inference available (inference returned no result)"}], "isError": False}
 
-    return {"content": [{"type": "text", "text": json.dumps(result)}], "isError": False}
+    return {"content": [{"type": "text", "text": json.dumps(result, default=str)}], "isError": False}
 
 
 def handle_unified_search(
