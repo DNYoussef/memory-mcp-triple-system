@@ -151,9 +151,6 @@ class QualityTrendsAnalyzer:
         values = [d["value"] for d in period_data]
         timestamps = [d["timestamp"] for d in period_data]
 
-        # Current and previous values
-        current = values[-1]
-
         # Split into halves for comparison
         mid = len(values) // 2
         first_half = values[:mid] if mid > 0 else values[:1]
@@ -161,6 +158,7 @@ class QualityTrendsAnalyzer:
 
         previous = statistics.mean(first_half)
         current_avg = statistics.mean(second_half)
+        current = current_avg
 
         # Calculate change
         if previous != 0:
