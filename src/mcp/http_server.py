@@ -48,7 +48,7 @@ from src.services.graph_service import GraphService
 from src.services.graph_query_engine import GraphQueryEngine
 from src.bayesian import BAYESIAN_AVAILABLE, BAYESIAN_BACKEND, NetworkBuilder, ProbabilisticQueryEngine
 from src.stores.event_log import EventLog, EventType
-from src.stores.kv_store import KVStore
+from src.stores.kv_store import KVStore, DEFAULT_DB_NAME
 from src.memory.lifecycle_manager import MemoryLifecycleManager
 from src.memory.lifecycle_scheduler import LifecycleScheduler
 # Lazy imports to avoid startup crashes if dependencies are missing
@@ -385,7 +385,7 @@ def get_kv_store() -> KVStore:
             if _kv_store is None:
                 config = load_config()
                 data_dir = _get_data_dir(config)
-                _kv_store = KVStore(db_path=os.path.join(data_dir, "kv_store.db"))
+                _kv_store = KVStore(db_path=os.path.join(data_dir, DEFAULT_DB_NAME))
     return _kv_store
 
 

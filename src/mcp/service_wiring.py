@@ -28,7 +28,7 @@ from ..nexus.processor import NexusProcessor
 
 # Phase 6: Production wiring imports (C3.2-C3.6)
 from ..stores.event_log import EventLog
-from ..stores.kv_store import KVStore
+from ..stores.kv_store import KVStore, DEFAULT_DB_NAME
 from ..debug.query_trace import QueryTrace
 from ..lifecycle.hotcold_classifier import HotColdClassifier
 from ..memory.lifecycle_manager import MemoryLifecycleManager
@@ -183,8 +183,10 @@ class NexusSearchTool:
         # C3.3: Event logging
         self.event_log = EventLog(db_path=str(data_dir / "events.db"))
 
-        # C3.4: KV store for session state
-        self.kv_store = KVStore(db_path=str(data_dir / "kv_store.db"))
+        # C3.4: KV store for session state. Must match the capture hooks'
+        # DEFAULT_DB or observation_timeline reads an empty file (the runtime
+        # wrote here while hooks wrote agent_kv.db -- the empty-timeline bug).
+        self.kv_store = KVStore(db_path=str(data_dir / DEFAULT_DB_NAME))
 
         # C3.5: Lifecycle manager with hot/cold classifier.
         # F6: pass the embedder LAZILY. Accessing .embedder here force-loaded the

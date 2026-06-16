@@ -19,6 +19,13 @@ from typing import Optional, List, Dict, Any
 from loguru import logger
 
 
+# Canonical on-disk filename for the KV/observations/sessions store.
+# The auto-capture hooks (post_tool_handler, session_start_handler, stop_handler)
+# and the MCP runtime (service_wiring, http_server) MUST agree on this name, or
+# writes land in one file and reads come from another (the empty-timeline bug).
+DEFAULT_DB_NAME = "agent_kv.db"
+
+
 class KVStore:
     """
     SQLite-backed key-value store for O(1) lookups.
@@ -66,6 +73,14 @@ class KVStore:
                 timeout=30.0
             )
             self._local.conn.row_factory = sqlite3.Row
+            # WAL: the capture hooks open/close this file on every tool call
+            # while the long-lived MCP server holds it open. WAL lets readers
+            # and the writer proceed without blocking, so a hook cannot stall
+            # the PostToolUse path waiting on a lock. No-op for :memory:.
+            try:
+                self._local.conn.execute("PRAGMA journal_mode=WAL")
+            except sqlite3.Error:
+                pass  # WAL unavailable (e.g. :memory:) -- rollback journal is fine
         return self._local.conn
 
     @contextmanager
