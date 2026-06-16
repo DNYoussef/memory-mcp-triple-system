@@ -5,10 +5,7 @@ Following TDD (London School) with proper test structure and sandbox validation.
 
 import pytest
 import json
-import time
-from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
-from datetime import datetime
+from unittest.mock import MagicMock
 
 from src.services.curation_service import CurationService
 

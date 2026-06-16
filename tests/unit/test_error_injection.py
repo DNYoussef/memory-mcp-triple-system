@@ -10,7 +10,7 @@ Validates that the system degrades gracefully when:
 """
 
 import pytest
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 from src.nexus.processor import NexusProcessor
 from src.stores.event_log import EventLog, EventType
 from src.services.graph_service import GraphService

@@ -13,7 +13,7 @@ import os
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 from loguru import logger
 

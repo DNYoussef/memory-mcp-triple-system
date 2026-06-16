@@ -14,11 +14,9 @@ import asyncio
 import hashlib
 import hmac
 import aiofiles
-import aiohttp
-from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from urllib.parse import urlencode
-from typing import Optional, Dict, Any, List, Callable, Awaitable
+from typing import Optional, Dict, List, Callable, Awaitable
 from dataclasses import dataclass
 import logging
 

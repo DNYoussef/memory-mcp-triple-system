@@ -9,9 +9,8 @@ Validates that:
 
 import time
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from src.nexus.processor import NexusProcessor
-from src.nexus.processing_utils import LostInMiddleMitigation
 
 
 @pytest.fixture

@@ -11,7 +11,6 @@ WHY: infrastructure (IMPROVE-001)
 import logging
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
-from datetime import datetime, timezone
 
 from src.services.improvement.outcome_schema import (
     Pattern,

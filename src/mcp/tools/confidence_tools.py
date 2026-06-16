@@ -14,19 +14,11 @@ from typing import Optional, Dict, Any, List
 from src.integrations.confidence_scoring_schema import (
     ClassificationResult,
     EscalationReason,
-    EscalationRequest,
-    ESCALATION_THRESHOLD,
 )
 from src.services.confidence import (
     ConfidenceCoordinator,
     CoordinatorConfig,
-    ScoringResult,
-    get_coordinator,
     initialize_coordinator,
-    ModeDetectionScorer,
-    EntityExtractionScorer,
-    TagAssignmentScorer,
-    EscalationService,
     QualityGateAggregator,
     GateType,
 )

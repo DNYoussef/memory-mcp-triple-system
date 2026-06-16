@@ -7,7 +7,6 @@ NASA Rule 10 Compliant: All test functions ≤60 LOC
 
 import pytest
 import networkx as nx
-from unittest.mock import Mock, MagicMock
 
 from src.services.graph_query_engine import GraphQueryEngine
 from src.services.graph_service import GraphService

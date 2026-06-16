@@ -12,8 +12,7 @@ Tests:
 """
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-import math
+from unittest.mock import Mock, patch
 
 from src.services.reranker_service import RerankerService
 

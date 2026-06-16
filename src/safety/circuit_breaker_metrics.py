@@ -8,12 +8,10 @@ Supports Prometheus-compatible metrics format.
 
 import asyncio
 import logging
-import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, List, Optional, Any, Callable
 from dataclasses import dataclass, field
 from enum import Enum
-import json
 
 logger = logging.getLogger(__name__)
 

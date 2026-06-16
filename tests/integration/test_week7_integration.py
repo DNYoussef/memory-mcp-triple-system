@@ -7,9 +7,6 @@ Tests integration of all Week 7 components:
 - Obsidian sync with memory system
 """
 
-import pytest
-from pathlib import Path
-import json
 from src.validation.schema_validator import SchemaValidator
 from src.stores.kv_store import KVStore
 from src.debug.query_trace import QueryTrace

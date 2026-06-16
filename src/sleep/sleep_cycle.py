@@ -10,7 +10,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta, time
 from typing import Dict, List, Optional, Any, Callable, Awaitable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 
 logger = logging.getLogger(__name__)

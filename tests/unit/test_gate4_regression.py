@@ -11,7 +11,6 @@ Tests:
 """
 
 import os
-import re
 import unittest
 
 

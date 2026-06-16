@@ -17,7 +17,7 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 from . import _utf8_io  # noqa: F401  (import runs ensure_utf8_io())
 
 # Compatibility import retained for Phase 2 integration tests
-from ..nexus.processor import NexusProcessor
+from ..nexus.processor import NexusProcessor  # noqa: F401  (compat re-export)
 
 # Re-export from service_wiring for backwards compatibility
 from .service_wiring import (

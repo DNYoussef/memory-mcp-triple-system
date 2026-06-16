@@ -6,11 +6,11 @@ PROJECT: memory-mcp-triple-system
 WHY: implementation (RETRIEVE-001)
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from loguru import logger
 
 from ...services.proactive_context_injector import ProactiveContextInjector
-from ...integrations.proactive_schema import TriggerEvent, TriggerType, InjectionRule
+from ...integrations.proactive_schema import TriggerEvent, TriggerType
 
 
 class ProactiveTools:

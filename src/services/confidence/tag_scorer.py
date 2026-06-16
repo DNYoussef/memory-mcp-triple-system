@@ -18,7 +18,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from src.integrations.confidence_scoring_schema import (
-    ConfidenceScore,
     ClassificationResult,
     ClassificationType,
     EscalationReason,

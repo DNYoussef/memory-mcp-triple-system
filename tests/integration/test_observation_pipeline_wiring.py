@@ -23,7 +23,6 @@ import json
 import os
 from pathlib import Path
 
-import pytest
 
 from src.stores.kv_store import KVStore, DEFAULT_DB_NAME
 from src.models.observation_types import Session

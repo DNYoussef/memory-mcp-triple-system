@@ -8,7 +8,6 @@ NASA Rule 10 Compliant: All functions ≤60 LOC
 import pytest
 import tempfile
 import shutil
-from pathlib import Path
 from src.indexing.vector_indexer import VectorIndexer
 
 

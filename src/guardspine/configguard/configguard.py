@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Dict, Any, Optional, List, Set
+from typing import Dict, Any, List
 from loguru import logger
 
 # Add project paths for imports

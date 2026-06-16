@@ -13,7 +13,7 @@ from ..services.graph_service import GraphService
 from ..services.graph_query_engine import GraphQueryEngine
 from ..services.entity_service import EntityService
 from ..services.hipporag_service import HippoRagService
-from ..bayesian import BAYESIAN_AVAILABLE, NetworkBuilder, ProbabilisticQueryEngine
+from ..bayesian import NetworkBuilder, ProbabilisticQueryEngine
 
 logger = logging.getLogger(__name__)
 

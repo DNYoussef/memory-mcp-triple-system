@@ -10,8 +10,8 @@ WHY: infrastructure (IMPROVE-001)
 
 import logging
 from typing import Dict, Any, List, Optional, Tuple
-from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from collections import defaultdict
 import statistics
 import re
@@ -19,7 +19,6 @@ import re
 from src.services.improvement.outcome_schema import (
     Outcome,
     OutcomeType,
-    OutcomeSource,
     Pattern,
 )
 

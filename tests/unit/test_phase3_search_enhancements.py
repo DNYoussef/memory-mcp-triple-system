@@ -9,12 +9,8 @@ Tests:
   6. Tool registry includes detail param in vector_search schema
 """
 
-import os
-import json
-import sqlite3
-import tempfile
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 

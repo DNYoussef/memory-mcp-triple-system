@@ -6,7 +6,6 @@ NASA Rule 10 Compliant: All test functions ≤60 LOC
 """
 
 import pytest
-from unittest.mock import MagicMock
 
 from src.services.entity_service import EntityService
 from src.services.graph_service import GraphService

@@ -8,9 +8,7 @@ PROJECT: memory-mcp-triple-system
 WHY: infrastructure (CAPTURE-001)
 """
 
-import os
-import asyncio
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
 import logging

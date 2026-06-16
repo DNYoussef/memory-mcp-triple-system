@@ -10,11 +10,9 @@ WHY: infrastructure (CAPTURE-003)
 
 import logging
 from typing import Dict, Any, List, Optional
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass
 
 from src.integrations.confidence_scoring_schema import (
-    ConfidenceScore,
     ClassificationResult,
     ClassificationType,
     EscalationRequest,
@@ -28,7 +26,6 @@ from src.services.confidence.entity_extractor import EntityExtractionScorer
 from src.services.confidence.quality_gate import (
     QualityGateAggregator,
     GateType,
-    GateCheck,
 )
 from src.services.confidence.tag_scorer import TagAssignmentScorer
 from src.services.confidence.escalation_service import EscalationService

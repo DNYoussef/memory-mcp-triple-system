@@ -10,7 +10,7 @@ WHY: infrastructure (IMPROVE-001)
 """
 
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 
 from src.services.improvement.improvement_coordinator import (
     get_improvement_coordinator,

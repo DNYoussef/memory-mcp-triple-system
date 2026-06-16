@@ -1,6 +1,5 @@
 import asyncio
 from datetime import datetime, timezone
-from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import pytest

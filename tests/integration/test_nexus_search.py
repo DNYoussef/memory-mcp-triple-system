@@ -12,13 +12,9 @@ Tests the unified search pipeline:
 NASA Rule 10 Compliant: All test methods <=60 LOC
 """
 import pytest
-import tempfile
-from pathlib import Path
 from unittest.mock import MagicMock
 
 from src.nexus.processor import NexusProcessor
-from src.nexus.processing_utils import ProcessingUtilsMixin
-from src.nexus.tier_queries import TierQueryMixin
 
 
 @pytest.fixture

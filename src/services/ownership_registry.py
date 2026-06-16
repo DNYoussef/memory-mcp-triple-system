@@ -18,7 +18,7 @@ import os
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 from loguru import logger
 
 from ..integrations.ontology_schema import (

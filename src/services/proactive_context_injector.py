@@ -9,14 +9,13 @@ WHY: implementation (RETRIEVE-001)
 """
 
 import copy
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, List, Optional, Any
 from loguru import logger
 
 from ..integrations.proactive_schema import (
     TriggerEvent,
     TriggerType,
-    ContextPriority,
     InjectedContext,
     InjectionRule,
     InjectionStats,

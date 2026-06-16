@@ -1,5 +1,4 @@
 """Tests for lightweight Bayesian inference (no torch/pgmpy)."""
-import pytest
 from src.bayesian.lightweight_bayesian import (
     LightweightBayesianNetwork,
     LightweightCPD,

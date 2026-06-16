@@ -13,7 +13,7 @@ WHY: infrastructure (CAPTURE-003)
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional, Dict, Any, List, Callable
+from typing import Optional, Dict, Any, List
 import uuid
 import math
 

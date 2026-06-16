@@ -2,15 +2,10 @@
 Real ChromaDB Integration Tests (ISS-047)
 Tests vector operations with real ChromaDB instead of mocks.
 """
-import pytest
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from tests.fixtures.real_services import (
-    temp_data_dir, real_chromadb_client, real_embedding_pipeline,
-    real_vector_indexer, sample_documents, indexed_documents
-)
 
 
 class TestVectorIndexerRealChromaDB:

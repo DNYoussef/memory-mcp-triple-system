@@ -9,7 +9,7 @@ This file was missing from the repo (never committed), breaking stdio transport.
 
 import json
 import sys
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from loguru import logger
 

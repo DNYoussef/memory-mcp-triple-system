@@ -6,11 +6,9 @@ a SessionSummary with: request, investigated, learned, completed, next_steps.
 NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
-from typing import Any, Dict, List, Optional
-from loguru import logger
+from typing import Any, Dict, List
 
 from ..models.observation_types import (
-    ObservationType,
     SessionSummary,
 )
 from ..stores.kv_store import KVStore

@@ -11,7 +11,7 @@ Tests the 5.5-step SOP pipeline:
 """
 
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 from src.nexus.processor import NexusProcessor
 
 

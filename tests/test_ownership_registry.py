@@ -10,7 +10,6 @@ import os
 import pytest
 import tempfile
 import shutil
-from pathlib import Path
 
 from src.services.ownership_registry import OwnershipRegistry
 from src.integrations.ontology_schema import (

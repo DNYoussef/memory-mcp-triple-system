@@ -4,7 +4,7 @@ Following TDD (London School) with proper test structure.
 """
 
 import pytest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 from src.mcp.tools.vector_search import VectorSearchTool
 
 

@@ -7,7 +7,6 @@ NASA Rule 10 Compliant: All test functions ≤60 LOC
 
 import pytest
 import json
-from pathlib import Path
 
 from src.services.graph_service import GraphService
 

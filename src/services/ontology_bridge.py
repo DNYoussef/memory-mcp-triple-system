@@ -20,10 +20,9 @@ WHY: implementation (GRAPH-001)
 
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from loguru import logger
 
@@ -35,7 +34,6 @@ from ..integrations.ontology_schema import (
     CrossLinkType,
     LifeBucketType,
     LifeEntity,
-    ONTOLOGY_REGISTRY,
     ProjectEntity,
     ProjectRole,
 )

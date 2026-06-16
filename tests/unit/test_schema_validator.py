@@ -6,8 +6,7 @@ Tests schema validation against SPEC v7.0 requirements.
 
 import pytest
 import yaml
-from pathlib import Path
-from src.validation.schema_validator import SchemaValidator, ValidationError
+from src.validation.schema_validator import SchemaValidator
 
 
 @pytest.fixture

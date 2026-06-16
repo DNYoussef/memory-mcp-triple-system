@@ -13,7 +13,7 @@ Tests:
 """
 
 import pytest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 
 from src.services.unified_search_router import UnifiedSearchRouter
 

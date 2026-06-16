@@ -11,15 +11,12 @@ WHY: infrastructure (CAPTURE-003)
 import re
 import logging
 from typing import Dict, Any, List, Optional, Tuple
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from src.integrations.confidence_scoring_schema import (
-    ConfidenceScore,
     ClassificationResult,
     ClassificationType,
     EscalationReason,
-    combine_confidences,
-    entropy_based_confidence,
     margin_based_confidence,
     ESCALATION_THRESHOLD,
 )

@@ -12,15 +12,12 @@ import re
 import logging
 from typing import Dict, Any, List, Optional, Tuple, Set
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 
 from src.integrations.confidence_scoring_schema import (
-    ConfidenceScore,
     ClassificationResult,
     ClassificationType,
     EscalationReason,
     combine_confidences,
-    entropy_based_confidence,
     ESCALATION_THRESHOLD,
 )
 

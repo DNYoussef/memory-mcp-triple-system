@@ -8,7 +8,7 @@ during optimal quiet periods detected by the activity monitor.
 
 import asyncio
 import logging
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Callable, Awaitable
 from dataclasses import dataclass, field
 from enum import Enum

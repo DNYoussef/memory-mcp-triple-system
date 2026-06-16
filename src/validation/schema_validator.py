@@ -11,7 +11,6 @@ import yaml
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
-from loguru import logger
 
 
 @dataclass

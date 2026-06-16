@@ -16,32 +16,24 @@ from datetime import datetime, timezone
 
 from src.services.improvement.outcome_schema import (
     Outcome,
-    OutcomeType,
     Pattern,
     RuleProposal,
     ProposalStatus,
-    ApprovalDecision,
 )
 from src.services.improvement.outcome_measurement import (
     OutcomeMeasurementService,
-    OutcomeMeasurementConfig,
 )
 from src.services.improvement.pattern_detection import (
     PatternDetectionService,
-    PatternDetectionConfig,
 )
 from src.services.improvement.rule_proposal import (
     RuleProposalGenerator,
-    RuleProposalConfig,
 )
 from src.services.improvement.approval_gate import (
     HumanApprovalGate,
-    ApprovalGateConfig,
-    ApprovalPriority,
 )
 from src.services.improvement.rule_deployment import (
     RuleDeploymentService,
-    RuleDeploymentConfig,
     DeploymentResult,
 )
 

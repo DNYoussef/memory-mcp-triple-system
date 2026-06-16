@@ -14,7 +14,6 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
 import json
-import os
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from enum import Enum

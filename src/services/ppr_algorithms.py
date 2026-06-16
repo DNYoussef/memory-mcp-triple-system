@@ -5,7 +5,7 @@ Extracted from graph_query_engine.py for modularity.
 NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
-from typing import List, Dict, Tuple
+from typing import List, Dict
 import networkx as nx
 from loguru import logger
 

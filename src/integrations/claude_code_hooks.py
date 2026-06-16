@@ -8,10 +8,7 @@ PROJECT: memory-mcp-triple-system
 WHY: implementation (RETRIEVE-001)
 """
 
-import asyncio
-import json
 import os
-import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional

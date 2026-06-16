@@ -12,7 +12,6 @@ Non-ASCII test content uses unicode escapes so this source file stays pure ASCII
 import io
 import sys
 
-import pytest
 
 from src.hooks.session_start_handler import _emit_context
 

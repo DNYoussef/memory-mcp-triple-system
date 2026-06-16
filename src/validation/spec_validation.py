@@ -59,7 +59,6 @@ from typing import (
     List,
     Optional,
     Protocol,
-    Sequence,
     Tuple,
     Type,
     TypeVar,

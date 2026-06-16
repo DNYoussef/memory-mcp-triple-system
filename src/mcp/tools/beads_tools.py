@@ -8,7 +8,6 @@ PROJECT: memory-mcp-triple-system
 WHY: infrastructure (MCP-005)
 """
 
-import asyncio
 import json
 import logging
 import os

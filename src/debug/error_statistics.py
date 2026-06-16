@@ -51,7 +51,6 @@ class ErrorStatisticsService:
 
     def _query_statistics(self, days: int) -> Dict[str, Any]:
         """Query statistics from database."""
-        import sqlite3
 
         cutoff_date = datetime.now() - timedelta(days=days)
         cutoff_str = cutoff_date.isoformat()

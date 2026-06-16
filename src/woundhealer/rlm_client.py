@@ -20,8 +20,7 @@ import math
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, Any, Optional, List, Tuple
-from collections import defaultdict
+from typing import Dict, Any, Optional, List
 from loguru import logger
 
 # Add project paths for imports

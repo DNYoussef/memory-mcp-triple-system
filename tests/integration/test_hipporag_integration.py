@@ -9,12 +9,10 @@ NASA Rule 10 Compliant: All test functions ≤60 LOC
 
 import pytest
 import time
-from typing import List, Dict, Any
 
 from src.services.hipporag_service import HippoRagService, RetrievalResult
 from src.services.graph_service import GraphService
 from src.services.entity_service import EntityService
-from src.services.graph_query_engine import GraphQueryEngine
 
 
 @pytest.fixture

@@ -9,7 +9,6 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 
 import re
 from typing import Any
-from loguru import logger
 
 
 class DetectionRules:

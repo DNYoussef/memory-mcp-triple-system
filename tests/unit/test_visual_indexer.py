@@ -14,7 +14,6 @@ Tests:
 """
 
 import pytest
-from unittest.mock import Mock, patch
 import tempfile
 import shutil
 from pathlib import Path

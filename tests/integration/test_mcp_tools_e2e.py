@@ -15,12 +15,6 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from fixtures.real_services import (
-    temp_data_dir, real_vector_indexer, real_graph_service,
-    real_graph_query_engine, real_embedding_pipeline,
-    real_nexus_processor, indexed_documents, populated_graph,
-    sample_documents
-)
 
 
 class TestVectorSearchE2E:
@@ -380,7 +374,6 @@ class TestModeDetectionE2E:
         NASA Rule 10: 32 LOC (<=60)
         """
         from src.modes.mode_detector import ModeDetector
-        from src.modes.mode_profile import EXECUTION
 
         detector = ModeDetector()
 
@@ -579,7 +572,7 @@ class TestQueryRouterE2E:
 
         NASA Rule 10: 26 LOC (<=60)
         """
-        from src.routing.query_router import QueryRouter, StorageTier, QueryMode
+        from src.routing.query_router import QueryRouter, QueryMode
 
         router = QueryRouter()
 

@@ -8,13 +8,10 @@ Provides cascade protection and health-based degradation.
 
 import asyncio
 import logging
-import signal
-import sys
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Callable, Awaitable, Set
+from typing import Dict, List, Optional, Any, Callable, Awaitable
 from dataclasses import dataclass, field
 from enum import Enum
-import os
 
 logger = logging.getLogger(__name__)
 

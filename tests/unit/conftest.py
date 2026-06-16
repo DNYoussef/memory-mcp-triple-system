@@ -4,7 +4,6 @@ Test configuration for unit tests.
 
 import sys
 import types
-import pytest
 
 # Mock spacy before any src imports that transitively depend on it.
 # spacy is an optional heavy dependency not installed in CI.

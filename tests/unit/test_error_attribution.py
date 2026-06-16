@@ -8,7 +8,6 @@ Tests error classification logic:
 """
 
 import pytest
-from unittest.mock import Mock
 from src.debug.error_attribution import (
     ErrorAttribution,
     ErrorType,

@@ -99,7 +99,7 @@ async def test_tool_list():
     missing = [t for t in expected_tools if t not in tool_names]
 
     if len(tools) == 14 and not missing:
-        print_result('tool_list', True, f'All 14 tools registered')
+        print_result('tool_list', True, 'All 14 tools registered')
     else:
         print_result('tool_list', False, f'Missing tools: {missing}', {'found': len(tools)})
 
@@ -346,7 +346,7 @@ async def test_obsidian_sync(nexus_tool):
                             f'Obsidian client ready: {nexus_tool._vault_path}')
             else:
                 print_result('obsidian_sync', True,
-                            f'Obsidian path set but client not initialized (lazy load)')
+                            'Obsidian path set but client not initialized (lazy load)')
         else:
             print_result('obsidian_sync', True,
                         'Obsidian sync available (no vault configured)')

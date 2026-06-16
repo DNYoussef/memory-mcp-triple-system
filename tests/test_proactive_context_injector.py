@@ -7,17 +7,14 @@ WHY: testing (RETRIEVE-001)
 """
 
 import pytest
-import asyncio
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from src.services.proactive_context_injector import (
     ProactiveContextInjector,
-    get_proactive_injector,
 )
 from src.integrations.proactive_schema import (
     TriggerType,
-    ContextPriority,
     TriggerEvent,
     InjectionRule,
     InjectionStats,

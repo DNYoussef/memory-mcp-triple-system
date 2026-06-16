@@ -14,9 +14,7 @@ Tests:
 """
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-import tempfile
-import os
+from unittest.mock import Mock, patch
 
 from src.services.qwen3vl_embedder import Qwen3VLEmbedder
 

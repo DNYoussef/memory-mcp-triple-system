@@ -13,9 +13,8 @@ Tests:
 """
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock
 import tempfile
-import shutil
 from pathlib import Path
 
 from src.services.visual_memory_service import VisualMemoryService

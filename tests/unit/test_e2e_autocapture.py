@@ -6,20 +6,14 @@ Tests the full lifecycle:
 All using real KVStore (in-memory SQLite) but mocking subprocess/stdin.
 """
 
-import json
-import os
-import tempfile
-from datetime import datetime
-from unittest.mock import patch, MagicMock
 
 import pytest
 
 from src.stores.kv_store import KVStore
-from src.models.observation_types import Observation, Session, classify_tool
+from src.models.observation_types import Session
 from src.services.observation_bridge import ObservationBridge
 from src.services.session_summarizer import SessionSummarizer
 from src.services.context_builder import ContextBuilder
-from src.services.token_calculator import TokenTracker
 
 
 class TestAutoCapturePipeline:

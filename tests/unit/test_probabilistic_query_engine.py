@@ -7,8 +7,6 @@ Target: 10 tests, ~240 LOC
 """
 
 import pytest
-import networkx as nx
-from src.bayesian.network_builder import NetworkBuilder
 from src.bayesian.probabilistic_query_engine import ProbabilisticQueryEngine
 from pgmpy.models import BayesianNetwork
 from pgmpy.factors.discrete import TabularCPD

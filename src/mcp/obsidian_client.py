@@ -1,4 +1,3 @@
-import os
 """
 Obsidian MCP Client - Refactored Facade (Week 7 - Phase 3)
 

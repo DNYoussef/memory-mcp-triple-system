@@ -11,7 +11,6 @@ WHY: infrastructure (CAPTURE-001)
 import os
 import asyncio
 import json
-import subprocess
 import hashlib
 from pathlib import Path
 from datetime import datetime, timezone
@@ -25,7 +24,6 @@ from src.integrations.ephemeral_buffer_schema import (
     BufferStatus,
     BufferType,
     TranscriptionResult,
-    compute_file_checksum,
 )
 from src.services.capture.railway_buffer import RailwayBufferService
 

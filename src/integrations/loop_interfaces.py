@@ -243,7 +243,6 @@ class Loop15StorageInterface:
         # Store via namespace router if available
         if self.namespace_router:
             try:
-                from ..telemetry.namespace_router import TelemetryNamespace
                 success = self.namespace_router.store_expertise(
                     domain=signal.domain,
                     topic=signal.topic,
@@ -499,7 +498,7 @@ class Loop3QueryInterface:
             "extracted_at": datetime.utcnow().isoformat()
         }
 
-        logger.info(f"Extracted PyMOO 14D params")
+        logger.info("Extracted PyMOO 14D params")
         return params
 
     def _default_5d_params(self) -> Dict[str, Any]:

@@ -383,11 +383,11 @@ def _validate_workflow_results(result: List[Dict], stats: Dict):
         f"Mean workflow time {mean_time:.1f}s exceeds 300s (5 min) target"
 
     # Report timing breakdown
-    print(f"\n--- Full Workflow Performance Report ---")
+    print("\n--- Full Workflow Performance Report ---")
     print(f"Mean time: {mean_time:.2f}s")
     print(f"Median time: {stats.get('median', mean_time):.2f}s")
     print(f"Std dev: {stats.get('stddev', 0):.2f}s")
-    print(f"Target: <300s (5 minutes)")
+    print("Target: <300s (5 minutes)")
     print(f"Margin: {300 - mean_time:.2f}s remaining")
 
 

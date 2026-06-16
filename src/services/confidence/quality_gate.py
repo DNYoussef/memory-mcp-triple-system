@@ -11,7 +11,6 @@ WHY: infrastructure (CAPTURE-003)
 import logging
 from typing import Dict, Any, List, Optional, Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from enum import Enum
 
 from src.integrations.confidence_scoring_schema import (
@@ -20,7 +19,6 @@ from src.integrations.confidence_scoring_schema import (
     ClassificationType,
     QualityGateScore,
     EscalationReason,
-    EscalationStatus,
     combine_confidences,
     ESCALATION_THRESHOLD,
 )

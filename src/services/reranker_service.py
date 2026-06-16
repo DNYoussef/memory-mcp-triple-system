@@ -8,11 +8,8 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
 import os
-import sys
-import io
 import time
 from typing import List, Dict, Any, Optional, Tuple
-from pathlib import Path
 from loguru import logger
 
 # Fix Windows encoding issues before importing sentence_transformers

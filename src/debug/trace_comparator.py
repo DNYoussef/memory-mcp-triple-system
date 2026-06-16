@@ -7,8 +7,7 @@ Single Responsibility: Compare two traces and identify differences.
 NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
-from typing import Dict, Any, List
-from loguru import logger
+from typing import Dict, Any
 
 from .query_trace import QueryTrace
 

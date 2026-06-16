@@ -5,7 +5,6 @@ Tests O(1) key-value operations with SQLite backend.
 """
 
 import pytest
-from pathlib import Path
 import json
 from src.stores.kv_store import KVStore
 

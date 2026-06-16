@@ -8,7 +8,7 @@ NASA Rule 10 Compliant: All functions ≤60 LOC
 """
 
 from dataclasses import dataclass
-from typing import List, Dict, Any, Optional, Set, Tuple
+from typing import List, Dict, Any, Optional, Tuple
 from loguru import logger
 
 from .graph_service import GraphService

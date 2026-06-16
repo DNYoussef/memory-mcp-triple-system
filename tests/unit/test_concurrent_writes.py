@@ -8,7 +8,6 @@ Validates thread safety of:
 """
 
 import threading
-import time
 import pytest
 from src.stores.kv_store import KVStore
 from src.services.graph_service import GraphService

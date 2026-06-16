@@ -6,7 +6,6 @@ NASA Rule 10 Compliant: All functions ≤60 LOC
 """
 
 from typing import List, Dict, Any
-from pathlib import Path
 from loguru import logger
 
 from ...chunking.semantic_chunker import SemanticChunker

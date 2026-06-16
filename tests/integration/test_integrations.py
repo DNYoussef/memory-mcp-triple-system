@@ -13,7 +13,7 @@ import asyncio
 import shutil
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock, patch
 
 from src.integrations.beads_bridge import BeadsBridge, BeadTask
 from src.mcp.obsidian_client import ObsidianMCPClient

@@ -9,7 +9,7 @@ enabling targeted cleanup of stale or outdated information.
 import logging
 import numpy as np
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 from enum import Enum
 

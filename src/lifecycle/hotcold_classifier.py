@@ -9,8 +9,8 @@ Part of Week 9 implementation for Memory MCP Triple System.
 NASA Rule 10 Compliant: All functions ≤60 LOC
 """
 
-from typing import List, Dict, Any, Optional
-from datetime import datetime, timedelta
+from typing import List, Dict, Any
+from datetime import datetime
 from enum import Enum
 import math
 from loguru import logger

@@ -523,7 +523,6 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         Returns:
             Deduplicated list (cosine <dedup_threshold)
         """
-        import numpy as np
 
         if not candidates:
             return []
@@ -585,7 +584,6 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         texts: List[str]
     ) -> Optional[Any]:
         """Pre-compute embeddings for all texts in one batch call."""
-        import numpy as np
 
         if self.embedding_pipeline is None:
             return None

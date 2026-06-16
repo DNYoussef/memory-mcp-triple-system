@@ -9,7 +9,6 @@ WHY: infrastructure (IMPROVE-001)
 """
 
 import logging
-import os
 import shutil
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field

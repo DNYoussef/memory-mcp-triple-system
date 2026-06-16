@@ -2,7 +2,6 @@
 Real NetworkX Graph Integration Tests (ISS-047)
 Tests graph operations with real NetworkX instead of mocks.
 """
-import pytest
 import sys
 from pathlib import Path
 
@@ -10,9 +9,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from fixtures.real_services import (
-    temp_data_dir, real_graph_service, real_graph_query_engine, populated_graph
-)
 
 
 class TestGraphServiceRealNetworkX:

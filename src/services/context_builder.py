@@ -12,7 +12,6 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
 from typing import Any, Dict, List, Optional
-from loguru import logger
 
 from ..stores.kv_store import KVStore
 from .token_calculator import TokenTracker

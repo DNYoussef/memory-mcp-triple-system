@@ -5,7 +5,6 @@ Tests portable vault synchronization.
 """
 
 import pytest
-from pathlib import Path
 from src.mcp.obsidian_client import ObsidianMCPClient
 
 

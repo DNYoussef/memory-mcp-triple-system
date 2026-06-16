@@ -11,7 +11,7 @@ WHY: implementation (RETRIEVE-001)
 import asyncio
 import os
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Set, Any
 from dataclasses import dataclass, field
@@ -32,7 +32,7 @@ except ImportError:
     logger.warning("watchdog not installed. File watching will use polling fallback.")
 
 from ..proactive_context_injector import ProactiveContextInjector
-from ...integrations.proactive_schema import TriggerEvent, TriggerType, ContextPriority
+from ...integrations.proactive_schema import TriggerEvent
 
 
 @dataclass

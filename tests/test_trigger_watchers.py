@@ -8,11 +8,9 @@ WHY: testing (RETRIEVE-001)
 
 import pytest
 import asyncio
-import os
 import tempfile
-from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
-from pathlib import Path
+from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock
 
 from src.services.trigger_watchers.file_watcher import FileWatcher, WatchConfig
 from src.services.trigger_watchers.git_watcher import GitWatcher, GitWatchConfig, GitRepoState
@@ -21,7 +19,6 @@ from src.services.trigger_watchers.time_scheduler import (
     ScheduledTrigger,
     TimePattern,
     DayOfWeek,
-    DEFAULT_SCHEDULES,
 )
 from src.services.trigger_watchers.activity_detector import (
     ActivityDetector,

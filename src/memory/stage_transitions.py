@@ -5,7 +5,7 @@ Extracted from lifecycle_manager.py for modularity.
 NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 import json
 from datetime import datetime, timedelta
 from loguru import logger

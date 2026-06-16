@@ -12,8 +12,6 @@ import time
 import cProfile
 import pstats
 import io
-from typing import Dict, List
-import networkx as nx
 
 from src.services.hipporag_service import HippoRagService
 from src.services.graph_service import GraphService
@@ -198,7 +196,7 @@ class TestAlgorithmComplexity:
             # Benchmark PPR
             start = time.perf_counter()
             engine.personalized_pagerank(
-                query_nodes=[f'node_0'],
+                query_nodes=['node_0'],
                 max_iter=10
             )
             duration = time.perf_counter() - start

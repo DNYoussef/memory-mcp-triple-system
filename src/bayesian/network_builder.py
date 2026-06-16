@@ -186,7 +186,6 @@ class NetworkBuilder:
         probability. No random.choice - informed by graph data.
         NASA Rule 10: 38 LOC (<=60)
         """
-        import numpy as np
 
         data_rows = []
         # Get topological order if DAG

@@ -7,7 +7,7 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 MEM-CHUNK-002: Added Lost-in-the-Middle mitigation strategies.
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from enum import Enum
 import numpy as np
 from loguru import logger

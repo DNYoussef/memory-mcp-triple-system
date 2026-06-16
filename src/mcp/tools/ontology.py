@@ -11,7 +11,7 @@ PROJECT: memory-mcp-triple-system
 WHY: implementation (GRAPH-001)
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 from loguru import logger
 
 from ...services.ontology_bridge import OntologyBridge

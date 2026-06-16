@@ -1,13 +1,11 @@
 """Regression test: all persistence paths must be absolute in production."""
 import os
-import pytest
 
 
 def test_chroma_persist_dir_default_is_absolute():
     """CHROMA_PERSIST_DIR must default to absolute path."""
     # Simulate Railway: env var set
     os.environ["CHROMA_PERSIST_DIR"] = "/data/chroma"
-    from src.mcp.http_server import get_indexer
     # Just verify the env var is read — actual Chroma init needs the full stack
     assert os.getenv("CHROMA_PERSIST_DIR") == "/data/chroma"
 

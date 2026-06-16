@@ -10,7 +10,7 @@ WHY: infrastructure (IMPROVE-002)
 
 import logging
 from typing import Dict, Any, List, Optional
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 from collections import defaultdict
 

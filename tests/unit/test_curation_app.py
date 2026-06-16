@@ -5,11 +5,11 @@ Following TDD (London School) with proper test structure and route validation.
 
 import pytest
 import json
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 pytest.importorskip("flask")
 
-from src.ui.curation_app import app, init_services, _get_run_options
+from src.ui.curation_app import app, _get_run_options
 
 
 @pytest.fixture

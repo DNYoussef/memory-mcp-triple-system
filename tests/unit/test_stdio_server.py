@@ -5,10 +5,7 @@ Tests JSON-RPC 2.0 protocol compliance for Claude Code MCP integration.
 """
 
 import pytest
-import json
-import sys
-from io import StringIO
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch, MagicMock
 from pathlib import Path
 
 # Import the module under test

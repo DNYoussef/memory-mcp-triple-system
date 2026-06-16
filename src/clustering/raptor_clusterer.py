@@ -9,7 +9,7 @@ Part of Week 9 implementation for Memory MCP Triple System.
 NASA Rule 10 Compliant: All functions ≤60 LOC
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from sklearn.mixture import GaussianMixture
 from sklearn.metrics import silhouette_score
 import numpy as np
@@ -288,7 +288,6 @@ class RAPTORClusterer:
 
         NASA Rule 10: 51 LOC (<=60)
         """
-        import re
         if not texts:
             return ""
 
@@ -324,7 +323,6 @@ class RAPTORClusterer:
         """
         import re
         from collections import Counter
-        import math
 
         sentences = re.split(r'(?<=[.!?])\s+', text.strip())
         if not sentences:

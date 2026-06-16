@@ -7,7 +7,6 @@ Extracted from stdio_server.py as part of MEM-CLEAN-003.
 NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
-import json
 import os
 import sqlite3
 import threading
@@ -39,7 +38,7 @@ from ..services.graph_service import GraphService
 from ..services.graph_query_engine import GraphQueryEngine
 from ..services.entity_service import EntityService
 from ..services.hipporag_service import HippoRagService
-from ..bayesian import BAYESIAN_AVAILABLE, NetworkBuilder, ProbabilisticQueryEngine
+from ..bayesian import NetworkBuilder, ProbabilisticQueryEngine
 
 # Beads integration for task management
 try:

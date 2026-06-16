@@ -5,7 +5,6 @@ Tests query logging for context debugger foundation.
 """
 
 import pytest
-from pathlib import Path
 from uuid import UUID
 from datetime import datetime
 from src.debug.query_trace import QueryTrace

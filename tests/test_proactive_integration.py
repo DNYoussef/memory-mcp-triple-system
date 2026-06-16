@@ -10,23 +10,19 @@ WHY: testing (RETRIEVE-001)
 
 import pytest
 import asyncio
-import os
 import tempfile
-import time
-from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock
 from pathlib import Path
 
 from src.services.proactive_context_injector import ProactiveContextInjector
 from src.services.trigger_watchers.file_watcher import FileWatcher, WatchConfig
-from src.services.trigger_watchers.git_watcher import GitWatcher, GitWatchConfig
 from src.services.trigger_watchers.time_scheduler import TimeScheduler, ScheduledTrigger, DayOfWeek
 from src.services.trigger_watchers.activity_detector import ActivityDetector, ActivityType
 from src.services.trigger_watchers.watcher_manager import WatcherManager, WatcherManagerConfig
 from src.integrations.proactive_schema import (
     TriggerEvent,
     TriggerType,
-    ContextPriority,
     InjectionRule,
 )
 

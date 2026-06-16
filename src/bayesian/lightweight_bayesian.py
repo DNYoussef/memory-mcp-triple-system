@@ -11,13 +11,11 @@ Implements the subset of pgmpy's API that memory-mcp actually uses:
 This replaces pgmpy for production. Full pgmpy is used in local dev.
 """
 
-import math
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Tuple
 from collections import defaultdict
 from itertools import product
 
 import networkx as nx
-from loguru import logger
 
 
 class LightweightCPD:

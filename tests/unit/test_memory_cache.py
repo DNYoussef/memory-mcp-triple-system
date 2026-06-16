@@ -5,7 +5,6 @@ Following TDD (London School) with proper test structure.
 
 import pytest
 import time
-from datetime import datetime, timedelta
 from src.cache.memory_cache import MemoryCache
 
 

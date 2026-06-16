@@ -12,8 +12,6 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
 import pytest
-import tempfile
-import asyncio
 from pathlib import Path
 from typing import Dict, Any
 import networkx as nx
@@ -24,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.bridges.cytoscape_exporter import CytoscapeExporter, ConstellationGraphData
 from src.integrations.frontmatter_mapper import FrontmatterMapper, FileRelationships
-from src.integrations.property_inheritance import PropertyInheritanceChain, InheritanceConfig
+from src.integrations.property_inheritance import PropertyInheritanceChain
 from src.visualization.dashboard_graphs import (
     DashboardGraphVisualizer,
     GraphFormat,

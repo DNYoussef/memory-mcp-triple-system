@@ -10,10 +10,9 @@ WHY: infrastructure (IMPROVE-001)
 
 import logging
 from typing import Dict, Any, List, Optional
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 from collections import defaultdict
-import json
 
 from src.services.improvement.outcome_schema import (
     Outcome,

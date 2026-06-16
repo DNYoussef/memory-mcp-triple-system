@@ -6,7 +6,7 @@ NASA Rule 10 Compliant: All functions ≤60 LOC
 """
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 import os
 import chromadb
 from loguru import logger

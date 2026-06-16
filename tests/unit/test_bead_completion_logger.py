@@ -5,16 +5,14 @@ Tests for session improvements identified in 2026-01-24 reflection.
 """
 
 import pytest
-import json
 from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime, timezone
+from datetime import datetime
 
 from src.utils.bead_completion_logger import (
     log_bead_completion,
     verify_bead_unblocked,
     get_parallel_test_command,
     infer_why_from_bead,
-    LABEL_TO_WHY,
 )
 
 

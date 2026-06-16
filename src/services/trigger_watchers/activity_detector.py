@@ -11,13 +11,13 @@ WHY: implementation (RETRIEVE-001)
 import asyncio
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Callable, Dict, List, Optional, Set, Any, Tuple
+from typing import Dict, List, Optional, Set, Any
 from dataclasses import dataclass, field
 from enum import Enum
 from loguru import logger
 
 from ..proactive_context_injector import ProactiveContextInjector
-from ...integrations.proactive_schema import TriggerEvent, TriggerType, ContextPriority
+from ...integrations.proactive_schema import TriggerEvent, ContextPriority
 
 
 class ActivityType(str, Enum):

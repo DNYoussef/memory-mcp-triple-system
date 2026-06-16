@@ -6,7 +6,7 @@ and enforces mode-based budgets with graceful truncation.
 NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List
 
 
 # Mode-based token budgets
