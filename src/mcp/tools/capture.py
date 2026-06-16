@@ -74,6 +74,7 @@ class CaptureTools:
 
             # Create metadata with tags
             import os
+
             metadata = BufferMetadata(
                 original_filename=os.path.basename(file_path),
                 file_size_bytes=os.path.getsize(file_path),
@@ -92,7 +93,9 @@ class CaptureTools:
                 "buffer_id": buffer.buffer_id,
                 "status": buffer.status.value,
                 "railway_url": buffer.railway_url,
-                "expires_at": buffer.expires_at.isoformat() if buffer.expires_at else None,
+                "expires_at": buffer.expires_at.isoformat()
+                if buffer.expires_at
+                else None,
             }
 
         except FileNotFoundError:
@@ -126,6 +129,7 @@ class CaptureTools:
         """
         try:
             import base64
+
             data = base64.b64decode(data_base64)
 
             try:

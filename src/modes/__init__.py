@@ -12,5 +12,5 @@ __all__ = [
     "PLANNING",
     "BRAINSTORMING",
     "get_profile",
-    "ModeDetector"
+    "ModeDetector",
 ]

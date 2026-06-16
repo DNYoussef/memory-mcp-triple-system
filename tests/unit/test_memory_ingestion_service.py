@@ -1,6 +1,6 @@
 """Tests for the shared MemoryIngestionService."""
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 import numpy as np
 
 from src.services.memory_ingestion_service import MemoryIngestionService

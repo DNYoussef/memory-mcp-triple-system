@@ -25,7 +25,9 @@ class FakeBeadsBridge:
 
 
 class FakeMemoryService:
-    async def semantic_search(self, query: str, mode: str, top_k: int, token_budget: int):
+    async def semantic_search(
+        self, query: str, mode: str, top_k: int, token_budget: int
+    ):
         return {"core": [{"text": "memory"}], "extended": []}
 
 

@@ -18,23 +18,23 @@ VISUAL_MEMORY_TOOLS: List[Dict[str, Any]] = [
             "properties": {
                 "image_path": {
                     "type": "string",
-                    "description": "Absolute path to screenshot image file (PNG, JPG, etc.)"
+                    "description": "Absolute path to screenshot image file (PNG, JPG, etc.)",
                 },
                 "title": {
                     "type": "string",
-                    "description": "Title or label for the screenshot"
+                    "description": "Title or label for the screenshot",
                 },
                 "context": {
                     "type": "string",
-                    "description": "Contextual description of what the screenshot shows"
+                    "description": "Contextual description of what the screenshot shows",
                 },
                 "metadata": {
                     "type": "object",
-                    "description": "Additional metadata (project, intent, tags, etc.)"
-                }
+                    "description": "Additional metadata (project, intent, tags, etc.)",
+                },
             },
-            "required": ["image_path"]
-        }
+            "required": ["image_path"],
+        },
     },
     {
         "name": "ingest_diagram",
@@ -44,23 +44,23 @@ VISUAL_MEMORY_TOOLS: List[Dict[str, Any]] = [
             "properties": {
                 "image_path": {
                     "type": "string",
-                    "description": "Absolute path to diagram image file (PNG, JPG, SVG, etc.)"
+                    "description": "Absolute path to diagram image file (PNG, JPG, SVG, etc.)",
                 },
                 "title": {
                     "type": "string",
-                    "description": "Title or label for the diagram"
+                    "description": "Title or label for the diagram",
                 },
                 "context": {
                     "type": "string",
-                    "description": "Contextual description of what the diagram represents"
+                    "description": "Contextual description of what the diagram represents",
                 },
                 "metadata": {
                     "type": "object",
-                    "description": "Additional metadata (project, intent, tags, etc.)"
-                }
+                    "description": "Additional metadata (project, intent, tags, etc.)",
+                },
             },
-            "required": ["image_path"]
-        }
+            "required": ["image_path"],
+        },
     },
     {
         "name": "ingest_visual",
@@ -70,29 +70,30 @@ VISUAL_MEMORY_TOOLS: List[Dict[str, Any]] = [
             "properties": {
                 "image_path": {
                     "type": "string",
-                    "description": "Absolute path to image file"
+                    "description": "Absolute path to image file",
                 },
                 "visual_type": {
                     "type": "string",
-                    "enum": ["screenshot", "diagram", "photo", "chart", "ui_element", "other"],
+                    "enum": [
+                        "screenshot",
+                        "diagram",
+                        "photo",
+                        "chart",
+                        "ui_element",
+                        "other",
+                    ],
                     "description": "Type of visual content",
-                    "default": "other"
+                    "default": "other",
                 },
                 "title": {
                     "type": "string",
-                    "description": "Title or label for the visual"
+                    "description": "Title or label for the visual",
                 },
-                "context": {
-                    "type": "string",
-                    "description": "Contextual description"
-                },
-                "metadata": {
-                    "type": "object",
-                    "description": "Additional metadata"
-                }
+                "context": {"type": "string", "description": "Contextual description"},
+                "metadata": {"type": "object", "description": "Additional metadata"},
             },
-            "required": ["image_path"]
-        }
+            "required": ["image_path"],
+        },
     },
     {
         "name": "search_visual",
@@ -102,21 +103,21 @@ VISUAL_MEMORY_TOOLS: List[Dict[str, Any]] = [
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Text search query describing what visual content to find"
+                    "description": "Text search query describing what visual content to find",
                 },
                 "top_k": {
                     "type": "integer",
                     "description": "Number of results to return",
-                    "default": 10
+                    "default": 10,
                 },
                 "visual_type": {
                     "type": "string",
                     "enum": ["screenshot", "diagram", "photo", "chart", "ui_element"],
-                    "description": "Optional filter by visual type"
-                }
+                    "description": "Optional filter by visual type",
+                },
             },
-            "required": ["query"]
-        }
+            "required": ["query"],
+        },
     },
     {
         "name": "unified_search",
@@ -124,34 +125,31 @@ VISUAL_MEMORY_TOOLS: List[Dict[str, Any]] = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "Search query"
-                },
+                "query": {"type": "string", "description": "Search query"},
                 "mode": {
                     "type": "string",
                     "enum": ["execution", "planning", "brainstorming"],
                     "description": "Query mode affecting result depth",
-                    "default": "execution"
+                    "default": "execution",
                 },
                 "top_k": {
                     "type": "integer",
                     "description": "Total number of results",
-                    "default": 10
+                    "default": 10,
                 },
                 "include_visual": {
                     "type": "boolean",
                     "description": "Include visual memories in search",
-                    "default": True
+                    "default": True,
                 },
                 "include_text": {
                     "type": "boolean",
                     "description": "Include text memories in search",
-                    "default": True
-                }
+                    "default": True,
+                },
             },
-            "required": ["query"]
-        }
+            "required": ["query"],
+        },
     },
     {
         "name": "get_visual",
@@ -161,11 +159,11 @@ VISUAL_MEMORY_TOOLS: List[Dict[str, Any]] = [
             "properties": {
                 "doc_id": {
                     "type": "string",
-                    "description": "Document ID of the visual memory"
+                    "description": "Document ID of the visual memory",
                 }
             },
-            "required": ["doc_id"]
-        }
+            "required": ["doc_id"],
+        },
     },
     {
         "name": "delete_visual",
@@ -175,20 +173,17 @@ VISUAL_MEMORY_TOOLS: List[Dict[str, Any]] = [
             "properties": {
                 "doc_id": {
                     "type": "string",
-                    "description": "Document ID of the visual memory to delete"
+                    "description": "Document ID of the visual memory to delete",
                 }
             },
-            "required": ["doc_id"]
-        }
+            "required": ["doc_id"],
+        },
     },
     {
         "name": "visual_stats",
         "description": "Get statistics about visual memory (count, types, embedder info)",
-        "inputSchema": {
-            "type": "object",
-            "properties": {}
-        }
-    }
+        "inputSchema": {"type": "object", "properties": {}},
+    },
 ]
 
 

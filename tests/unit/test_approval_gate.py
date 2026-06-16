@@ -20,9 +20,7 @@ def _proposal(proposal_id, risk_level="low"):
 
 class TestApprovalGateStats:
     def test_auto_approval_counts_as_submitted_and_rate_stays_bounded(self):
-        gate = HumanApprovalGate(
-            ApprovalGateConfig(auto_approve_low_risk=True)
-        )
+        gate = HumanApprovalGate(ApprovalGateConfig(auto_approve_low_risk=True))
 
         gate.submit_for_approval(_proposal("auto-1"))
 
@@ -33,9 +31,7 @@ class TestApprovalGateStats:
         assert stats["approval_rate"] == 1.0
 
     def test_approval_rate_includes_auto_and_manual_completed_requests(self):
-        gate = HumanApprovalGate(
-            ApprovalGateConfig(auto_approve_low_risk=True)
-        )
+        gate = HumanApprovalGate(ApprovalGateConfig(auto_approve_low_risk=True))
 
         gate.submit_for_approval(_proposal("auto-1"))
         manual = gate.submit_for_approval(_proposal("manual-1", risk_level="medium"))

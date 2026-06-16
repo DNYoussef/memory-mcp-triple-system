@@ -78,7 +78,9 @@ class CleanupResult:
         return {
             "run_id": self.run_id,
             "started_at": self.started_at.isoformat(),
-            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "completed_at": self.completed_at.isoformat()
+            if self.completed_at
+            else None,
             "buffers_checked": self.buffers_checked,
             "buffers_deleted": self.buffers_deleted,
             "buffers_skipped": self.buffers_skipped,
@@ -117,9 +119,15 @@ class CleanupAutomation:
         self,
         railway_service: RailwayBufferService,
         config: Optional[CleanupConfig] = None,
-        on_pre_delete: Optional[Callable[[EphemeralBuffer, DeleteReason], Awaitable[bool]]] = None,
-        on_delete: Optional[Callable[[EphemeralBuffer, DeleteReason], Awaitable[None]]] = None,
-        on_delete_error: Optional[Callable[[EphemeralBuffer, str], Awaitable[None]]] = None,
+        on_pre_delete: Optional[
+            Callable[[EphemeralBuffer, DeleteReason], Awaitable[bool]]
+        ] = None,
+        on_delete: Optional[
+            Callable[[EphemeralBuffer, DeleteReason], Awaitable[None]]
+        ] = None,
+        on_delete_error: Optional[
+            Callable[[EphemeralBuffer, str], Awaitable[None]]
+        ] = None,
     ):
         """Initialize cleanup automation.
 
@@ -230,7 +238,9 @@ class CleanupAutomation:
             deleted_count = 0
             for candidate in candidates:
                 if deleted_count >= self.config.max_deletions_per_run:
-                    logger.info(f"Reached max deletions per run ({self.config.max_deletions_per_run})")
+                    logger.info(
+                        f"Reached max deletions per run ({self.config.max_deletions_per_run})"
+                    )
                     break
 
                 if not candidate.can_delete:
@@ -382,15 +392,15 @@ class CleanupAutomation:
                 )
                 result.buffers_deleted += 1
                 result.bytes_freed += buffer.metadata.file_size_bytes
-                result.deletion_reasons[reason.value] = \
+                result.deletion_reasons[reason.value] = (
                     result.deletion_reasons.get(reason.value, 0) + 1
+                )
                 return True
 
             # Mark for deletion
             buffer.mark_pending_delete()
             await self.railway.update_buffer_status(
-                buffer.buffer_id,
-                BufferStatus.PENDING_DELETE
+                buffer.buffer_id, BufferStatus.PENDING_DELETE
             )
 
             # Delete from Railway
@@ -402,8 +412,9 @@ class CleanupAutomation:
             if success:
                 result.buffers_deleted += 1
                 result.bytes_freed += buffer.metadata.file_size_bytes
-                result.deletion_reasons[reason.value] = \
+                result.deletion_reasons[reason.value] = (
                     result.deletion_reasons.get(reason.value, 0) + 1
+                )
 
                 # Delete local copy if configured
                 if self.config.delete_local_copies and buffer.local_path:
@@ -557,10 +568,7 @@ class CleanupAutomation:
             return False
 
         buffer.mark_pending_delete()
-        await self.railway.update_buffer_status(
-            buffer_id,
-            BufferStatus.PENDING_DELETE
-        )
+        await self.railway.update_buffer_status(buffer_id, BufferStatus.PENDING_DELETE)
 
         logger.info(f"Scheduled buffer {buffer_id} for deletion")
         return True

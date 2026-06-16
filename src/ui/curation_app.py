@@ -6,7 +6,7 @@ NASA Rule 10 Compliant: All functions ≤60 LOC
 """
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 import os
 import chromadb
 from loguru import logger
@@ -15,7 +15,7 @@ from ..services.curation_service import CurationService
 from ..indexing.vector_indexer import resolve_persist_dir
 
 
-app = Flask(__name__, template_folder='templates', static_folder='static')
+app = Flask(__name__, template_folder="templates", static_folder="static")
 
 
 # Initialize ChromaDB client and CurationService
@@ -35,9 +35,7 @@ def init_services() -> CurationService:
     chroma_path = resolve_persist_dir(default=os.path.join(data_dir, "chroma"))
     client = chromadb.PersistentClient(path=chroma_path)
     service = CurationService(
-        chroma_client=client,
-        collection_name="memory_chunks",
-        data_dir=data_dir
+        chroma_client=client, collection_name="memory_chunks", data_dir=data_dir
     )
     logger.info("Initialized CurationService")
     return service
@@ -62,7 +60,7 @@ def get_curation_service() -> CurationService:
     return curation_service
 
 
-@app.route('/')
+@app.route("/")
 def index():
     """
     Home page - redirects to curation interface.
@@ -70,10 +68,10 @@ def index():
     Returns:
         Redirect to /curate
     """
-    return redirect(url_for('curate'))
+    return redirect(url_for("curate"))
 
 
-@app.route('/curate', methods=['GET'])
+@app.route("/curate", methods=["GET"])
 def curate():
     """
     Curation interface - displays batch of unverified chunks.
@@ -83,24 +81,26 @@ def curate():
     """
     # Get user preferences
     prefs = get_curation_service().get_preferences()
-    batch_size = prefs.get('batch_size', 20)
+    batch_size = prefs.get("batch_size", 20)
 
     # Get unverified chunks
     chunks = get_curation_service().get_unverified_chunks(limit=batch_size)
 
     # Auto-suggest lifecycle for each chunk
     for chunk in chunks:
-        chunk['suggested_lifecycle'] = get_curation_service().auto_suggest_lifecycle(chunk)
+        chunk["suggested_lifecycle"] = get_curation_service().auto_suggest_lifecycle(
+            chunk
+        )
 
     return render_template(
-        'curate.html',
+        "curate.html",
         chunks=chunks,
         preferences=prefs,
-        lifecycle_options=['permanent', 'temporary', 'ephemeral']
+        lifecycle_options=["permanent", "temporary", "ephemeral"],
     )
 
 
-@app.route('/api/curate/tag', methods=['POST'])
+@app.route("/api/curate/tag", methods=["POST"])
 def api_tag_lifecycle():
     """
     API endpoint to tag chunk with lifecycle.
@@ -117,22 +117,22 @@ def api_tag_lifecycle():
     data = request.get_json()
 
     # Validate request
-    if not data or 'chunk_id' not in data or 'lifecycle' not in data:
-        return jsonify({'success': False, 'error': 'Missing required fields'}), 400
+    if not data or "chunk_id" not in data or "lifecycle" not in data:
+        return jsonify({"success": False, "error": "Missing required fields"}), 400
 
-    chunk_id = data['chunk_id']
-    lifecycle = data['lifecycle']
+    chunk_id = data["chunk_id"]
+    lifecycle = data["lifecycle"]
 
     # Tag lifecycle
     success = get_curation_service().tag_lifecycle(chunk_id, lifecycle)
 
     if success:
-        return jsonify({'success': True, 'chunk_id': chunk_id, 'lifecycle': lifecycle})
+        return jsonify({"success": True, "chunk_id": chunk_id, "lifecycle": lifecycle})
     else:
-        return jsonify({'success': False, 'error': 'Failed to tag chunk'}), 500
+        return jsonify({"success": False, "error": "Failed to tag chunk"}), 500
 
 
-@app.route('/api/curate/verify', methods=['POST'])
+@app.route("/api/curate/verify", methods=["POST"])
 def api_mark_verified():
     """
     API endpoint to mark chunk as verified.
@@ -148,21 +148,21 @@ def api_mark_verified():
     data = request.get_json()
 
     # Validate request
-    if not data or 'chunk_id' not in data:
-        return jsonify({'success': False, 'error': 'Missing chunk_id'}), 400
+    if not data or "chunk_id" not in data:
+        return jsonify({"success": False, "error": "Missing chunk_id"}), 400
 
-    chunk_id = data['chunk_id']
+    chunk_id = data["chunk_id"]
 
     # Mark verified
     success = get_curation_service().mark_verified(chunk_id)
 
     if success:
-        return jsonify({'success': True, 'chunk_id': chunk_id})
+        return jsonify({"success": True, "chunk_id": chunk_id})
     else:
-        return jsonify({'success': False, 'error': 'Failed to verify chunk'}), 500
+        return jsonify({"success": False, "error": "Failed to verify chunk"}), 500
 
 
-@app.route('/api/curate/time', methods=['POST'])
+@app.route("/api/curate/time", methods=["POST"])
 def api_log_time():
     """
     API endpoint to log curation session time.
@@ -179,22 +179,21 @@ def api_log_time():
     data = request.get_json()
 
     # Validate request
-    if not data or 'duration_seconds' not in data:
-        return jsonify({'success': False, 'error': 'Missing duration_seconds'}), 400
+    if not data or "duration_seconds" not in data:
+        return jsonify({"success": False, "error": "Missing duration_seconds"}), 400
 
-    duration = data['duration_seconds']
-    chunks_curated = data.get('chunks_curated', 0)
+    duration = data["duration_seconds"]
+    chunks_curated = data.get("chunks_curated", 0)
 
     # Log time
     get_curation_service().log_time(
-        duration_seconds=duration,
-        chunks_curated=chunks_curated
+        duration_seconds=duration, chunks_curated=chunks_curated
     )
 
-    return jsonify({'success': True, 'duration_seconds': duration})
+    return jsonify({"success": True, "duration_seconds": duration})
 
 
-@app.route('/settings', methods=['GET', 'POST'])
+@app.route("/settings", methods=["GET", "POST"])
 def settings():
     """
     Settings page - display and update user preferences.
@@ -205,29 +204,29 @@ def settings():
     Returns:
         Rendered template (GET) or redirect (POST)
     """
-    if request.method == 'POST':
+    if request.method == "POST":
         # Update preferences from form
         new_prefs = {
-            'user_id': 'default',
-            'time_budget_minutes': int(request.form.get('time_budget_minutes', 5)),
-            'auto_suggest': request.form.get('auto_suggest') == 'on',
-            'weekly_review_day': request.form.get('weekly_review_day', 'sunday'),
-            'weekly_review_time': request.form.get('weekly_review_time', '10:00'),
-            'batch_size': int(request.form.get('batch_size', 20)),
-            'default_lifecycle': request.form.get('default_lifecycle', 'temporary')
+            "user_id": "default",
+            "time_budget_minutes": int(request.form.get("time_budget_minutes", 5)),
+            "auto_suggest": request.form.get("auto_suggest") == "on",
+            "weekly_review_day": request.form.get("weekly_review_day", "sunday"),
+            "weekly_review_time": request.form.get("weekly_review_time", "10:00"),
+            "batch_size": int(request.form.get("batch_size", 20)),
+            "default_lifecycle": request.form.get("default_lifecycle", "temporary"),
         }
 
-        get_curation_service().save_preferences('default', new_prefs)
+        get_curation_service().save_preferences("default", new_prefs)
         logger.info("Updated user preferences")
 
-        return redirect(url_for('settings'))
+        return redirect(url_for("settings"))
 
     # GET - display current preferences
     prefs = get_curation_service().get_preferences()
-    return render_template('settings.html', preferences=prefs)
+    return render_template("settings.html", preferences=prefs)
 
 
-@app.route('/api/settings', methods=['GET', 'PUT'])
+@app.route("/api/settings", methods=["GET", "PUT"])
 def api_settings():
     """
     API endpoint for preferences (JSON-based).
@@ -238,18 +237,18 @@ def api_settings():
     Returns:
         JSON response with preferences
     """
-    if request.method == 'PUT':
+    if request.method == "PUT":
         data = request.get_json(silent=True)
 
         if data is None or not data:
-            return jsonify({'success': False, 'error': 'Missing request body'}), 400
+            return jsonify({"success": False, "error": "Missing request body"}), 400
 
         # Save preferences
         try:
-            get_curation_service().save_preferences('default', data)
-            return jsonify({'success': True, 'preferences': data})
+            get_curation_service().save_preferences("default", data)
+            return jsonify({"success": True, "preferences": data})
         except AssertionError as e:
-            return jsonify({'success': False, 'error': str(e)}), 400
+            return jsonify({"success": False, "error": str(e)}), 400
 
     # GET - return current preferences
     prefs = get_curation_service().get_preferences()
@@ -273,5 +272,5 @@ def _get_run_options() -> Dict[str, Any]:
     }
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(**_get_run_options())

@@ -25,6 +25,7 @@ from pathlib import Path
 
 import pytest
 
+
 from src.stores.kv_store import KVStore, DEFAULT_DB_NAME
 from src.models.observation_types import Session
 from src.services.observation_bridge import ObservationBridge
@@ -33,6 +34,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 # --- Bug #2: runtime and hooks must resolve the SAME database file -----------
+
 
 def test_canonical_db_name_is_agent_kv():
     """The one source of truth for the store filename."""
@@ -56,16 +58,18 @@ def test_runtime_uses_canonical_db_name():
     Fails before the fix: both hardcode the literal "kv_store.db" for the
     runtime KVStore, so observation_timeline reads an empty file.
     """
-    wiring = (REPO_ROOT / "src" / "mcp" / "service_wiring.py").read_text(encoding="utf-8")
+    wiring = (REPO_ROOT / "src" / "mcp" / "service_wiring.py").read_text(
+        encoding="utf-8"
+    )
     http = (REPO_ROOT / "src" / "mcp" / "http_server.py").read_text(encoding="utf-8")
 
     # The exact divergent constructions that caused the bug must be gone.
-    assert 'data_dir / "kv_store.db"' not in wiring, (
-        "service_wiring still builds the runtime KVStore on kv_store.db"
-    )
-    assert 'data_dir, "kv_store.db"' not in http, (
-        "http_server still builds the runtime KVStore on kv_store.db"
-    )
+    assert (
+        'data_dir / "kv_store.db"' not in wiring
+    ), "service_wiring still builds the runtime KVStore on kv_store.db"
+    assert (
+        'data_dir, "kv_store.db"' not in http
+    ), "http_server still builds the runtime KVStore on kv_store.db"
     # ...and they must reference the shared constant.
     assert "DEFAULT_DB_NAME" in wiring
     assert "DEFAULT_DB_NAME" in http
@@ -112,12 +116,13 @@ def test_observation_written_by_writer_is_seen_by_reader(tmp_path):
     obs = reader.get_observations(project="gate-test")
     reader.close()
 
-    assert any(canary in o["content"] for o in obs), (
-        "reader could not see the observation the writer stored"
-    )
+    assert any(
+        canary in o["content"] for o in obs
+    ), "reader could not see the observation the writer stored"
 
 
 # --- Bug #1: the capture hooks must actually run end to end ------------------
+
 
 def test_post_tool_handler_captures_observation(tmp_path, monkeypatch):
     """Drive the real PostToolUse handler and confirm it persists a canary.
@@ -136,17 +141,19 @@ def test_post_tool_handler_captures_observation(tmp_path, monkeypatch):
     store.create_session(session.to_dict())
     store.close()
 
-    session_file.write_text(json.dumps(
-        {"session_id": session.session_id, "project": "hook-test"}
-    ))
+    session_file.write_text(
+        json.dumps({"session_id": session.session_id, "project": "hook-test"})
+    )
 
     monkeypatch.setattr(h, "SESSION_FILE", str(session_file))
     monkeypatch.setenv("MEMORY_MCP_DB", str(db))
-    payload = json.dumps({
-        "tool_name": "Bash",
-        "tool_input": {"command": canary},
-        "tool_result": "done",
-    })
+    payload = json.dumps(
+        {
+            "tool_name": "Bash",
+            "tool_input": {"command": canary},
+            "tool_result": "done",
+        }
+    )
     monkeypatch.setattr("sys.stdin", io.StringIO(payload))
 
     h.main()
@@ -154,9 +161,9 @@ def test_post_tool_handler_captures_observation(tmp_path, monkeypatch):
     store = KVStore(str(db))
     obs = store.get_observations(session_id=session.session_id)
     store.close()
-    assert any(canary in o["content"] for o in obs), (
-        "PostToolUse handler did not persist the observation"
-    )
+    assert any(
+        canary in o["content"] for o in obs
+    ), "PostToolUse handler did not persist the observation"
 
 
 def test_claude_settings_wire_capture_hooks():
@@ -164,8 +171,15 @@ def test_claude_settings_wire_capture_hooks():
 
     Fails before the fix: neither settings.json nor settings.local.json has a
     hooks block, so the PostToolUse handler never runs.
+
+    Local-only: validates THIS developer's Claude config. Skipped on CI / a
+    fresh checkout where ~/.claude settings do not exist.
     """
     claude_dir = Path.home() / ".claude"
+    if not any(
+        (claude_dir / n).exists() for n in ("settings.json", "settings.local.json")
+    ):
+        pytest.skip("no ~/.claude settings file present (CI/fresh checkout)")
     # Assert the FULL handler script path, not just the basename -- a hook
     # pointing at the wrong repo would silently run unfixed code.
     hooks_dir = "D:/Projects/memory-mcp-triple-system/src/hooks"
@@ -187,7 +201,13 @@ def test_claude_settings_wire_capture_hooks():
     for event, cmd_path in wanted.items():
         entries = merged_hooks.get(event)
         # Normalize backslashes so the check is path-separator agnostic.
-        blob = json.dumps(entries).replace("\\\\", "/").replace("\\", "/") if entries else ""
+        blob = (
+            json.dumps(entries).replace("\\\\", "/").replace("\\", "/")
+            if entries
+            else ""
+        )
         if not entries or cmd_path not in blob:
             missing.append(f"{event} -> {cmd_path}")
-    assert not missing, f"capture hooks not wired (or wrong path) in settings: {missing}"
+    assert (
+        not missing
+    ), f"capture hooks not wired (or wrong path) in settings: {missing}"

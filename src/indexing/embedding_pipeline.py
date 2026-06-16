@@ -27,6 +27,7 @@ class EmbeddingPipeline:
 
         if self._api_mode:
             from .embedding_pipeline_api import EmbeddingPipelineAPI
+
             api_model = os.environ.get("EMBEDDING_API_MODEL", "text-embedding-3-small")
             api_dim = int(os.environ.get("EMBEDDING_API_DIMENSIONS", "384"))
             self._delegate = EmbeddingPipelineAPI(
@@ -37,10 +38,13 @@ class EmbeddingPipeline:
             logger.info(f"Embedding mode: API ({api_model}, dim={api_dim})")
         else:
             from sentence_transformers import SentenceTransformer
+
             self.model = SentenceTransformer(model_name)
             self.embedding_dim = self.model.get_sentence_embedding_dimension()
             self._delegate = None
-            logger.info(f"Embedding mode: local ({model_name}, dim={self.embedding_dim})")
+            logger.info(
+                f"Embedding mode: local ({model_name}, dim={self.embedding_dim})"
+            )
 
     def encode(self, texts: List[str]) -> np.ndarray:
         """Generate embeddings for texts."""

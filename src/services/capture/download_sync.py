@@ -12,17 +12,14 @@ import os
 import asyncio
 import aiofiles
 import aiohttp
-from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List, Callable, Awaitable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import logging
-import hashlib
 
 from src.integrations.ephemeral_buffer_schema import (
     EphemeralBuffer,
     BufferStatus,
-    BufferType,
     compute_file_checksum,
 )
 from src.services.capture.railway_buffer import RailwayBufferService
@@ -65,9 +62,7 @@ class DownloadConfig:
     def __post_init__(self):
         if not self.download_path:
             self.download_path = os.path.join(
-                os.path.expanduser("~"),
-                "Downloads",
-                "ephemeral-captures"
+                os.path.expanduser("~"), "Downloads", "ephemeral-captures"
             )
 
 
@@ -119,8 +114,12 @@ class DownloadSyncService:
         self,
         railway_service: RailwayBufferService,
         config: Optional[DownloadConfig] = None,
-        on_download_complete: Optional[Callable[[EphemeralBuffer, DownloadResult], Awaitable[None]]] = None,
-        on_download_error: Optional[Callable[[EphemeralBuffer, str], Awaitable[None]]] = None,
+        on_download_complete: Optional[
+            Callable[[EphemeralBuffer, DownloadResult], Awaitable[None]]
+        ] = None,
+        on_download_error: Optional[
+            Callable[[EphemeralBuffer, str], Awaitable[None]]
+        ] = None,
     ):
         """Initialize download sync service.
 
@@ -534,17 +533,16 @@ class DownloadSyncService:
         total_downloaded = sum(1 for r in self._download_history if r.success)
         total_failed = sum(1 for r in self._download_history if not r.success)
         total_bytes = sum(
-            r.file_size_bytes
-            for r in self._download_history
-            if r.success
+            r.file_size_bytes for r in self._download_history if r.success
         )
         avg_time = 0.0
         if total_downloaded > 0:
-            avg_time = sum(
-                r.download_time_seconds
-                for r in self._download_history
-                if r.success
-            ) / total_downloaded
+            avg_time = (
+                sum(
+                    r.download_time_seconds for r in self._download_history if r.success
+                )
+                / total_downloaded
+            )
 
         return {
             "running": self._running,

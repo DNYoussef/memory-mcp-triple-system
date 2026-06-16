@@ -13,7 +13,7 @@ Tests:
 """
 
 import pytest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 
 from src.services.unified_search_router import UnifiedSearchRouter
 
@@ -27,7 +27,7 @@ class TestUnifiedSearchRouterInitialization:
         nexus = Mock()
         nexus.process.return_value = {
             "core": [{"text": "text result", "score": 0.9}],
-            "extended": []
+            "extended": [],
         }
         return nexus
 
@@ -52,9 +52,7 @@ class TestUnifiedSearchRouterInitialization:
     def test_initialization_custom_weights(self, mock_nexus):
         """Test custom weights."""
         router = UnifiedSearchRouter(
-            nexus_processor=mock_nexus,
-            visual_weight=0.5,
-            text_weight=0.5
+            nexus_processor=mock_nexus, visual_weight=0.5, text_weight=0.5
         )
 
         assert router.text_weight == 0.5
@@ -69,8 +67,7 @@ class TestUnifiedSearchRouterInitialization:
     def test_initialization_with_visual_service(self, mock_nexus, mock_visual_service):
         """Test initialization with visual service."""
         router = UnifiedSearchRouter(
-            nexus_processor=mock_nexus,
-            visual_memory_service=mock_visual_service
+            nexus_processor=mock_nexus, visual_memory_service=mock_visual_service
         )
 
         assert router.visual_service is mock_visual_service
@@ -86,9 +83,9 @@ class TestUnifiedSearchRouterSearch:
         nexus.process.return_value = {
             "core": [
                 {"text": "text result 1", "score": 0.9},
-                {"text": "text result 2", "score": 0.7}
+                {"text": "text result 2", "score": 0.7},
             ],
-            "extended": []
+            "extended": [],
         }
 
         visual_service = Mock()
@@ -101,7 +98,7 @@ class TestUnifiedSearchRouterSearch:
             nexus_processor=nexus,
             visual_memory_service=visual_service,
             visual_weight=0.3,
-            text_weight=0.7
+            text_weight=0.7,
         )
 
     def test_search_returns_all_sections(self, router):
@@ -193,7 +190,7 @@ class TestUnifiedSearchRouterTextOnlySearch:
         nexus = Mock()
         nexus.process.return_value = {
             "core": [{"text": "result", "score": 0.9}],
-            "extended": []
+            "extended": [],
         }
 
         return UnifiedSearchRouter(nexus_processor=nexus)
@@ -211,7 +208,7 @@ class TestUnifiedSearchRouterTextOnlySearch:
 
         router.nexus_processor.process.assert_called_once()
         call_args = router.nexus_processor.process.call_args
-        assert call_args.kwargs.get('mode') == "planning"
+        assert call_args.kwargs.get("mode") == "planning"
 
 
 class TestUnifiedSearchRouterVisualOnlySearch:
@@ -224,13 +221,10 @@ class TestUnifiedSearchRouterVisualOnlySearch:
 
         visual_service = Mock()
         visual_service.enabled = True
-        visual_service.search_visual.return_value = [
-            {"id": "visual-1", "score": 0.8}
-        ]
+        visual_service.search_visual.return_value = [{"id": "visual-1", "score": 0.8}]
 
         return UnifiedSearchRouter(
-            nexus_processor=nexus,
-            visual_memory_service=visual_service
+            nexus_processor=nexus, visual_memory_service=visual_service
         )
 
     @pytest.fixture
@@ -250,7 +244,7 @@ class TestUnifiedSearchRouterVisualOnlySearch:
 
         router_with_visual.visual_service.search_visual.assert_called_once()
         call_args = router_with_visual.visual_service.search_visual.call_args
-        assert call_args.kwargs.get('visual_type') == "screenshot"
+        assert call_args.kwargs.get("visual_type") == "screenshot"
 
     def test_search_visual_only_without_service(self, router_without_visual):
         """Test search_visual_only without visual service returns empty."""
@@ -264,8 +258,7 @@ class TestUnifiedSearchRouterVisualOnlySearch:
         visual_service.enabled = False
 
         router = UnifiedSearchRouter(
-            nexus_processor=Mock(),
-            visual_memory_service=visual_service
+            nexus_processor=Mock(), visual_memory_service=visual_service
         )
 
         results = router.search_visual_only(query="test")
@@ -287,7 +280,7 @@ class TestUnifiedSearchRouterHelpers:
             nexus_processor=Mock(),
             visual_memory_service=visual_service,
             visual_weight=0.3,
-            text_weight=0.7
+            text_weight=0.7,
         )
 
     @pytest.fixture
@@ -301,23 +294,23 @@ class TestUnifiedSearchRouterHelpers:
 
         assert info["text_weight"] == 0.7
         assert info["visual_weight"] == 0.3
-        assert info["visual_enabled"] == True
+        assert info["visual_enabled"] is True
         assert info["visual_stats"] is not None
 
     def test_get_info_without_visual(self, router_without_visual):
         """Test get_info without visual service."""
         info = router_without_visual.get_info()
 
-        assert info["visual_enabled"] == False
+        assert info["visual_enabled"] is False
         assert info["visual_stats"] is None
 
     def test_visual_available_true(self, router_with_visual):
         """Test _visual_available returns True when available."""
-        assert router_with_visual._visual_available() == True
+        assert router_with_visual._visual_available() is True
 
     def test_visual_available_false_no_service(self, router_without_visual):
         """Test _visual_available returns False without service."""
-        assert router_without_visual._visual_available() == False
+        assert router_without_visual._visual_available() is False
 
     def test_visual_available_false_disabled(self):
         """Test _visual_available returns False when disabled."""
@@ -325,11 +318,10 @@ class TestUnifiedSearchRouterHelpers:
         visual_service.enabled = False
 
         router = UnifiedSearchRouter(
-            nexus_processor=Mock(),
-            visual_memory_service=visual_service
+            nexus_processor=Mock(), visual_memory_service=visual_service
         )
 
-        assert router._visual_available() == False
+        assert router._visual_available() is False
 
 
 class TestUnifiedSearchRouterMergeResults:
@@ -339,9 +331,7 @@ class TestUnifiedSearchRouterMergeResults:
     def router(self):
         """Create basic router."""
         return UnifiedSearchRouter(
-            nexus_processor=Mock(),
-            visual_weight=0.3,
-            text_weight=0.7
+            nexus_processor=Mock(), visual_weight=0.3, text_weight=0.7
         )
 
     def test_merge_empty_lists(self, router):
@@ -383,10 +373,7 @@ class TestUnifiedSearchRouterMergeResults:
 
     def test_merge_sorts_descending(self, router):
         """Test merged results sorted by score descending."""
-        text_results = [
-            {"text": "low", "score": 0.3},
-            {"text": "high", "score": 0.9}
-        ]
+        text_results = [{"text": "low", "score": 0.3}, {"text": "high", "score": 0.9}]
         visual_results = [{"id": "v1", "score": 0.5}]
 
         result = router._merge_results(text_results, visual_results, top_k=10)
@@ -425,8 +412,7 @@ class TestUnifiedSearchRouterErrorHandling:
         visual_service.search_visual.side_effect = Exception("Visual search failed")
 
         router = UnifiedSearchRouter(
-            nexus_processor=Mock(),
-            visual_memory_service=visual_service
+            nexus_processor=Mock(), visual_memory_service=visual_service
         )
 
         results = router._search_visual("test", 10)

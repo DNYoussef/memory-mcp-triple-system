@@ -46,22 +46,26 @@ def _vector_search_tool() -> Dict[str, Any]:
             "type": "object",
             "properties": {
                 "query": {"type": "string", "description": "Search query text"},
-                "limit": {"type": "integer", "description": "Number of results", "default": 5},
+                "limit": {
+                    "type": "integer",
+                    "description": "Number of results",
+                    "default": 5,
+                },
                 "mode": {
                     "type": "string",
                     "description": "Query mode: execution, planning, or brainstorming",
                     "enum": ["execution", "planning", "brainstorming"],
-                    "default": "execution"
+                    "default": "execution",
                 },
                 "detail": {
                     "type": "string",
                     "description": "Detail level: compact (~50 tok/result) or full (~500 tok/result)",
                     "enum": ["compact", "full"],
-                    "default": "full"
-                }
+                    "default": "full",
+                },
             },
-            "required": ["query"]
-        }
+            "required": ["query"],
+        },
     }
 
 
@@ -75,22 +79,26 @@ def _unified_search_tool() -> Dict[str, Any]:
             "type": "object",
             "properties": {
                 "query": {"type": "string", "description": "Search query text"},
-                "limit": {"type": "integer", "description": "Number of results", "default": 5},
+                "limit": {
+                    "type": "integer",
+                    "description": "Number of results",
+                    "default": 5,
+                },
                 "mode": {
                     "type": "string",
                     "description": "Query mode: execution, planning, or brainstorming",
                     "enum": ["execution", "planning", "brainstorming"],
-                    "default": "execution"
+                    "default": "execution",
                 },
                 "detail": {
                     "type": "string",
                     "description": "Detail level: compact (~50 tok/result) or full (~500 tok/result)",
                     "enum": ["compact", "full"],
-                    "default": "full"
-                }
+                    "default": "full",
+                },
             },
-            "required": ["query"]
-        }
+            "required": ["query"],
+        },
     }
 
 
@@ -104,10 +112,10 @@ def _memory_store_tool() -> Dict[str, Any]:
             "type": "object",
             "properties": {
                 "text": {"type": "string", "description": "Content to store"},
-                "metadata": {"type": "object", "description": "Optional metadata"}
+                "metadata": {"type": "object", "description": "Optional metadata"},
             },
-            "required": ["text"]
-        }
+            "required": ["text"],
+        },
     }
 
 
@@ -120,12 +128,23 @@ def _graph_query_tool() -> Dict[str, Any]:
         "inputSchema": {
             "type": "object",
             "properties": {
-                "query": {"type": "string", "description": "Query text for graph search"},
-                "max_hops": {"type": "integer", "description": "Maximum hops", "default": 3},
-                "limit": {"type": "integer", "description": "Number of results", "default": 10}
+                "query": {
+                    "type": "string",
+                    "description": "Query text for graph search",
+                },
+                "max_hops": {
+                    "type": "integer",
+                    "description": "Maximum hops",
+                    "default": 3,
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Number of results",
+                    "default": 10,
+                },
             },
-            "required": ["query"]
-        }
+            "required": ["query"],
+        },
     }
 
 
@@ -139,10 +158,10 @@ def _bayesian_inference_tool() -> Dict[str, Any]:
             "type": "object",
             "properties": {
                 "query": {"type": "string", "description": "Query text"},
-                "evidence": {"type": "object", "description": "Evidence mapping"}
+                "evidence": {"type": "object", "description": "Evidence mapping"},
             },
-            "required": ["query"]
-        }
+            "required": ["query"],
+        },
     }
 
 
@@ -155,16 +174,19 @@ def _entity_extraction_tool() -> Dict[str, Any]:
         "inputSchema": {
             "type": "object",
             "properties": {
-                "text": {"type": "string", "description": "Text to extract entities from"},
+                "text": {
+                    "type": "string",
+                    "description": "Text to extract entities from",
+                },
                 "entity_types": {
                     "type": "array",
                     "items": {"type": "string"},
                     "description": "Entity types to extract (e.g., PERSON, ORG, CONCEPT)",
-                    "default": ["PERSON", "ORG", "GPE", "CONCEPT"]
-                }
+                    "default": ["PERSON", "ORG", "GPE", "CONCEPT"],
+                },
             },
-            "required": ["text"]
-        }
+            "required": ["text"],
+        },
     }
 
 
@@ -178,15 +200,19 @@ def _hipporag_retrieve_tool() -> Dict[str, Any]:
             "type": "object",
             "properties": {
                 "query": {"type": "string", "description": "Query text"},
-                "limit": {"type": "integer", "description": "Number of results", "default": 10},
+                "limit": {
+                    "type": "integer",
+                    "description": "Number of results",
+                    "default": 10,
+                },
                 "mode": {
                     "type": "string",
                     "enum": ["execution", "planning", "brainstorming"],
-                    "default": "execution"
-                }
+                    "default": "execution",
+                },
             },
-            "required": ["query"]
-        }
+            "required": ["query"],
+        },
     }
 
 
@@ -201,8 +227,8 @@ def _detect_mode_tool() -> Dict[str, Any]:
             "properties": {
                 "query": {"type": "string", "description": "Query to analyze for mode"}
             },
-            "required": ["query"]
-        }
+            "required": ["query"],
+        },
     }
 
 
@@ -212,10 +238,7 @@ def _lifecycle_status_tool() -> Dict[str, Any]:
         "name": "lifecycle_status",
         "version": REGISTRY_VERSION,
         "description": "Get memory lifecycle statistics",
-        "inputSchema": {
-            "type": "object",
-            "properties": {}
-        }
+        "inputSchema": {"type": "object", "properties": {}},
     }
 
 
@@ -232,11 +255,11 @@ def _obsidian_sync_tool() -> Dict[str, Any]:
                     "type": "array",
                     "items": {"type": "string"},
                     "description": "File extensions to sync (default: ['.md'])",
-                    "default": [".md"]
+                    "default": [".md"],
                 }
             },
-            "required": []
-        }
+            "required": [],
+        },
     }
 
 
@@ -249,11 +272,19 @@ def _beads_ready_tasks_tool() -> Dict[str, Any]:
         "inputSchema": {
             "type": "object",
             "properties": {
-                "limit": {"type": "integer", "description": "Max tasks to return", "default": 10},
-                "brief": {"type": "boolean", "description": "Return brief info only", "default": True}
+                "limit": {
+                    "type": "integer",
+                    "description": "Max tasks to return",
+                    "default": 10,
+                },
+                "brief": {
+                    "type": "boolean",
+                    "description": "Return brief info only",
+                    "default": True,
+                },
             },
-            "required": []
-        }
+            "required": [],
+        },
     }
 
 
@@ -268,8 +299,8 @@ def _beads_task_detail_tool() -> Dict[str, Any]:
             "properties": {
                 "task_id": {"type": "string", "description": "The task ID to retrieve"}
             },
-            "required": ["task_id"]
-        }
+            "required": ["task_id"],
+        },
     }
 
 
@@ -282,13 +313,23 @@ def _beads_query_tasks_tool() -> Dict[str, Any]:
         "inputSchema": {
             "type": "object",
             "properties": {
-                "status": {"type": "string", "description": "Filter by status (open, in_progress, done)"},
-                "priority": {"type": "integer", "description": "Filter by priority (1-5)"},
+                "status": {
+                    "type": "string",
+                    "description": "Filter by status (open, in_progress, done)",
+                },
+                "priority": {
+                    "type": "integer",
+                    "description": "Filter by priority (1-5)",
+                },
                 "assignee": {"type": "string", "description": "Filter by assignee"},
-                "limit": {"type": "integer", "description": "Max tasks to return", "default": 20}
+                "limit": {
+                    "type": "integer",
+                    "description": "Max tasks to return",
+                    "default": 20,
+                },
             },
-            "required": []
-        }
+            "required": [],
+        },
     }
 
 
@@ -301,41 +342,42 @@ def _observation_timeline_tool() -> Dict[str, Any]:
         "inputSchema": {
             "type": "object",
             "properties": {
-                "project": {
-                    "type": "string",
-                    "description": "Filter by project name"
-                },
+                "project": {"type": "string", "description": "Filter by project name"},
                 "obs_type": {
                     "type": "string",
                     "description": "Filter by type: tool_use, code_change, error, decision, discovery, conversation",
                     "enum": [
-                        "tool_use", "code_change", "error",
-                        "decision", "discovery", "conversation"
-                    ]
+                        "tool_use",
+                        "code_change",
+                        "error",
+                        "decision",
+                        "discovery",
+                        "conversation",
+                    ],
                 },
                 "session_id": {
                     "type": "string",
-                    "description": "Filter by session UUID"
+                    "description": "Filter by session UUID",
                 },
                 "hours_back": {
                     "type": "integer",
                     "description": "Hours to look back from now (default: 24)",
-                    "default": 24
+                    "default": 24,
                 },
                 "limit": {
                     "type": "integer",
                     "description": "Max observations to return (default: 30)",
-                    "default": 30
+                    "default": 30,
                 },
                 "detail": {
                     "type": "string",
                     "description": "Detail level: compact or full",
                     "enum": ["compact", "full"],
-                    "default": "compact"
-                }
+                    "default": "compact",
+                },
             },
-            "required": []
-        }
+            "required": [],
+        },
     }
 
 
@@ -348,8 +390,8 @@ def _kv_get_tool() -> Dict[str, Any]:
         "inputSchema": {
             "type": "object",
             "properties": {"key": {"type": "string", "description": "Key to read"}},
-            "required": ["key"]
-        }
+            "required": ["key"],
+        },
     }
 
 
@@ -364,10 +406,13 @@ def _kv_set_tool() -> Dict[str, Any]:
             "properties": {
                 "key": {"type": "string", "description": "Key to write"},
                 "value": {"type": "string", "description": "Value to store"},
-                "ttl": {"type": "integer", "description": "Optional time-to-live in seconds"}
+                "ttl": {
+                    "type": "integer",
+                    "description": "Optional time-to-live in seconds",
+                },
             },
-            "required": ["key", "value"]
-        }
+            "required": ["key", "value"],
+        },
     }
 
 
@@ -380,8 +425,8 @@ def _kv_delete_tool() -> Dict[str, Any]:
         "inputSchema": {
             "type": "object",
             "properties": {"key": {"type": "string", "description": "Key to delete"}},
-            "required": ["key"]
-        }
+            "required": ["key"],
+        },
     }
 
 
@@ -394,12 +439,23 @@ def _context_retrieve_tool() -> Dict[str, Any]:
         "inputSchema": {
             "type": "object",
             "properties": {
-                "query": {"type": "string", "description": "Current query/work to find context for"},
-                "limit": {"type": "integer", "description": "Max context items (default 5)", "default": 5},
-                "mode": {"type": "string", "enum": ["execution", "planning", "brainstorming"], "default": "planning"}
+                "query": {
+                    "type": "string",
+                    "description": "Current query/work to find context for",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max context items (default 5)",
+                    "default": 5,
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": ["execution", "planning", "brainstorming"],
+                    "default": "planning",
+                },
             },
-            "required": ["query"]
-        }
+            "required": ["query"],
+        },
     }
 
 

@@ -9,7 +9,7 @@ Part of Week 9 implementation for Memory MCP Triple System.
 NASA Rule 10 Compliant: All functions ≤60 LOC
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from sklearn.mixture import GaussianMixture
 from sklearn.metrics import silhouette_score
 import numpy as np
@@ -37,7 +37,7 @@ class RAPTORClusterer:
         min_clusters: int = 2,
         max_clusters: int = 10,
         bic_threshold: float = -1000.0,
-        random_state: int = 42
+        random_state: int = 42,
     ):
         """
         Initialize RAPTOR clusterer.
@@ -54,12 +54,12 @@ class RAPTORClusterer:
         self.max_clusters = max_clusters
         self.bic_threshold = bic_threshold
         self.random_state = random_state
-        logger.info(f"RAPTORClusterer initialized: k={min_clusters}-{max_clusters}, BIC threshold={bic_threshold}")
+        logger.info(
+            f"RAPTORClusterer initialized: k={min_clusters}-{max_clusters}, BIC threshold={bic_threshold}"
+        )
 
     def cluster_chunks(
-        self,
-        chunks: List[Dict[str, Any]],
-        embeddings: List[List[float]]
+        self, chunks: List[Dict[str, Any]], embeddings: List[List[float]]
     ) -> Dict[str, Any]:
         """
         Cluster chunks hierarchically using GMM.
@@ -99,20 +99,20 @@ class RAPTORClusterer:
         bic = gmm.bic(X)
         summaries = self._generate_cluster_summaries(chunks, labels, optimal_k)
 
-        logger.info(f"Clustered {len(chunks)} chunks into {optimal_k} clusters, silhouette={silhouette:.3f}")
+        logger.info(
+            f"Clustered {len(chunks)} chunks into {optimal_k} clusters, silhouette={silhouette:.3f}"
+        )
 
         return {
             "num_clusters": optimal_k,
             "cluster_assignments": labels.tolist(),
             "cluster_summaries": summaries,
             "quality_score": silhouette,
-            "bic_score": bic
+            "bic_score": bic,
         }
 
     def build_hierarchy(
-        self,
-        clusters: Dict[str, Any],
-        max_depth: int = 3
+        self, clusters: Dict[str, Any], max_depth: int = 3
     ) -> Dict[str, Any]:
         """
         Build multi-level hierarchy by recursively clustering summaries.
@@ -142,36 +142,21 @@ class RAPTORClusterer:
             "level": 0,
             "summary": top_summary,
             "num_nodes": len(summaries),
-            "children": children
+            "children": children,
         }
 
     def _empty_hierarchy(self) -> Dict[str, Any]:
         """Return empty hierarchy for edge cases. NASA Rule 10: 11 LOC ✅"""
-        return {
-            "level": 0,
-            "summary": "",
-            "num_nodes": 0,
-            "children": []
-        }
+        return {"level": 0, "summary": "", "num_nodes": 0, "children": []}
 
     def _single_node_hierarchy(self, summary: str) -> Dict[str, Any]:
         """Return single-node hierarchy. NASA Rule 10: 11 LOC ✅"""
-        return {
-            "level": 0,
-            "summary": summary,
-            "num_nodes": 1,
-            "children": []
-        }
+        return {"level": 0, "summary": summary, "num_nodes": 1, "children": []}
 
     def _build_child_nodes(self, summaries: List[str]) -> List[Dict[str, Any]]:
         """Build child nodes for hierarchy. NASA Rule 10: 14 LOC ✅"""
         return [
-            {
-                "level": 1,
-                "summary": summary,
-                "num_nodes": 1,
-                "children": []
-            }
+            {"level": 1, "summary": summary, "num_nodes": 1, "children": []}
             for summary in summaries
         ]
 
@@ -186,7 +171,7 @@ class RAPTORClusterer:
             "cluster_assignments": [],
             "cluster_summaries": [],
             "quality_score": 0.0,
-            "bic_score": 0.0
+            "bic_score": 0.0,
         }
 
     def _fit_gmm(self, X: np.ndarray, n_components: int) -> GaussianMixture:
@@ -198,15 +183,12 @@ class RAPTORClusterer:
         gmm = GaussianMixture(
             n_components=n_components,
             random_state=self.random_state,
-            covariance_type='full'
+            covariance_type="full",
         )
         return gmm
 
     def _generate_cluster_summaries(
-        self,
-        chunks: List[Dict[str, Any]],
-        labels: np.ndarray,
-        num_clusters: int
+        self, chunks: List[Dict[str, Any]], labels: np.ndarray, num_clusters: int
     ) -> List[str]:
         """
         Generate summaries for each cluster.
@@ -216,18 +198,13 @@ class RAPTORClusterer:
         summaries = []
         for cluster_id in range(num_clusters):
             cluster_texts = [
-                chunks[i]['text']
-                for i in range(len(chunks))
-                if labels[i] == cluster_id
+                chunks[i]["text"] for i in range(len(chunks)) if labels[i] == cluster_id
             ]
             summary = self._generate_summary(cluster_texts)
             summaries.append(summary)
         return summaries
 
-    def _select_optimal_clusters(
-        self,
-        X: np.ndarray
-    ) -> int:
+    def _select_optimal_clusters(self, X: np.ndarray) -> int:
         """
         Use BIC to find optimal number of clusters.
 
@@ -246,7 +223,7 @@ class RAPTORClusterer:
             return 1
 
         best_k = self.min_clusters
-        best_bic = float('inf')
+        best_bic = float("inf")
 
         # Try different cluster counts
         for k in range(self.min_clusters, min(self.max_clusters + 1, n_samples)):
@@ -254,7 +231,7 @@ class RAPTORClusterer:
                 gmm = GaussianMixture(
                     n_components=k,
                     random_state=self.random_state,
-                    covariance_type='full'
+                    covariance_type="full",
                 )
                 gmm.fit(X)
                 bic = gmm.bic(X)
@@ -270,10 +247,7 @@ class RAPTORClusterer:
         logger.debug(f"Selected optimal k={best_k} with BIC={best_bic:.2f}")
         return best_k
 
-    def _generate_summary(
-        self,
-        texts: List[str]
-    ) -> str:
+    def _generate_summary(self, texts: List[str]) -> str:
         """
         REM-003 FIX: TF-IDF extractive summarization for cluster.
 
@@ -288,7 +262,6 @@ class RAPTORClusterer:
 
         NASA Rule 10: 51 LOC (<=60)
         """
-        import re
         if not texts:
             return ""
 
@@ -305,14 +278,18 @@ class RAPTORClusterer:
         if not key_sentences:
             # Fallback to truncation
             concatenated = " ".join(texts)
-            return concatenated[:450] + "..." if len(concatenated) > 450 else concatenated
+            return (
+                concatenated[:450] + "..." if len(concatenated) > 450 else concatenated
+            )
 
         # Combine key sentences
         summary = " ".join(key_sentences)
         if len(summary) > 500:
             summary = summary[:497] + "..."
 
-        logger.debug(f"Generated TF-IDF summary for {len(texts)} texts: {len(summary)} chars")
+        logger.debug(
+            f"Generated TF-IDF summary for {len(texts)} texts: {len(summary)} chars"
+        )
         return summary
 
     def _extract_best_sentence_tfidf(self, text: str, max_len: int = 150) -> str:
@@ -324,15 +301,14 @@ class RAPTORClusterer:
         """
         import re
         from collections import Counter
-        import math
 
-        sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+        sentences = re.split(r"(?<=[.!?])\s+", text.strip())
         if not sentences:
             return text[:max_len] + "..." if len(text) > max_len else text
 
         if len(sentences) == 1:
             sent = sentences[0]
-            return sent[:max_len-3] + "..." if len(sent) > max_len else sent
+            return sent[: max_len - 3] + "..." if len(sent) > max_len else sent
 
         # Calculate IDF (inverse document frequency)
         idf = self._calculate_idf(sentences)
@@ -367,7 +343,7 @@ class RAPTORClusterer:
                 best_score, best_sent = score, sent
 
         if len(best_sent) > max_len:
-            best_sent = best_sent[:max_len-3] + "..."
+            best_sent = best_sent[: max_len - 3] + "..."
         return best_sent
 
     def _calculate_idf(self, sentences: List[str]) -> Dict[str, float]:
@@ -381,5 +357,6 @@ class RAPTORClusterer:
             word_counts.update(set(words))
 
         num_sentences = len(sentences)
-        return {word: math.log(num_sentences / count)
-                for word, count in word_counts.items()}
+        return {
+            word: math.log(num_sentences / count) for word, count in word_counts.items()
+        }

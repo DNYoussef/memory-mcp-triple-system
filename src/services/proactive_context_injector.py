@@ -9,14 +9,13 @@ WHY: implementation (RETRIEVE-001)
 """
 
 import copy
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, List, Optional, Any
 from loguru import logger
 
 from ..integrations.proactive_schema import (
     TriggerEvent,
     TriggerType,
-    ContextPriority,
     InjectedContext,
     InjectionRule,
     InjectionStats,
@@ -298,7 +297,12 @@ class ProactiveContextInjector:
         # Average confidence/score from chunks
         scores = []
         for chunk in chunks:
-            score = chunk.get("score") or chunk.get("confidence") or chunk.get("relevance") or 0.5
+            score = (
+                chunk.get("score")
+                or chunk.get("confidence")
+                or chunk.get("relevance")
+                or 0.5
+            )
             scores.append(score)
         chunk_relevance = sum(scores) / len(scores) if scores else 0.0
 

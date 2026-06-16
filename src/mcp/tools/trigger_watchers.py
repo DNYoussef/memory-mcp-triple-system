@@ -9,7 +9,7 @@ WHY: implementation (RETRIEVE-001)
 from typing import Any, Dict, List, Optional
 from loguru import logger
 
-from ...services.trigger_watchers.watcher_manager import WatcherManager, WatcherManagerConfig
+from ...services.trigger_watchers.watcher_manager import WatcherManager
 from ...services.trigger_watchers.time_scheduler import ScheduledTrigger, DayOfWeek
 from ...services.trigger_watchers.activity_detector import ActivityType
 
@@ -108,7 +108,9 @@ class TriggerWatcherTools:
             return {
                 "success": success,
                 "path": path,
-                "message": f"Added file watch path: {path}" if success else "Failed to add path",
+                "message": f"Added file watch path: {path}"
+                if success
+                else "Failed to add path",
             }
         except Exception as e:
             logger.error(f"Failed to add watch path: {e}")
@@ -131,7 +133,9 @@ class TriggerWatcherTools:
             return {
                 "success": success,
                 "repo_path": repo_path,
-                "message": f"Added git repo: {repo_path}" if success else "Failed to add repo",
+                "message": f"Added git repo: {repo_path}"
+                if success
+                else "Failed to add repo",
             }
         except Exception as e:
             logger.error(f"Failed to add git repo: {e}")

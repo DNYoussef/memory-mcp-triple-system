@@ -8,10 +8,7 @@ PROJECT: memory-mcp-triple-system
 WHY: implementation (RETRIEVE-001)
 """
 
-import asyncio
-import json
 import os
-import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -28,7 +25,9 @@ def get_claude_hooks_dir() -> Optional[Path]:
     candidates = [
         Path.home() / ".claude" / "hooks",
         Path.home() / ".config" / "claude" / "hooks",
-        Path(os.environ.get("CLAUDE_HOOKS_DIR", "")) if os.environ.get("CLAUDE_HOOKS_DIR") else None,
+        Path(os.environ.get("CLAUDE_HOOKS_DIR", ""))
+        if os.environ.get("CLAUDE_HOOKS_DIR")
+        else None,
     ]
 
     for candidate in candidates:
@@ -54,7 +53,7 @@ def generate_pre_tool_hook(
     patterns = tool_patterns or ["Read", "Grep", "Glob"]
     pattern_check = " || ".join([f'[[ "$TOOL_NAME" == *"{p}"* ]]' for p in patterns])
 
-    return f'''#!/bin/bash
+    return f"""#!/bin/bash
 # {hook_name} - Proactive Context Injection Hook
 # WHO: proactive-injector:1.0.0
 # WHEN: {datetime.utcnow().isoformat()}Z
@@ -102,7 +101,7 @@ fi
 
 # Always allow the tool to proceed
 exit 0
-'''
+"""
 
 
 def generate_session_start_hook(
@@ -116,7 +115,7 @@ def generate_session_start_hook(
     Returns:
         Hook script content
     """
-    return f'''#!/bin/bash
+    return f"""#!/bin/bash
 # {hook_name} - Session Start Context Injection Hook
 # WHO: proactive-injector:1.0.0
 # WHEN: {datetime.utcnow().isoformat()}Z
@@ -163,7 +162,7 @@ except Exception as e:
 " 2>/dev/null
 
 exit 0
-'''
+"""
 
 
 def generate_git_post_checkout_hook(
@@ -177,7 +176,7 @@ def generate_git_post_checkout_hook(
     Returns:
         Hook script content
     """
-    return f'''#!/bin/bash
+    return f"""#!/bin/bash
 # {hook_name} - Git Post-Checkout Context Injection Hook
 # WHO: proactive-injector:1.0.0
 # WHEN: {datetime.utcnow().isoformat()}Z
@@ -220,7 +219,7 @@ except Exception as e:
 fi
 
 exit 0
-'''
+"""
 
 
 def generate_activity_hook(
@@ -239,7 +238,7 @@ def generate_activity_hook(
     types = event_types or ["PreToolUse", "PostToolUse", "Stop"]
     type_check = " || ".join([f'[[ "$EVENT_TYPE" == "{t}" ]]' for t in types])
 
-    return f'''#!/bin/bash
+    return f"""#!/bin/bash
 # {hook_name} - Activity Recording Hook
 # WHO: proactive-injector:1.0.0
 # WHEN: {datetime.utcnow().isoformat()}Z
@@ -281,7 +280,7 @@ except Exception:
 fi
 
 exit 0
-'''
+"""
 
 
 class ClaudeCodeHooksIntegration:
@@ -418,15 +417,17 @@ class ClaudeCodeHooksIntegration:
                 continue
 
             for hook_file in hook_type_dir.glob("proactive-context-*.sh"):
-                hooks.append({
-                    "type": hook_type_dir.name,
-                    "name": hook_file.stem,
-                    "path": str(hook_file),
-                    "size": hook_file.stat().st_size,
-                    "modified": datetime.fromtimestamp(
-                        hook_file.stat().st_mtime
-                    ).isoformat(),
-                })
+                hooks.append(
+                    {
+                        "type": hook_type_dir.name,
+                        "name": hook_file.stem,
+                        "path": str(hook_file),
+                        "size": hook_file.stat().st_size,
+                        "modified": datetime.fromtimestamp(
+                            hook_file.stat().st_mtime
+                        ).isoformat(),
+                    }
+                )
 
         return hooks
 

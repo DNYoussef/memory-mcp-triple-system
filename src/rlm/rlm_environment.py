@@ -25,10 +25,11 @@ from loguru import logger
 
 class ExecutionMode(Enum):
     """RLM execution modes."""
-    SEARCH = "search"       # Search and retrieve
-    ANALYZE = "analyze"     # Deep analysis
-    RECURSIVE = "recursive" # Recursive exploration
-    INSPECT = "inspect"     # Self-inspection
+
+    SEARCH = "search"  # Search and retrieve
+    ANALYZE = "analyze"  # Deep analysis
+    RECURSIVE = "recursive"  # Recursive exploration
+    INSPECT = "inspect"  # Self-inspection
 
 
 @dataclass
@@ -42,6 +43,7 @@ class RLMConfig:
         enable_caching: Cache query results (default True)
         sandbox_mode: Run in isolated sandbox (default True)
     """
+
     max_depth: int = 10
     max_tokens: int = 8000
     timeout_seconds: int = 30
@@ -60,6 +62,7 @@ class ExecutionContext:
 
     Tracks recursion depth, tokens used, and execution path.
     """
+
     depth: int = 0
     tokens_used: int = 0
     path: List[str] = field(default_factory=list)
@@ -72,7 +75,7 @@ class ExecutionContext:
             depth=self.depth + 1,
             tokens_used=self.tokens_used,
             path=self.path + [step],
-            parent_context=self
+            parent_context=self,
         )
 
 
@@ -88,6 +91,7 @@ class RLMResult:
         duration_ms: Execution time in milliseconds
         error: Error message if failed
     """
+
     success: bool
     data: Any
     depth_reached: int
@@ -121,7 +125,9 @@ class RLMEnvironment(ABC):
         self._query_count = 0
         self._total_tokens = 0
 
-        logger.info(f"RLMEnvironment initialized with max_depth={self.config.max_depth}")
+        logger.info(
+            f"RLMEnvironment initialized with max_depth={self.config.max_depth}"
+        )
 
     @abstractmethod
     def load_data(self, source: str) -> bool:
@@ -138,10 +144,7 @@ class RLMEnvironment(ABC):
 
     @abstractmethod
     def search(
-        self,
-        query: str,
-        limit: int = 10,
-        context: Optional[ExecutionContext] = None
+        self, query: str, limit: int = 10, context: Optional[ExecutionContext] = None
     ) -> List[Dict[str, Any]]:
         """
         Search for relevant items.
@@ -158,9 +161,7 @@ class RLMEnvironment(ABC):
 
     @abstractmethod
     def get_chunk(
-        self,
-        chunk_id: str,
-        context: Optional[ExecutionContext] = None
+        self, chunk_id: str, context: Optional[ExecutionContext] = None
     ) -> Optional[Dict[str, Any]]:
         """
         Retrieve a specific chunk by ID.
@@ -179,7 +180,7 @@ class RLMEnvironment(ABC):
         query: str,
         processor: Callable[[List[Dict]], str],
         context: Optional[ExecutionContext] = None,
-        depth: int = 0
+        depth: int = 0,
     ) -> RLMResult:
         """
         Execute a recursive query with depth control.
@@ -213,7 +214,7 @@ class RLMEnvironment(ABC):
                 tokens_used=ctx.tokens_used,
                 duration_ms=int(time.time() * 1000) - start_ms,
                 error=f"Max depth {self.config.max_depth} exceeded",
-                context=ctx
+                context=ctx,
             )
 
         try:
@@ -232,7 +233,7 @@ class RLMEnvironment(ABC):
                     depth_reached=depth,
                     tokens_used=ctx.tokens_used,
                     duration_ms=int(time.time() * 1000) - start_ms,
-                    context=ctx
+                    context=ctx,
                 )
 
             # Recursive case: continue with next query
@@ -248,7 +249,7 @@ class RLMEnvironment(ABC):
                 tokens_used=ctx.tokens_used,
                 duration_ms=int(time.time() * 1000) - start_ms,
                 error=str(e),
-                context=ctx
+                context=ctx,
             )
 
     def get_stats(self) -> Dict[str, Any]:
@@ -264,8 +265,8 @@ class RLMEnvironment(ABC):
             "config": {
                 "max_depth": self.config.max_depth,
                 "max_tokens": self.config.max_tokens,
-                "sandbox_mode": self.config.sandbox_mode
-            }
+                "sandbox_mode": self.config.sandbox_mode,
+            },
         }
 
     def clear_cache(self) -> int:

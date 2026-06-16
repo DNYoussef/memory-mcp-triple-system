@@ -55,16 +55,20 @@ def test_http_bind_host_can_be_explicitly_overridden(monkeypatch: pytest.MonkeyP
     assert module._get_http_bind_host() == "0.0.0.0"
 
 
-def test_http_metadata_normalization_drops_uppercase_aliases(monkeypatch: pytest.MonkeyPatch):
+def test_http_metadata_normalization_drops_uppercase_aliases(
+    monkeypatch: pytest.MonkeyPatch,
+):
     module = _reload_http_server(monkeypatch, key="test-key")
 
-    metadata = module._normalize_metadata({
-        "WHO": "codex",
-        "WHEN": "2026-06-15T12:00:00Z",
-        "PROJECT": "memory-mcp-triple-system",
-        "WHY": "smoke-test",
-        "file_path": "/smoke/test.md",
-    })
+    metadata = module._normalize_metadata(
+        {
+            "WHO": "codex",
+            "WHEN": "2026-06-15T12:00:00Z",
+            "PROJECT": "memory-mcp-triple-system",
+            "WHY": "smoke-test",
+            "file_path": "/smoke/test.md",
+        }
+    )
 
     assert metadata["who"] == "codex"
     assert metadata["when"] == "2026-06-15T12:00:00Z"
@@ -91,7 +95,9 @@ def test_extract_tool_api_key_prefers_explicit_header(monkeypatch: pytest.Monkey
 
 
 @pytest.mark.asyncio
-async def test_require_tool_api_key_rejects_missing_or_wrong_token(monkeypatch: pytest.MonkeyPatch):
+async def test_require_tool_api_key_rejects_missing_or_wrong_token(
+    monkeypatch: pytest.MonkeyPatch,
+):
     module = _reload_http_server(monkeypatch, key="test-key")
 
     with pytest.raises(module.HTTPException) as missing_exc:
@@ -105,7 +111,9 @@ async def test_require_tool_api_key_rejects_missing_or_wrong_token(monkeypatch: 
 
 
 @pytest.mark.asyncio
-async def test_require_tool_api_key_accepts_matching_token(monkeypatch: pytest.MonkeyPatch):
+async def test_require_tool_api_key_accepts_matching_token(
+    monkeypatch: pytest.MonkeyPatch,
+):
     module = _reload_http_server(monkeypatch, key="test-key")
 
     bearer = SimpleNamespace(credentials="test-key")

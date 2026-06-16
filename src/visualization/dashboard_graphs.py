@@ -13,12 +13,12 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 from dataclasses import dataclass, field
 from typing import Dict, List, Any, Optional, Set
 from enum import Enum
-import json
 from loguru import logger
 
 
 class GraphFormat(Enum):
     """Output format for graph export."""
+
     JSON = "json"
     DOT = "dot"
     MERMAID = "mermaid"
@@ -27,29 +27,32 @@ class GraphFormat(Enum):
 
 class ViewType(Enum):
     """Type of graph view."""
+
     BEADS_DAG = "beads_dag"  # Tree/DAG task view
-    IDEA_WEB = "idea_web"    # Knowledge graph view
+    IDEA_WEB = "idea_web"  # Knowledge graph view
 
 
 @dataclass
 class GraphNode:
     """Universal node representation."""
+
     id: str
     title: str
     node_type: str = "default"  # task, idea, chunk, entity
-    status: str = "open"        # For tasks: open, in_progress, blocked, closed
-    priority: int = 3           # 1-5
+    status: str = "open"  # For tasks: open, in_progress, blocked, closed
+    priority: int = 3  # 1-5
     labels: List[str] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
     # Scoring for visualization
-    pagerank: float = 0.0       # For beads
-    ppr_score: float = 0.5      # For idea web
-    decay_score: float = 1.0    # Memory layer indicator
+    pagerank: float = 0.0  # For beads
+    ppr_score: float = 0.5  # For idea web
+    decay_score: float = 1.0  # Memory layer indicator
 
 
 @dataclass
 class GraphEdge:
     """Universal edge representation."""
+
     source: str
     target: str
     edge_type: str = "related"  # blocks, related, references, mentions
@@ -60,6 +63,7 @@ class GraphEdge:
 @dataclass
 class GraphData:
     """Complete graph data."""
+
     nodes: List[GraphNode] = field(default_factory=list)
     edges: List[GraphEdge] = field(default_factory=list)
     view_type: ViewType = ViewType.IDEA_WEB
@@ -68,6 +72,7 @@ class GraphData:
 @dataclass
 class ExportResult:
     """Result of graph export."""
+
     format: str
     view_type: str
     graph: str = ""
@@ -79,17 +84,17 @@ class ExportResult:
 
 # Status colors for DOT/visualization
 STATUS_COLORS = {
-    "open": "#50FA7B",       # Green
-    "in_progress": "#8BE9FD", # Cyan
-    "blocked": "#FF5555",     # Red
-    "closed": "#6272A4",      # Gray-blue
+    "open": "#50FA7B",  # Green
+    "in_progress": "#8BE9FD",  # Cyan
+    "blocked": "#FF5555",  # Red
+    "closed": "#6272A4",  # Gray-blue
 }
 
 # Memory layer colors
 LAYER_COLORS = {
-    "short": "#4CAF50",   # Green - recent (24h)
+    "short": "#4CAF50",  # Green - recent (24h)
     "medium": "#FF9800",  # Orange - mid-term (7d)
-    "long": "#9E9E9E",    # Gray - long-term (30d+)
+    "long": "#9E9E9E",  # Gray - long-term (30d+)
 }
 
 
@@ -116,9 +121,7 @@ class DashboardGraphVisualizer:
         logger.debug("DashboardGraphVisualizer initialized")
 
     def create_beads_view(
-        self,
-        tasks: List[Dict[str, Any]],
-        include_closed: bool = True
+        self, tasks: List[Dict[str, Any]], include_closed: bool = True
     ) -> GraphData:
         """
         Create Beads DAG view from tasks.
@@ -151,18 +154,22 @@ class DashboardGraphVisualizer:
             for dep in task.get("dependencies", []):
                 edge = GraphEdge(
                     source=task["id"],
-                    target=dep.get("depends_on_id", dep) if isinstance(dep, dict) else dep,
-                    edge_type=dep.get("type", "related") if isinstance(dep, dict) else "related",
+                    target=dep.get("depends_on_id", dep)
+                    if isinstance(dep, dict)
+                    else dep,
+                    edge_type=dep.get("type", "related")
+                    if isinstance(dep, dict)
+                    else "related",
                 )
                 graph.edges.append(edge)
 
-        logger.debug(f"Created Beads view: {len(graph.nodes)} nodes, {len(graph.edges)} edges")
+        logger.debug(
+            f"Created Beads view: {len(graph.nodes)} nodes, {len(graph.edges)} edges"
+        )
         return graph
 
     def create_idea_web(
-        self,
-        chunks: List[Dict[str, Any]],
-        relationships: List[Dict[str, Any]]
+        self, chunks: List[Dict[str, Any]], relationships: List[Dict[str, Any]]
     ) -> GraphData:
         """
         Create Idea Web view from memory chunks.
@@ -198,7 +205,9 @@ class DashboardGraphVisualizer:
             )
             graph.edges.append(edge)
 
-        logger.debug(f"Created Idea Web: {len(graph.nodes)} nodes, {len(graph.edges)} edges")
+        logger.debug(
+            f"Created Idea Web: {len(graph.nodes)} nodes, {len(graph.edges)} edges"
+        )
         return graph
 
     def export(
@@ -206,7 +215,7 @@ class DashboardGraphVisualizer:
         graph: GraphData,
         format: GraphFormat,
         root_id: Optional[str] = None,
-        max_depth: int = 0
+        max_depth: int = 0,
     ) -> ExportResult:
         """
         Export graph to specified format.
@@ -261,10 +270,7 @@ class DashboardGraphVisualizer:
         return result
 
     def _extract_subgraph(
-        self,
-        graph: GraphData,
-        root_id: str,
-        max_depth: int
+        self, graph: GraphData, root_id: str, max_depth: int
     ) -> GraphData:
         """Extract subgraph starting from root node."""
         # Build adjacency map
@@ -292,7 +298,9 @@ class DashboardGraphVisualizer:
         # Filter to visited nodes
         result = GraphData(view_type=graph.view_type)
         result.nodes = [n for n in graph.nodes if n.id in visited]
-        result.edges = [e for e in graph.edges if e.source in visited and e.target in visited]
+        result.edges = [
+            e for e in graph.edges if e.source in visited and e.target in visited
+        ]
 
         return result
 
@@ -300,28 +308,34 @@ class DashboardGraphVisualizer:
         """Convert to Graphviz DOT format."""
         lines = [
             "digraph G {",
-            '    rankdir=LR;',
+            "    rankdir=LR;",
             '    node [shape=box, fontname="Helvetica", fontsize=10];',
             "",
         ]
 
         for node in sorted(graph.nodes, key=lambda n: n.id):
             color = self._get_node_color(node, graph.view_type)
-            title = self._escape_dot(node.title[:30] + "..." if len(node.title) > 30 else node.title)
+            title = self._escape_dot(
+                node.title[:30] + "..." if len(node.title) > 30 else node.title
+            )
             label = f"{node.id}\\n{title}"
 
             if graph.view_type == ViewType.BEADS_DAG:
                 label += f"\\nP{node.priority} {node.status}"
 
             penwidth = 1.0 + node.pagerank * 3.0 if node.pagerank else 1.0
-            lines.append(f'    "{node.id}" [label="{label}", fillcolor="{color}", style=filled, penwidth={penwidth:.1f}];')
+            lines.append(
+                f'    "{node.id}" [label="{label}", fillcolor="{color}", style=filled, penwidth={penwidth:.1f}];'
+            )
 
         lines.append("")
 
         for edge in sorted(graph.edges, key=lambda e: (e.source, e.target)):
             style = "bold" if edge.edge_type == "blocks" else "dashed"
             color = "#E53935" if edge.edge_type == "blocks" else "#999999"
-            lines.append(f'    "{edge.source}" -> "{edge.target}" [style={style}, color="{color}"];')
+            lines.append(
+                f'    "{edge.source}" -> "{edge.target}" [style={style}, color="{color}"];'
+            )
 
         lines.append("}")
         return "\n".join(lines)
@@ -367,31 +381,35 @@ class DashboardGraphVisualizer:
         nodes = []
         for node in graph.nodes:
             color = self._get_node_color(node, graph.view_type)
-            size = 30 + int(50 * (node.ppr_score ** 0.5)) if node.ppr_score else 40
+            size = 30 + int(50 * (node.ppr_score**0.5)) if node.ppr_score else 40
 
-            nodes.append({
-                "data": {
-                    "id": node.id,
-                    "label": node.title[:50],
-                    "type": node.node_type,
-                    "nodeColor": color,
-                    "width": size,
-                    "height": size,
-                    "pprScore": node.ppr_score,
-                    "decayScore": node.decay_score,
+            nodes.append(
+                {
+                    "data": {
+                        "id": node.id,
+                        "label": node.title[:50],
+                        "type": node.node_type,
+                        "nodeColor": color,
+                        "width": size,
+                        "height": size,
+                        "pprScore": node.ppr_score,
+                        "decayScore": node.decay_score,
+                    }
                 }
-            })
+            )
 
         edges = []
         for edge in graph.edges:
-            edges.append({
-                "data": {
-                    "source": edge.source,
-                    "target": edge.target,
-                    "type": edge.edge_type,
-                    "weight": edge.weight,
+            edges.append(
+                {
+                    "data": {
+                        "source": edge.source,
+                        "target": edge.target,
+                        "type": edge.edge_type,
+                        "weight": edge.weight,
+                    }
                 }
-            })
+            )
 
         return {"nodes": nodes, "edges": edges}
 
@@ -423,10 +441,10 @@ class DashboardGraphVisualizer:
         """Extract title from chunk."""
         metadata = chunk.get("metadata", {})
         return (
-            metadata.get("title") or
-            metadata.get("name") or
-            chunk.get("text", "")[:50] or
-            chunk.get("id", "Untitled")
+            metadata.get("title")
+            or metadata.get("name")
+            or chunk.get("text", "")[:50]
+            or chunk.get("id", "Untitled")
         )
 
     def _get_node_color(self, node: GraphNode, view_type: ViewType) -> str:

@@ -16,32 +16,24 @@ from datetime import datetime, timezone
 
 from src.services.improvement.outcome_schema import (
     Outcome,
-    OutcomeType,
     Pattern,
     RuleProposal,
     ProposalStatus,
-    ApprovalDecision,
 )
 from src.services.improvement.outcome_measurement import (
     OutcomeMeasurementService,
-    OutcomeMeasurementConfig,
 )
 from src.services.improvement.pattern_detection import (
     PatternDetectionService,
-    PatternDetectionConfig,
 )
 from src.services.improvement.rule_proposal import (
     RuleProposalGenerator,
-    RuleProposalConfig,
 )
 from src.services.improvement.approval_gate import (
     HumanApprovalGate,
-    ApprovalGateConfig,
-    ApprovalPriority,
 )
 from src.services.improvement.rule_deployment import (
     RuleDeploymentService,
-    RuleDeploymentConfig,
     DeploymentResult,
 )
 
@@ -139,7 +131,9 @@ class ImprovementCoordinator:
             Cycle result
         """
         self._cycle_count += 1
-        cycle_id = f"cycle-{self._cycle_count}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        cycle_id = (
+            f"cycle-{self._cycle_count}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        )
         started_at = datetime.now(timezone.utc).isoformat()
 
         logger.info(f"Starting improvement cycle {cycle_id}")
@@ -167,7 +161,9 @@ class ImprovementCoordinator:
         # 3. Generate proposals
         proposals = []
         if patterns and self.config.auto_generate_proposals:
-            proposals = self.proposal_generator.generate_proposals_from_patterns(patterns)
+            proposals = self.proposal_generator.generate_proposals_from_patterns(
+                patterns
+            )
             logger.info(f"Generated {len(proposals)} proposals")
 
             # 4. Submit to approval gate

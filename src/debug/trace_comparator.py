@@ -7,8 +7,7 @@ Single Responsibility: Compare two traces and identify differences.
 NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
-from typing import Dict, Any, List
-from loguru import logger
+from typing import Dict, Any
 
 from .query_trace import QueryTrace
 
@@ -21,11 +20,7 @@ class TraceComparator:
     Cohesion: HIGH - all methods relate to trace comparison.
     """
 
-    def compare(
-        self,
-        original: QueryTrace,
-        replay: QueryTrace
-    ) -> Dict[str, Any]:
+    def compare(self, original: QueryTrace, replay: QueryTrace) -> Dict[str, Any]:
         """
         Compare two traces and identify differences.
 
@@ -42,54 +37,46 @@ class TraceComparator:
         if original.mode_detected != replay.mode_detected:
             diff["mode_detected"] = {
                 "original": original.mode_detected,
-                "replay": replay.mode_detected
+                "replay": replay.mode_detected,
             }
 
         # Compare stores queried
         if original.stores_queried != replay.stores_queried:
             diff["stores_queried"] = {
                 "original": original.stores_queried,
-                "replay": replay.stores_queried
+                "replay": replay.stores_queried,
             }
 
         # Compare output
         if original.output != replay.output:
-            diff["output"] = {
-                "original": original.output,
-                "replay": replay.output
-            }
+            diff["output"] = {"original": original.output, "replay": replay.output}
 
         # Compare latency (significant difference > 20%)
         if self._latency_differs_significantly(original, replay):
             diff["latency_ms"] = {
                 "original": original.total_latency_ms,
-                "replay": replay.total_latency_ms
+                "replay": replay.total_latency_ms,
             }
 
         # Compare chunk counts
         orig_chunks = len(original.retrieved_chunks)
         replay_chunks = len(replay.retrieved_chunks)
         if orig_chunks != replay_chunks:
-            diff["chunk_count"] = {
-                "original": orig_chunks,
-                "replay": replay_chunks
-            }
+            diff["chunk_count"] = {"original": orig_chunks, "replay": replay_chunks}
 
         return diff
 
     def _latency_differs_significantly(
-        self,
-        original: QueryTrace,
-        replay: QueryTrace,
-        threshold: float = 0.2
+        self, original: QueryTrace, replay: QueryTrace, threshold: float = 0.2
     ) -> bool:
         """Check if latency difference exceeds threshold."""
         if original.total_latency_ms == 0:
             return replay.total_latency_ms > 0
 
-        diff_ratio = abs(
-            original.total_latency_ms - replay.total_latency_ms
-        ) / original.total_latency_ms
+        diff_ratio = (
+            abs(original.total_latency_ms - replay.total_latency_ms)
+            / original.total_latency_ms
+        )
 
         return diff_ratio > threshold
 

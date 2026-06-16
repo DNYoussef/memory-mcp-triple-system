@@ -19,8 +19,7 @@ from src.indexing.vector_indexer import resolve_persist_dir
 class TestResolvePersistDir(unittest.TestCase):
     def setUp(self):
         self._saved = {
-            k: os.environ.get(k)
-            for k in ("CHROMA_PERSIST_DIR", "MEMORY_MCP_DATA_DIR")
+            k: os.environ.get(k) for k in ("CHROMA_PERSIST_DIR", "MEMORY_MCP_DATA_DIR")
         }
         for k in self._saved:
             os.environ.pop(k, None)

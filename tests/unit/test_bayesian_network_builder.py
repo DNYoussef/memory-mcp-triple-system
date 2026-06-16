@@ -111,6 +111,8 @@ class TestNetworkBuilder:
         # Build again (should hit cache)
         network2 = builder.build_network(sample_graph, use_cache=True)
 
+        # A cache hit must return the SAME object, not a rebuild
+        assert network1 is network2
         assert len(builder.cache) == 1
 
     def test_cache_invalidation(self, builder, sample_graph):
@@ -128,6 +130,8 @@ class TestNetworkBuilder:
 
         network2 = builder.build_network(sample_graph, use_cache=True)
 
+        # TTL expired -> the second build must be a fresh object, not the cache
+        assert network1 is not network2
         # Cache should have been rebuilt
         assert len(builder.cache) >= 1
 
@@ -234,7 +238,7 @@ class TestNetworkBuilder:
 
     def test_network_serialization(self, builder, sample_graph):
         """Test that network can be cached and retrieved."""
-        network1 = builder.build_network(sample_graph, use_cache=True)
+        network1 = builder.build_network(sample_graph, use_cache=True)  # noqa: F841
 
         # Get cache key
         cache_key = builder._get_cache_key(sample_graph)

@@ -18,35 +18,35 @@ import uuid
 class OutcomeType(Enum):
     """Types of outcomes to track."""
 
-    SUCCESS = "success"           # Task completed successfully
-    FAILURE = "failure"           # Task failed
-    PARTIAL = "partial"           # Partially completed
-    ESCALATED = "escalated"       # Escalated to human
-    TIMEOUT = "timeout"           # Timed out
-    CORRECTION = "correction"     # User corrected output
-    APPROVAL = "approval"         # User approved output
-    REJECTION = "rejection"       # User rejected output
+    SUCCESS = "success"  # Task completed successfully
+    FAILURE = "failure"  # Task failed
+    PARTIAL = "partial"  # Partially completed
+    ESCALATED = "escalated"  # Escalated to human
+    TIMEOUT = "timeout"  # Timed out
+    CORRECTION = "correction"  # User corrected output
+    APPROVAL = "approval"  # User approved output
+    REJECTION = "rejection"  # User rejected output
 
 
 class OutcomeSource(Enum):
     """Source of outcome data."""
 
-    CONFIDENCE_SCORING = "confidence_scoring"   # CAPTURE-003
-    USER_FEEDBACK = "user_feedback"             # Direct user input
-    QUALITY_GATE = "quality_gate"               # Quality gate results
-    ESCALATION = "escalation"                   # Escalation resolution
-    AGENT_EXECUTION = "agent_execution"         # Agent task results
-    PIPELINE = "pipeline"                       # Pipeline outcomes
+    CONFIDENCE_SCORING = "confidence_scoring"  # CAPTURE-003
+    USER_FEEDBACK = "user_feedback"  # Direct user input
+    QUALITY_GATE = "quality_gate"  # Quality gate results
+    ESCALATION = "escalation"  # Escalation resolution
+    AGENT_EXECUTION = "agent_execution"  # Agent task results
+    PIPELINE = "pipeline"  # Pipeline outcomes
 
 
 class ProposalStatus(Enum):
     """Status of a rule proposal."""
 
-    PENDING = "pending"           # Awaiting review
-    APPROVED = "approved"         # Approved by human
-    REJECTED = "rejected"         # Rejected by human
-    DEPLOYED = "deployed"         # Successfully deployed
-    ROLLED_BACK = "rolled_back"   # Deployment rolled back
+    PENDING = "pending"  # Awaiting review
+    APPROVED = "approved"  # Approved by human
+    REJECTED = "rejected"  # Rejected by human
+    DEPLOYED = "deployed"  # Successfully deployed
+    ROLLED_BACK = "rolled_back"  # Deployment rolled back
 
 
 class ApprovalDecision(Enum):
@@ -67,7 +67,9 @@ class Outcome:
     source: OutcomeSource = OutcomeSource.AGENT_EXECUTION
 
     # Context
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
     session_id: Optional[str] = None
     task_id: Optional[str] = None
     agent_type: Optional[str] = None
@@ -83,8 +85,8 @@ class Outcome:
     token_count: int = 0
 
     # Classification
-    category: str = ""          # e.g., "mode_detection", "entity_extraction"
-    subcategory: str = ""       # e.g., "execution", "planning"
+    category: str = ""  # e.g., "mode_detection", "entity_extraction"
+    subcategory: str = ""  # e.g., "execution", "planning"
 
     # Metadata
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -141,22 +143,24 @@ class Pattern:
     """A detected pattern from outcomes."""
 
     pattern_id: str = field(default_factory=lambda: f"pattern-{uuid.uuid4().hex[:8]}")
-    pattern_type: str = ""           # e.g., "failure_cluster", "correction_trend"
+    pattern_type: str = ""  # e.g., "failure_cluster", "correction_trend"
 
     # Detection info
-    detected_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    detected_at: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
     confidence: float = 0.0
     sample_size: int = 0
 
     # Pattern details
     description: str = ""
-    affected_category: str = ""      # e.g., "mode_detection"
-    affected_subcategory: str = ""   # e.g., "planning"
+    affected_category: str = ""  # e.g., "mode_detection"
+    affected_subcategory: str = ""  # e.g., "planning"
 
     # Statistics
-    frequency: float = 0.0           # How often pattern occurs
-    impact: float = 0.0              # Severity/importance (0-1)
-    trend: str = "stable"            # "increasing", "stable", "decreasing"
+    frequency: float = 0.0  # How often pattern occurs
+    impact: float = 0.0  # Severity/importance (0-1)
+    trend: str = "stable"  # "increasing", "stable", "decreasing"
 
     # Supporting evidence
     outcome_ids: List[str] = field(default_factory=list)
@@ -185,12 +189,12 @@ class Pattern:
 class RuleChange:
     """A specific change to a rule."""
 
-    rule_path: str = ""              # Path to rule file
-    rule_section: str = ""           # Section within file
-    current_value: str = ""          # Current rule text
-    proposed_value: str = ""         # Proposed new text
-    change_type: str = "modify"      # "add", "modify", "remove"
-    rationale: str = ""              # Why this change
+    rule_path: str = ""  # Path to rule file
+    rule_section: str = ""  # Section within file
+    current_value: str = ""  # Current rule text
+    proposed_value: str = ""  # Proposed new text
+    change_type: str = "modify"  # "add", "modify", "remove"
+    rationale: str = ""  # Why this change
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to dictionary."""
@@ -212,19 +216,21 @@ class RuleProposal:
     status: ProposalStatus = ProposalStatus.PENDING
 
     # Timing
-    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
     reviewed_at: Optional[str] = None
     deployed_at: Optional[str] = None
 
     # Source
-    pattern_id: str = ""             # Pattern that triggered this
+    pattern_id: str = ""  # Pattern that triggered this
     pattern_confidence: float = 0.0
 
     # Proposal details
     title: str = ""
     description: str = ""
     impact_assessment: str = ""
-    risk_level: str = "low"          # "low", "medium", "high"
+    risk_level: str = "low"  # "low", "medium", "high"
 
     # Changes
     changes: List[RuleChange] = field(default_factory=list)
@@ -289,7 +295,9 @@ class RuleProposal:
             changes=changes,
             expected_improvement=data.get("expected_improvement", {}),
             reviewer=data.get("reviewer"),
-            decision=ApprovalDecision(data["decision"]) if data.get("decision") else None,
+            decision=ApprovalDecision(data["decision"])
+            if data.get("decision")
+            else None,
             review_notes=data.get("review_notes", ""),
             rollback_changes=rollback_changes,
         )

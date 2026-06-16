@@ -263,7 +263,9 @@ def test_default_rules_have_file_open():
 
 def test_default_rules_have_git_checkout():
     """Test git-checkout rule exists in defaults."""
-    git_rules = [r for r in DEFAULT_RULES if TriggerType.GIT_CHECKOUT in r.trigger_types]
+    git_rules = [
+        r for r in DEFAULT_RULES if TriggerType.GIT_CHECKOUT in r.trigger_types
+    ]
     assert len(git_rules) >= 1
 
 

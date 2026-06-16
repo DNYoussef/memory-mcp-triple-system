@@ -7,7 +7,7 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 MEM-CHUNK-002: Added Lost-in-the-Middle mitigation strategies.
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from enum import Enum
 import numpy as np
 from loguru import logger
@@ -22,6 +22,7 @@ class LostInMiddleMitigation(Enum):
     INTERLEAVE: Alternate high/medium relevance throughout.
     REVERSE_MIDDLE: Highest at start, then reverse-sorted middle, highest at end.
     """
+
     NONE = "none"
     EDGES = "edges"
     INTERLEAVE = "interleave"
@@ -40,7 +41,7 @@ class ProcessingUtilsMixin:
         self,
         vector_score: float = 0.0,
         graph_score: float = 0.0,
-        bayesian_score: float = 0.0
+        bayesian_score: float = 0.0,
     ) -> float:
         """Calculate weighted hybrid score from tier scores.
 
@@ -48,14 +49,13 @@ class ProcessingUtilsMixin:
         Used by both _combine_tier_scores() and rank().
         """
         return (
-            self.weights.get("vector", 0.4) * vector_score +
-            self.weights.get("hipporag", 0.4) * graph_score +
-            self.weights.get("bayesian", 0.2) * bayesian_score
+            self.weights.get("vector", 0.4) * vector_score
+            + self.weights.get("hipporag", 0.4) * graph_score
+            + self.weights.get("bayesian", 0.2) * bayesian_score
         )
 
     def _normalize_candidates_by_tier(
-        self,
-        candidates: List[Dict[str, Any]]
+        self, candidates: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """Normalize raw tier scores before cross-tier weighted fusion."""
         max_by_tier: Dict[str, float] = {}
@@ -76,9 +76,7 @@ class ProcessingUtilsMixin:
 
     @staticmethod
     def _normalize_tier_score(
-        tier: str,
-        raw_score: float,
-        max_by_tier: Dict[str, float]
+        tier: str, raw_score: float, max_by_tier: Dict[str, float]
     ) -> float:
         """Normalize one score to [0,1], scaling raw PPR within graph tier."""
         if tier == "hipporag":
@@ -92,14 +90,14 @@ class ProcessingUtilsMixin:
         configs = {
             "execution": {"core_k": 5, "extended_k": 0},
             "planning": {"core_k": 5, "extended_k": 15},
-            "brainstorming": {"core_k": 5, "extended_k": 25}
+            "brainstorming": {"core_k": 5, "extended_k": 25},
         }
         return configs.get(mode, configs["execution"])
 
     def _split_core_extended(self, results: List[Dict], config: Dict) -> tuple:
         """Split results into core and extended."""
-        core = results[:config["core_k"]]
-        extended = results[config["core_k"]:config["core_k"] + config["extended_k"]]
+        core = results[: config["core_k"]]
+        extended = results[config["core_k"] : config["core_k"] + config["extended_k"]]
         return core, extended
 
     def _finalize_compression(
@@ -108,7 +106,7 @@ class ProcessingUtilsMixin:
         extended: List[Dict],
         all_results: List[Dict],
         mode: str,
-        budget: int
+        budget: int,
     ) -> Dict[str, Any]:
         """Finalize compression with budget enforcement and metrics."""
         # Enforce token budget
@@ -132,7 +130,7 @@ class ProcessingUtilsMixin:
             "extended": extended,
             "token_count": total_tokens,
             "compression_ratio": ratio,
-            "mode": mode
+            "mode": mode,
         }
 
     def _calculate_cosine_similarity(self, text1: str, text2: str) -> float:
@@ -187,7 +185,7 @@ class ProcessingUtilsMixin:
         self,
         core: List[Dict[str, Any]],
         extended: List[Dict[str, Any]],
-        token_budget: int
+        token_budget: int,
     ) -> tuple:
         """
         Enforce token budget by truncating extended.
@@ -247,13 +245,13 @@ class ProcessingUtilsMixin:
             "compression_ratio": 0.0,
             "mode": mode,
             "pipeline_stats": {},
-            "total_ms": 0
+            "total_ms": 0,
         }
 
     def apply_lost_in_middle_mitigation(
         self,
         results: List[Dict[str, Any]],
-        strategy: LostInMiddleMitigation = LostInMiddleMitigation.EDGES
+        strategy: LostInMiddleMitigation = LostInMiddleMitigation.EDGES,
     ) -> List[Dict[str, Any]]:
         """
         Apply Lost-in-the-Middle mitigation reordering (MEM-CHUNK-002).
@@ -288,10 +286,7 @@ class ProcessingUtilsMixin:
 
         return results
 
-    def _reorder_edges(
-        self,
-        results: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+    def _reorder_edges(self, results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Reorder with high relevance at edges (MEM-CHUNK-002).
 
@@ -315,8 +310,7 @@ class ProcessingUtilsMixin:
         return reordered
 
     def _reorder_interleave(
-        self,
-        results: List[Dict[str, Any]]
+        self, results: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """
         Interleave high and medium relevance throughout (MEM-CHUNK-002).
@@ -342,8 +336,7 @@ class ProcessingUtilsMixin:
         return reordered
 
     def _reorder_reverse_middle(
-        self,
-        results: List[Dict[str, Any]]
+        self, results: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """
         Keep start, reverse middle, keep end (MEM-CHUNK-002).
@@ -367,11 +360,7 @@ class ProcessingUtilsMixin:
         logger.debug(f"Lost-in-middle REVERSE_MIDDLE reorder: {n} items")
         return reordered
 
-    def get_position_weights(
-        self,
-        length: int,
-        edge_boost: float = 0.1
-    ) -> List[float]:
+    def get_position_weights(self, length: int, edge_boost: float = 0.1) -> List[float]:
         """
         Get position-based relevance weight adjustments (MEM-CHUNK-002).
 

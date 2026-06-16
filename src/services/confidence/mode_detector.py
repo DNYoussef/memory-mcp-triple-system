@@ -11,15 +11,12 @@ WHY: infrastructure (CAPTURE-003)
 import re
 import logging
 from typing import Dict, Any, List, Optional, Tuple
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from src.integrations.confidence_scoring_schema import (
-    ConfidenceScore,
     ClassificationResult,
     ClassificationType,
     EscalationReason,
-    combine_confidences,
-    entropy_based_confidence,
     margin_based_confidence,
     ESCALATION_THRESHOLD,
 )
@@ -29,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 class Mode:
     """Detected operating modes."""
+
     EXECUTION = "execution"
     PLANNING = "planning"
     BRAINSTORMING = "brainstorming"
@@ -128,7 +126,9 @@ class ModeDetectionScorer:
         self._cache: Dict[str, ClassificationResult] = {}
         self._stats = {
             "total_detections": 0,
-            "by_mode": {m: 0 for m in [Mode.EXECUTION, Mode.PLANNING, Mode.BRAINSTORMING]},
+            "by_mode": {
+                m: 0 for m in [Mode.EXECUTION, Mode.PLANNING, Mode.BRAINSTORMING]
+            },
             "escalations": 0,
             "ambiguous": 0,
         }
@@ -174,7 +174,9 @@ class ModeDetectionScorer:
         # Get top modes
         sorted_modes = sorted(mode_scores.items(), key=lambda x: x[1], reverse=True)
         top_mode, top_score = sorted_modes[0]
-        second_mode, second_score = sorted_modes[1] if len(sorted_modes) > 1 else (None, 0.0)
+        second_mode, second_score = (
+            sorted_modes[1] if len(sorted_modes) > 1 else (None, 0.0)
+        )
 
         # Calculate overall confidence
         confidence_score = self._calculate_confidence(
@@ -224,7 +226,10 @@ class ModeDetectionScorer:
 
         # Calculate pattern score
         if pattern_scores:
-            pattern_score = max(pattern_scores) * 0.7 + (sum(pattern_scores) / len(pattern_scores)) * 0.3
+            pattern_score = (
+                max(pattern_scores) * 0.7
+                + (sum(pattern_scores) / len(pattern_scores)) * 0.3
+            )
         else:
             pattern_score = 0.1
 
@@ -232,7 +237,9 @@ class ModeDetectionScorer:
 
         # Check sentence structure
         is_question = text.rstrip().endswith("?")
-        has_imperative = bool(re.match(r"^(show|get|find|run|create|fix|list|read)", text))
+        has_imperative = bool(
+            re.match(r"^(show|get|find|run|create|fix|list|read)", text)
+        )
 
         if is_question:
             structure_score = config["question_weight"]

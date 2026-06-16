@@ -11,7 +11,6 @@ import yaml
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
-from loguru import logger
 
 
 @dataclass
@@ -37,39 +36,20 @@ class SchemaValidator:
                 logger.error(f"{error.field}: {error.message}")
     """
 
-    REQUIRED_ROOT_FIELDS = [
-        "version",
-        "storage_tiers",
-        "lifecycle",
-        "query_processing"
-    ]
+    REQUIRED_ROOT_FIELDS = ["version", "storage_tiers", "lifecycle", "query_processing"]
 
-    REQUIRED_TIER_FIELDS = [
-        "type",
-        "backend",
-        "use_cases",
-        "performance"
-    ]
+    REQUIRED_TIER_FIELDS = ["type", "backend", "use_cases", "performance"]
 
-    REQUIRED_LIFECYCLE_FIELDS = [
-        "stages",
-        "rekindling"
-    ]
+    REQUIRED_LIFECYCLE_FIELDS = ["stages", "rekindling"]
 
     REQUIRED_QUERY_PROCESSING_FIELDS = [
         "mode_detection",
         "routing",
         "curated_core",
-        "verification"
+        "verification",
     ]
 
-    VALID_STORAGE_TYPES = [
-        "key-value",
-        "sql",
-        "embedding",
-        "networkx",
-        "temporal"
-    ]
+    VALID_STORAGE_TYPES = ["key-value", "sql", "embedding", "networkx", "temporal"]
 
     def __init__(self) -> None:
         """Initialize schema validator."""
@@ -91,30 +71,36 @@ class SchemaValidator:
         path = Path(schema_path)
 
         if not path.exists():
-            self.errors.append(ValidationError(
-                field="file",
-                message=f"Schema file not found: {schema_path}",
-                severity="error"
-            ))
+            self.errors.append(
+                ValidationError(
+                    field="file",
+                    message=f"Schema file not found: {schema_path}",
+                    severity="error",
+                )
+            )
             return ValidationResult(valid=False, errors=self.errors)
 
         try:
             with open(path, "r", encoding="utf-8") as f:
                 schema = yaml.safe_load(f)
         except yaml.YAMLError as e:
-            self.errors.append(ValidationError(
-                field="yaml",
-                message=f"Invalid YAML syntax: {str(e)}",
-                severity="error"
-            ))
+            self.errors.append(
+                ValidationError(
+                    field="yaml",
+                    message=f"Invalid YAML syntax: {str(e)}",
+                    severity="error",
+                )
+            )
             return ValidationResult(valid=False, errors=self.errors)
 
         if not isinstance(schema, dict):
-            self.errors.append(ValidationError(
-                field="root",
-                message="Schema root must be a mapping",
-                severity="error"
-            ))
+            self.errors.append(
+                ValidationError(
+                    field="root",
+                    message="Schema root must be a mapping",
+                    severity="error",
+                )
+            )
             return ValidationResult(valid=False, errors=self.errors)
 
         # Run validation checks
@@ -126,9 +112,7 @@ class SchemaValidator:
         valid = not any(error.severity == "error" for error in self.errors)
 
         return ValidationResult(
-            valid=valid,
-            errors=self.errors,
-            schema=schema if valid else None
+            valid=valid, errors=self.errors, schema=schema if valid else None
         )
 
     def _validate_root_fields(self, schema: Dict[str, Any]) -> None:
@@ -139,11 +123,13 @@ class SchemaValidator:
         """
         for field in self.REQUIRED_ROOT_FIELDS:
             if field not in schema:
-                self.errors.append(ValidationError(
-                    field=f"root.{field}",
-                    message=f"Missing required field: {field}",
-                    severity="error"
-                ))
+                self.errors.append(
+                    ValidationError(
+                        field=f"root.{field}",
+                        message=f"Missing required field: {field}",
+                        severity="error",
+                    )
+                )
 
     def _validate_storage_tiers(self, tiers: Dict[str, Any]) -> None:
         """
@@ -152,46 +138,56 @@ class SchemaValidator:
         NASA Rule 10: 32 LOC (≤60) ✅
         """
         if not tiers:
-            self.errors.append(ValidationError(
-                field="storage_tiers",
-                message="No storage tiers defined",
-                severity="error"
-            ))
+            self.errors.append(
+                ValidationError(
+                    field="storage_tiers",
+                    message="No storage tiers defined",
+                    severity="error",
+                )
+            )
             return
         if not isinstance(tiers, dict):
-            self.errors.append(ValidationError(
-                field="storage_tiers",
-                message="Storage tiers must be a mapping",
-                severity="error"
-            ))
+            self.errors.append(
+                ValidationError(
+                    field="storage_tiers",
+                    message="Storage tiers must be a mapping",
+                    severity="error",
+                )
+            )
             return
 
         for tier_name, tier_config in tiers.items():
             if not isinstance(tier_config, dict):
-                self.errors.append(ValidationError(
-                    field=f"storage_tiers.{tier_name}",
-                    message="Storage tier config must be a mapping",
-                    severity="error"
-                ))
+                self.errors.append(
+                    ValidationError(
+                        field=f"storage_tiers.{tier_name}",
+                        message="Storage tier config must be a mapping",
+                        severity="error",
+                    )
+                )
                 continue
 
             # Check required fields
             for field in self.REQUIRED_TIER_FIELDS:
                 if field not in tier_config:
-                    self.errors.append(ValidationError(
-                        field=f"storage_tiers.{tier_name}.{field}",
-                        message=f"Missing required field: {field}",
-                        severity="error"
-                    ))
+                    self.errors.append(
+                        ValidationError(
+                            field=f"storage_tiers.{tier_name}.{field}",
+                            message=f"Missing required field: {field}",
+                            severity="error",
+                        )
+                    )
 
             # Validate storage type
             tier_type = tier_config.get("type")
             if tier_type and tier_type not in self.VALID_STORAGE_TYPES:
-                self.errors.append(ValidationError(
-                    field=f"storage_tiers.{tier_name}.type",
-                    message=f"Invalid type: {tier_type}. Must be one of {self.VALID_STORAGE_TYPES}",
-                    severity="error"
-                ))
+                self.errors.append(
+                    ValidationError(
+                        field=f"storage_tiers.{tier_name}.type",
+                        message=f"Invalid type: {tier_type}. Must be one of {self.VALID_STORAGE_TYPES}",
+                        severity="error",
+                    )
+                )
 
     def _validate_lifecycle(self, lifecycle: Dict[str, Any]) -> None:
         """
@@ -200,41 +196,49 @@ class SchemaValidator:
         NASA Rule 10: 30 LOC (≤60) ✅
         """
         if not lifecycle:
-            self.errors.append(ValidationError(
-                field="lifecycle",
-                message="Lifecycle configuration missing",
-                severity="error"
-            ))
+            self.errors.append(
+                ValidationError(
+                    field="lifecycle",
+                    message="Lifecycle configuration missing",
+                    severity="error",
+                )
+            )
             return
 
         # Check required fields
         for field in self.REQUIRED_LIFECYCLE_FIELDS:
             if field not in lifecycle:
-                self.errors.append(ValidationError(
-                    field=f"lifecycle.{field}",
-                    message=f"Missing required field: {field}",
-                    severity="error"
-                ))
+                self.errors.append(
+                    ValidationError(
+                        field=f"lifecycle.{field}",
+                        message=f"Missing required field: {field}",
+                        severity="error",
+                    )
+                )
 
         # Validate stages
         stages = lifecycle.get("stages", [])
         if not stages:
-            self.errors.append(ValidationError(
-                field="lifecycle.stages",
-                message="No lifecycle stages defined",
-                severity="error"
-            ))
+            self.errors.append(
+                ValidationError(
+                    field="lifecycle.stages",
+                    message="No lifecycle stages defined",
+                    severity="error",
+                )
+            )
 
         # Check expected stages
         expected_stages = ["active", "demoted", "archived", "rehydratable"]
         stage_names = [s.get("name") for s in stages if isinstance(s, dict)]
         for expected in expected_stages:
             if expected not in stage_names:
-                self.errors.append(ValidationError(
-                    field=f"lifecycle.stages.{expected}",
-                    message=f"Missing expected stage: {expected}",
-                    severity="warning"
-                ))
+                self.errors.append(
+                    ValidationError(
+                        field=f"lifecycle.stages.{expected}",
+                        message=f"Missing expected stage: {expected}",
+                        severity="warning",
+                    )
+                )
 
     def _validate_query_processing(self, query_proc: Dict[str, Any]) -> None:
         """
@@ -243,21 +247,25 @@ class SchemaValidator:
         NASA Rule 10: 22 LOC (≤60) ✅
         """
         if not query_proc:
-            self.errors.append(ValidationError(
-                field="query_processing",
-                message="Query processing configuration missing",
-                severity="error"
-            ))
+            self.errors.append(
+                ValidationError(
+                    field="query_processing",
+                    message="Query processing configuration missing",
+                    severity="error",
+                )
+            )
             return
 
         # Check required fields
         for field in self.REQUIRED_QUERY_PROCESSING_FIELDS:
             if field not in query_proc:
-                self.errors.append(ValidationError(
-                    field=f"query_processing.{field}",
-                    message=f"Missing required field: {field}",
-                    severity="error"
-                ))
+                self.errors.append(
+                    ValidationError(
+                        field=f"query_processing.{field}",
+                        message=f"Missing required field: {field}",
+                        severity="error",
+                    )
+                )
 
     def _validate_performance_targets(self, targets: Dict[str, Any]) -> None:
         """
@@ -272,17 +280,19 @@ class SchemaValidator:
         numeric_fields = [
             "query_latency_p95_ms",
             "indexing_latency_ms",
-            "kv_lookup_latency_ms"
+            "kv_lookup_latency_ms",
         ]
 
         for field in numeric_fields:
             value = targets.get(field)
             if value is not None and not isinstance(value, (int, float)):
-                self.errors.append(ValidationError(
-                    field=f"performance_targets.{field}",
-                    message=f"Must be numeric, got: {type(value).__name__}",
-                    severity="error"
-                ))
+                self.errors.append(
+                    ValidationError(
+                        field=f"performance_targets.{field}",
+                        message=f"Must be numeric, got: {type(value).__name__}",
+                        severity="error",
+                    )
+                )
 
 
 @dataclass
@@ -298,13 +308,9 @@ class ValidationResult:
         if self.valid:
             return "✅ Schema validation passed"
 
-        error_lines = [
-            f"❌ Schema validation failed ({len(self.errors)} errors):"
-        ]
+        error_lines = [f"❌ Schema validation failed ({len(self.errors)} errors):"]
         for error in self.errors:
             severity_icon = "🔴" if error.severity == "error" else "🟡"
-            error_lines.append(
-                f"  {severity_icon} {error.field}: {error.message}"
-            )
+            error_lines.append(f"  {severity_icon} {error.field}: {error.message}")
 
         return "\n".join(error_lines)

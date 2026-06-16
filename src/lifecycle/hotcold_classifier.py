@@ -9,8 +9,8 @@ Part of Week 9 implementation for Memory MCP Triple System.
 NASA Rule 10 Compliant: All functions ≤60 LOC
 """
 
-from typing import List, Dict, Any, Optional
-from datetime import datetime, timedelta
+from typing import List, Dict, Any
+from datetime import datetime
 from enum import Enum
 import math
 from loguru import logger
@@ -18,9 +18,10 @@ from loguru import logger
 
 class LifecycleStage(Enum):
     """4-stage memory lifecycle."""
-    ACTIVE = "active"              # <7 days old, frequently accessed
-    DEMOTED = "demoted"            # 7-30 days, less frequent access
-    ARCHIVED = "archived"          # >30 days, rarely accessed
+
+    ACTIVE = "active"  # <7 days old, frequently accessed
+    DEMOTED = "demoted"  # 7-30 days, less frequent access
+    ARCHIVED = "archived"  # >30 days, rarely accessed
     REHYDRATABLE = "rehydratable"  # Cold, compressed, can restore
 
 
@@ -51,7 +52,7 @@ class HotColdClassifier:
         self,
         active_days: int = 7,
         demoted_days: int = 30,
-        access_threshold: int = 3  # Accesses per week
+        access_threshold: int = 3,  # Accesses per week
     ):
         """
         Initialize hot/cold classifier.
@@ -66,13 +67,11 @@ class HotColdClassifier:
         self.active_days = active_days
         self.demoted_days = demoted_days
         self.access_threshold = access_threshold
-        logger.info(f"HotColdClassifier initialized: active={active_days}d, demoted={demoted_days}d, threshold={access_threshold}/week")
+        logger.info(
+            f"HotColdClassifier initialized: active={active_days}d, demoted={demoted_days}d, threshold={access_threshold}/week"
+        )
 
-    def classify(
-        self,
-        text: str,
-        metadata: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def classify(self, text: str, metadata: Dict[str, Any]) -> Dict[str, Any]:
         """
         Classify new memory content for lifecycle management.
 
@@ -98,21 +97,21 @@ class HotColdClassifier:
         decay_score = self._decay_score(metadata)
 
         # Check if metadata suggests lower priority
-        intent = metadata.get('intent', 'storage')
-        if intent in ['archive', 'reference']:
+        intent = metadata.get("intent", "storage")
+        if intent in ["archive", "reference"]:
             stage = LifecycleStage.DEMOTED
 
         tier_map = {
             LifecycleStage.ACTIVE: "hot",
             LifecycleStage.DEMOTED: "warm",
             LifecycleStage.ARCHIVED: "cold",
-            LifecycleStage.REHYDRATABLE: "cold"
+            LifecycleStage.REHYDRATABLE: "cold",
         }
 
         result = {
             "tier": tier_map.get(stage, "hot"),
             "decay_score": decay_score,
-            "lifecycle_stage": stage.value
+            "lifecycle_stage": stage.value,
         }
 
         logger.debug(f"Classified new content: tier={result['tier']}, intent={intent}")
@@ -136,7 +135,7 @@ class HotColdClassifier:
         chunk_id: str,
         created_at: datetime,
         last_accessed: datetime,
-        access_count: int
+        access_count: int,
     ) -> LifecycleStage:
         """
         Classify chunk into lifecycle stage.
@@ -182,10 +181,7 @@ class HotColdClassifier:
 
         return stage
 
-    def classify_batch(
-        self,
-        chunks: List[Dict[str, Any]]
-    ) -> Dict[str, LifecycleStage]:
+    def classify_batch(self, chunks: List[Dict[str, Any]]) -> Dict[str, LifecycleStage]:
         """
         Classify multiple chunks.
 
@@ -212,17 +208,14 @@ class HotColdClassifier:
                 chunk_id=chunk["chunk_id"],
                 created_at=chunk["created_at"],
                 last_accessed=chunk["last_accessed"],
-                access_count=chunk["access_count"]
+                access_count=chunk["access_count"],
             )
             classifications[chunk["chunk_id"]] = stage
 
         logger.info(f"Classified {len(chunks)} chunks in batch")
         return classifications
 
-    def get_indexing_strategy(
-        self,
-        stage: LifecycleStage
-    ) -> Dict[str, bool]:
+    def get_indexing_strategy(self, stage: LifecycleStage) -> Dict[str, bool]:
         """
         Get indexing strategy for lifecycle stage.
 
@@ -236,33 +229,28 @@ class HotColdClassifier:
         NASA Rule 10: 25 LOC (≤60) ✅
         """
         strategies = {
-            LifecycleStage.ACTIVE: {
-                "vector": True,
-                "graph": True,
-                "relational": True
-            },
+            LifecycleStage.ACTIVE: {"vector": True, "graph": True, "relational": True},
             LifecycleStage.DEMOTED: {
-                "vector": True,   # Keep vector for retrieval
-                "graph": False,   # Skip graph reindexing
-                "relational": False  # Skip relational
+                "vector": True,  # Keep vector for retrieval
+                "graph": False,  # Skip graph reindexing
+                "relational": False,  # Skip relational
             },
             LifecycleStage.ARCHIVED: {
                 "vector": False,  # Metadata only
                 "graph": False,
-                "relational": False
+                "relational": False,
             },
             LifecycleStage.REHYDRATABLE: {
                 "vector": False,  # Compressed
                 "graph": False,
-                "relational": False
-            }
+                "relational": False,
+            },
         }
 
         return strategies.get(stage, strategies[LifecycleStage.ACTIVE])
 
     def calculate_storage_savings(
-        self,
-        chunk_classifications: Dict[str, LifecycleStage]
+        self, chunk_classifications: Dict[str, LifecycleStage]
     ) -> Dict[str, Any]:
         """
         Calculate storage savings from hot/cold classification.
@@ -284,7 +272,7 @@ class HotColdClassifier:
             LifecycleStage.ACTIVE: 0,
             LifecycleStage.DEMOTED: 0,
             LifecycleStage.ARCHIVED: 0,
-            LifecycleStage.REHYDRATABLE: 0
+            LifecycleStage.REHYDRATABLE: 0,
         }
 
         for stage in chunk_classifications.values():
@@ -299,7 +287,9 @@ class HotColdClassifier:
 
         # Estimate storage savings (rough: 25KB per chunk)
         kb_per_chunk = 25
-        not_indexed = counts[LifecycleStage.ARCHIVED] + counts[LifecycleStage.REHYDRATABLE]
+        not_indexed = (
+            counts[LifecycleStage.ARCHIVED] + counts[LifecycleStage.REHYDRATABLE]
+        )
         estimated_kb_saved = not_indexed * kb_per_chunk
         estimated_mb_saved = estimated_kb_saved / 1024.0
 
@@ -310,7 +300,7 @@ class HotColdClassifier:
             "archived": counts[LifecycleStage.ARCHIVED],
             "rehydratable": counts[LifecycleStage.REHYDRATABLE],
             "vector_index_reduction": reduction,
-            "estimated_mb_saved": estimated_mb_saved
+            "estimated_mb_saved": estimated_mb_saved,
         }
 
         logger.info(

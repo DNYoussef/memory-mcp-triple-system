@@ -10,10 +10,9 @@ WHY: infrastructure (IMPROVE-001)
 
 import logging
 from typing import Dict, Any, List, Optional
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 from collections import defaultdict
-import json
 
 from src.services.improvement.outcome_schema import (
     Outcome,
@@ -100,7 +99,9 @@ class OutcomeMeasurementService:
         if len(self._outcomes) > self.config.max_outcomes_in_memory:
             self._cleanup_old_outcomes()
 
-        logger.debug(f"Recorded outcome {outcome.outcome_id}: {outcome.outcome_type.value}")
+        logger.debug(
+            f"Recorded outcome {outcome.outcome_id}: {outcome.outcome_type.value}"
+        )
 
         return outcome.outcome_id
 
@@ -296,7 +297,9 @@ class OutcomeMeasurementService:
                 continue
 
             if since:
-                outcome_time = datetime.fromisoformat(outcome.timestamp.replace("Z", "+00:00"))
+                outcome_time = datetime.fromisoformat(
+                    outcome.timestamp.replace("Z", "+00:00")
+                )
                 if outcome_time < since:
                     continue
 
@@ -352,7 +355,9 @@ class OutcomeMeasurementService:
             key=lambda o: o.timestamp,
             reverse=True,
         ):
-            outcome_time = datetime.fromisoformat(outcome.timestamp.replace("Z", "+00:00"))
+            outcome_time = datetime.fromisoformat(
+                outcome.timestamp.replace("Z", "+00:00")
+            )
             if outcome_time < cutoff:
                 break
 
@@ -479,7 +484,9 @@ class OutcomeMeasurementService:
 
         to_remove = []
         for oid, outcome in self._outcomes.items():
-            outcome_time = datetime.fromisoformat(outcome.timestamp.replace("Z", "+00:00"))
+            outcome_time = datetime.fromisoformat(
+                outcome.timestamp.replace("Z", "+00:00")
+            )
             if outcome_time < cutoff:
                 to_remove.append(oid)
 
@@ -490,14 +497,12 @@ class OutcomeMeasurementService:
         # Also trim indexes
         for category in self._by_category:
             self._by_category[category] = [
-                oid for oid in self._by_category[category]
-                if oid in self._outcomes
+                oid for oid in self._by_category[category] if oid in self._outcomes
             ]
 
         for type_val in self._by_type:
             self._by_type[type_val] = [
-                oid for oid in self._by_type[type_val]
-                if oid in self._outcomes
+                oid for oid in self._by_type[type_val] if oid in self._outcomes
             ]
 
         logger.info(f"Cleaned up {removed} old outcomes")

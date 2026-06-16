@@ -24,13 +24,15 @@ class _FixedNow(datetime):
 def _agg_with_ops(*offsets):
     agg = UsageAggregator()
     for off in offsets:
-        agg._operations.append({
-            "type": "store",
-            "category": "",
-            "duration_ms": 0.0,
-            "timestamp": (NOW - off).isoformat(),
-            "metadata": {},
-        })
+        agg._operations.append(
+            {
+                "type": "store",
+                "category": "",
+                "duration_ms": 0.0,
+                "timestamp": (NOW - off).isoformat(),
+                "metadata": {},
+            }
+        )
     return agg
 
 
@@ -50,9 +52,9 @@ class TestDailyBucketLabel:
     def test_counts_preserved_labels_shift_only(self):
         """Every op in range is still counted exactly once (the fix only relabels)."""
         agg = _agg_with_ops(
-            timedelta(hours=1),    # today
-            timedelta(hours=25),   # ~1 day ago
-            timedelta(hours=49),   # ~2 days ago
+            timedelta(hours=1),  # today
+            timedelta(hours=25),  # ~1 day ago
+            timedelta(hours=49),  # ~2 days ago
         )
         with patch("src.services.weekly_review.usage_aggregator.datetime", _FixedNow):
             breakdown = agg.get_daily_breakdown(days=7)

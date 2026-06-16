@@ -5,7 +5,7 @@ Extracted from lifecycle_manager.py for modularity.
 NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 import json
 from datetime import datetime, timedelta
 from loguru import logger
@@ -48,35 +48,36 @@ class StageTransitionsMixin:
                 where={
                     "$and": [
                         {"stage": "active"},
-                        {"last_accessed_ts": {"$lt": cutoff_ts}}
+                        {"last_accessed_ts": {"$lt": cutoff_ts}},
                     ]
                 },
-                include=['metadatas']
+                include=["metadatas"],
             )
         except Exception as e:
             logger.error(f"Failed to query stale chunks: {e}")
             return 0
 
         # Update stage and apply decay
-        chunk_ids = stale_chunks.get('ids', [])
+        chunk_ids = stale_chunks.get("ids", [])
         if not chunk_ids:
             logger.info("No chunks to demote")
             return 0
 
-        metadatas = stale_chunks.get('metadatas', []) or [{}] * len(chunk_ids)
+        metadatas = stale_chunks.get("metadatas", []) or [{}] * len(chunk_ids)
         for idx, chunk_id in enumerate(chunk_ids):
             try:
                 _now = datetime.utcnow()
                 metadata = dict(metadatas[idx] or {})
-                metadata.update({
-                    'stage': 'demoted',
-                    'score_multiplier': 0.5,
-                    'demoted_at': _now.isoformat(),
-                    'demoted_at_ts': _now.timestamp()
-                })
+                metadata.update(
+                    {
+                        "stage": "demoted",
+                        "score_multiplier": 0.5,
+                        "demoted_at": _now.isoformat(),
+                        "demoted_at_ts": _now.timestamp(),
+                    }
+                )
                 self.vector_indexer.collection.update(
-                    ids=[chunk_id],
-                    metadatas=[metadata]
+                    ids=[chunk_id], metadatas=[metadata]
                 )
             except Exception as e:
                 logger.error(f"Failed to demote chunk {chunk_id}: {e}")
@@ -85,10 +86,7 @@ class StageTransitionsMixin:
         return len(chunk_ids)
 
     @guarded_mutation
-    def archive_demoted_chunks(
-        self,
-        threshold_days: Optional[int] = None
-    ) -> int:
+    def archive_demoted_chunks(self, threshold_days: Optional[int] = None) -> int:
         """
         Archive chunks demoted for N days.
 
@@ -125,12 +123,12 @@ class StageTransitionsMixin:
                 where={
                     "$and": [
                         {"stage": "demoted"},
-                        {"demoted_at_ts": {"$lt": cutoff_ts}}
+                        {"demoted_at_ts": {"$lt": cutoff_ts}},
                     ]
                 },
-                include=['documents', 'metadatas']
+                include=["documents", "metadatas"],
             )
-            return old_chunks if old_chunks.get('ids') else None
+            return old_chunks if old_chunks.get("ids") else None
         except Exception as e:
             logger.error(f"Failed to query demoted chunks: {e}")
             return None
@@ -139,23 +137,25 @@ class StageTransitionsMixin:
         """Archive a batch of chunks."""
         archived_count = 0
 
-        for i, chunk_id in enumerate(old_chunks['ids']):
-            full_text = old_chunks['documents'][i]
-            metadata = old_chunks['metadatas'][i]
+        for i, chunk_id in enumerate(old_chunks["ids"]):
+            full_text = old_chunks["documents"][i]
+            metadata = old_chunks["metadatas"][i]
             now = datetime.utcnow()
             metadata = dict(metadata or {})
-            metadata.update({
-                "stage": "archived",
-                "archived_at": now.isoformat(),
-                "archived_at_ts": now.timestamp(),
-            })
+            metadata.update(
+                {
+                    "stage": "archived",
+                    "archived_at": now.isoformat(),
+                    "archived_at_ts": now.timestamp(),
+                }
+            )
 
             # Compress and store
             summary = self._summarize(full_text)
             self.kv_store.set(f"archived:{chunk_id}", summary)
             self.kv_store.set(
                 f"archived:{chunk_id}:metadata",
-                json.dumps(metadata, sort_keys=True, default=str)
+                json.dumps(metadata, sort_keys=True, default=str),
             )
 
             # Delete from vector store
@@ -168,10 +168,7 @@ class StageTransitionsMixin:
         return archived_count
 
     @guarded_mutation
-    def make_rehydratable(
-        self,
-        threshold_days: Optional[int] = None
-    ) -> int:
+    def make_rehydratable(self, threshold_days: Optional[int] = None) -> int:
         """
         Make archived chunks rehydratable (lossy key only).
 
@@ -187,7 +184,8 @@ class StageTransitionsMixin:
 
         # Query archived chunks from KV store
         archived_keys = [
-            key for key in self.kv_store.list_keys("archived:")
+            key
+            for key in self.kv_store.list_keys("archived:")
             if ":metadata" not in key
         ]
 
@@ -210,7 +208,7 @@ class StageTransitionsMixin:
                 # Mark as rehydratable in metadata
                 self.kv_store.set(
                     f"rehydratable:{chunk_id}",
-                    self.kv_store.get(f"archived:{chunk_id}")
+                    self.kv_store.get(f"archived:{chunk_id}"),
                 )
                 self.kv_store.set(f"rehydratable:{chunk_id}:metadata", metadata_str)
                 self.kv_store.delete(f"archived:{chunk_id}")

@@ -9,7 +9,7 @@ enabling targeted cleanup of stale or outdated information.
 import logging
 import numpy as np
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 class DriftSeverity(str, Enum):
     """Severity levels for detected drift"""
+
     NONE = "none"
     LOW = "low"
     MEDIUM = "medium"
@@ -28,6 +29,7 @@ class DriftSeverity(str, Enum):
 @dataclass
 class DriftSignal:
     """A detected drift signal in memory"""
+
     chunk_id: str
     drift_score: float
     severity: DriftSeverity
@@ -42,13 +44,14 @@ class DriftSignal:
             "severity": self.severity.value,
             "drift_type": self.drift_type,
             "detected_at": self.detected_at.isoformat(),
-            "context": self.context
+            "context": self.context,
         }
 
 
 @dataclass
 class DriftReport:
     """Summary report of drift detection run"""
+
     run_id: str
     started_at: datetime
     completed_at: datetime
@@ -67,7 +70,7 @@ class DriftReport:
             "signals_detected": self.signals_detected,
             "by_severity": self.by_severity,
             "by_type": self.by_type,
-            "signals": [s.to_dict() for s in self.signals]
+            "signals": [s.to_dict() for s in self.signals],
         }
 
 
@@ -95,14 +98,14 @@ class DriftDetector:
         DriftSeverity.LOW: 0.3,
         DriftSeverity.MEDIUM: 0.5,
         DriftSeverity.HIGH: 0.7,
-        DriftSeverity.CRITICAL: 0.9
+        DriftSeverity.CRITICAL: 0.9,
     }
 
     def __init__(
         self,
         temporal_days: int = 30,
         semantic_threshold: float = 0.3,
-        confidence_threshold: float = 0.4
+        confidence_threshold: float = 0.4,
     ):
         self.temporal_days = temporal_days
         self.semantic_threshold = semantic_threshold
@@ -115,7 +118,7 @@ class DriftDetector:
         self,
         chunk_id: str,
         created_at: datetime,
-        last_accessed: Optional[datetime] = None
+        last_accessed: Optional[datetime] = None,
     ) -> Optional[DriftSignal]:
         """
         Detect if a chunk is temporally stale.
@@ -147,8 +150,8 @@ class DriftDetector:
                 context={
                     "age_days": age_days,
                     "days_since_access": days_since_access,
-                    "threshold_days": self.temporal_days
-                }
+                    "threshold_days": self.temporal_days,
+                },
             )
         return None
 
@@ -156,7 +159,7 @@ class DriftDetector:
         self,
         chunk_id: str,
         current_embedding: np.ndarray,
-        baseline_embedding: Optional[np.ndarray] = None
+        baseline_embedding: Optional[np.ndarray] = None,
     ) -> Optional[DriftSignal]:
         """
         Detect if chunk embedding has drifted from baseline.
@@ -184,16 +187,13 @@ class DriftDetector:
                 detected_at=datetime.utcnow(),
                 context={
                     "cosine_similarity": float(similarity),
-                    "threshold": self.semantic_threshold
-                }
+                    "threshold": self.semantic_threshold,
+                },
             )
         return None
 
     def detect_relevance_drift(
-        self,
-        chunk_id: str,
-        access_count: int,
-        window_days: int = 14
+        self, chunk_id: str, access_count: int, window_days: int = 14
     ) -> Optional[DriftSignal]:
         """
         Detect if chunk has low retrieval relevance.
@@ -221,8 +221,8 @@ class DriftDetector:
                     context={
                         "recent_accesses": total_recent,
                         "min_required": self.RELEVANCE_MIN_ACCESSES,
-                        "window_days": window_days
-                    }
+                        "window_days": window_days,
+                    },
                 )
         return None
 
@@ -230,7 +230,7 @@ class DriftDetector:
         self,
         chunk_id: str,
         current_confidence: float,
-        original_confidence: Optional[float] = None
+        original_confidence: Optional[float] = None,
     ) -> Optional[DriftSignal]:
         """
         Detect if confidence has degraded below threshold.
@@ -245,7 +245,7 @@ class DriftDetector:
 
             context = {
                 "current_confidence": current_confidence,
-                "threshold": self.confidence_threshold
+                "threshold": self.confidence_threshold,
             }
 
             if original_confidence:
@@ -258,15 +258,12 @@ class DriftDetector:
                 severity=self._score_to_severity(drift_score),
                 drift_type="confidence",
                 detected_at=datetime.utcnow(),
-                context=context
+                context=context,
             )
         return None
 
     def detect_project_drift(
-        self,
-        chunk_id: str,
-        chunk_project: str,
-        active_projects: List[str]
+        self, chunk_id: str, chunk_project: str, active_projects: List[str]
     ) -> Optional[DriftSignal]:
         """
         Detect if chunk belongs to inactive/archived project.
@@ -286,8 +283,8 @@ class DriftDetector:
                 context={
                     "chunk_project": chunk_project,
                     "active_projects": active_projects,
-                    "reason": "project_inactive"
-                }
+                    "reason": "project_inactive",
+                },
             )
         return None
 
@@ -300,7 +297,7 @@ class DriftDetector:
         confidence: float,
         access_count: int,
         project: Optional[str],
-        active_projects: List[str]
+        active_projects: List[str],
     ) -> List[DriftSignal]:
         """
         Run all drift detectors on a single chunk.
@@ -339,9 +336,7 @@ class DriftDetector:
         return signals
 
     def run_detection(
-        self,
-        chunks: List[Dict[str, Any]],
-        active_projects: List[str]
+        self, chunks: List[Dict[str, Any]], active_projects: List[str]
     ) -> DriftReport:
         """
         Run drift detection on a batch of chunks.
@@ -356,7 +351,9 @@ class DriftDetector:
             DriftReport with all detected signals
         """
         self._run_counter += 1
-        run_id = f"drift-{self._run_counter}-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+        run_id = (
+            f"drift-{self._run_counter}-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+        )
         started_at = datetime.utcnow()
 
         all_signals = []
@@ -373,7 +370,7 @@ class DriftDetector:
                     confidence=chunk.get("confidence", 0.5),
                     access_count=chunk.get("access_count", 0),
                     project=chunk.get("project"),
-                    active_projects=active_projects
+                    active_projects=active_projects,
                 )
 
                 for signal in signals:
@@ -394,7 +391,7 @@ class DriftDetector:
             signals_detected=len(all_signals),
             by_severity=by_severity,
             by_type=by_type,
-            signals=all_signals
+            signals=all_signals,
         )
 
         logger.info(
@@ -421,9 +418,7 @@ class DriftDetector:
         self._baseline_embeddings[chunk_id] = embedding.copy()
 
     def get_candidates_for_cleanup(
-        self,
-        report: DriftReport,
-        min_severity: DriftSeverity = DriftSeverity.MEDIUM
+        self, report: DriftReport, min_severity: DriftSeverity = DriftSeverity.MEDIUM
     ) -> List[str]:
         """
         Get chunk IDs that are candidates for cleanup based on drift signals.
@@ -444,7 +439,7 @@ class DriftDetector:
             DriftSeverity.LOW,
             DriftSeverity.MEDIUM,
             DriftSeverity.HIGH,
-            DriftSeverity.CRITICAL
+            DriftSeverity.CRITICAL,
         ]
         min_index = severity_order.index(min_severity)
 
@@ -484,7 +479,7 @@ _detector_instance: Optional[DriftDetector] = None
 def get_drift_detector(
     temporal_days: int = 30,
     semantic_threshold: float = 0.3,
-    confidence_threshold: float = 0.4
+    confidence_threshold: float = 0.4,
 ) -> DriftDetector:
     """Get singleton drift detector instance"""
     global _detector_instance
@@ -492,6 +487,6 @@ def get_drift_detector(
         _detector_instance = DriftDetector(
             temporal_days=temporal_days,
             semantic_threshold=semantic_threshold,
-            confidence_threshold=confidence_threshold
+            confidence_threshold=confidence_threshold,
         )
     return _detector_instance

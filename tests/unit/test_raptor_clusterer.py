@@ -90,7 +90,9 @@ class TestRAPTORClusterer:
         assert result["num_clusters"] > 0
         assert len(result["cluster_assignments"]) == len(sample_chunks)
 
-    def test_cluster_chunks_handles_two_samples(self, clusterer, sample_chunks, sample_embeddings):
+    def test_cluster_chunks_handles_two_samples(
+        self, clusterer, sample_chunks, sample_embeddings
+    ):
         """Two chunks should return one cluster, not crash silhouette scoring."""
         result = clusterer.cluster_chunks(sample_chunks[:2], sample_embeddings[:2])
 
@@ -98,7 +100,9 @@ class TestRAPTORClusterer:
         assert result["cluster_assignments"] == [0, 0]
         assert result["quality_score"] == 0.0
 
-    def test_build_hierarchy_creates_tree(self, clusterer, sample_chunks, sample_embeddings):
+    def test_build_hierarchy_creates_tree(
+        self, clusterer, sample_chunks, sample_embeddings
+    ):
         """Test that build_hierarchy creates valid tree structure."""
         clusters = clusterer.cluster_chunks(sample_chunks, sample_embeddings)
         hierarchy = clusterer.build_hierarchy(clusters, max_depth=3)
@@ -135,14 +139,16 @@ class TestRAPTORClusterer:
     def test_select_optimal_clusters_range(self, clusterer):
         """Test that optimal cluster selection respects min/max range."""
         # Create embeddings with 3 clear clusters
-        X = np.array([
-            [0.1, 0.2],
-            [0.15, 0.25],
-            [0.5, 0.6],
-            [0.55, 0.65],
-            [0.9, 0.95],
-            [0.85, 0.9],
-        ])
+        X = np.array(
+            [
+                [0.1, 0.2],
+                [0.15, 0.25],
+                [0.5, 0.6],
+                [0.55, 0.65],
+                [0.9, 0.95],
+                [0.85, 0.9],
+            ]
+        )
 
         optimal_k = clusterer._select_optimal_clusters(X)
 

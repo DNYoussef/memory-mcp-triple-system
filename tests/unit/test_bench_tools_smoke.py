@@ -26,11 +26,13 @@ class TestBenchToolsSmoke(unittest.TestCase):
         self.assertTrue(callable(bench.main))
 
         from src.mcp.tool_registry import get_tool_definitions
+
         registered = {t["name"] for t in get_tool_definitions()}
         # memory_store is seeded directly; every PROBE tool must be registered.
         for label, name, _args, _canary in bench.PROBES:
             self.assertIn(
-                name, registered,
+                name,
+                registered,
                 f"bench probe {label!r} targets unregistered tool {name!r}",
             )
 

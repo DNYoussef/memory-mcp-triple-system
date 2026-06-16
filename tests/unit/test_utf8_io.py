@@ -41,10 +41,12 @@ def test_utf8_stream_is_left_alone():
 def test_non_reconfigurable_stream_does_not_raise():
     class NoReconfigure:
         encoding = "cp1252"
+
     # object without reconfigure() must be swallowed, not raised
     _run_with(NoReconfigure(), NoReconfigure())
 
 
 if __name__ == "__main__":
     import pytest
+
     raise SystemExit(pytest.main([__file__, "-v"]))

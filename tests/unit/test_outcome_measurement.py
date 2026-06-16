@@ -13,7 +13,9 @@ from src.services.improvement.outcome_schema import (
 NOW = datetime(2026, 6, 15, 12, 0, tzinfo=timezone.utc)
 
 
-def _outcome(outcome_id, *, timestamp, category="search", outcome_type=OutcomeType.SUCCESS):
+def _outcome(
+    outcome_id, *, timestamp, category="search", outcome_type=OutcomeType.SUCCESS
+):
     return Outcome(
         outcome_id=outcome_id,
         outcome_type=outcome_type,

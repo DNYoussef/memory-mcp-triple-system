@@ -15,6 +15,7 @@ from loguru import logger
 @dataclass
 class CacheEntry:
     """Cache entry with value and expiration time."""
+
     value: Any
     expires_at: datetime
 
@@ -39,7 +40,9 @@ class MemoryCache:
         self.max_size = max_size
         self._cache: OrderedDict[str, CacheEntry] = OrderedDict()
 
-        logger.info(f"MemoryCache initialized (TTL={ttl_seconds}s, max_size={max_size})")
+        logger.info(
+            f"MemoryCache initialized (TTL={ttl_seconds}s, max_size={max_size})"
+        )
 
     def get(self, key: str) -> Optional[Any]:
         """
@@ -130,10 +133,10 @@ class MemoryCache:
             Dictionary with cache stats
         """
         return {
-            'size': len(self._cache),
-            'max_size': self.max_size,
-            'ttl_seconds': self.ttl_seconds,
-            'utilization': len(self._cache) / self.max_size
+            "size": len(self._cache),
+            "max_size": self.max_size,
+            "ttl_seconds": self.ttl_seconds,
+            "utilization": len(self._cache) / self.max_size,
         }
 
     def cleanup_expired(self) -> int:
@@ -145,8 +148,7 @@ class MemoryCache:
         """
         now = datetime.now()
         expired_keys = [
-            key for key, entry in self._cache.items()
-            if now > entry.expires_at
+            key for key, entry in self._cache.items() if now > entry.expires_at
         ]
 
         for key in expired_keys:

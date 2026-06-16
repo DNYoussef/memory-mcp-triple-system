@@ -14,7 +14,6 @@ import asyncio
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Set, Callable
-from datetime import datetime
 import yaml
 import re
 from loguru import logger
@@ -25,6 +24,7 @@ from .vault_file_manager import VaultFileManager
 @dataclass
 class FrontmatterChange:
     """Represents a change to frontmatter property."""
+
     key: str
     old_value: Any = None
     new_value: Any = None
@@ -34,6 +34,7 @@ class FrontmatterChange:
 @dataclass
 class FrontmatterDiff:
     """Collection of frontmatter changes."""
+
     added: List[FrontmatterChange] = field(default_factory=list)
     modified: List[FrontmatterChange] = field(default_factory=list)
     deleted: List[FrontmatterChange] = field(default_factory=list)
@@ -50,6 +51,7 @@ class FrontmatterDiff:
 @dataclass
 class RelationshipConfig:
     """Configuration for a relationship type."""
+
     prop_name: str  # e.g., "parents"
     reverse_prop_name: str  # e.g., "children"
     edge_type: str  # Memory MCP edge type
@@ -96,7 +98,7 @@ class BidirectionalSyncEngine:
         file_manager: VaultFileManager,
         propagate_to_children: bool = True,
         debounce_ms: int = 1000,
-        excluded_props: Optional[Set[str]] = None
+        excluded_props: Optional[Set[str]] = None,
     ):
         """
         Initialize bidirectional sync engine.
@@ -148,10 +150,7 @@ class BidirectionalSyncEngine:
         self._change_callbacks.append(callback)
 
     async def handle_memory_change(
-        self,
-        chunk_id: str,
-        old_metadata: Dict[str, Any],
-        new_metadata: Dict[str, Any]
+        self, chunk_id: str, old_metadata: Dict[str, Any], new_metadata: Dict[str, Any]
     ) -> None:
         """
         Handle Memory MCP chunk metadata change -> sync to Obsidian.
@@ -180,7 +179,7 @@ class BidirectionalSyncEngine:
         self,
         file_path: str,
         old_frontmatter: Dict[str, Any],
-        new_frontmatter: Dict[str, Any]
+        new_frontmatter: Dict[str, Any],
     ) -> None:
         """
         Handle Obsidian file change -> sync to Memory MCP.
@@ -201,7 +200,9 @@ class BidirectionalSyncEngine:
             return
 
         # Handle relationship changes
-        await self._handle_relationship_changes(file_path, old_frontmatter, new_frontmatter)
+        await self._handle_relationship_changes(
+            file_path, old_frontmatter, new_frontmatter
+        )
 
         # Schedule propagation with debounce
         if self.propagate_to_children:
@@ -210,15 +211,14 @@ class BidirectionalSyncEngine:
         # Notify callbacks
         for callback in self._change_callbacks:
             try:
-                await callback(file_path, diff) if asyncio.iscoroutinefunction(callback) else callback(file_path, diff)
+                await callback(file_path, diff) if asyncio.iscoroutinefunction(
+                    callback
+                ) else callback(file_path, diff)
             except Exception as e:
                 logger.error(f"Callback error: {e}")
 
     async def _handle_relationship_changes(
-        self,
-        file_path: str,
-        old_fm: Dict[str, Any],
-        new_fm: Dict[str, Any]
+        self, file_path: str, old_fm: Dict[str, Any], new_fm: Dict[str, Any]
     ) -> None:
         """
         Update reverse relationships when relationships change.
@@ -238,21 +238,22 @@ class BidirectionalSyncEngine:
             for target_name in added:
                 target_path = self._resolve_file_from_name(target_name)
                 if target_path:
-                    await self._add_to_property(target_path, config.reverse_prop_name, base_name)
+                    await self._add_to_property(
+                        target_path, config.reverse_prop_name, base_name
+                    )
                     logger.debug(f"Added reverse link: {target_path} -> {base_name}")
 
             # Remove reverse links from removed relationships
             for target_name in removed:
                 target_path = self._resolve_file_from_name(target_name)
                 if target_path:
-                    await self._remove_from_property(target_path, config.reverse_prop_name, base_name)
+                    await self._remove_from_property(
+                        target_path, config.reverse_prop_name, base_name
+                    )
                     logger.debug(f"Removed reverse link: {target_path} -> {base_name}")
 
     async def _schedule_propagation(
-        self,
-        file_path: str,
-        frontmatter: Dict[str, Any],
-        diff: FrontmatterDiff
+        self, file_path: str, frontmatter: Dict[str, Any], diff: FrontmatterDiff
     ) -> None:
         """Schedule frontmatter propagation with debounce."""
         # Cancel existing timer
@@ -279,7 +280,7 @@ class BidirectionalSyncEngine:
         self,
         parent_path: str,
         parent_frontmatter: Dict[str, Any],
-        diff: FrontmatterDiff
+        diff: FrontmatterDiff,
     ) -> None:
         """
         Propagate frontmatter changes to children.
@@ -309,10 +310,7 @@ class BidirectionalSyncEngine:
                 self._files_being_propagated.discard(child)
 
     async def _sync_to_obsidian(
-        self,
-        file_path: str,
-        diff: FrontmatterDiff,
-        metadata: Dict[str, Any]
+        self, file_path: str, diff: FrontmatterDiff, metadata: Dict[str, Any]
     ) -> None:
         """
         Sync Memory MCP metadata changes to Obsidian frontmatter.
@@ -361,7 +359,9 @@ class BidirectionalSyncEngine:
         if "WHEN" in metadata:
             when = metadata["WHEN"]
             if isinstance(when, dict):
-                frontmatter["updated"] = when.get("iso", when.get("readable", str(when)))
+                frontmatter["updated"] = when.get(
+                    "iso", when.get("readable", str(when))
+                )
             else:
                 frontmatter["updated"] = str(when)
 
@@ -372,10 +372,7 @@ class BidirectionalSyncEngine:
             frontmatter["why"] = metadata["WHY"]
 
     async def _add_to_property(
-        self,
-        file_path: str,
-        prop_name: str,
-        value_to_add: str
+        self, file_path: str, prop_name: str, value_to_add: str
     ) -> None:
         """Add a link to a frontmatter property list."""
         try:
@@ -403,10 +400,7 @@ class BidirectionalSyncEngine:
             logger.error(f"Failed to add to property: {e}")
 
     async def _remove_from_property(
-        self,
-        file_path: str,
-        prop_name: str,
-        value_to_remove: str
+        self, file_path: str, prop_name: str, value_to_remove: str
     ) -> None:
         """Remove a link from a frontmatter property list."""
         try:
@@ -425,8 +419,7 @@ class BidirectionalSyncEngine:
 
             # Remove matching links
             filtered = [
-                v for v in current
-                if self._extract_link_name(v) != value_to_remove
+                v for v in current if self._extract_link_name(v) != value_to_remove
             ]
 
             if len(filtered) != len(current):
@@ -438,9 +431,7 @@ class BidirectionalSyncEngine:
             logger.error(f"Failed to remove from property: {e}")
 
     async def _apply_frontmatter_changes(
-        self,
-        file_path: str,
-        diff: FrontmatterDiff
+        self, file_path: str, diff: FrontmatterDiff
     ) -> None:
         """Apply frontmatter diff to a file."""
         try:
@@ -467,9 +458,7 @@ class BidirectionalSyncEngine:
             logger.error(f"Failed to apply changes to {file_path}: {e}")
 
     def _compute_frontmatter_diff(
-        self,
-        old_fm: Dict[str, Any],
-        new_fm: Dict[str, Any]
+        self, old_fm: Dict[str, Any], new_fm: Dict[str, Any]
     ) -> FrontmatterDiff:
         """Compute diff between two frontmatter dicts."""
         diff = FrontmatterDiff()
@@ -484,7 +473,9 @@ class BidirectionalSyncEngine:
             elif old_val is not None and new_val is None:
                 diff.deleted.append(FrontmatterChange(key, old_val, None, "deleted"))
             elif old_val != new_val:
-                diff.modified.append(FrontmatterChange(key, old_val, new_val, "modified"))
+                diff.modified.append(
+                    FrontmatterChange(key, old_val, new_val, "modified")
+                )
 
         return diff
 
@@ -513,14 +504,14 @@ class BidirectionalSyncEngine:
         return FrontmatterDiff(
             added=[c for c in diff.added if c.key not in self.excluded_props],
             modified=[c for c in diff.modified if c.key not in self.excluded_props],
-            deleted=[c for c in diff.deleted if c.key not in self.excluded_props]
+            deleted=[c for c in diff.deleted if c.key not in self.excluded_props],
         )
 
     def _get_children_recursive(
         self,
         parent_path: str,
         frontmatter: Dict[str, Any],
-        visited: Optional[Set[str]] = None
+        visited: Optional[Set[str]] = None,
     ) -> List[str]:
         """Get all children recursively."""
         if visited is None:
@@ -546,7 +537,9 @@ class BidirectionalSyncEngine:
                     full_path = self.file_manager.vault_path / child_path
                     content = self.file_manager.read_file(full_path)
                     child_fm = self._parse_frontmatter(content) if content else {}
-                    all_children.extend(self._get_children_recursive(child_path, child_fm, visited))
+                    all_children.extend(
+                        self._get_children_recursive(child_path, child_fm, visited)
+                    )
                 except Exception:
                     pass
 
@@ -566,7 +559,7 @@ class BidirectionalSyncEngine:
         """Extract name from wiki link [[Name]] or return as-is."""
         if not isinstance(link, str):
             return str(link)
-        match = re.match(r'\[\[([^\]|]+)(?:\|[^\]]+)?\]\]', link)
+        match = re.match(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]", link)
         return match.group(1) if match else link
 
     def _resolve_obsidian_file(self, chunk_id: str, metadata: Dict) -> Optional[str]:
@@ -613,11 +606,13 @@ class BidirectionalSyncEngine:
         if content.startswith("---"):
             end = content.find("---", 3)
             if end != -1:
-                content = content[end + 3:].lstrip()
+                content = content[end + 3 :].lstrip()
 
         # Generate new frontmatter
         if frontmatter:
-            yaml_str = yaml.dump(frontmatter, default_flow_style=False, allow_unicode=True)
+            yaml_str = yaml.dump(
+                frontmatter, default_flow_style=False, allow_unicode=True
+            )
             return f"---\n{yaml_str}---\n\n{content}"
 
         return content

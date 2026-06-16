@@ -9,7 +9,7 @@ into coherent chunks while respecting size constraints.
 NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional
 from pathlib import Path
 import re
 import numpy as np
@@ -25,7 +25,7 @@ class SemanticChunker:
         max_chunk_size: int = 512,
         overlap: int = 50,
         similarity_threshold: float = 0.5,
-        embedding_pipeline: Optional[Any] = None
+        embedding_pipeline: Optional[Any] = None,
     ):
         """
         Initialize semantic chunker with Max-Min algorithm.
@@ -67,6 +67,7 @@ class SemanticChunker:
         if self._embedding_pipeline is None and self._use_semantic:
             try:
                 from ..indexing.embedding_pipeline import EmbeddingPipeline
+
                 self._embedding_pipeline = EmbeddingPipeline()
                 logger.info("EmbeddingPipeline loaded for semantic chunking")
             except Exception as e:
@@ -74,7 +75,7 @@ class SemanticChunker:
                 self._use_semantic = False
         return self._embedding_pipeline
 
-    def chunk_text(self, content: str, file_path: str) -> List[Dict[str, Any]]: 
+    def chunk_text(self, content: str, file_path: str) -> List[Dict[str, Any]]:
         """
         Chunk text content directly.
 
@@ -95,12 +96,14 @@ class SemanticChunker:
 
         result = []
         for idx, chunk_text in enumerate(chunks):
-            result.append({
-                'text': chunk_text,
-                'file_path': file_path,
-                'chunk_index': idx,
-                'metadata': metadata
-            })
+            result.append(
+                {
+                    "text": chunk_text,
+                    "file_path": file_path,
+                    "chunk_index": idx,
+                    "metadata": metadata,
+                }
+            )
 
         logger.info(f"Created {len(result)} chunks from {file_path}")
         return result
@@ -122,14 +125,14 @@ class SemanticChunker:
         if not file_path.exists():
             raise ValueError(f"File not found: {file_path}")
 
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
 
         return self.chunk_text(content, str(file_path))
 
     def _extract_frontmatter(self, content: str) -> Dict[str, Any]:
         """Extract YAML frontmatter from markdown."""
-        frontmatter_pattern = r'^---\n(.*?)\n---\n'
+        frontmatter_pattern = r"^---\n(.*?)\n---\n"
         match = re.match(frontmatter_pattern, content, re.DOTALL)
 
         if not match:
@@ -137,22 +140,22 @@ class SemanticChunker:
 
         # Simple key:value parsing (not full YAML)
         metadata = {}
-        for line in match.group(1).split('\n'):
-            if ':' in line:
-                key, value = line.split(':', 1)
+        for line in match.group(1).split("\n"):
+            if ":" in line:
+                key, value = line.split(":", 1)
                 metadata[key.strip()] = value.strip()
 
         return metadata
 
     def _remove_frontmatter(self, content: str) -> str:
         """Remove frontmatter from content."""
-        frontmatter_pattern = r'^---\n.*?\n---\n'
-        return re.sub(frontmatter_pattern, '', content, flags=re.DOTALL)
+        frontmatter_pattern = r"^---\n.*?\n---\n"
+        return re.sub(frontmatter_pattern, "", content, flags=re.DOTALL)
 
     def _split_into_sentences(self, text: str) -> List[str]:
         """Split text into sentences for semantic analysis."""
         # Split on sentence boundaries
-        sentence_pattern = r'(?<=[.!?])\s+(?=[A-Z])'
+        sentence_pattern = r"(?<=[.!?])\s+(?=[A-Z])"
         raw_sentences = re.split(sentence_pattern, text)
 
         # Filter and clean sentences
@@ -164,10 +167,7 @@ class SemanticChunker:
 
         return sentences
 
-    def _compute_sentence_similarities(
-        self,
-        sentences: List[str]
-    ) -> List[float]:
+    def _compute_sentence_similarities(self, sentences: List[str]) -> List[float]:
         """Compute cosine similarity between adjacent sentences."""
         if len(sentences) < 2 or not self.embedding_pipeline:
             return [1.0] * (len(sentences) - 1)
@@ -193,10 +193,7 @@ class SemanticChunker:
             logger.warning(f"Similarity computation failed: {e}")
             return [1.0] * (len(sentences) - 1)
 
-    def _find_semantic_boundaries(
-        self,
-        similarities: List[float]
-    ) -> List[int]:
+    def _find_semantic_boundaries(self, similarities: List[float]) -> List[int]:
         """Find boundary positions where similarity drops below threshold."""
         boundaries = []
         for i, sim in enumerate(similarities):
@@ -205,9 +202,7 @@ class SemanticChunker:
         return boundaries
 
     def _merge_sentences_into_chunks(
-        self,
-        sentences: List[str],
-        boundaries: List[int]
+        self, sentences: List[str], boundaries: List[int]
     ) -> List[str]:
         """Merge sentences between boundaries into chunks."""
         if not sentences:
@@ -222,7 +217,7 @@ class SemanticChunker:
             start = all_boundaries[i]
             end = all_boundaries[i + 1]
             chunk_sentences = sentences[start:end]
-            chunk_text = ' '.join(chunk_sentences)
+            chunk_text = " ".join(chunk_sentences)
 
             # Respect size constraints
             chunk_tokens = len(chunk_text.split())
@@ -237,7 +232,7 @@ class SemanticChunker:
                 if chunks:
                     prev_tokens = len(chunks[-1].split())
                     if prev_tokens + chunk_tokens <= self.max_chunk_size:
-                        chunks[-1] = chunks[-1] + ' ' + chunk_text
+                        chunks[-1] = chunks[-1] + " " + chunk_text
                         continue
                 chunks.append(chunk_text)
 
@@ -252,7 +247,7 @@ class SemanticChunker:
 
         for word in words:
             if current_size + 1 > self.max_chunk_size:
-                chunks.append(' '.join(current))
+                chunks.append(" ".join(current))
                 current = [word]
                 current_size = 1
             else:
@@ -260,7 +255,7 @@ class SemanticChunker:
                 current_size += 1
 
         if current:
-            chunks.append(' '.join(current))
+            chunks.append(" ".join(current))
 
         return chunks
 
@@ -301,9 +296,7 @@ class SemanticChunker:
         return chunks
 
     def _find_paragraph_boundaries(
-        self,
-        sentences: List[str],
-        original_text: str
+        self, sentences: List[str], original_text: str
     ) -> List[int]:
         """Fallback: find boundaries at paragraph breaks."""
         boundaries = []
@@ -316,8 +309,8 @@ class SemanticChunker:
             if pos != -1:
                 end_pos = pos + len(sent)
                 if end_pos < len(original_text) - 2:
-                    next_chars = original_text[end_pos:end_pos + 3]
-                    if '\n\n' in next_chars:
+                    next_chars = original_text[end_pos : end_pos + 3]
+                    if "\n\n" in next_chars:
                         boundaries.append(i + 1)
 
         return boundaries

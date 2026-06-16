@@ -12,15 +12,12 @@ import re
 import logging
 from typing import Dict, Any, List, Optional, Tuple, Set
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 
 from src.integrations.confidence_scoring_schema import (
-    ConfidenceScore,
     ClassificationResult,
     ClassificationType,
     EscalationReason,
     combine_confidences,
-    entropy_based_confidence,
     ESCALATION_THRESHOLD,
 )
 
@@ -29,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 class EntityType:
     """Types of entities that can be extracted."""
+
     PERSON = "person"
     PLACE = "place"
     PROJECT = "project"
@@ -90,8 +88,14 @@ ENTITY_PATTERNS = {
         "patterns": [
             (r"\b\d{4}-\d{2}-\d{2}\b", 0.95),  # ISO format
             (r"\b\d{1,2}/\d{1,2}/\d{2,4}\b", 0.7),  # US format
-            (r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}\b", 0.85),
-            (r"\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4}\b", 0.85),
+            (
+                r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}\b",
+                0.85,
+            ),
+            (
+                r"\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4}\b",
+                0.85,
+            ),
         ],
         "base_confidence": 0.8,
     },
@@ -114,17 +118,29 @@ ENTITY_PATTERNS = {
     },
     EntityType.ORGANIZATION: {
         "patterns": [
-            (r"\b[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)*\s+(?:Inc|Corp|LLC|Ltd|Co|Company|Organization|Foundation)\b", 0.85),
-            (r"\b(?:Google|Microsoft|Apple|Amazon|Meta|Facebook|Twitter|LinkedIn)\b", 0.9),
+            (
+                r"\b[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)*\s+(?:Inc|Corp|LLC|Ltd|Co|Company|Organization|Foundation)\b",
+                0.85,
+            ),
+            (
+                r"\b(?:Google|Microsoft|Apple|Amazon|Meta|Facebook|Twitter|LinkedIn)\b",
+                0.9,
+            ),
         ],
         "base_confidence": 0.7,
     },
     EntityType.PLACE: {
         "patterns": [
             # US States
-            (r"\b(?:Alabama|Alaska|Arizona|Arkansas|California|Colorado|Connecticut|Delaware|Florida|Georgia|Hawaii|Idaho|Illinois|Indiana|Iowa|Kansas|Kentucky|Louisiana|Maine|Maryland|Massachusetts|Michigan|Minnesota|Mississippi|Missouri|Montana|Nebraska|Nevada|New\s+Hampshire|New\s+Jersey|New\s+Mexico|New\s+York|North\s+Carolina|North\s+Dakota|Ohio|Oklahoma|Oregon|Pennsylvania|Rhode\s+Island|South\s+Carolina|South\s+Dakota|Tennessee|Texas|Utah|Vermont|Virginia|Washington|West\s+Virginia|Wisconsin|Wyoming)\b", 0.9),
+            (
+                r"\b(?:Alabama|Alaska|Arizona|Arkansas|California|Colorado|Connecticut|Delaware|Florida|Georgia|Hawaii|Idaho|Illinois|Indiana|Iowa|Kansas|Kentucky|Louisiana|Maine|Maryland|Massachusetts|Michigan|Minnesota|Mississippi|Missouri|Montana|Nebraska|Nevada|New\s+Hampshire|New\s+Jersey|New\s+Mexico|New\s+York|North\s+Carolina|North\s+Dakota|Ohio|Oklahoma|Oregon|Pennsylvania|Rhode\s+Island|South\s+Carolina|South\s+Dakota|Tennessee|Texas|Utah|Vermont|Virginia|Washington|West\s+Virginia|Wisconsin|Wyoming)\b",
+                0.9,
+            ),
             # Major cities
-            (r"\b(?:New York|Los Angeles|Chicago|Houston|Phoenix|Philadelphia|San Antonio|San Diego|Dallas|San Jose|Austin|Jacksonville|Fort Worth|Columbus|Charlotte|Seattle|Denver|Boston|El Paso|Nashville|Detroit|Portland|Memphis|Oklahoma City|Las Vegas|Louisville|Baltimore|Milwaukee|Albuquerque|Tucson|Fresno|Sacramento|Mesa|Kansas City|Atlanta|Miami|Minneapolis|Tulsa|Cleveland|Wichita|Arlington|New Orleans|Bakersfield|Tampa|Honolulu|Aurora|Anaheim|Santa Ana|St\. Louis|Riverside|Corpus Christi|Lexington|Pittsburgh|Anchorage|Stockton|Cincinnati|Saint Paul|Toledo|Greensboro|Newark|Plano|Henderson|Lincoln|Buffalo|Jersey City|Chula Vista|Fort Wayne|Orlando|St\. Petersburg|Chandler|Laredo|Norfolk|Durham|Madison|Lubbock|Irvine|Winston-Salem|Glendale|Garland|Hialeah|Reno|Chesapeake|Gilbert|Baton Rouge|Irving|Scottsdale|North Las Vegas|Fremont|Boise|Richmond|San Bernardino|Birmingham|Spokane|Rochester|Des Moines|Modesto|Fayetteville|Tacoma|Oxnard|Fontana|Columbus|Montgomery|Moreno Valley|Shreveport|Aurora|Yonkers|Akron|Huntington Beach|Little Rock|Augusta|Amarillo|Glendale|Mobile|Grand Rapids|Salt Lake City|Tallahassee|Huntsville|Grand Prairie|Knoxville|Worcester|Newport News|Brownsville|Overland Park|Santa Clarita|Providence|Garden Grove|Chattanooga|Oceanside|Jackson|Fort Lauderdale|Santa Rosa|Rancho Cucamonga|Port St\. Lucie|Tempe|Ontario|Vancouver|Cape Coral|Sioux Falls|Springfield|Peoria|Pembroke Pines|Elk Grove|Salem|Lancaster|Corona|Eugene|Palmdale|Salinas|Springfield|Pasadena|Fort Collins|Hayward|Pomona|Cary|Rockford|Alexandria|Escondido|McKinney|Kansas City|Joliet|Sunnyvale|Torrance|Bridgeport|Lakewood|Hollywood|Paterson|Naperville|Syracuse|Mesquite|Dayton|Savannah|Clarksville|Orange|Pasadena|Fullerton|Killeen|Frisco|Hampton|McAllen|Warren|Bellevue|West Valley City|Columbia|Olathe|Sterling Heights|New Haven|Miramar|Waco|Thousand Oaks|Cedar Rapids|Charleston|Visalia|Topeka|Elizabeth|Gainesville|Thornton|Roseville|Carrollton|Coral Springs|Stamford|Simi Valley|Concord|Hartford|Kent|Lafayette|Midland|Surprise|Denton|Victorville|Evansville|Santa Clara|Abilene|Athens|Vallejo|Allentown|Norman|Beaumont|Independence|Murfreesboro|Ann Arbor|Springfield|Berkeley|Peoria|Provo|El Monte|Columbia|Lansing|Fargo|Downey|Costa Mesa|Wilmington|Arvada|Inglewood|Miami Gardens|Carlsbad|Westminster|Rochester|Odessa|Manchester|Elgin|West Jordan|Round Rock|Clearwater|Waterbury|Gresham|Fairfield|Billings|Lowell|San Buenaventura|Pueblo|High Point|West Covina|Richmond|Murrieta|Cambridge|Antioch|Temecula|Norwalk|Centennial|Everett|Palm Bay|Wichita Falls|Green Bay|Daly City|Burbank|Richardson|Pompano Beach|North Charleston|Broken Arrow|Boulder|West Palm Beach|Santa Maria|El Cajon|Davenport|Rialto|Las Cruces|San Mateo|Lewisville|South Bend|Lakeland|Erie|Tyler|Pearland|College Station|Kenosha|Sandy Springs|Clovis|Flint|Roanoke|Albany|Jurupa Valley|Compton|San Angelo|Hillsboro|Lawton|Renton|Vista|Davie|Greeley|Mission Viejo|Portsmouth|Dearborn|South Gate|Tuscaloosa|Livonia|New Bedford|Vacaville|Brockton|Roswell|Beaverton|Quincy|Sparks|Yakima)\b", 0.85),
+            (
+                r"\b(?:New York|Los Angeles|Chicago|Houston|Phoenix|Philadelphia|San Antonio|San Diego|Dallas|San Jose|Austin|Jacksonville|Fort Worth|Columbus|Charlotte|Seattle|Denver|Boston|El Paso|Nashville|Detroit|Portland|Memphis|Oklahoma City|Las Vegas|Louisville|Baltimore|Milwaukee|Albuquerque|Tucson|Fresno|Sacramento|Mesa|Kansas City|Atlanta|Miami|Minneapolis|Tulsa|Cleveland|Wichita|Arlington|New Orleans|Bakersfield|Tampa|Honolulu|Aurora|Anaheim|Santa Ana|St\. Louis|Riverside|Corpus Christi|Lexington|Pittsburgh|Anchorage|Stockton|Cincinnati|Saint Paul|Toledo|Greensboro|Newark|Plano|Henderson|Lincoln|Buffalo|Jersey City|Chula Vista|Fort Wayne|Orlando|St\. Petersburg|Chandler|Laredo|Norfolk|Durham|Madison|Lubbock|Irvine|Winston-Salem|Glendale|Garland|Hialeah|Reno|Chesapeake|Gilbert|Baton Rouge|Irving|Scottsdale|North Las Vegas|Fremont|Boise|Richmond|San Bernardino|Birmingham|Spokane|Rochester|Des Moines|Modesto|Fayetteville|Tacoma|Oxnard|Fontana|Columbus|Montgomery|Moreno Valley|Shreveport|Aurora|Yonkers|Akron|Huntington Beach|Little Rock|Augusta|Amarillo|Glendale|Mobile|Grand Rapids|Salt Lake City|Tallahassee|Huntsville|Grand Prairie|Knoxville|Worcester|Newport News|Brownsville|Overland Park|Santa Clarita|Providence|Garden Grove|Chattanooga|Oceanside|Jackson|Fort Lauderdale|Santa Rosa|Rancho Cucamonga|Port St\. Lucie|Tempe|Ontario|Vancouver|Cape Coral|Sioux Falls|Springfield|Peoria|Pembroke Pines|Elk Grove|Salem|Lancaster|Corona|Eugene|Palmdale|Salinas|Springfield|Pasadena|Fort Collins|Hayward|Pomona|Cary|Rockford|Alexandria|Escondido|McKinney|Kansas City|Joliet|Sunnyvale|Torrance|Bridgeport|Lakewood|Hollywood|Paterson|Naperville|Syracuse|Mesquite|Dayton|Savannah|Clarksville|Orange|Pasadena|Fullerton|Killeen|Frisco|Hampton|McAllen|Warren|Bellevue|West Valley City|Columbia|Olathe|Sterling Heights|New Haven|Miramar|Waco|Thousand Oaks|Cedar Rapids|Charleston|Visalia|Topeka|Elizabeth|Gainesville|Thornton|Roseville|Carrollton|Coral Springs|Stamford|Simi Valley|Concord|Hartford|Kent|Lafayette|Midland|Surprise|Denton|Victorville|Evansville|Santa Clara|Abilene|Athens|Vallejo|Allentown|Norman|Beaumont|Independence|Murfreesboro|Ann Arbor|Springfield|Berkeley|Peoria|Provo|El Monte|Columbia|Lansing|Fargo|Downey|Costa Mesa|Wilmington|Arvada|Inglewood|Miami Gardens|Carlsbad|Westminster|Rochester|Odessa|Manchester|Elgin|West Jordan|Round Rock|Clearwater|Waterbury|Gresham|Fairfield|Billings|Lowell|San Buenaventura|Pueblo|High Point|West Covina|Richmond|Murrieta|Cambridge|Antioch|Temecula|Norwalk|Centennial|Everett|Palm Bay|Wichita Falls|Green Bay|Daly City|Burbank|Richardson|Pompano Beach|North Charleston|Broken Arrow|Boulder|West Palm Beach|Santa Maria|El Cajon|Davenport|Rialto|Las Cruces|San Mateo|Lewisville|South Bend|Lakeland|Erie|Tyler|Pearland|College Station|Kenosha|Sandy Springs|Clovis|Flint|Roanoke|Albany|Jurupa Valley|Compton|San Angelo|Hillsboro|Lawton|Renton|Vista|Davie|Greeley|Mission Viejo|Portsmouth|Dearborn|South Gate|Tuscaloosa|Livonia|New Bedford|Vacaville|Brockton|Roswell|Beaverton|Quincy|Sparks|Yakima)\b",
+                0.85,
+            ),
         ],
         "base_confidence": 0.6,
     },
@@ -140,7 +156,10 @@ ENTITY_PATTERNS = {
     EntityType.TOPIC: {
         "patterns": [
             # Tech topics
-            (r"\b(?:machine learning|deep learning|neural network|artificial intelligence|natural language processing|computer vision|reinforcement learning|data science|big data|cloud computing|devops|microservices|kubernetes|docker|api|rest|graphql|database|sql|nosql|blockchain|cryptocurrency|cybersecurity|web development|mobile development|frontend|backend|fullstack)\b", 0.8),
+            (
+                r"\b(?:machine learning|deep learning|neural network|artificial intelligence|natural language processing|computer vision|reinforcement learning|data science|big data|cloud computing|devops|microservices|kubernetes|docker|api|rest|graphql|database|sql|nosql|blockchain|cryptocurrency|cybersecurity|web development|mobile development|frontend|backend|fullstack)\b",
+                0.8,
+            ),
         ],
         "base_confidence": 0.6,
         "requires_context": True,
@@ -151,25 +170,67 @@ ENTITY_PATTERNS = {
 # Context keywords that boost entity confidence
 CONTEXT_BOOSTERS = {
     EntityType.PERSON: [
-        "said", "told", "asked", "mentioned", "according to",
-        "contacted", "emailed", "called", "met with", "spoke with",
-        "CEO", "CTO", "manager", "engineer", "developer", "designer",
+        "said",
+        "told",
+        "asked",
+        "mentioned",
+        "according to",
+        "contacted",
+        "emailed",
+        "called",
+        "met with",
+        "spoke with",
+        "CEO",
+        "CTO",
+        "manager",
+        "engineer",
+        "developer",
+        "designer",
     ],
     EntityType.PROJECT: [
-        "project", "repo", "repository", "codebase", "module",
-        "feature", "task", "ticket", "issue", "PR", "branch",
+        "project",
+        "repo",
+        "repository",
+        "codebase",
+        "module",
+        "feature",
+        "task",
+        "ticket",
+        "issue",
+        "PR",
+        "branch",
     ],
     EntityType.TOPIC: [
-        "about", "regarding", "concerning", "related to",
-        "topic", "subject", "discussion", "conversation",
+        "about",
+        "regarding",
+        "concerning",
+        "related to",
+        "topic",
+        "subject",
+        "discussion",
+        "conversation",
     ],
     EntityType.PLACE: [
-        "in", "at", "from", "to", "near", "around",
-        "located", "based", "headquartered", "office",
+        "in",
+        "at",
+        "from",
+        "to",
+        "near",
+        "around",
+        "located",
+        "based",
+        "headquartered",
+        "office",
     ],
     EntityType.ORGANIZATION: [
-        "company", "corporation", "organization", "firm",
-        "startup", "enterprise", "business", "agency",
+        "company",
+        "corporation",
+        "organization",
+        "firm",
+        "startup",
+        "enterprise",
+        "business",
+        "agency",
     ],
 }
 
@@ -325,7 +386,9 @@ class EntityExtractionScorer:
             confidence_components={
                 "entity_count": len(entities),
                 "type_diversity": len(type_counts),
-                "avg_confidence": sum(e.confidence for e in entities) / len(entities) if entities else 0,
+                "avg_confidence": sum(e.confidence for e in entities) / len(entities)
+                if entities
+                else 0,
             },
         )
 
@@ -426,9 +489,10 @@ class EntityExtractionScorer:
             context_penalty = 0.0
 
         # Final confidence
-        final_confidence = min(1.0, max(0.0,
-            pattern_score + context_boost - length_penalty - context_penalty
-        ))
+        final_confidence = min(
+            1.0,
+            max(0.0, pattern_score + context_boost - length_penalty - context_penalty),
+        )
         components["final_confidence"] = final_confidence
 
         return final_confidence, components
@@ -506,10 +570,7 @@ class EntityExtractionScorer:
         entities: List[ExtractedEntity],
     ) -> List[ExtractedEntity]:
         """Get entities with low confidence that need human review."""
-        return [
-            e for e in entities
-            if e.confidence < self.config.escalation_threshold
-        ]
+        return [e for e in entities if e.confidence < self.config.escalation_threshold]
 
     def get_escalation_reason(
         self,
@@ -524,7 +585,10 @@ class EntityExtractionScorer:
 
         # Check if requires context
         config = ENTITY_PATTERNS.get(entity.entity_type, {})
-        if config.get("requires_context") and entity.components.get("context_penalty", 0) > 0:
+        if (
+            config.get("requires_context")
+            and entity.components.get("context_penalty", 0) > 0
+        ):
             return EscalationReason.AMBIGUOUS_CLASSIFICATION
 
         return EscalationReason.MODEL_UNCERTAINTY

@@ -11,7 +11,6 @@ WHY: infrastructure (IMPROVE-001)
 import logging
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
-from datetime import datetime, timezone
 
 from src.services.improvement.outcome_schema import (
     Pattern,
@@ -244,7 +243,7 @@ class RuleProposalGenerator:
         elif pattern.pattern_type == PatternType.CATEGORY_DRIFT:
             changes.extend(self._generate_drift_fixes(pattern, suggestions))
 
-        return changes[:self.config.max_changes_per_proposal]
+        return changes[: self.config.max_changes_per_proposal]
 
     def _generate_failure_fixes(
         self,
@@ -257,25 +256,29 @@ class RuleProposalGenerator:
 
         # Add validation rule
         if "Add input validation" in suggestions:
-            changes.append(RuleChange(
-                rule_path=f"src/services/confidence/{category.replace('_', '/')}_validator.py",
-                rule_section="validation_rules",
-                current_value="# No additional validation",
-                proposed_value=f"# Added validation for {category}\nif not self._validate_input(text):\n    return self._handle_invalid_input(text)",
-                change_type="add",
-                rationale=f"Add input validation to reduce failures in {category} (failure rate: {pattern.frequency:.1%})",
-            ))
+            changes.append(
+                RuleChange(
+                    rule_path=f"src/services/confidence/{category.replace('_', '/')}_validator.py",
+                    rule_section="validation_rules",
+                    current_value="# No additional validation",
+                    proposed_value=f"# Added validation for {category}\nif not self._validate_input(text):\n    return self._handle_invalid_input(text)",
+                    change_type="add",
+                    rationale=f"Add input validation to reduce failures in {category} (failure rate: {pattern.frequency:.1%})",
+                )
+            )
 
         # Add fallback handling
         if "Add fallback handling" in suggestions:
-            changes.append(RuleChange(
-                rule_path=f"src/services/confidence/{category.replace('_', '/')}.py",
-                rule_section="error_handling",
-                current_value="raise ClassificationError(message)",
-                proposed_value="logger.warning(message)\nreturn self._fallback_classification(text)",
-                change_type="modify",
-                rationale="Add fallback handling instead of raising errors",
-            ))
+            changes.append(
+                RuleChange(
+                    rule_path=f"src/services/confidence/{category.replace('_', '/')}.py",
+                    rule_section="error_handling",
+                    current_value="raise ClassificationError(message)",
+                    proposed_value="logger.warning(message)\nreturn self._fallback_classification(text)",
+                    change_type="modify",
+                    rationale="Add fallback handling instead of raising errors",
+                )
+            )
 
         return changes
 
@@ -289,14 +292,16 @@ class RuleProposalGenerator:
         category = pattern.affected_category
 
         # Update classification rules
-        changes.append(RuleChange(
-            rule_path=f"src/services/confidence/{category.replace('_', '/')}.py",
-            rule_section="classification_rules",
-            current_value="# Current classification logic",
-            proposed_value="# Updated classification with correction feedback\n# Patterns from user corrections incorporated",
-            change_type="modify",
-            rationale=f"Incorporate correction feedback into classification rules (correction rate: {pattern.frequency:.1%})",
-        ))
+        changes.append(
+            RuleChange(
+                rule_path=f"src/services/confidence/{category.replace('_', '/')}.py",
+                rule_section="classification_rules",
+                current_value="# Current classification logic",
+                proposed_value="# Updated classification with correction feedback\n# Patterns from user corrections incorporated",
+                change_type="modify",
+                rationale=f"Incorporate correction feedback into classification rules (correction rate: {pattern.frequency:.1%})",
+            )
+        )
 
         return changes
 
@@ -314,14 +319,16 @@ class RuleProposalGenerator:
             first_avg = evidence.get("first_half_avg", 0.7)
             second_avg = evidence.get("second_half_avg", 0.5)
 
-            changes.append(RuleChange(
-                rule_path="src/integrations/confidence_scoring_schema.py",
-                rule_section="thresholds",
-                current_value=f"ESCALATION_THRESHOLD = {second_avg:.2f}",
-                proposed_value=f"ESCALATION_THRESHOLD = {(first_avg + second_avg) / 2:.2f}",
-                change_type="modify",
-                rationale=f"Recalibrate threshold after confidence drop from {first_avg:.2f} to {second_avg:.2f}",
-            ))
+            changes.append(
+                RuleChange(
+                    rule_path="src/integrations/confidence_scoring_schema.py",
+                    rule_section="thresholds",
+                    current_value=f"ESCALATION_THRESHOLD = {second_avg:.2f}",
+                    proposed_value=f"ESCALATION_THRESHOLD = {(first_avg + second_avg) / 2:.2f}",
+                    change_type="modify",
+                    rationale=f"Recalibrate threshold after confidence drop from {first_avg:.2f} to {second_avg:.2f}",
+                )
+            )
 
         return changes
 
@@ -336,14 +343,16 @@ class RuleProposalGenerator:
 
         # Add intermediate classification
         if "Add intermediate classification" in suggestions:
-            changes.append(RuleChange(
-                rule_path=f"src/services/confidence/{category.replace('_', '/')}.py",
-                rule_section="classification",
-                current_value="# Binary classification",
-                proposed_value="# Ternary classification with 'uncertain' category\n# Reduces escalations by handling ambiguous cases",
-                change_type="modify",
-                rationale=f"Add intermediate 'uncertain' classification to reduce escalations ({pattern.frequency:.1%})",
-            ))
+            changes.append(
+                RuleChange(
+                    rule_path=f"src/services/confidence/{category.replace('_', '/')}.py",
+                    rule_section="classification",
+                    current_value="# Binary classification",
+                    proposed_value="# Ternary classification with 'uncertain' category\n# Reduces escalations by handling ambiguous cases",
+                    change_type="modify",
+                    rationale=f"Add intermediate 'uncertain' classification to reduce escalations ({pattern.frequency:.1%})",
+                )
+            )
 
         return changes
 
@@ -361,14 +370,16 @@ class RuleProposalGenerator:
             word_list = ", ".join(list(common_words.keys())[:5])
 
             # Add pattern-specific rules
-            changes.append(RuleChange(
-                rule_path="src/services/confidence/mode_detector.py",
-                rule_section="MODE_PATTERNS",
-                current_value="# Current pattern definitions",
-                proposed_value=f"# Added patterns for common failing inputs: {word_list}",
-                change_type="add",
-                rationale=f"Add handling for common failing input patterns: {word_list}",
-            ))
+            changes.append(
+                RuleChange(
+                    rule_path="src/services/confidence/mode_detector.py",
+                    rule_section="MODE_PATTERNS",
+                    current_value="# Current pattern definitions",
+                    proposed_value=f"# Added patterns for common failing inputs: {word_list}",
+                    change_type="add",
+                    rationale=f"Add handling for common failing input patterns: {word_list}",
+                )
+            )
 
         return changes
 
@@ -387,14 +398,16 @@ class RuleProposalGenerator:
             drift = evidence.get("drift", 0)
             direction = "decreased" if drift > 0 else "increased"
 
-            changes.append(RuleChange(
-                rule_path=f"src/services/confidence/{category.replace('_', '/')}.py",
-                rule_section="weights",
-                current_value="# Current feature weights",
-                proposed_value=f"# Adjusted weights to address {direction} performance in {category}",
-                change_type="modify",
-                rationale=f"Rebalance feature weights after {abs(drift):.1%} {direction} in {category}",
-            ))
+            changes.append(
+                RuleChange(
+                    rule_path=f"src/services/confidence/{category.replace('_', '/')}.py",
+                    rule_section="weights",
+                    current_value="# Current feature weights",
+                    proposed_value=f"# Adjusted weights to address {direction} performance in {category}",
+                    change_type="modify",
+                    rationale=f"Rebalance feature weights after {abs(drift):.1%} {direction} in {category}",
+                )
+            )
 
         return changes
 
@@ -449,8 +462,7 @@ class RuleProposalGenerator:
     def get_pending_proposals(self, limit: int = 50) -> List[RuleProposal]:
         """Get pending proposals."""
         pending = [
-            p for p in self._proposals.values()
-            if p.status == ProposalStatus.PENDING
+            p for p in self._proposals.values() if p.status == ProposalStatus.PENDING
         ]
         return sorted(pending, key=lambda p: p.created_at, reverse=True)[:limit]
 
@@ -460,8 +472,11 @@ class RuleProposalGenerator:
             "proposals_generated": self._stats["proposals_generated"],
             "proposals_stored": len(self._proposals),
             "by_pattern_type": self._stats["by_pattern_type"],
-            "pending_count": len([
-                p for p in self._proposals.values()
-                if p.status == ProposalStatus.PENDING
-            ]),
+            "pending_count": len(
+                [
+                    p
+                    for p in self._proposals.values()
+                    if p.status == ProposalStatus.PENDING
+                ]
+            ),
         }

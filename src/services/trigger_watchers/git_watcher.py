@@ -13,7 +13,7 @@ import os
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 from loguru import logger
 
@@ -135,7 +135,9 @@ class GitWatcher:
     def _is_rebasing(self, repo_path: str) -> bool:
         """Check if repository is in rebase state."""
         git_dir = Path(repo_path) / ".git"
-        return (git_dir / "rebase-merge").exists() or (git_dir / "rebase-apply").exists()
+        return (git_dir / "rebase-merge").exists() or (
+            git_dir / "rebase-apply"
+        ).exists()
 
     def _is_merging(self, repo_path: str) -> bool:
         """Check if repository is in merge state."""
@@ -188,10 +190,14 @@ class GitWatcher:
         if self.config.track_rebase:
             if is_rebasing and not state.is_rebasing:
                 logger.info(f"Rebase started in {project_name}")
-                await self._trigger_rebase_start(repo_path, project_name, current_branch)
+                await self._trigger_rebase_start(
+                    repo_path, project_name, current_branch
+                )
             elif not is_rebasing and state.is_rebasing:
                 logger.info(f"Rebase completed in {project_name}")
-                await self._trigger_rebase_complete(repo_path, project_name, current_branch)
+                await self._trigger_rebase_complete(
+                    repo_path, project_name, current_branch
+                )
 
         # Check for merge start/end
         if self.config.track_merge:
@@ -200,7 +206,9 @@ class GitWatcher:
                 await self._trigger_merge_start(repo_path, project_name, current_branch)
             elif not is_merging and state.is_merging:
                 logger.info(f"Merge completed in {project_name}")
-                await self._trigger_merge_complete(repo_path, project_name, current_branch)
+                await self._trigger_merge_complete(
+                    repo_path, project_name, current_branch
+                )
 
         # Check for stash changes
         if self.config.track_stash and stash_count != state.stash_count:
@@ -462,7 +470,9 @@ class GitWatcher:
                     "branch": state.current_branch,
                     "is_rebasing": state.is_rebasing,
                     "is_merging": state.is_merging,
-                    "last_checked": state.last_checked.isoformat() if state.last_checked else None,
+                    "last_checked": state.last_checked.isoformat()
+                    if state.last_checked
+                    else None,
                 }
                 for state in self._repo_states.values()
             ],

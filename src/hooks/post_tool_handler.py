@@ -25,14 +25,12 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.stores.kv_store import KVStore
-from src.services.observation_bridge import ObservationBridge
+from src.stores.kv_store import KVStore  # noqa: E402
+from src.services.observation_bridge import ObservationBridge  # noqa: E402
 
 
 # Default paths
-DEFAULT_DB = os.path.join(
-    str(Path.home()), ".claude", "memory-mcp-data", "agent_kv.db"
-)
+DEFAULT_DB = os.path.join(str(Path.home()), ".claude", "memory-mcp-data", "agent_kv.db")
 SESSION_FILE = os.path.join(
     str(Path.home()), ".claude", "memory-mcp-data", "current_session.json"
 )

@@ -10,7 +10,7 @@ WHY: infrastructure (IMPROVE-001)
 """
 
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 
 from src.services.improvement.improvement_coordinator import (
     get_improvement_coordinator,
@@ -34,12 +34,25 @@ IMPROVEMENT_TOOLS = [
             "properties": {
                 "outcome_type": {
                     "type": "string",
-                    "enum": ["success", "failure", "partial", "escalated", "correction", "approval", "rejection"],
+                    "enum": [
+                        "success",
+                        "failure",
+                        "partial",
+                        "escalated",
+                        "correction",
+                        "approval",
+                        "rejection",
+                    ],
                     "description": "Type of outcome",
                 },
                 "source": {
                     "type": "string",
-                    "enum": ["confidence_scoring", "user_feedback", "quality_gate", "agent_execution"],
+                    "enum": [
+                        "confidence_scoring",
+                        "user_feedback",
+                        "quality_gate",
+                        "agent_execution",
+                    ],
                     "description": "Source of outcome",
                 },
                 "input_text": {

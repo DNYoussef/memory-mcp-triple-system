@@ -35,6 +35,7 @@ except ImportError:
 
         class Severity(Enum):  # type: ignore[no-redef]
             """Violation severity levels - FALLBACK (prefer library.common.types)"""
+
             CRITICAL = "critical"
             HIGH = "high"
             MEDIUM = "medium"
@@ -44,6 +45,7 @@ except ImportError:
 
 class EvidenceQuality(Enum):
     """Evidence quality categories"""
+
     EXCELLENT = "excellent"
     GOOD = "good"
     FAIR = "fair"
@@ -53,6 +55,7 @@ class EvidenceQuality(Enum):
 
 class RiskLevel(Enum):
     """Risk assessment levels"""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -65,6 +68,7 @@ class QualityClaim:
 
     Represents a claim about quality metrics that needs evidence-based validation.
     """
+
     claim_id: str
     description: str
     metric_name: str
@@ -97,6 +101,7 @@ class QualityClaim:
 # NOTE: This module uses a specialized QualityValidationResult for quality claim validation.
 # For simple validation needs, use library.common.types.ValidationResult.
 
+
 @dataclass
 class QualityValidationResult:
     """
@@ -108,6 +113,7 @@ class QualityValidationResult:
 
     Contains validation outcome, confidence score, and recommendations.
     """
+
     claim_id: str
     is_valid: bool
     confidence_score: float
@@ -157,6 +163,7 @@ if BaseViolation is not None:
 else:
     _BaseViolationAvailable = False
 
+
 @dataclass
 class Violation:
     """
@@ -179,6 +186,7 @@ class Violation:
             metadata=self.metadata
         )
     """
+
     rule_id: str
     message: str
     file: str
@@ -219,7 +227,9 @@ class Violation:
         """
         if BaseViolation is not None:
             return BaseViolation(
-                severity=Severity.from_string(self.severity) if isinstance(self.severity, str) else self.severity,
+                severity=Severity.from_string(self.severity)
+                if isinstance(self.severity, str)
+                else self.severity,
                 message=self.message,
                 file_path=self.file,
                 line=self.line,
@@ -269,14 +279,20 @@ class Violation:
             category=category or data.get("metadata", {}).get("category", "quality"),
             code_snippet=data.get("metadata", {}).get("code_snippet"),
             fix_suggestion=data.get("suggestion"),
-            source_analyzer=source_analyzer or data.get("metadata", {}).get("source_analyzer", "quality_validator"),
-            metadata={k: v for k, v in data.get("metadata", {}).items() if k not in ("category", "source_analyzer", "code_snippet")},
+            source_analyzer=source_analyzer
+            or data.get("metadata", {}).get("source_analyzer", "quality_validator"),
+            metadata={
+                k: v
+                for k, v in data.get("metadata", {}).items()
+                if k not in ("category", "source_analyzer", "code_snippet")
+            },
         )
 
 
 @dataclass
 class AnalysisResult:
     """Results from quality analysis"""
+
     violations: List[Violation] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
     metrics: Dict[str, Any] = field(default_factory=dict)
@@ -426,9 +442,7 @@ class QualityValidator:
         penalties = self.config["scoring"]["penalties"]
         base_score = self.config["scoring"]["base_score"]
 
-        total_penalty = sum(
-            penalties.get(v.severity, 0) for v in self.violations
-        )
+        total_penalty = sum(penalties.get(v.severity, 0) for v in self.violations)
 
         return max(0.0, base_score - total_penalty)
 
@@ -639,8 +653,14 @@ class QualityValidator:
         if claim.measurement_method:
             method = claim.measurement_method.lower()
             good_keywords = [
-                "baseline", "before", "after", "comparison",
-                "measured", "analyzed", "files", "modules",
+                "baseline",
+                "before",
+                "after",
+                "comparison",
+                "measured",
+                "analyzed",
+                "files",
+                "modules",
             ]
             keyword_score = sum(1 for kw in good_keywords if kw in method)
             evidence_components.append(min(0.3, keyword_score * 0.05))
@@ -656,7 +676,14 @@ class QualityValidator:
             if any(kw in evidence_file.lower() for kw in report_keywords):
                 evidence_components.append(0.1)
 
-            if Path(evidence_file).suffix in [".json", ".xml", ".csv", ".log", ".txt", ".md"]:
+            if Path(evidence_file).suffix in [
+                ".json",
+                ".xml",
+                ".csv",
+                ".log",
+                ".txt",
+                ".md",
+            ]:
                 evidence_components.append(0.05)
 
         if len(claim.evidence_files) >= 2:
@@ -711,7 +738,10 @@ class QualityValidator:
         if claim.measurement_method and len(claim.measurement_method) > 100:
             genuine.append("detailed_methodology")
 
-        if "gradual" in claim.description.lower() or "iterative" in claim.description.lower():
+        if (
+            "gradual" in claim.description.lower()
+            or "iterative" in claim.description.lower()
+        ):
             genuine.append("gradual_improvement")
 
         return genuine
@@ -724,7 +754,7 @@ class QualityValidator:
         genuine_indicators: List[str],
     ) -> float:
         """Calculate overall confidence score"""
-        base_score = (statistical_score * 0.4 + evidence_score * 0.6)
+        base_score = statistical_score * 0.4 + evidence_score * 0.6
 
         theater_penalty = len(theater_indicators) * 0.25
         base_score = max(0.0, base_score - theater_penalty)
@@ -814,36 +844,42 @@ class QualityValidator:
         sarif = {
             "version": "2.1.0",
             "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
-            "runs": [{
-                "tool": {
-                    "driver": {
-                        "name": "Quality Validator",
-                        "version": "1.0.0",
-                        "informationUri": "https://github.com/quality-validator",
-                    }
-                },
-                "results": [
-                    {
-                        "ruleId": v.rule_id,
-                        "message": {"text": v.message},
-                        "level": self._sarif_level(v.severity),
-                        "locations": [{
-                            "physicalLocation": {
-                                "artifactLocation": {"uri": v.file},
-                                "region": {
-                                    "startLine": v.line,
-                                    "startColumn": v.column or 1,
-                                },
+            "runs": [
+                {
+                    "tool": {
+                        "driver": {
+                            "name": "Quality Validator",
+                            "version": "1.0.0",
+                            "informationUri": "https://github.com/quality-validator",
+                        }
+                    },
+                    "results": [
+                        {
+                            "ruleId": v.rule_id,
+                            "message": {"text": v.message},
+                            "level": self._sarif_level(v.severity),
+                            "locations": [
+                                {
+                                    "physicalLocation": {
+                                        "artifactLocation": {"uri": v.file},
+                                        "region": {
+                                            "startLine": v.line,
+                                            "startColumn": v.column or 1,
+                                        },
+                                    }
+                                }
+                            ],
+                            "properties": {
+                                "category": v.category,
+                                "fix_suggestion": v.fix_suggestion,
                             }
-                        }],
-                        "properties": {
-                            "category": v.category,
-                            "fix_suggestion": v.fix_suggestion,
-                        } if v.fix_suggestion else {"category": v.category}
-                    }
-                    for v in self.violations
-                ],
-            }]
+                            if v.fix_suggestion
+                            else {"category": v.category},
+                        }
+                        for v in self.violations
+                    ],
+                }
+            ],
         }
         try:
             Path(output_path).write_text(json.dumps(sarif, indent=2))

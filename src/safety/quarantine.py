@@ -10,7 +10,7 @@ import asyncio
 import logging
 import uuid
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Callable, Awaitable, TypeVar, Generic
+from typing import Dict, List, Optional, Any, Callable, Awaitable, TypeVar
 from dataclasses import dataclass, field
 from enum import Enum
 from contextlib import asynccontextmanager
@@ -18,20 +18,22 @@ import traceback
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class QuarantineState(str, Enum):
     """State of a quarantined item"""
-    PENDING = "pending"       # Awaiting quarantine
-    ISOLATED = "isolated"     # In quarantine, resources held
-    PROCESSING = "processing" # Being evaluated for release/disposal
-    RELEASED = "released"     # Cleared, resources returned
-    DISPOSED = "disposed"     # Permanently removed
+
+    PENDING = "pending"  # Awaiting quarantine
+    ISOLATED = "isolated"  # In quarantine, resources held
+    PROCESSING = "processing"  # Being evaluated for release/disposal
+    RELEASED = "released"  # Cleared, resources returned
+    DISPOSED = "disposed"  # Permanently removed
 
 
 class QuarantineReason(str, Enum):
     """Reason for quarantine"""
+
     CIRCUIT_BREAKER = "circuit_breaker"
     TIMEOUT = "timeout"
     ERROR_THRESHOLD = "error_threshold"
@@ -44,6 +46,7 @@ class QuarantineReason(str, Enum):
 @dataclass
 class QuarantinedItem:
     """An item in quarantine"""
+
     id: str
     resource_type: str
     resource_id: str
@@ -71,14 +74,17 @@ class QuarantinedItem:
             "error_message": self.error_message,
             "retry_count": self.retry_count,
             "max_retries": self.max_retries,
-            "release_after": self.release_after.isoformat() if self.release_after else None,
-            "metadata": self.metadata
+            "release_after": self.release_after.isoformat()
+            if self.release_after
+            else None,
+            "metadata": self.metadata,
         }
 
 
 @dataclass
 class QuarantineMetrics:
     """Metrics for quarantine system"""
+
     total_quarantined: int = 0
     total_released: int = 0
     total_disposed: int = 0
@@ -95,7 +101,7 @@ class QuarantineMetrics:
             "current_isolated": self.current_isolated,
             "by_reason": self.by_reason,
             "by_resource_type": self.by_resource_type,
-            "avg_quarantine_duration_ms": self.avg_quarantine_duration_ms
+            "avg_quarantine_duration_ms": self.avg_quarantine_duration_ms,
         }
 
 
@@ -121,8 +127,7 @@ class ResourcePool:
 
         try:
             acquired = await asyncio.wait_for(
-                self._semaphore.acquire(),
-                timeout=timeout
+                self._semaphore.acquire(), timeout=timeout
             )
             if acquired:
                 self._active_count += 1
@@ -146,8 +151,9 @@ class ResourcePool:
             "rejected_requests": self._rejected_requests,
             "rejection_rate": (
                 self._rejected_requests / self._total_requests
-                if self._total_requests > 0 else 0.0
-            )
+                if self._total_requests > 0
+                else 0.0
+            ),
         }
 
 
@@ -172,7 +178,7 @@ class QuarantineManager:
         self,
         default_duration: Optional[timedelta] = None,
         max_retries: int = 3,
-        auto_cleanup: bool = True
+        auto_cleanup: bool = True,
     ):
         self.default_duration = default_duration or self.DEFAULT_QUARANTINE_DURATION
         self.max_retries = max_retries
@@ -214,9 +220,7 @@ class QuarantineManager:
         return self._resource_pools.get(name)
 
     def register_cleanup_callback(
-        self,
-        resource_type: str,
-        callback: Callable[..., Awaitable[None]]
+        self, resource_type: str, callback: Callable[..., Awaitable[None]]
     ) -> None:
         """Register a cleanup callback for a resource type"""
         self._cleanup_callbacks[resource_type] = callback
@@ -229,7 +233,7 @@ class QuarantineManager:
         reason: QuarantineReason,
         error: Optional[Exception] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        duration: Optional[timedelta] = None
+        duration: Optional[timedelta] = None,
     ) -> QuarantinedItem:
         """
         Put a resource into quarantine.
@@ -263,7 +267,7 @@ class QuarantineManager:
                 stack_trace=traceback.format_exc() if error else None,
                 metadata=metadata or {},
                 max_retries=self.max_retries,
-                release_after=release_after
+                release_after=release_after,
             )
 
             self._items[item_id] = item
@@ -285,11 +289,7 @@ class QuarantineManager:
 
             return item
 
-    async def release(
-        self,
-        item_id: str,
-        force: bool = False
-    ) -> bool:
+    async def release(self, item_id: str, force: bool = False) -> bool:
         """
         Release an item from quarantine.
 
@@ -327,7 +327,9 @@ class QuarantineManager:
             self._durations.append(duration_ms)
             if len(self._durations) > 1000:
                 self._durations = self._durations[-1000:]
-            self._metrics.avg_quarantine_duration_ms = sum(self._durations) / len(self._durations)
+            self._metrics.avg_quarantine_duration_ms = sum(self._durations) / len(
+                self._durations
+            )
 
             # Update metrics
             self._metrics.total_released += 1
@@ -336,11 +338,7 @@ class QuarantineManager:
             logger.info(f"Released quarantine item: {item_id}")
             return True
 
-    async def dispose(
-        self,
-        item_id: str,
-        run_cleanup: bool = True
-    ) -> bool:
+    async def dispose(self, item_id: str, run_cleanup: bool = True) -> bool:
         """
         Permanently dispose of a quarantined item.
 
@@ -401,9 +399,7 @@ class QuarantineManager:
             item.updated_at = datetime.utcnow()
             item.state = QuarantineState.PROCESSING
 
-            logger.info(
-                f"Retry {item.retry_count}/{item.max_retries} for {item_id}"
-            )
+            logger.info(f"Retry {item.retry_count}/{item.max_retries} for {item_id}")
             return item
 
     async def _cleanup_loop(self) -> None:
@@ -447,7 +443,7 @@ class QuarantineManager:
     def list_items(
         self,
         state: Optional[QuarantineState] = None,
-        resource_type: Optional[str] = None
+        resource_type: Optional[str] = None,
     ) -> List[QuarantinedItem]:
         """List quarantined items with optional filters"""
         items = list(self._items.values())
@@ -464,9 +460,8 @@ class QuarantineManager:
         return {
             "quarantine": self._metrics.to_dict(),
             "pools": {
-                name: pool.get_stats()
-                for name, pool in self._resource_pools.items()
-            }
+                name: pool.get_stats() for name, pool in self._resource_pools.items()
+            },
         }
 
 
@@ -475,14 +470,12 @@ _quarantine_manager: Optional[QuarantineManager] = None
 
 
 def get_quarantine_manager(
-    default_duration: Optional[timedelta] = None,
-    max_retries: int = 3
+    default_duration: Optional[timedelta] = None, max_retries: int = 3
 ) -> QuarantineManager:
     """Get singleton quarantine manager"""
     global _quarantine_manager
     if _quarantine_manager is None:
         _quarantine_manager = QuarantineManager(
-            default_duration=default_duration,
-            max_retries=max_retries
+            default_duration=default_duration, max_retries=max_retries
         )
     return _quarantine_manager

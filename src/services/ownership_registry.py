@@ -18,7 +18,7 @@ import os
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 from loguru import logger
 
 from ..integrations.ontology_schema import (
@@ -100,7 +100,9 @@ class OwnershipRegistry:
                 try:
                     component = ComponentOwnership(
                         id=node_id,
-                        component_type=ComponentType(metadata.get("component_type", "skill")),
+                        component_type=ComponentType(
+                            metadata.get("component_type", "skill")
+                        ),
                         canonical_path=metadata.get("canonical_path", ""),
                         content_hash=metadata.get("content_hash", ""),
                         version=metadata.get("version", "0.0.0"),
@@ -140,7 +142,9 @@ class OwnershipRegistry:
         # Compute hash of canonical file
         content_hash = self._compute_file_hash(canonical_path)
         if not content_hash:
-            logger.error(f"Cannot register {component_id}: file not found at {canonical_path}")
+            logger.error(
+                f"Cannot register {component_id}: file not found at {canonical_path}"
+            )
             return False
 
         component = ComponentOwnership(
@@ -166,7 +170,7 @@ class OwnershipRegistry:
             "last_verified": component.last_verified.isoformat(),
         }
 
-        entity_type = f"ownership-{component_type.value}"
+        entity_type = f"ownership-{component_type.value}"  # noqa: F841
         self.graph.add_chunk_node(component_id, metadata)
 
         self._components[component_id] = component
@@ -284,12 +288,16 @@ class OwnershipRegistry:
                     component = filename_to_component[filename]
 
                     # Skip if this IS the canonical path
-                    if os.path.normpath(file_path) == os.path.normpath(component.canonical_path):
+                    if os.path.normpath(file_path) == os.path.normpath(
+                        component.canonical_path
+                    ):
                         continue
 
                     # Skip if in allowed copies
                     if any(
-                        os.path.normpath(file_path).startswith(os.path.normpath(allowed))
+                        os.path.normpath(file_path).startswith(
+                            os.path.normpath(allowed)
+                        )
                         for allowed in component.allowed_copies
                     ):
                         continue
@@ -350,37 +358,47 @@ class OwnershipRegistry:
 
         for violation in violations:
             if not auto_fix and not violation.auto_fixable:
-                results["skipped"].append({
-                    "id": violation.id,
-                    "reason": "not_auto_fixable",
-                })
+                results["skipped"].append(
+                    {
+                        "id": violation.id,
+                        "reason": "not_auto_fixable",
+                    }
+                )
                 continue
 
             try:
                 if dry_run:
-                    results["fixed"].append({
-                        "id": violation.id,
-                        "action": violation.fix_action,
-                        "would_fix": True,
-                    })
+                    results["fixed"].append(
+                        {
+                            "id": violation.id,
+                            "action": violation.fix_action,
+                            "would_fix": True,
+                        }
+                    )
                     continue
 
                 success = self._apply_fix(violation)
                 if success:
-                    results["fixed"].append({
-                        "id": violation.id,
-                        "action": violation.fix_action,
-                    })
+                    results["fixed"].append(
+                        {
+                            "id": violation.id,
+                            "action": violation.fix_action,
+                        }
+                    )
                 else:
-                    results["failed"].append({
-                        "id": violation.id,
-                        "reason": "fix_failed",
-                    })
+                    results["failed"].append(
+                        {
+                            "id": violation.id,
+                            "reason": "fix_failed",
+                        }
+                    )
             except Exception as e:
-                results["failed"].append({
-                    "id": violation.id,
-                    "reason": str(e),
-                })
+                results["failed"].append(
+                    {
+                        "id": violation.id,
+                        "reason": str(e),
+                    }
+                )
 
         logger.info(
             f"Fix complete: {len(results['fixed'])} fixed, "
@@ -401,12 +419,16 @@ class OwnershipRegistry:
             # Sync violating file to match canonical
             if os.path.exists(violation.canonical_path):
                 shutil.copy2(violation.canonical_path, violation.violating_path)
-                logger.info(f"Synced: {violation.violating_path} <- {violation.canonical_path}")
+                logger.info(
+                    f"Synced: {violation.violating_path} <- {violation.canonical_path}"
+                )
                 return True
 
         elif violation.fix_action == "restore":
             # Cannot restore - need external action
-            logger.warning(f"Cannot restore missing canonical: {violation.canonical_path}")
+            logger.warning(
+                f"Cannot restore missing canonical: {violation.canonical_path}"
+            )
             return False
 
         elif violation.fix_action == "update_hash":
@@ -535,15 +557,17 @@ class OwnershipRegistry:
         }
 
         for component in self._components.values():
-            manifest["components"].append({
-                "id": component.id,
-                "type": component.component_type.value,
-                "canonical_path": component.canonical_path,
-                "content_hash": component.content_hash,
-                "version": component.version,
-                "owner_project": component.owner_project,
-                "allowed_copies": component.allowed_copies,
-            })
+            manifest["components"].append(
+                {
+                    "id": component.id,
+                    "type": component.component_type.value,
+                    "canonical_path": component.canonical_path,
+                    "content_hash": component.content_hash,
+                    "version": component.version,
+                    "owner_project": component.owner_project,
+                    "allowed_copies": component.allowed_copies,
+                }
+            )
 
         try:
             with open(output_path, "w") as f:

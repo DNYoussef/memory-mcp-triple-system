@@ -30,17 +30,29 @@ class TestMCPToolsExposed:
         tool_names = {t["name"] for t in tools}
 
         expected = {
-            "vector_search", "unified_search", "memory_store", "graph_query",
-            "bayesian_inference", "entity_extraction", "hipporag_retrieve",
-            "detect_mode", "lifecycle_status", "obsidian_sync",
-            "beads_ready_tasks", "beads_task_detail", "beads_query_tasks",
+            "vector_search",
+            "unified_search",
+            "memory_store",
+            "graph_query",
+            "bayesian_inference",
+            "entity_extraction",
+            "hipporag_retrieve",
+            "detect_mode",
+            "lifecycle_status",
+            "obsidian_sync",
+            "beads_ready_tasks",
+            "beads_task_detail",
+            "beads_query_tasks",
             "observation_timeline",
-            "kv_get", "kv_set", "kv_delete", "context_retrieve",
+            "kv_get",
+            "kv_set",
+            "kv_delete",
+            "context_retrieve",
         }
 
-        assert tool_names == expected, (
-            f"Tool set drift: missing={expected - tool_names}, extra={tool_names - expected}"
-        )
+        assert (
+            tool_names == expected
+        ), f"Tool set drift: missing={expected - tool_names}, extra={tool_names - expected}"
 
     def test_all_required_tools_present(self):
         """Verify all required tool names are present."""
@@ -56,7 +68,7 @@ class TestMCPToolsExposed:
             "entity_extraction",
             "hipporag_retrieve",
             "detect_mode",
-            "obsidian_sync"
+            "obsidian_sync",
         ]
 
         for required in required_tools:
@@ -70,7 +82,9 @@ class TestMCPToolsExposed:
 
         for tool in tools:
             assert "inputSchema" in tool, f"Tool {tool['name']} missing inputSchema"
-            assert "properties" in tool["inputSchema"], f"Tool {tool['name']} missing properties"
+            assert (
+                "properties" in tool["inputSchema"]
+            ), f"Tool {tool['name']} missing properties"
 
 
 class TestToolHandlers:
@@ -79,31 +93,37 @@ class TestToolHandlers:
     def test_vector_search_handler_exists(self):
         """Verify _handle_vector_search exists."""
         from src.mcp.stdio_server import _handle_vector_search
+
         assert callable(_handle_vector_search)
 
     def test_memory_store_handler_exists(self):
         """Verify _handle_memory_store exists."""
         from src.mcp.stdio_server import _handle_memory_store
+
         assert callable(_handle_memory_store)
 
     def test_graph_query_handler_exists(self):
         """Verify _handle_graph_query exists."""
         from src.mcp.stdio_server import _handle_graph_query
+
         assert callable(_handle_graph_query)
 
     def test_entity_extraction_handler_exists(self):
         """Verify _handle_entity_extraction exists."""
         from src.mcp.stdio_server import _handle_entity_extraction
+
         assert callable(_handle_entity_extraction)
 
     def test_hipporag_retrieve_handler_exists(self):
         """Verify _handle_hipporag_retrieve exists."""
         from src.mcp.stdio_server import _handle_hipporag_retrieve
+
         assert callable(_handle_hipporag_retrieve)
 
     def test_detect_mode_handler_exists(self):
         """Verify _handle_detect_mode exists."""
         from src.mcp.stdio_server import _handle_detect_mode
+
         assert callable(_handle_detect_mode)
 
 
@@ -139,8 +159,7 @@ class TestEntityExtraction:
             entity_service = None
 
         result = _handle_entity_extraction(
-            {"text": "John Smith works at Microsoft Corp in New York City."},
-            MockTool()
+            {"text": "John Smith works at Microsoft Corp in New York City."}, MockTool()
         )
 
         assert not result["isError"], "Entity extraction should not error"
@@ -160,10 +179,7 @@ class TestDetectMode:
         class MockTool:
             pass
 
-        result = _handle_detect_mode(
-            {"query": "What is machine learning?"},
-            MockTool()
-        )
+        result = _handle_detect_mode({"query": "What is machine learning?"}, MockTool())
 
         assert not result["isError"]
         assert "execution" in result["content"][0]["text"].lower()
@@ -176,8 +192,7 @@ class TestDetectMode:
             pass
 
         result = _handle_detect_mode(
-            {"query": "How should I design the authentication system?"},
-            MockTool()
+            {"query": "How should I design the authentication system?"}, MockTool()
         )
 
         assert not result["isError"]
@@ -191,8 +206,7 @@ class TestDetectMode:
             pass
 
         result = _handle_detect_mode(
-            {"query": "What if we explored using blockchain?"},
-            MockTool()
+            {"query": "What if we explored using blockchain?"}, MockTool()
         )
 
         assert not result["isError"]
@@ -205,6 +219,7 @@ class TestServerVersion:
     def test_version_is_1_4_0(self):
         """Verify version is 1.4.0."""
         from src import __version__
+
         assert __version__ == "1.4.0", f"Expected 1.4.0, got {__version__}"
 
 

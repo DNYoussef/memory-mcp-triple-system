@@ -7,13 +7,17 @@ Single Responsibility: Classify errors into categories.
 NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from enum import Enum
 from loguru import logger
+
+if TYPE_CHECKING:
+    from src.debug.detection_rules import DetectionRules
 
 
 class ErrorType(Enum):
     """Error classification categories."""
+
     CONTEXT_BUG = "context_bug"
     MODEL_BUG = "model_bug"
     SYSTEM_ERROR = "system_error"
@@ -21,6 +25,7 @@ class ErrorType(Enum):
 
 class ContextBugType(Enum):
     """Context bug subcategories."""
+
     WRONG_STORE_QUERIED = "wrong_store_queried"
     WRONG_MODE_DETECTED = "wrong_mode_detected"
     WRONG_LIFECYCLE_FILTER = "wrong_lifecycle_filter"
@@ -43,6 +48,7 @@ class ErrorClassifier:
             detection_rules: Rules for detecting error types
         """
         from .detection_rules import DetectionRules
+
         self.rules = detection_rules or DetectionRules()
 
     def classify(self, trace) -> ErrorType:

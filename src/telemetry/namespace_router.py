@@ -23,11 +23,11 @@ from datetime import datetime
 from enum import Enum
 from typing import Dict, Any, Optional, List, Tuple
 from loguru import logger
-import re
 
 
 class TelemetryNamespace(Enum):
     """Supported telemetry namespace types."""
+
     AGENTS = "agents"
     EXPERTISE = "expertise"
     FINDINGS = "findings"
@@ -59,14 +59,23 @@ SEVERITY_LEVELS = ("critical", "high", "medium", "low", "info")
 
 # Valid agent categories
 AGENT_CATEGORIES = (
-    "coder", "researcher", "tester", "reviewer", "deployer",
-    "documenter", "security", "performance", "quality", "meta"
+    "coder",
+    "researcher",
+    "tester",
+    "reviewer",
+    "deployer",
+    "documenter",
+    "security",
+    "performance",
+    "quality",
+    "meta",
 )
 
 
 @dataclass
 class ParsedNamespace:
     """Parsed namespace key with segments."""
+
     namespace: TelemetryNamespace
     segments: Dict[str, str]
     raw_key: str
@@ -76,7 +85,7 @@ class ParsedNamespace:
         return {
             "namespace": self.namespace.value,
             "segments": self.segments,
-            "raw_key": self.raw_key
+            "raw_key": self.raw_key,
         }
 
 
@@ -122,17 +131,10 @@ def parse_namespace_key(key: str) -> Optional[ParsedNamespace]:
             if value:
                 segments[segment_name] = value
 
-    return ParsedNamespace(
-        namespace=namespace,
-        segments=segments,
-        raw_key=key
-    )
+    return ParsedNamespace(namespace=namespace, segments=segments, raw_key=key)
 
 
-def build_namespace_key(
-    namespace: TelemetryNamespace,
-    **kwargs
-) -> str:
+def build_namespace_key(namespace: TelemetryNamespace, **kwargs) -> str:
     """
     Build a namespace key from components.
 
@@ -189,10 +191,7 @@ class NamespaceRouter:
         logger.info("NamespaceRouter initialized")
 
     def store(
-        self,
-        namespace: TelemetryNamespace,
-        data: Dict[str, Any],
-        **key_segments
+        self, namespace: TelemetryNamespace, data: Dict[str, Any], **key_segments
     ) -> bool:
         """
         Store data under namespaced key.
@@ -218,6 +217,7 @@ class NamespaceRouter:
 
             # Store in KV
             import json
+
             success = self.kv_store.set(key, json.dumps(data))
 
             if success:
@@ -247,6 +247,7 @@ class NamespaceRouter:
                 return None
 
             import json
+
             return json.loads(value)
 
         except Exception as e:
@@ -254,9 +255,7 @@ class NamespaceRouter:
             return None
 
     def list_by_namespace(
-        self,
-        namespace: TelemetryNamespace,
-        prefix_filter: str = ""
+        self, namespace: TelemetryNamespace, prefix_filter: str = ""
     ) -> List[str]:
         """
         List all keys in a namespace.
@@ -277,11 +276,7 @@ class NamespaceRouter:
         return self.kv_store.list_keys(full_prefix)
 
     def store_agent_result(
-        self,
-        category: str,
-        agent_type: str,
-        project: str,
-        result: Dict[str, Any]
+        self, category: str, agent_type: str, project: str, result: Dict[str, Any]
     ) -> bool:
         """
         Store agent execution result.
@@ -297,15 +292,11 @@ class NamespaceRouter:
             category=category,
             type=agent_type,
             project=project,
-            timestamp=timestamp
+            timestamp=timestamp,
         )
 
     def store_finding(
-        self,
-        agent: str,
-        severity: str,
-        finding_id: str,
-        finding_data: Dict[str, Any]
+        self, agent: str, severity: str, finding_id: str, finding_data: Dict[str, Any]
     ) -> bool:
         """
         Store a finding/issue.
@@ -323,15 +314,10 @@ class NamespaceRouter:
             finding_data,
             agent=agent,
             severity=severity,
-            id=finding_id
+            id=finding_id,
         )
 
-    def store_fix(
-        self,
-        agent: str,
-        finding_id: str,
-        fix_data: Dict[str, Any]
-    ) -> bool:
+    def store_fix(self, agent: str, finding_id: str, fix_data: Dict[str, Any]) -> bool:
         """
         Store a fix for a finding.
 
@@ -340,17 +326,11 @@ class NamespaceRouter:
         NASA Rule 10: 12 LOC (<=60)
         """
         return self.store(
-            TelemetryNamespace.FIXES,
-            fix_data,
-            agent=agent,
-            finding_id=finding_id
+            TelemetryNamespace.FIXES, fix_data, agent=agent, finding_id=finding_id
         )
 
     def store_expertise(
-        self,
-        domain: str,
-        topic: str,
-        expertise_data: Dict[str, Any]
+        self, domain: str, topic: str, expertise_data: Dict[str, Any]
     ) -> bool:
         """
         Store domain expertise.
@@ -360,10 +340,7 @@ class NamespaceRouter:
         NASA Rule 10: 12 LOC (<=60)
         """
         return self.store(
-            TelemetryNamespace.EXPERTISE,
-            expertise_data,
-            domain=domain,
-            topic=topic
+            TelemetryNamespace.EXPERTISE, expertise_data, domain=domain, topic=topic
         )
 
     def get_namespace_stats(self) -> Dict[str, int]:

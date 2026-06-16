@@ -19,16 +19,16 @@ class CurationService:
     """Service for curating memory chunks with lifecycle tags and verification."""
 
     # Lifecycle tag constants
-    LIFECYCLE_PERMANENT = 'permanent'
-    LIFECYCLE_TEMPORARY = 'temporary'
-    LIFECYCLE_EPHEMERAL = 'ephemeral'
+    LIFECYCLE_PERMANENT = "permanent"
+    LIFECYCLE_TEMPORARY = "temporary"
+    LIFECYCLE_EPHEMERAL = "ephemeral"
     VALID_LIFECYCLES = {LIFECYCLE_PERMANENT, LIFECYCLE_TEMPORARY, LIFECYCLE_EPHEMERAL}
 
     def __init__(
         self,
         chroma_client,
         collection_name: str = "memory_chunks",
-        data_dir: str = "/data"
+        data_dir: str = "/data",
     ):
         """
         Initialize curation service.
@@ -51,10 +51,7 @@ class CurationService:
         self.data_dir.mkdir(exist_ok=True)
 
         # Preferences cache (30-day TTL)
-        self.preferences_cache = MemoryCache(
-            ttl_seconds=30 * 24 * 3600,
-            max_size=1000
-        )
+        self.preferences_cache = MemoryCache(ttl_seconds=30 * 24 * 3600, max_size=1000)
 
         # Get or create collection
         try:
@@ -62,8 +59,7 @@ class CurationService:
             logger.info(f"Using existing collection: {collection_name}")
         except Exception:
             self.collection = self.client.create_collection(
-                name=collection_name,
-                metadata={"hnsw:space": "cosine"}
+                name=collection_name, metadata={"hnsw:space": "cosine"}
             )
             logger.info(f"Created new collection: {collection_name}")
 
@@ -83,36 +79,41 @@ class CurationService:
             raise ValueError("limit too large (max 100)")
 
         # Query ChromaDB for unverified chunks
-        results = self.collection.get(
-            where={"verified": False},
-            limit=limit
-        )
+        results = self.collection.get(where={"verified": False}, limit=limit)
 
         # Format results
         chunks = []
-        if results['ids']:
-            for i in range(len(results['ids'])):
-                chunks.append({
-                    'id': results['ids'][i],
-                    'text': results['documents'][i] if results['documents'] else '',
-                    'metadata': results['metadatas'][i] if results['metadatas'] else {},
-                    'file_path': (
-                        results['metadatas'][i].get('file_path', '')
-                        if results['metadatas'] else ''
-                    ),
-                    'chunk_index': (
-                        results['metadatas'][i].get('chunk_index', 0)
-                        if results['metadatas'] else 0
-                    ),
-                    'lifecycle': (
-                        results['metadatas'][i].get('lifecycle', 'temporary')
-                        if results['metadatas'] else 'temporary'
-                    ),
-                    'verified': (
-                        results['metadatas'][i].get('verified', False)
-                        if results['metadatas'] else False
-                    )
-                })
+        if results["ids"]:
+            for i in range(len(results["ids"])):
+                chunks.append(
+                    {
+                        "id": results["ids"][i],
+                        "text": results["documents"][i] if results["documents"] else "",
+                        "metadata": results["metadatas"][i]
+                        if results["metadatas"]
+                        else {},
+                        "file_path": (
+                            results["metadatas"][i].get("file_path", "")
+                            if results["metadatas"]
+                            else ""
+                        ),
+                        "chunk_index": (
+                            results["metadatas"][i].get("chunk_index", 0)
+                            if results["metadatas"]
+                            else 0
+                        ),
+                        "lifecycle": (
+                            results["metadatas"][i].get("lifecycle", "temporary")
+                            if results["metadatas"]
+                            else "temporary"
+                        ),
+                        "verified": (
+                            results["metadatas"][i].get("verified", False)
+                            if results["metadatas"]
+                            else False
+                        ),
+                    }
+                )
 
         logger.info(f"Retrieved {len(chunks)} unverified chunks")
         return chunks
@@ -137,10 +138,9 @@ class CurationService:
             # Update metadata in ChromaDB
             self.collection.update(
                 ids=[chunk_id],
-                metadatas=[{
-                    'lifecycle': lifecycle,
-                    'updated_at': datetime.now().isoformat()
-                }]
+                metadatas=[
+                    {"lifecycle": lifecycle, "updated_at": datetime.now().isoformat()}
+                ],
             )
 
             logger.info(f"Tagged chunk {chunk_id} as {lifecycle}")
@@ -166,11 +166,13 @@ class CurationService:
             # Update metadata in ChromaDB
             self.collection.update(
                 ids=[chunk_id],
-                metadatas=[{
-                    'verified': True,
-                    'verified_at': datetime.now().isoformat(),
-                    'updated_at': datetime.now().isoformat()
-                }]
+                metadatas=[
+                    {
+                        "verified": True,
+                        "verified_at": datetime.now().isoformat(),
+                        "updated_at": datetime.now().isoformat(),
+                    }
+                ],
             )
 
             logger.info(f"Marked chunk {chunk_id} as verified")
@@ -183,7 +185,7 @@ class CurationService:
         self,
         duration_seconds: int,
         chunks_curated: int = 0,
-        session_id: Optional[str] = None
+        session_id: Optional[str] = None,
     ) -> None:
         """
         Log curation session time.
@@ -198,32 +200,36 @@ class CurationService:
         if chunks_curated < 0:
             raise ValueError("chunks_curated must be non-negative")
 
-        log_file = self.data_dir / 'curation_time.json'
+        log_file = self.data_dir / "curation_time.json"
         session_id = session_id or str(uuid.uuid4())
 
         # Load existing log
         if log_file.exists():
-            with open(log_file, 'r') as f:
+            with open(log_file, "r") as f:
                 log = json.load(f)
         else:
-            log = {'sessions': [], 'stats': {}}
+            log = {"sessions": [], "stats": {}}
 
         # Add session
-        log['sessions'].append({
-            'session_id': session_id,
-            'date': datetime.now().isoformat(),
-            'duration_seconds': duration_seconds,
-            'chunks_curated': chunks_curated
-        })
+        log["sessions"].append(
+            {
+                "session_id": session_id,
+                "date": datetime.now().isoformat(),
+                "duration_seconds": duration_seconds,
+                "chunks_curated": chunks_curated,
+            }
+        )
 
         # Update stats
-        log['stats'] = self._calculate_stats(log['sessions'])
+        log["stats"] = self._calculate_stats(log["sessions"])
 
         # Save
-        with open(log_file, 'w') as f:
+        with open(log_file, "w") as f:
             json.dump(log, f, indent=2)
 
-        logger.info(f"Logged session {session_id}: {duration_seconds}s, {chunks_curated} chunks")
+        logger.info(
+            f"Logged session {session_id}: {duration_seconds}s, {chunks_curated} chunks"
+        )
 
     def _calculate_stats(self, sessions: List[Dict]) -> Dict[str, Any]:
         """
@@ -237,24 +243,26 @@ class CurationService:
         """
         if not sessions:
             return {
-                'total_time_minutes': 0,
-                'avg_time_per_day': 0,
-                'days_active': 0,
-                'total_chunks': 0
+                "total_time_minutes": 0,
+                "avg_time_per_day": 0,
+                "days_active": 0,
+                "total_chunks": 0,
             }
 
-        total_seconds = sum(s['duration_seconds'] for s in sessions)
-        total_chunks = sum(s.get('chunks_curated', 0) for s in sessions)
+        total_seconds = sum(s["duration_seconds"] for s in sessions)
+        total_chunks = sum(s.get("chunks_curated", 0) for s in sessions)
 
         # Count unique days
-        dates = {s['date'][:10] for s in sessions}  # Extract date part
+        dates = {s["date"][:10] for s in sessions}  # Extract date part
         days_active = len(dates)
 
         return {
-            'total_time_minutes': round(total_seconds / 60, 1),
-            'avg_time_per_day': round(total_seconds / 60 / days_active, 1) if days_active > 0 else 0,
-            'days_active': days_active,
-            'total_chunks': total_chunks
+            "total_time_minutes": round(total_seconds / 60, 1),
+            "avg_time_per_day": round(total_seconds / 60 / days_active, 1)
+            if days_active > 0
+            else 0,
+            "days_active": days_active,
+            "total_chunks": total_chunks,
         }
 
     def get_preferences(self, user_id: str = "default") -> Dict[str, Any]:
@@ -275,13 +283,13 @@ class CurationService:
         if prefs is None:
             # Default preferences
             prefs = {
-                'user_id': user_id,
-                'time_budget_minutes': 5,
-                'auto_suggest': True,
-                'weekly_review_day': 'sunday',
-                'weekly_review_time': '10:00',
-                'batch_size': 20,
-                'default_lifecycle': 'temporary'
+                "user_id": user_id,
+                "time_budget_minutes": 5,
+                "auto_suggest": True,
+                "weekly_review_day": "sunday",
+                "weekly_review_time": "10:00",
+                "batch_size": 20,
+                "default_lifecycle": "temporary",
             }
             self.preferences_cache.set(f"prefs:{user_id}", prefs)
 
@@ -302,8 +310,12 @@ class CurationService:
 
         # Validate required fields
         required_fields = {
-            'time_budget_minutes', 'auto_suggest', 'weekly_review_day',
-            'weekly_review_time', 'batch_size', 'default_lifecycle'
+            "time_budget_minutes",
+            "auto_suggest",
+            "weekly_review_day",
+            "weekly_review_time",
+            "batch_size",
+            "default_lifecycle",
         }
         if not required_fields.issubset(preferences.keys()):
             raise ValueError("Missing required fields")
@@ -322,18 +334,18 @@ class CurationService:
         Returns:
             Suggested lifecycle tag
         """
-        if 'text' not in chunk:
+        if "text" not in chunk:
             raise ValueError("chunk must have 'text' field")
 
-        text = chunk['text'].lower()
+        text = chunk["text"].lower()
         word_count = len(text.split())
 
         # Rule 1: Task markers → temporary
-        if 'todo' in text or 'fixme' in text:
+        if "todo" in text or "fixme" in text:
             return self.LIFECYCLE_TEMPORARY
 
         # Rule 2: Reference/Definition → permanent
-        if 'reference' in text or 'definition' in text:
+        if "reference" in text or "definition" in text:
             return self.LIFECYCLE_PERMANENT
 
         # Rule 3: <50 words → ephemeral

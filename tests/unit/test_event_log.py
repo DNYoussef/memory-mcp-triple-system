@@ -26,7 +26,7 @@ class TestEventLog:
         # Cleanup
         try:
             os.unlink(temp_db.name)
-        except:
+        except Exception:
             pass
 
     def test_initialization(self, event_log):

@@ -8,12 +8,7 @@ Tests error classification logic:
 """
 
 import pytest
-from unittest.mock import Mock
-from src.debug.error_attribution import (
-    ErrorAttribution,
-    ErrorType,
-    ContextBugType
-)
+from src.debug.error_attribution import ErrorAttribution, ErrorType, ContextBugType
 
 
 class MockQueryTrace:
@@ -26,7 +21,7 @@ class MockQueryTrace:
         mode_detected=None,
         error=None,
         error_type=None,
-        output=None
+        output=None,
     ):
         self.query = query
         self.stores_queried = stores_queried or []
@@ -50,7 +45,7 @@ class TestErrorAttribution:
         trace = MockQueryTrace(
             query="What's my coding style?",
             stores_queried=["vector"],  # Wrong! Should be KV
-            error="Not found"
+            error="Not found",
         )
 
         error_type = attribution.classify_failure(trace)
@@ -66,7 +61,7 @@ class TestErrorAttribution:
             query="P(bug|change)?",
             mode_detected="execution",  # Wrong! Should be planning
             stores_queried=["vector", "hipporag"],
-            error="Verification failed"
+            error="Verification failed",
         )
 
         error_type = attribution.classify_failure(trace)
@@ -83,7 +78,7 @@ class TestErrorAttribution:
             stores_queried=["vector", "hipporag"],  # Correct
             mode_detected="execution",  # Correct
             output="NASA Rule 10 is about testing",  # Wrong (model error)
-            error="Output incorrect"
+            error="Output incorrect",
         )
 
         error_type = attribution.classify_failure(trace)
@@ -95,7 +90,7 @@ class TestErrorAttribution:
         trace = MockQueryTrace(
             query="What is NASA Rule 10?",
             stores_queried=["vector"],
-            error="timeout: Query took >1s"  # System error
+            error="timeout: Query took >1s",  # System error
         )
 
         error_type = attribution.classify_failure(trace)
@@ -126,39 +121,35 @@ class TestErrorAttribution:
     def test_wrong_store_detection_kv(self, attribution):
         """Test detection of queries that should use KV store."""
         # "What's my X?" pattern should use KV
-        test_cases = [
-            "What's my coding style?",
-            "What is my name?",
-            "Whats my email?"
-        ]
+        test_cases = ["What's my coding style?", "What is my name?", "Whats my email?"]
 
         for query in test_cases:
             trace = MockQueryTrace(query=query, stores_queried=["vector"])
-            assert attribution._is_wrong_store(trace), f"Should detect wrong store for: {query}"
+            assert attribution._is_wrong_store(
+                trace
+            ), f"Should detect wrong store for: {query}"
 
     def test_wrong_store_detection_vector(self, attribution):
         """Test detection of queries that should use vector store."""
         # "What about X?" pattern should use vector
-        test_cases = [
-            "What about machine learning?",
-            "What about NASA Rule 10?"
-        ]
+        test_cases = ["What about machine learning?", "What about NASA Rule 10?"]
 
         for query in test_cases:
             trace = MockQueryTrace(query=query, stores_queried=["kv"])
-            assert attribution._is_wrong_store(trace), f"Should detect wrong store for: {query}"
+            assert attribution._is_wrong_store(
+                trace
+            ), f"Should detect wrong store for: {query}"
 
     def test_wrong_mode_detection_planning(self, attribution):
         """Test detection of planning queries in wrong mode."""
         # Queries with "P(" notation should be planning mode
-        test_cases = [
-            "P(bug|feature change)?",
-            "what is p(success)?"
-        ]
+        test_cases = ["P(bug|feature change)?", "what is p(success)?"]
 
         for query in test_cases:
             trace = MockQueryTrace(query=query, mode_detected="execution")
-            assert attribution._is_wrong_mode(trace), f"Should detect wrong mode for: {query}"
+            assert attribution._is_wrong_mode(
+                trace
+            ), f"Should detect wrong mode for: {query}"
 
     def test_correct_classification(self, attribution):
         """Test queries with correct routing."""
@@ -166,7 +157,7 @@ class TestErrorAttribution:
         trace = MockQueryTrace(
             query="What's my coding style?",
             stores_queried=["kv"],
-            mode_detected="execution"
+            mode_detected="execution",
         )
         assert not attribution._is_wrong_store(trace)
 
@@ -174,16 +165,13 @@ class TestErrorAttribution:
         trace2 = MockQueryTrace(
             query="What about NASA Rule 10?",
             stores_queried=["vector"],
-            mode_detected="execution"
+            mode_detected="execution",
         )
         assert not attribution._is_wrong_store(trace2)
 
     def test_pre_classified_error(self, attribution):
         """Test handling of pre-classified errors."""
-        trace = MockQueryTrace(
-            query="test",
-            error_type="context_bug"
-        )
+        trace = MockQueryTrace(query="test", error_type="context_bug")
 
         error_type = attribution.classify_failure(trace)
         assert error_type == ErrorType.CONTEXT_BUG

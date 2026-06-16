@@ -7,17 +7,14 @@ WHY: testing (RETRIEVE-001)
 """
 
 import pytest
-import asyncio
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from src.services.proactive_context_injector import (
     ProactiveContextInjector,
-    get_proactive_injector,
 )
 from src.integrations.proactive_schema import (
     TriggerType,
-    ContextPriority,
     TriggerEvent,
     InjectionRule,
     InjectionStats,
@@ -31,15 +28,17 @@ from src.integrations.proactive_schema import (
 def mock_ontology_bridge():
     """Create mock OntologyBridge."""
     bridge = MagicMock()
-    bridge.query = AsyncMock(return_value={
-        "memory": [
-            {"id": "chunk1", "text": "test content", "score": 0.8},
-            {"id": "chunk2", "text": "more content", "score": 0.75},
-        ],
-        "projects": [
-            {"id": "chunk3", "text": "project info", "score": 0.7},
-        ],
-    })
+    bridge.query = AsyncMock(
+        return_value={
+            "memory": [
+                {"id": "chunk1", "text": "test content", "score": 0.8},
+                {"id": "chunk2", "text": "more content", "score": 0.75},
+            ],
+            "projects": [
+                {"id": "chunk3", "text": "project info", "score": 0.7},
+            ],
+        }
+    )
     return bridge
 
 
@@ -47,11 +46,13 @@ def mock_ontology_bridge():
 def mock_nexus_processor():
     """Create mock NexusProcessor."""
     nexus = MagicMock()
-    nexus.process = MagicMock(return_value={
-        "core": [
-            {"id": "rag1", "text": "RAG result", "score": 0.85},
-        ],
-    })
+    nexus.process = MagicMock(
+        return_value={
+            "core": [
+                {"id": "rag1", "text": "RAG result", "score": 0.85},
+            ],
+        }
+    )
     return nexus
 
 
@@ -181,11 +182,13 @@ async def test_handle_trigger_cooldown(injector, file_open_event):
 async def test_handle_trigger_low_relevance(mock_ontology_bridge):
     """Test low relevance context is filtered out."""
     # Return low relevance chunks
-    mock_ontology_bridge.query = AsyncMock(return_value={
-        "memory": [
-            {"id": "chunk1", "text": "low rel", "score": 0.2},
-        ],
-    })
+    mock_ontology_bridge.query = AsyncMock(
+        return_value={
+            "memory": [
+                {"id": "chunk1", "text": "low rel", "score": 0.2},
+            ],
+        }
+    )
 
     injector = ProactiveContextInjector(ontology_bridge=mock_ontology_bridge)
 
@@ -309,7 +312,9 @@ async def test_injection_history(injector, file_open_event):
 
 
 @pytest.mark.asyncio
-async def test_injection_history_filter_by_type(injector, file_open_event, git_checkout_event):
+async def test_injection_history_filter_by_type(
+    injector, file_open_event, git_checkout_event
+):
     """Test filtering injection history by trigger type."""
     # Clear cooldown by modifying last injection time
     injector._last_injection_by_type.clear()
@@ -441,11 +446,13 @@ def test_is_in_cooldown_after_injection(injector):
     # Simulate recent injection
     injector._last_injection_by_type[TriggerType.FILE_OPEN] = datetime.utcnow()
 
-    rules = [InjectionRule(
-        rule_id="test",
-        trigger_types=[TriggerType.FILE_OPEN],
-        cooldown_seconds=300,
-    )]
+    rules = [
+        InjectionRule(
+            rule_id="test",
+            trigger_types=[TriggerType.FILE_OPEN],
+            cooldown_seconds=300,
+        )
+    ]
 
     result = injector._is_in_cooldown(event, rules)
 
@@ -457,15 +464,17 @@ def test_is_in_cooldown_expired(injector):
     event = TriggerEvent.from_file_open("/test.py")
 
     # Simulate old injection (10 minutes ago)
-    injector._last_injection_by_type[TriggerType.FILE_OPEN] = (
-        datetime.utcnow() - timedelta(minutes=10)
-    )
+    injector._last_injection_by_type[
+        TriggerType.FILE_OPEN
+    ] = datetime.utcnow() - timedelta(minutes=10)
 
-    rules = [InjectionRule(
-        rule_id="test",
-        trigger_types=[TriggerType.FILE_OPEN],
-        cooldown_seconds=60,  # 1 minute cooldown
-    )]
+    rules = [
+        InjectionRule(
+            rule_id="test",
+            trigger_types=[TriggerType.FILE_OPEN],
+            cooldown_seconds=60,  # 1 minute cooldown
+        )
+    ]
 
     result = injector._is_in_cooldown(event, rules)
 

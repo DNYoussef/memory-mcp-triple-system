@@ -16,10 +16,18 @@ if LIBRARY_ROOT.exists() and str(LIBRARY_ROOT) not in sys.path:
     sys.path.insert(0, str(LIBRARY_ROOT))
 
 try:
-    from library.components.cognitive_architecture.integration.connascence_bridge import ConnascenceBridge
-    from library.components.cognitive_architecture.integration.telemetry_bridge import TelemetryBridge
+    from library.components.cognitive_architecture.integration.connascence_bridge import (
+        ConnascenceBridge,
+    )
+    from library.components.cognitive_architecture.integration.telemetry_bridge import (
+        TelemetryBridge,
+    )
     from library.components.memory.memory_mcp_client import create_memory_mcp_client
-    from library.components.observability.tagging_protocol import TaggingProtocol, create_simple_tagger
+    from library.components.observability.tagging_protocol import (
+        TaggingProtocol,
+        create_simple_tagger,
+    )
+
     LIBRARY_AVAILABLE = True
 except ImportError:
     ConnascenceBridge = None  # type: ignore[assignment,misc]
@@ -33,7 +41,9 @@ except ImportError:
 def init_tagger():
     if create_simple_tagger is None:
         return None
-    return create_simple_tagger(agent_id="memory-mcp-triple-system", project_id="memory-mcp-triple-system")
+    return create_simple_tagger(
+        agent_id="memory-mcp-triple-system", project_id="memory-mcp-triple-system"
+    )
 
 
 def init_memory_client():

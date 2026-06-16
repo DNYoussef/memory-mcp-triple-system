@@ -15,10 +15,10 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 
 import sys
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional, List
 from loguru import logger
 
 # Add project paths for imports
@@ -41,6 +41,7 @@ class SessionLearning:
         timestamp: When learning was captured
         project: Project context
     """
+
     skill_name: str
     content: str
     confidence: float
@@ -75,6 +76,7 @@ class SimilarLearning:
         similarity_score: How similar (0.0-1.0)
         match_reason: Why it matched
     """
+
     learning: SessionLearning
     similarity_score: float
     match_reason: str
@@ -99,8 +101,12 @@ class RLMSessionSearch:
     """
 
     # Memory MCP paths (env-first, portable fallbacks; no hardcoded host paths)
-    MEMORY_MCP_DATA_PATH = os.getenv("MEMORY_MCP_DATA_DIR") or str(Path.home() / ".claude" / "memory-mcp-data")
-    MEMORY_MCP_PROJECT_PATH = os.getenv("MEMORY_MCP_PROJECT_DIR") or str(Path(__file__).resolve().parents[3])
+    MEMORY_MCP_DATA_PATH = os.getenv("MEMORY_MCP_DATA_DIR") or str(
+        Path.home() / ".claude" / "memory-mcp-data"
+    )
+    MEMORY_MCP_PROJECT_PATH = os.getenv("MEMORY_MCP_PROJECT_DIR") or str(
+        Path(__file__).resolve().parents[3]
+    )
 
     # Namespace prefixes for reflect learnings
     REFLECT_NAMESPACE = "sessions/reflect"
@@ -138,9 +144,7 @@ class RLMSessionSearch:
                 sys.path.insert(0, self.MEMORY_MCP_PROJECT_PATH)
                 from src.services.graph_service import GraphService
 
-                self._graph_service = GraphService(
-                    data_dir=self.MEMORY_MCP_DATA_PATH
-                )
+                self._graph_service = GraphService(data_dir=self.MEMORY_MCP_DATA_PATH)
                 self._graph_service.load_graph()
                 logger.info("Graph service loaded")
 
@@ -155,7 +159,7 @@ class RLMSessionSearch:
         query: str,
         skill_name: Optional[str] = None,
         days: int = 30,
-        limit: int = 10
+        limit: int = 10,
     ) -> List[SimilarLearning]:
         """
         RLM-014: Search for similar past learnings.
@@ -235,11 +239,13 @@ class RLMSessionSearch:
                             project=value.get("PROJECT", "unknown"),
                         )
 
-                        results.append(SimilarLearning(
-                            learning=learning,
-                            similarity_score=similarity,
-                            match_reason=f"Common words: {', '.join(sorted(common)[:5])}",
-                        ))
+                        results.append(
+                            SimilarLearning(
+                                learning=learning,
+                                similarity_score=similarity,
+                                match_reason=f"Common words: {', '.join(sorted(common)[:5])}",
+                            )
+                        )
 
             except Exception:
                 continue
@@ -249,10 +255,7 @@ class RLMSessionSearch:
         return results[:limit]
 
     def get_skill_learnings(
-        self,
-        skill_name: str,
-        days: int = 90,
-        limit: int = 50
+        self, skill_name: str, days: int = 90, limit: int = 50
     ) -> List[SessionLearning]:
         """
         RLM-014: Get all learnings for a specific skill.
@@ -297,16 +300,18 @@ class RLMSessionSearch:
                         continue
 
                 for learning_data in value.get("x-learnings", []):
-                    results.append(SessionLearning(
-                        skill_name=skill_name,
-                        content=learning_data.get("content", ""),
-                        confidence=learning_data.get("confidence", 0.5),
-                        category=learning_data.get("category", "LOW"),
-                        ground=learning_data.get("ground", "unknown"),
-                        session_id=value.get("WHO", "").split(":")[-1],
-                        timestamp=timestamp_str,
-                        project=value.get("PROJECT", "unknown"),
-                    ))
+                    results.append(
+                        SessionLearning(
+                            skill_name=skill_name,
+                            content=learning_data.get("content", ""),
+                            confidence=learning_data.get("confidence", 0.5),
+                            category=learning_data.get("category", "LOW"),
+                            ground=learning_data.get("ground", "unknown"),
+                            session_id=value.get("WHO", "").split(":")[-1],
+                            timestamp=timestamp_str,
+                            project=value.get("PROJECT", "unknown"),
+                        )
+                    )
 
             except Exception:
                 continue
@@ -314,9 +319,7 @@ class RLMSessionSearch:
         return results[:limit]
 
     def detect_recurring_patterns(
-        self,
-        threshold: int = 3,
-        days: int = 30
+        self, threshold: int = 3, days: int = 30
     ) -> List[Dict[str, Any]]:
         """
         RLM-014: Detect patterns that appear multiple times.
@@ -368,16 +371,18 @@ class RLMSessionSearch:
                     if normalized not in content_groups:
                         content_groups[normalized] = []
 
-                    content_groups[normalized].append(SessionLearning(
-                        skill_name=value.get("x-skill", "unknown"),
-                        content=learning_data.get("content", ""),
-                        confidence=learning_data.get("confidence", 0.5),
-                        category=learning_data.get("category", "LOW"),
-                        ground=learning_data.get("ground", "unknown"),
-                        session_id=value.get("WHO", "").split(":")[-1],
-                        timestamp=timestamp_str,
-                        project=value.get("PROJECT", "unknown"),
-                    ))
+                    content_groups[normalized].append(
+                        SessionLearning(
+                            skill_name=value.get("x-skill", "unknown"),
+                            content=learning_data.get("content", ""),
+                            confidence=learning_data.get("confidence", 0.5),
+                            category=learning_data.get("category", "LOW"),
+                            ground=learning_data.get("ground", "unknown"),
+                            session_id=value.get("WHO", "").split(":")[-1],
+                            timestamp=timestamp_str,
+                            project=value.get("PROJECT", "unknown"),
+                        )
+                    )
 
             except Exception:
                 continue
@@ -386,23 +391,27 @@ class RLMSessionSearch:
         recurring = []
         for content, learnings in content_groups.items():
             if len(learnings) >= threshold:
-                recurring.append({
-                    "pattern": learnings[0].content,
-                    "occurrences": len(learnings),
-                    "skills": list(set(l.skill_name for l in learnings)),
-                    "avg_confidence": sum(l.confidence for l in learnings) / len(learnings),
-                    "first_seen": min(l.timestamp for l in learnings if l.timestamp),
-                    "last_seen": max(l.timestamp for l in learnings if l.timestamp),
-                })
+                recurring.append(
+                    {
+                        "pattern": learnings[0].content,
+                        "occurrences": len(learnings),
+                        "skills": list(set(lr.skill_name for lr in learnings)),
+                        "avg_confidence": sum(lr.confidence for lr in learnings)
+                        / len(learnings),
+                        "first_seen": min(
+                            lr.timestamp for lr in learnings if lr.timestamp
+                        ),
+                        "last_seen": max(
+                            lr.timestamp for lr in learnings if lr.timestamp
+                        ),
+                    }
+                )
 
         # Sort by occurrence count
         recurring.sort(key=lambda x: x["occurrences"], reverse=True)
         return recurring
 
-    def suggest_escalations(
-        self,
-        days: int = 30
-    ) -> List[Dict[str, Any]]:
+    def suggest_escalations(self, days: int = 30) -> List[Dict[str, Any]]:
         """
         RLM-014: Suggest learnings to escalate to higher confidence.
 
@@ -427,13 +436,15 @@ class RLMSessionSearch:
             # Suggest escalation based on occurrence count
             if avg_conf < 0.90 and occurrences >= 3:
                 new_conf = min(0.90, avg_conf + 0.15)
-                suggestions.append({
-                    "pattern": pattern["pattern"],
-                    "current_confidence": avg_conf,
-                    "suggested_confidence": new_conf,
-                    "reason": f"Appeared {occurrences} times across {len(pattern['skills'])} skills",
-                    "skills": pattern["skills"],
-                })
+                suggestions.append(
+                    {
+                        "pattern": pattern["pattern"],
+                        "current_confidence": avg_conf,
+                        "suggested_confidence": new_conf,
+                        "reason": f"Appeared {occurrences} times across {len(pattern['skills'])} skills",
+                        "skills": pattern["skills"],
+                    }
+                )
 
         return suggestions
 
@@ -459,21 +470,25 @@ def format_search_results(results: List[SimilarLearning]) -> str:
     ]
 
     for i, result in enumerate(results, 1):
-        lines.extend([
-            f"[{i}] Skill: {result.learning.skill_name}",
-            f"    Content: {result.learning.content[:100]}...",
-            f"    Confidence: {result.learning.category} ({result.learning.confidence:.0%})",
-            f"    Similarity: {result.similarity_score:.0%}",
-            f"    Match: {result.match_reason}",
-            f"    From: {result.learning.session_id} ({result.learning.timestamp[:10]})",
-            "",
-        ])
+        lines.extend(
+            [
+                f"[{i}] Skill: {result.learning.skill_name}",
+                f"    Content: {result.learning.content[:100]}...",
+                f"    Confidence: {result.learning.category} ({result.learning.confidence:.0%})",
+                f"    Similarity: {result.similarity_score:.0%}",
+                f"    Match: {result.match_reason}",
+                f"    From: {result.learning.session_id} ({result.learning.timestamp[:10]})",
+                "",
+            ]
+        )
 
-    lines.extend([
-        "=" * 60,
-        f"Found {len(results)} similar learnings",
-        "=" * 60,
-    ])
+    lines.extend(
+        [
+            "=" * 60,
+            f"Found {len(results)} similar learnings",
+            "=" * 60,
+        ]
+    )
 
     return "\n".join(lines)
 
@@ -485,20 +500,21 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="RLM Session Search")
     parser.add_argument("query", help="Learning or correction to search for")
     parser.add_argument("--skill", "-s", help="Filter by skill name")
-    parser.add_argument("--days", "-d", type=int, default=30, help="Days to search back")
+    parser.add_argument(
+        "--days", "-d", type=int, default=30, help="Days to search back"
+    )
     parser.add_argument("--json", "-j", action="store_true", help="JSON output")
 
     args = parser.parse_args()
 
     searcher = RLMSessionSearch()
     results = searcher.search_similar(
-        query=args.query,
-        skill_name=args.skill,
-        days=args.days
+        query=args.query, skill_name=args.skill, days=args.days
     )
 
     if args.json:
         import json
+
         print(json.dumps([r.to_dict() for r in results], indent=2))
     else:
         print(format_search_results(results))

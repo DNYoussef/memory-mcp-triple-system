@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional
 
 class ObservationType(str, Enum):
     """What kind of thing happened."""
+
     TOOL_USE = "tool_use"
     CODE_CHANGE = "code_change"
     ERROR = "error"
@@ -25,6 +26,7 @@ class ObservationType(str, Enum):
 
 class ConceptCategory(str, Enum):
     """What domain does this observation belong to."""
+
     ARCHITECTURE = "architecture"
     IMPLEMENTATION = "implementation"
     DEBUGGING = "debugging"
@@ -72,6 +74,7 @@ class Observation:
     This is the core data unit for auto-capture. Every PostToolUse hook
     creates one of these.
     """
+
     # Identity
     observation_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     session_id: str = ""
@@ -132,7 +135,8 @@ class Observation:
             why=data.get("why", "observation"),
             entities=data.get("entities", []),
             created_at=datetime.fromisoformat(data["created_at"])
-            if "created_at" in data else datetime.utcnow(),
+            if "created_at" in data
+            else datetime.utcnow(),
         )
 
     def compact_summary(self) -> str:
@@ -148,6 +152,7 @@ class Session:
 
     Created on SessionStart, updated on PostToolUse, finalized on Stop.
     """
+
     session_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     started_at: datetime = field(default_factory=datetime.utcnow)
     ended_at: Optional[datetime] = None
@@ -176,9 +181,11 @@ class Session:
         return cls(
             session_id=data.get("session_id", str(uuid.uuid4())),
             started_at=datetime.fromisoformat(data["started_at"])
-            if "started_at" in data else datetime.utcnow(),
+            if "started_at" in data
+            else datetime.utcnow(),
             ended_at=datetime.fromisoformat(data["ended_at"])
-            if data.get("ended_at") else None,
+            if data.get("ended_at")
+            else None,
             tool_count=data.get("tool_count", 0),
             project=data.get("project", ""),
             branch=data.get("branch", ""),
@@ -202,6 +209,7 @@ class Session:
 @dataclass
 class SessionSummary:
     """Structured session summary generated at Stop."""
+
     session_id: str = ""
     request: str = ""
     investigated: List[str] = field(default_factory=list)
@@ -225,8 +233,7 @@ class SessionSummary:
         if self.next_steps:
             lines.append("Next steps: " + "; ".join(self.next_steps))
         lines.append(
-            f"({self.observation_count} observations, "
-            f"{self.duration_seconds:.0f}s)"
+            f"({self.observation_count} observations, " f"{self.duration_seconds:.0f}s)"
         )
         return "\n".join(lines)
 

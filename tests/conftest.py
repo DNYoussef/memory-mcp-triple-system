@@ -3,8 +3,10 @@ Pytest configuration and fixtures
 Shared test utilities for all test modules.
 """
 
+import os
 import pytest
 import sys
+import tempfile
 from pathlib import Path
 
 # Add src to path for imports
@@ -19,6 +21,16 @@ sys.path.insert(0, str(tests_path))
 pytest_plugins = ["fixtures.real_services"]
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _isolate_data_dir():
+    """Point the default data dir at a writable temp location when the env
+    hasn't set one, so components never fall back to '/data' (unwritable on
+    CI -> PermissionError). Honors an explicit MEMORY_MCP_DATA_DIR."""
+    if not os.environ.get("MEMORY_MCP_DATA_DIR"):
+        os.environ["MEMORY_MCP_DATA_DIR"] = tempfile.mkdtemp(prefix="mmcp-test-data-")
+    yield
+
+
 @pytest.fixture(scope="session")
 def test_data_dir():
     """Get test data directory."""
@@ -31,5 +43,5 @@ def sample_texts():
     return [
         "This is the first test sentence.",
         "Here is another sentence for testing.",
-        "A third sentence to complete the set."
+        "A third sentence to complete the set.",
     ]

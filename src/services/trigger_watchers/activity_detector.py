@@ -11,13 +11,13 @@ WHY: implementation (RETRIEVE-001)
 import asyncio
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Callable, Dict, List, Optional, Set, Any, Tuple
+from typing import Dict, List, Optional, Set, Any
 from dataclasses import dataclass, field
 from enum import Enum
 from loguru import logger
 
 from ..proactive_context_injector import ProactiveContextInjector
-from ...integrations.proactive_schema import TriggerEvent, TriggerType, ContextPriority
+from ...integrations.proactive_schema import TriggerEvent, ContextPriority
 
 
 class ActivityType(str, Enum):
@@ -88,28 +88,44 @@ class SequentialPatternMatcher(PatternMatcher):
         self.known_sequences: List[Dict[str, Any]] = [
             {
                 "pattern_id": "deep-dive-sequence",
-                "sequence": [ActivityType.SEARCH_QUERY, ActivityType.FILE_ACCESS, ActivityType.FILE_ACCESS],
+                "sequence": [
+                    ActivityType.SEARCH_QUERY,
+                    ActivityType.FILE_ACCESS,
+                    ActivityType.FILE_ACCESS,
+                ],
                 "min_matches": 3,
                 "context_query": "detailed exploration investigation",
                 "priority": ContextPriority.MEDIUM,
             },
             {
                 "pattern_id": "debugging-sequence",
-                "sequence": [ActivityType.ERROR_ENCOUNTERED, ActivityType.FILE_ACCESS, ActivityType.SEARCH_QUERY],
+                "sequence": [
+                    ActivityType.ERROR_ENCOUNTERED,
+                    ActivityType.FILE_ACCESS,
+                    ActivityType.SEARCH_QUERY,
+                ],
                 "min_matches": 2,
                 "context_query": "debugging error fix troubleshoot",
                 "priority": ContextPriority.HIGH,
             },
             {
                 "pattern_id": "learning-sequence",
-                "sequence": [ActivityType.MEMORY_READ, ActivityType.FILE_ACCESS, ActivityType.MEMORY_WRITE],
+                "sequence": [
+                    ActivityType.MEMORY_READ,
+                    ActivityType.FILE_ACCESS,
+                    ActivityType.MEMORY_WRITE,
+                ],
                 "min_matches": 2,
                 "context_query": "learning documentation reference",
                 "priority": ContextPriority.MEDIUM,
             },
             {
                 "pattern_id": "task-completion-sequence",
-                "sequence": [ActivityType.FILE_ACCESS, ActivityType.GIT_OPERATION, ActivityType.TASK_COMPLETE],
+                "sequence": [
+                    ActivityType.FILE_ACCESS,
+                    ActivityType.GIT_OPERATION,
+                    ActivityType.TASK_COMPLETE,
+                ],
                 "min_matches": 2,
                 "context_query": "task completion commit next-task",
                 "priority": ContextPriority.LOW,
@@ -138,19 +154,23 @@ class SequentialPatternMatcher(PatternMatcher):
             # Count subsequence matches
             matches = 0
             for i in range(len(activity_types) - len(sequence) + 1):
-                if activity_types[i:i + len(sequence)] == sequence:
+                if activity_types[i : i + len(sequence)] == sequence:
                     matches += 1
 
             if matches >= min_matches:
                 confidence = min(0.95, 0.5 + (matches * 0.15))
-                detected.append(DetectedPattern(
-                    pattern_id=seq_def["pattern_id"],
-                    pattern_type="sequential",
-                    confidence=confidence,
-                    evidence=[f"Sequence matched {matches} times in last {window_minutes} minutes"],
-                    context_query=seq_def["context_query"],
-                    priority=seq_def["priority"],
-                ))
+                detected.append(
+                    DetectedPattern(
+                        pattern_id=seq_def["pattern_id"],
+                        pattern_type="sequential",
+                        confidence=confidence,
+                        evidence=[
+                            f"Sequence matched {matches} times in last {window_minutes} minutes"
+                        ],
+                        context_query=seq_def["context_query"],
+                        priority=seq_def["priority"],
+                    )
+                )
 
         return detected
 
@@ -190,7 +210,9 @@ class FrequencyPatternMatcher(PatternMatcher):
         # Check for high-frequency patterns
         for activity_type, count in type_counts.items():
             if count >= self.frequency_threshold:
-                pattern = self._create_frequency_pattern(activity_type, count, window_minutes)
+                pattern = self._create_frequency_pattern(
+                    activity_type, count, window_minutes
+                )
                 if pattern:
                     detected.append(pattern)
 
@@ -236,7 +258,9 @@ class FrequencyPatternMatcher(PatternMatcher):
             pattern_id=pattern_def["pattern_id"],
             pattern_type="frequency",
             confidence=confidence,
-            evidence=[f"{count} {activity_type.value} events in {window_minutes} minutes"],
+            evidence=[
+                f"{count} {activity_type.value} events in {window_minutes} minutes"
+            ],
             context_query=pattern_def["context_query"],
             priority=pattern_def["priority"],
         )
@@ -279,15 +303,17 @@ class ProjectFocusPatternMatcher(PatternMatcher):
             ratio = count / total
             if ratio >= self.focus_threshold:
                 confidence = min(0.95, ratio)
-                detected.append(DetectedPattern(
-                    pattern_id=f"project-focus-{project}",
-                    pattern_type="project_focus",
-                    confidence=confidence,
-                    evidence=[f"{ratio:.0%} of activities in project '{project}'"],
-                    context_query=f"project:{project} context history",
-                    priority=ContextPriority.MEDIUM,
-                    metadata={"focused_project": project},
-                ))
+                detected.append(
+                    DetectedPattern(
+                        pattern_id=f"project-focus-{project}",
+                        pattern_type="project_focus",
+                        confidence=confidence,
+                        evidence=[f"{ratio:.0%} of activities in project '{project}'"],
+                        context_query=f"project:{project} context history",
+                        priority=ContextPriority.MEDIUM,
+                        metadata={"focused_project": project},
+                    )
+                )
 
         return detected
 
@@ -371,7 +397,7 @@ class ActivityDetector:
 
         # Trim history
         if len(self._activities) > self.max_history:
-            self._activities = self._activities[-self.max_history:]
+            self._activities = self._activities[-self.max_history :]
 
         logger.debug(f"Recorded activity: {activity_type.value}")
 
@@ -402,7 +428,7 @@ class ActivityDetector:
 
         # Filter by confidence and cooldown
         filtered = []
-        now = datetime.utcnow()
+        now = datetime.utcnow()  # noqa: F841
 
         for pattern in all_patterns:
             if pattern.confidence < 0.5:
@@ -468,9 +494,7 @@ class ActivityDetector:
         self._running = True
         self._detector_task = asyncio.create_task(self._detect_patterns())
 
-        logger.info(
-            f"ActivityDetector started, checking every {self.check_interval}s"
-        )
+        logger.info(f"ActivityDetector started, checking every {self.check_interval}s")
 
     async def stop(self) -> None:
         """Stop activity detection."""

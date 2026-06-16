@@ -18,7 +18,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
 from src.integrations.confidence_scoring_schema import (
-    ConfidenceScore,
     ClassificationResult,
     ClassificationType,
     EscalationReason,
@@ -31,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 class TagType:
     """Types of tags in WHO/WHEN/PROJECT/WHY schema."""
+
     WHO = "who"
     WHEN = "when"
     PROJECT = "project"
@@ -275,7 +275,9 @@ class TagAssignmentScorer:
             components["from_context"] = 0.9
         else:
             # Try to extract from content
-            value, confidence, extracted_components = self._extract_who_from_content(content)
+            value, confidence, extracted_components = self._extract_who_from_content(
+                content
+            )
             components.update(extracted_components)
 
         # Check against known agents
@@ -338,7 +340,9 @@ class TagAssignmentScorer:
             components["from_context"] = 0.95
         else:
             # Try to extract from content
-            value, confidence, extracted_components = self._extract_when_from_content(content)
+            value, confidence, extracted_components = self._extract_when_from_content(
+                content
+            )
             components.update(extracted_components)
 
         return TagAssignment(
@@ -543,9 +547,7 @@ class TagAssignmentScorer:
         self._stats["total_assignments"] += 1
 
         for tag_type, assignment in tags.items():
-            self._stats["by_tag"][tag_type] = (
-                self._stats["by_tag"].get(tag_type, 0) + 1
-            )
+            self._stats["by_tag"][tag_type] = self._stats["by_tag"].get(tag_type, 0) + 1
 
             if assignment.confidence < self.config.escalation_threshold:
                 self._stats["low_confidence"] += 1
@@ -568,7 +570,8 @@ class TagAssignmentScorer:
     ) -> List[TagAssignment]:
         """Get tag assignments with low confidence."""
         return [
-            tag for tag in tags.values()
+            tag
+            for tag in tags.values()
             if tag.confidence < self.config.escalation_threshold
         ]
 

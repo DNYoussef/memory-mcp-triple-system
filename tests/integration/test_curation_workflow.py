@@ -46,7 +46,7 @@ def curation_service(chroma_client, test_data_dir):
     service = CurationService(
         chroma_client=chroma_client,
         collection_name="test_memory_chunks",
-        data_dir=test_data_dir
+        data_dir=test_data_dir,
     )
     return service
 
@@ -55,9 +55,9 @@ def curation_service(chroma_client, test_data_dir):
 def flask_client(curation_service, monkeypatch):
     """Create Flask test client with real service."""
     # Replace app's service with test service
-    monkeypatch.setattr('src.ui.curation_app.curation_service', curation_service)
+    monkeypatch.setattr("src.ui.curation_app.curation_service", curation_service)
 
-    app.config['TESTING'] = True
+    app.config["TESTING"] = True
     with app.test_client() as client:
         yield client
 
@@ -69,26 +69,29 @@ def sample_chunks(chroma_client):
 
     chunks = [
         {
-            'id': f'chunk_{i}',
-            'text': f'Sample chunk {i} with TODO marker',
-            'file_path': f'/test/file{i}.md',
-            'chunk_index': i,
-            'verified': False,
-            'lifecycle': 'temporary'
+            "id": f"chunk_{i}",
+            "text": f"Sample chunk {i} with TODO marker",
+            "file_path": f"/test/file{i}.md",
+            "chunk_index": i,
+            "verified": False,
+            "lifecycle": "temporary",
         }
         for i in range(5)
     ]
 
     # Add chunks to ChromaDB
     collection.add(
-        ids=[c['id'] for c in chunks],
-        documents=[c['text'] for c in chunks],
-        metadatas=[{
-            'file_path': c['file_path'],
-            'chunk_index': c['chunk_index'],
-            'verified': c['verified'],
-            'lifecycle': c['lifecycle']
-        } for c in chunks]
+        ids=[c["id"] for c in chunks],
+        documents=[c["text"] for c in chunks],
+        metadatas=[
+            {
+                "file_path": c["file_path"],
+                "chunk_index": c["chunk_index"],
+                "verified": c["verified"],
+                "lifecycle": c["lifecycle"],
+            }
+            for c in chunks
+        ],
     )
 
     return chunks
@@ -112,14 +115,14 @@ class TestFullCurationWorkflow:
         # Step 1: Get unverified chunks
         chunks = curation_service.get_unverified_chunks(limit=20)
         assert len(chunks) == 5
-        assert chunks[0]['id'] == 'chunk_0'
+        assert chunks[0]["id"] == "chunk_0"
 
         # Step 2: Tag lifecycle
-        success = curation_service.tag_lifecycle('chunk_0', 'permanent')
+        success = curation_service.tag_lifecycle("chunk_0", "permanent")
         assert success is True
 
         # Step 3: Mark verified
-        success = curation_service.mark_verified('chunk_0')
+        success = curation_service.mark_verified("chunk_0")
         assert success is True
 
         # Step 4: Log session time
@@ -127,30 +130,28 @@ class TestFullCurationWorkflow:
 
         # Verify: ChromaDB metadata updated
         collection = curation_service.collection
-        result = collection.get(ids=['chunk_0'], include=['metadatas'])
-        metadata = result['metadatas'][0]
-        assert metadata['lifecycle'] == 'permanent'
-        assert metadata['verified'] is True
+        result = collection.get(ids=["chunk_0"], include=["metadatas"])
+        metadata = result["metadatas"][0]
+        assert metadata["lifecycle"] == "permanent"
+        assert metadata["verified"] is True
 
         # Verify: Time log file created
         time_log_path = Path(test_data_dir) / "curation_time.json"
         assert time_log_path.exists()
 
-        with open(time_log_path, 'r') as f:
+        with open(time_log_path, "r") as f:
             log = json.load(f)
 
-        assert 'sessions' in log
-        assert len(log['sessions']) == 1
-        assert log['sessions'][0]['duration_seconds'] == 180
-        assert log['sessions'][0]['chunks_curated'] == 1
+        assert "sessions" in log
+        assert len(log["sessions"]) == 1
+        assert log["sessions"][0]["duration_seconds"] == 180
+        assert log["sessions"][0]["chunks_curated"] == 1
 
 
 class TestChromaDBPersistence:
     """Test ChromaDB persistence across operations."""
 
-    def test_metadata_persists_after_tag(
-        self, curation_service, sample_chunks
-    ):
+    def test_metadata_persists_after_tag(self, curation_service, sample_chunks):
         """
         Test that lifecycle tags persist in ChromaDB.
 
@@ -160,21 +161,19 @@ class TestChromaDBPersistence:
         - updated_at timestamp added
         """
         # Tag chunk
-        success = curation_service.tag_lifecycle('chunk_0', 'permanent')
+        success = curation_service.tag_lifecycle("chunk_0", "permanent")
         assert success is True
 
         # Retrieve chunk from ChromaDB
         collection = curation_service.collection
-        result = collection.get(ids=['chunk_0'], include=['metadatas'])
+        result = collection.get(ids=["chunk_0"], include=["metadatas"])
 
         # Verify metadata
-        metadata = result['metadatas'][0]
-        assert metadata['lifecycle'] == 'permanent'
-        assert 'updated_at' in metadata
+        metadata = result["metadatas"][0]
+        assert metadata["lifecycle"] == "permanent"
+        assert "updated_at" in metadata
 
-    def test_verified_flag_persists(
-        self, curation_service, sample_chunks
-    ):
+    def test_verified_flag_persists(self, curation_service, sample_chunks):
         """
         Test that verified flag persists in ChromaDB.
 
@@ -184,25 +183,23 @@ class TestChromaDBPersistence:
         - verified_at timestamp added
         """
         # Mark verified
-        success = curation_service.mark_verified('chunk_0')
+        success = curation_service.mark_verified("chunk_0")
         assert success is True
 
         # Retrieve chunk from ChromaDB
         collection = curation_service.collection
-        result = collection.get(ids=['chunk_0'], include=['metadatas'])
+        result = collection.get(ids=["chunk_0"], include=["metadatas"])
 
         # Verify metadata
-        metadata = result['metadatas'][0]
-        assert metadata['verified'] is True
-        assert 'verified_at' in metadata
+        metadata = result["metadatas"][0]
+        assert metadata["verified"] is True
+        assert "verified_at" in metadata
 
 
 class TestCacheIntegration:
     """Test MemoryCache integration with preferences."""
 
-    def test_preferences_cached_correctly(
-        self, curation_service
-    ):
+    def test_preferences_cached_correctly(self, curation_service):
         """
         Test that user preferences are cached with 30-day TTL.
 
@@ -213,29 +210,27 @@ class TestCacheIntegration:
         """
         # Save preferences
         prefs = {
-            'user_id': 'test_user',
-            'time_budget_minutes': 10,
-            'auto_suggest': True,
-            'weekly_review_day': 'monday',
-            'weekly_review_time': '09:00',
-            'batch_size': 15,
-            'default_lifecycle': 'permanent'
+            "user_id": "test_user",
+            "time_budget_minutes": 10,
+            "auto_suggest": True,
+            "weekly_review_day": "monday",
+            "weekly_review_time": "09:00",
+            "batch_size": 15,
+            "default_lifecycle": "permanent",
         }
 
-        curation_service.save_preferences('test_user', prefs)
+        curation_service.save_preferences("test_user", prefs)
 
         # Retrieve preferences
-        retrieved = curation_service.get_preferences('test_user')
+        retrieved = curation_service.get_preferences("test_user")
 
         # Verify all fields match
-        assert retrieved['user_id'] == 'test_user'
-        assert retrieved['time_budget_minutes'] == 10
-        assert retrieved['auto_suggest'] is True
-        assert retrieved['batch_size'] == 15
+        assert retrieved["user_id"] == "test_user"
+        assert retrieved["time_budget_minutes"] == 10
+        assert retrieved["auto_suggest"] is True
+        assert retrieved["batch_size"] == 15
 
-    def test_preferences_cache_isolation(
-        self, curation_service
-    ):
+    def test_preferences_cache_isolation(self, curation_service):
         """
         Test that different users have isolated preferences.
 
@@ -245,44 +240,42 @@ class TestCacheIntegration:
         """
         # Save preferences for user A
         prefs_a = {
-            'user_id': 'user_a',
-            'time_budget_minutes': 5,
-            'auto_suggest': True,
-            'weekly_review_day': 'sunday',
-            'weekly_review_time': '10:00',
-            'batch_size': 20,
-            'default_lifecycle': 'temporary'
+            "user_id": "user_a",
+            "time_budget_minutes": 5,
+            "auto_suggest": True,
+            "weekly_review_day": "sunday",
+            "weekly_review_time": "10:00",
+            "batch_size": 20,
+            "default_lifecycle": "temporary",
         }
-        curation_service.save_preferences('user_a', prefs_a)
+        curation_service.save_preferences("user_a", prefs_a)
 
         # Save preferences for user B
         prefs_b = {
-            'user_id': 'user_b',
-            'time_budget_minutes': 15,
-            'auto_suggest': False,
-            'weekly_review_day': 'friday',
-            'weekly_review_time': '16:00',
-            'batch_size': 10,
-            'default_lifecycle': 'permanent'
+            "user_id": "user_b",
+            "time_budget_minutes": 15,
+            "auto_suggest": False,
+            "weekly_review_day": "friday",
+            "weekly_review_time": "16:00",
+            "batch_size": 10,
+            "default_lifecycle": "permanent",
         }
-        curation_service.save_preferences('user_b', prefs_b)
+        curation_service.save_preferences("user_b", prefs_b)
 
         # Verify isolation
-        retrieved_a = curation_service.get_preferences('user_a')
-        retrieved_b = curation_service.get_preferences('user_b')
+        retrieved_a = curation_service.get_preferences("user_a")
+        retrieved_b = curation_service.get_preferences("user_b")
 
-        assert retrieved_a['time_budget_minutes'] == 5
-        assert retrieved_b['time_budget_minutes'] == 15
-        assert retrieved_a['batch_size'] == 20
-        assert retrieved_b['batch_size'] == 10
+        assert retrieved_a["time_budget_minutes"] == 5
+        assert retrieved_b["time_budget_minutes"] == 15
+        assert retrieved_a["batch_size"] == 20
+        assert retrieved_b["batch_size"] == 10
 
 
 class TestFileLogging:
     """Test JSON file logging for time tracking."""
 
-    def test_time_log_file_created(
-        self, curation_service, test_data_dir
-    ):
+    def test_time_log_file_created(self, curation_service, test_data_dir):
         """
         Test that time log file is created on first session.
 
@@ -299,18 +292,16 @@ class TestFileLogging:
         assert log_path.exists()
 
         # Verify JSON content
-        with open(log_path, 'r') as f:
+        with open(log_path, "r") as f:
             log = json.load(f)
 
-        assert 'sessions' in log
-        assert len(log['sessions']) == 1
-        assert log['sessions'][0]['duration_seconds'] == 180
-        assert log['sessions'][0]['chunks_curated'] == 5
-        assert 'date' in log['sessions'][0]
+        assert "sessions" in log
+        assert len(log["sessions"]) == 1
+        assert log["sessions"][0]["duration_seconds"] == 180
+        assert log["sessions"][0]["chunks_curated"] == 5
+        assert "date" in log["sessions"][0]
 
-    def test_time_log_appends_sessions(
-        self, curation_service, test_data_dir
-    ):
+    def test_time_log_appends_sessions(self, curation_service, test_data_dir):
         """
         Test that subsequent sessions append to log file.
 
@@ -328,21 +319,19 @@ class TestFileLogging:
 
         # Verify file content
         log_path = Path(test_data_dir) / "curation_time.json"
-        with open(log_path, 'r') as f:
+        with open(log_path, "r") as f:
             log = json.load(f)
 
-        assert 'sessions' in log
-        assert len(log['sessions']) == 2
-        assert log['sessions'][0]['chunks_curated'] == 3
-        assert log['sessions'][1]['chunks_curated'] == 7
+        assert "sessions" in log
+        assert len(log["sessions"]) == 2
+        assert log["sessions"][0]["chunks_curated"] == 3
+        assert log["sessions"][1]["chunks_curated"] == 7
 
 
 class TestErrorRecovery:
     """Test error handling and recovery."""
 
-    def test_handles_chromadb_errors(
-        self, curation_service, monkeypatch
-    ):
+    def test_handles_chromadb_errors(self, curation_service, monkeypatch):
         """
         Test handling of ChromaDB connection errors.
 
@@ -351,18 +340,15 @@ class TestErrorRecovery:
         - Graceful degradation
         - No data corruption
         """
+
         # Mock ChromaDB update to raise exception
         def mock_update(*args, **kwargs):
             raise Exception("ChromaDB connection error")
 
-        monkeypatch.setattr(
-            curation_service.collection,
-            'update',
-            mock_update
-        )
+        monkeypatch.setattr(curation_service.collection, "update", mock_update)
 
         # Attempt operation that triggers ChromaDB update
-        success = curation_service.tag_lifecycle('chunk_0', 'permanent')
+        success = curation_service.tag_lifecycle("chunk_0", "permanent")
 
         # Should return False, not raise exception
         assert success is False

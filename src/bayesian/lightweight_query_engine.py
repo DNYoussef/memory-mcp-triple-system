@@ -6,8 +6,7 @@ Uses lightweight_bayesian module for inference.
 """
 
 import math
-import asyncio
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 
 from loguru import logger
@@ -60,9 +59,7 @@ class LightweightQueryEngine:
 
         try:
             infer = LightweightVariableElimination(net)
-            return self.execute_with_timeout(
-                infer.query, valid_query, valid_evidence
-            )
+            return self.execute_with_timeout(infer.query, valid_query, valid_evidence)
         except Exception as e:
             logger.error(f"Conditional query failed: {e}")
             return {}

@@ -8,7 +8,9 @@ from src.mcp.request_router import handle_call_tool
 def _tool():
     t = Mock()
     store = {}
-    t.kv_store.set.side_effect = lambda k, v, ttl=None: (store.__setitem__(k, v) or True)
+    t.kv_store.set.side_effect = lambda k, v, ttl=None: (
+        store.__setitem__(k, v) or True
+    )
     t.kv_store.get.side_effect = lambda k: store.get(k)
     t.kv_store.delete.side_effect = lambda k: (store.pop(k, None) is not None)
     return t
@@ -16,7 +18,9 @@ def _tool():
 
 def test_kv_round_trip_through_dispatch():
     t = _tool()
-    assert handle_call_tool("kv_set", {"key": "k", "value": "V1"}, t)["isError"] is False
+    assert (
+        handle_call_tool("kv_set", {"key": "k", "value": "V1"}, t)["isError"] is False
+    )
     got = handle_call_tool("kv_get", {"key": "k"}, t)
     assert "V1" in json.dumps(got)
     handle_call_tool("kv_delete", {"key": "k"}, t)

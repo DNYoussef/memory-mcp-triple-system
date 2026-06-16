@@ -7,8 +7,6 @@ Target: 10 tests, ~240 LOC
 """
 
 import pytest
-import networkx as nx
-from src.bayesian.network_builder import NetworkBuilder
 from src.bayesian.probabilistic_query_engine import ProbabilisticQueryEngine
 from pgmpy.models import BayesianNetwork
 from pgmpy.factors.discrete import TabularCPD
@@ -133,7 +131,10 @@ class TestProbabilisticQueryEngine:
     def test_mpe_network_none_no_stored_returns_none(self, engine):
         """D5: MPE(network=None) with no stored network returns None (no crash)."""
         assert engine._network is None
-        assert engine.get_most_probable_explanation(network=None, evidence={"A": 0}) is None
+        assert (
+            engine.get_most_probable_explanation(network=None, evidence={"A": 0})
+            is None
+        )
 
     def test_timeout_fallback(self, engine):
         """Test 1s timeout triggers fallback (returns None)."""
@@ -148,6 +149,7 @@ class TestProbabilisticQueryEngine:
         # This should timeout
         def slow_query():
             import time
+
             time.sleep(0.1)
             return {"result": "slow"}
 
@@ -209,9 +211,7 @@ def test_nasa_rule_10_compliance():
     """Verify all ProbabilisticQueryEngine methods are ≤60 LOC."""
     import ast
 
-    with open(
-        "src/bayesian/probabilistic_query_engine.py", "r", encoding="utf-8"
-    ) as f:
+    with open("src/bayesian/probabilistic_query_engine.py", "r", encoding="utf-8") as f:
         tree = ast.parse(f.read())
 
     for node in ast.walk(tree):

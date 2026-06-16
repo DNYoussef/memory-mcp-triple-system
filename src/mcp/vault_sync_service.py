@@ -18,27 +18,29 @@ from .vault_file_manager import VaultFileManager
 
 class ChunkerProtocol(Protocol):
     """Protocol for chunking service."""
-    def chunk_text(self, text: str, source: str) -> List[Dict[str, Any]]: ...
+
+    def chunk_text(self, text: str, source: str) -> List[Dict[str, Any]]:
+        ...
 
 
 class EmbedderProtocol(Protocol):
     """Protocol for embedding service."""
-    def encode(self, texts: List[str]) -> Any: ...
+
+    def encode(self, texts: List[str]) -> Any:
+        ...
 
 
 class IndexerProtocol(Protocol):
     """Protocol for indexing service."""
-    def index_chunks(self, chunks: List[Dict], embeddings: List) -> bool: ...
+
+    def index_chunks(self, chunks: List[Dict], embeddings: List) -> bool:
+        ...
 
 
 class VaultSyncConfig:
     """Configuration for vault sync operations."""
 
-    def __init__(
-        self,
-        extensions: Optional[List[str]] = None,
-        poll_interval: int = 5
-    ):
+    def __init__(self, extensions: Optional[List[str]] = None, poll_interval: int = 5):
         self.extensions = extensions or [".md"]
         self.poll_interval = poll_interval
 
@@ -56,7 +58,7 @@ class VaultSyncService:
         file_manager: VaultFileManager,
         chunker: ChunkerProtocol,
         embedder: EmbedderProtocol,
-        indexer: IndexerProtocol
+        indexer: IndexerProtocol,
     ):
         """
         Initialize vault sync service.
@@ -72,10 +74,7 @@ class VaultSyncService:
         self.embedder = embedder
         self.indexer = indexer
 
-    def sync_vault(
-        self,
-        config: Optional[VaultSyncConfig] = None
-    ) -> Dict[str, Any]:
+    def sync_vault(self, config: Optional[VaultSyncConfig] = None) -> Dict[str, Any]:
         """
         Sync entire vault to memory system.
 
@@ -110,7 +109,7 @@ class VaultSyncService:
                 "files_synced": files_synced,
                 "total_chunks": total_chunks,
                 "duration_ms": int((time.time() - start_time) * 1000),
-                "errors": errors
+                "errors": errors,
             }
 
         except Exception as e:
@@ -120,7 +119,7 @@ class VaultSyncService:
                 "files_synced": 0,
                 "total_chunks": 0,
                 "duration_ms": 0,
-                "errors": [str(e)]
+                "errors": [str(e)],
             }
 
     def _sync_single_file(self, file_path: Path) -> Dict[str, Any]:
@@ -148,12 +147,12 @@ class VaultSyncService:
 
             # Enrich with metadata
             for chunk in chunks:
-                chunk['metadata'] = {**metadata, **chunk.get('metadata', {})}
+                chunk["metadata"] = {**metadata, **chunk.get("metadata", {})}
 
             # Generate embeddings and index. Embedders may return an ndarray
             # (sentence-transformers) or a list of lists (e.g. qwen3vl / mocks);
             # normalize so index_chunks always receives List[List[float]].
-            texts = [c['text'] for c in chunks]
+            texts = [c["text"] for c in chunks]
             embeddings = self.embedder.encode(texts)
             if hasattr(embeddings, "tolist"):
                 embeddings = embeddings.tolist()
@@ -169,7 +168,7 @@ class VaultSyncService:
     def watch_changes(
         self,
         callback: Callable[[str, str], None],
-        config: Optional[VaultSyncConfig] = None
+        config: Optional[VaultSyncConfig] = None,
     ) -> None:
         """
         Watch for file changes and trigger callback.
@@ -189,9 +188,9 @@ class VaultSyncService:
                 for file_path in self.file_manager.discover_files(config.extensions):
                     try:
                         mtime = file_path.stat().st_mtime
-                        file_key = str(file_path.relative_to(
-                            self.file_manager.vault_path
-                        ))
+                        file_key = str(
+                            file_path.relative_to(self.file_manager.vault_path)
+                        )
 
                         if file_key not in file_mtimes:
                             callback(file_key, "created")
@@ -209,9 +208,7 @@ class VaultSyncService:
             logger.info("Watcher stopped")
 
     def export_to_vault(
-        self,
-        chunks: List[Dict[str, Any]],
-        output_file: str = "exported_memories.md"
+        self, chunks: List[Dict[str, Any]], output_file: str = "exported_memories.md"
     ) -> Dict[str, Any]:
         """
         Export memory chunks to vault.
@@ -230,18 +227,26 @@ class VaultSyncService:
                 "# Exported Memories",
                 f"Exported: {datetime.now().isoformat()}",
                 f"Total chunks: {len(chunks)}",
-                "", "---", ""
+                "",
+                "---",
+                "",
             ]
 
             for i, chunk in enumerate(chunks, 1):
                 text = chunk.get("text", "")
                 meta = chunk.get("metadata", {})
-                lines.extend([
-                    f"## Memory {i}",
-                    f"**Source**: {meta.get('source', 'unknown')}",
-                    f"**Created**: {meta.get('created_at', 'unknown')}",
-                    "", text, "", "---", ""
-                ])
+                lines.extend(
+                    [
+                        f"## Memory {i}",
+                        f"**Source**: {meta.get('source', 'unknown')}",
+                        f"**Created**: {meta.get('created_at', 'unknown')}",
+                        "",
+                        text,
+                        "",
+                        "---",
+                        "",
+                    ]
+                )
 
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write("\n".join(lines))
@@ -249,7 +254,7 @@ class VaultSyncService:
             return {
                 "success": True,
                 "file_path": str(output_path),
-                "chunks_exported": len(chunks)
+                "chunks_exported": len(chunks),
             }
 
         except Exception as e:
@@ -258,5 +263,5 @@ class VaultSyncService:
                 "success": False,
                 "file_path": "",
                 "chunks_exported": 0,
-                "error": str(e)
+                "error": str(e),
             }

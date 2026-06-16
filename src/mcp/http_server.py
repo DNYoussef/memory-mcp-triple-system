@@ -16,7 +16,6 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
 import asyncio
-import json
 import os
 import secrets
 import sys
@@ -25,40 +24,51 @@ from typing import Dict, Any, Optional, Tuple, List
 from datetime import datetime
 
 # Add src to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.insert(
+    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 
 # F4: force UTF-8 stdout/stderr before heavy imports (cp1252 pipe crash).
-from src.mcp import _utf8_io  # noqa: F401  (import runs ensure_utf8_io())
+from src.mcp import _utf8_io  # noqa: F401,E402  (import runs ensure_utf8_io())
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Security
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
-import uvicorn
-from loguru import logger
+from fastapi import Depends, FastAPI, Header, HTTPException, Security  # noqa: E402
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
+import uvicorn  # noqa: E402
+from loguru import logger  # noqa: E402
 
 # Import Memory MCP components
-from src.indexing.vector_indexer import VectorIndexer, resolve_persist_dir
-from src.indexing.embedding_pipeline import EmbeddingPipeline
-from src.modes.mode_detector import ModeDetector
-from src.routing.query_router import QueryRouter
-from src.routing.unified_router import UnifiedRetrievalRouter
-from src.nexus.processor import NexusProcessor
-from src.services.graph_service import GraphService
-from src.services.graph_query_engine import GraphQueryEngine
-from src.bayesian import BAYESIAN_AVAILABLE, BAYESIAN_BACKEND, NetworkBuilder, ProbabilisticQueryEngine
-from src.stores.event_log import EventLog, EventType
-from src.stores.kv_store import KVStore, DEFAULT_DB_NAME
-from src.memory.lifecycle_manager import MemoryLifecycleManager
-from src.memory.lifecycle_scheduler import LifecycleScheduler
+from src.indexing.vector_indexer import VectorIndexer, resolve_persist_dir  # noqa: E402
+from src.indexing.embedding_pipeline import EmbeddingPipeline  # noqa: E402
+from src.modes.mode_detector import ModeDetector  # noqa: E402
+from src.routing.query_router import QueryRouter  # noqa: E402
+from src.routing.unified_router import UnifiedRetrievalRouter  # noqa: E402
+from src.nexus.processor import NexusProcessor  # noqa: E402
+from src.services.graph_service import GraphService  # noqa: E402
+from src.services.graph_query_engine import GraphQueryEngine  # noqa: E402
+from src.bayesian import (  # noqa: E402
+    BAYESIAN_AVAILABLE,
+    BAYESIAN_BACKEND,
+    NetworkBuilder,
+    ProbabilisticQueryEngine,
+)
+from src.stores.event_log import EventLog, EventType  # noqa: E402
+from src.stores.kv_store import KVStore, DEFAULT_DB_NAME  # noqa: E402
+from src.memory.lifecycle_manager import MemoryLifecycleManager  # noqa: E402
+from src.memory.lifecycle_scheduler import LifecycleScheduler  # noqa: E402
+
 # Lazy imports to avoid startup crashes if dependencies are missing
 # These are imported inside get_*() functions instead
 # from src.services.memory_ingestion_service import MemoryIngestionService
 # from src.services.entity_service import EntityService
 # from src.lifecycle.hotcold_classifier import HotColdClassifier
 # from src.chunking.semantic_chunker import SemanticChunker
-from src.integrations.beads_bridge import BeadsBridge, resolve_beads_binary
-from src.universal_components import (
+from src.integrations.beads_bridge import (  # noqa: E402
+    BeadsBridge,
+    resolve_beads_binary,
+)
+from src.universal_components import (  # noqa: E402
     init_connascence_bridge,
     init_memory_client,
     init_tagger,
@@ -141,13 +151,18 @@ async def require_tool_api_key(
 app = FastAPI(
     title="Memory MCP HTTP API",
     description="HTTP wrapper for Memory MCP Triple System stdio server",
-    version="1.5.0"
+    version="1.5.0",
 )
 
 # CORS for Terminal Manager frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:8000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
+        "http://localhost:8000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -197,6 +212,7 @@ def get_entity_service():
             if _entity_service is None:
                 try:
                     from src.services.entity_service import EntityService
+
                     _entity_service = EntityService()
                     logger.info("EntityService initialized (spaCy NER)")
                 except Exception as e:
@@ -212,6 +228,7 @@ def get_classifier():
             if _classifier is None:
                 try:
                     from src.lifecycle.hotcold_classifier import HotColdClassifier
+
                     _classifier = HotColdClassifier()
                 except Exception as e:
                     logger.warning(f"HotColdClassifier init failed: {e}")
@@ -229,6 +246,7 @@ def get_ingestion_service():
                 chunking_cfg = config.get("chunking", {})
                 try:
                     from src.chunking.semantic_chunker import SemanticChunker
+
                     chunker = SemanticChunker(
                         min_chunk_size=chunking_cfg.get("min_chunk_size", 128),
                         max_chunk_size=chunking_cfg.get("max_chunk_size", 512),
@@ -240,6 +258,7 @@ def get_ingestion_service():
                     chunker = None
 
                 from src.services.memory_ingestion_service import MemoryIngestionService
+
                 _ingestion_service = MemoryIngestionService(
                     embedder=get_embedder(),
                     indexer=get_indexer(),
@@ -336,8 +355,9 @@ def load_config() -> Dict[str, Any]:
 
 def _get_data_dir(config: Dict[str, Any]) -> str:
     """Resolve data directory. Env var takes priority for Railway deployment."""
-    return os.getenv("MEMORY_MCP_DATA_DIR",
-                     config.get("storage", {}).get("data_dir", "/data"))
+    return os.getenv(
+        "MEMORY_MCP_DATA_DIR", config.get("storage", {}).get("data_dir", "/data")
+    )
 
 
 def get_graph_service() -> GraphService:
@@ -398,7 +418,7 @@ def get_lifecycle_manager() -> MemoryLifecycleManager:
                 _lifecycle_manager = MemoryLifecycleManager(
                     vector_indexer=get_indexer(),
                     kv_store=get_kv_store(),
-                    embedding_pipeline=get_embedder()
+                    embedding_pipeline=get_embedder(),
                 )
     return _lifecycle_manager
 
@@ -417,23 +437,25 @@ def get_nexus_processor() -> NexusProcessor:
                 if NetworkBuilder is not None and ProbabilisticQueryEngine is not None:
                     try:
                         from src.bayesian import BAYESIAN_BACKEND
+
                         max_n = 50 if BAYESIAN_BACKEND == "lightweight" else 1000
                         builder = NetworkBuilder(max_nodes=max_n)
                         bayesian_network = builder.build_network(graph_service.graph)
                     except (ValueError, RuntimeError, TimeoutError) as exc:
                         logger.warning("Bayesian network build failed: %s", exc)
                     probabilistic_engine = ProbabilisticQueryEngine(
-                        timeout_seconds=1.0,
-                        network=bayesian_network
+                        timeout_seconds=1.0, network=bayesian_network
                     )
                 else:
-                    logger.info("Bayesian layer unavailable (torch/pgmpy not installed)")
+                    logger.info(
+                        "Bayesian layer unavailable (torch/pgmpy not installed)"
+                    )
 
                 _nexus_processor = NexusProcessor(
                     vector_indexer=get_indexer(),
                     graph_query_engine=graph_query_engine,
                     probabilistic_query_engine=probabilistic_engine,
-                    embedding_pipeline=get_embedder()
+                    embedding_pipeline=get_embedder(),
                 )
     return _nexus_processor
 
@@ -458,7 +480,7 @@ def get_unified_router() -> UnifiedRetrievalRouter:
             if _unified_router is None:
                 _unified_router = UnifiedRetrievalRouter(
                     beads_bridge=get_beads_bridge(),
-                    memory_service=get_nexus_processor()
+                    memory_service=get_nexus_processor(),
                 )
     return _unified_router
 
@@ -467,7 +489,9 @@ def get_unified_router() -> UnifiedRetrievalRouter:
 class VectorSearchRequest(BaseModel):
     query: str = Field(..., description="Search query")
     limit: int = Field(10, description="Max results")
-    mode: Optional[str] = Field(None, description="Query mode (execution/planning/brainstorming)")
+    mode: Optional[str] = Field(
+        None, description="Query mode (execution/planning/brainstorming)"
+    )
 
 
 class MemoryStoreRequest(BaseModel):
@@ -492,13 +516,19 @@ class ObsidianSyncRequest(BaseModel):
 class SearchRequest(BaseModel):
     query: str = Field(..., description="Search query")
     limit: int = Field(10, description="Max results")
-    mode: Optional[str] = Field(None, description="Query mode (execution/planning/brainstorming)")
+    mode: Optional[str] = Field(
+        None, description="Query mode (execution/planning/brainstorming)"
+    )
 
 
 class UnifiedRetrievalRequest(BaseModel):
     """Request for unified retrieval combining Beads and Memory MCP."""
+
     query: str = Field(..., description="Search query")
-    mode: Optional[str] = Field(None, description="Mode: execution (80% beads), planning (50/50), brainstorming (80% memory)")
+    mode: Optional[str] = Field(
+        None,
+        description="Mode: execution (80% beads), planning (50/50), brainstorming (80% memory)",
+    )
     token_budget: int = Field(10000, description="Total token budget for results")
 
 
@@ -540,19 +570,13 @@ def _get_tagging_policy(config: Dict[str, Any]) -> Dict[str, bool]:
     tagging = config.get("tagging", {})
     return {
         "strict": bool(tagging.get("strict", False)),
-        "auto_fill": bool(tagging.get("auto_fill", True))
+        "auto_fill": bool(tagging.get("auto_fill", True)),
     }
 
 
 async def _run_nexus_query(query: str, mode: str, limit: int) -> Dict[str, Any]:
     nexus = get_nexus_processor()
-    return await asyncio.to_thread(
-        nexus.process,
-        query,
-        mode,
-        50,
-        10000
-    )
+    return await asyncio.to_thread(nexus.process, query, mode, 50, 10000)
 
 
 # Endpoints
@@ -577,8 +601,10 @@ async def health_check() -> Dict[str, Any]:
             "entity_service": "available" if get_entity_service() else "unavailable",
             "hot_cold_classifier": "available",
             "ingestion_pipeline": "available",
-            "bayesian": f"available ({BAYESIAN_BACKEND})" if BAYESIAN_AVAILABLE else "unavailable",
-        }
+            "bayesian": f"available ({BAYESIAN_BACKEND})"
+            if BAYESIAN_AVAILABLE
+            else "unavailable",
+        },
     }
 
 
@@ -595,19 +621,25 @@ async def system_stats() -> Dict[str, Any]:
     try:
         gs = get_graph_service()
         stats["graph"] = {
-            "nodes": gs.get_node_count() if hasattr(gs, 'get_node_count') else len(gs.graph.nodes),
-            "edges": gs.get_edge_count() if hasattr(gs, 'get_edge_count') else len(gs.graph.edges),
+            "nodes": gs.get_node_count()
+            if hasattr(gs, "get_node_count")
+            else len(gs.graph.nodes),
+            "edges": gs.get_edge_count()
+            if hasattr(gs, "get_edge_count")
+            else len(gs.graph.edges),
         }
     except Exception as e:
         stats["graph"] = {"error": str(e)}
     try:
         lm = get_lifecycle_manager()
-        stats["lifecycle"] = lm.get_stage_stats() if hasattr(lm, 'get_stage_stats') else {}
+        stats["lifecycle"] = (
+            lm.get_stage_stats() if hasattr(lm, "get_stage_stats") else {}
+        )
     except Exception as e:
         stats["lifecycle"] = {"error": str(e)}
     try:
         el = get_event_log()
-        stats["events"] = {"total": el.count() if hasattr(el, 'count') else "unknown"}
+        stats["events"] = {"total": el.count() if hasattr(el, "count") else "unknown"}
     except Exception:
         stats["events"] = {"total": "unknown"}
     stats["bayesian_available"] = BAYESIAN_AVAILABLE
@@ -619,7 +651,9 @@ async def lifecycle_status() -> Dict[str, Any]:
     """Get lifecycle stage statistics."""
     try:
         manager = get_lifecycle_manager()
-        stage_stats = manager.get_stage_stats() if hasattr(manager, 'get_stage_stats') else {}
+        stage_stats = (
+            manager.get_stage_stats() if hasattr(manager, "get_stage_stats") else {}
+        )
         return {"stats": stage_stats}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -630,6 +664,7 @@ async def raptor_cluster() -> Dict[str, Any]:
     """Run RAPTOR hierarchical clustering on all active chunks."""
     try:
         from src.clustering.raptor_clusterer import RAPTORClusterer
+
         indexer = get_indexer()
         collection = indexer.collection
 
@@ -637,8 +672,13 @@ async def raptor_cluster() -> Dict[str, Any]:
         if not all_data.get("documents"):
             return {"status": "no_chunks", "clusters": 0}
 
-        chunks = [{"text": doc, "metadata": meta}
-                  for doc, meta in zip(all_data["documents"], all_data["metadatas"] or [{}] * len(all_data["documents"]))]
+        chunks = [
+            {"text": doc, "metadata": meta}
+            for doc, meta in zip(
+                all_data["documents"],
+                all_data["metadatas"] or [{}] * len(all_data["documents"]),
+            )
+        ]
         embeddings = all_data.get("embeddings", [])
 
         clusterer = RAPTORClusterer()
@@ -659,7 +699,7 @@ async def consolidate_memories() -> Dict[str, Any]:
     """Consolidate similar memories (merge if cosine > 0.95)."""
     try:
         manager = get_lifecycle_manager()
-        if hasattr(manager, 'consolidate_similar'):
+        if hasattr(manager, "consolidate_similar"):
             count = await asyncio.to_thread(manager.consolidate_similar, 0.95)
             return {"consolidated_count": count}
         return {"consolidated_count": 0, "note": "consolidation not available"}
@@ -673,9 +713,12 @@ async def consolidate_entities() -> Dict[str, Any]:
     """Consolidate duplicate entities in knowledge graph."""
     try:
         from src.services.entity_service import EntityConsolidator
+
         graph_service = get_graph_service()
         consolidator = EntityConsolidator(similarity_threshold=0.85)
-        result = await asyncio.to_thread(consolidator.consolidate_all, graph_service.graph)
+        result = await asyncio.to_thread(
+            consolidator.consolidate_all, graph_service.graph
+        )
         graph_service.save_graph()
         return result
     except Exception as e:
@@ -726,7 +769,9 @@ async def vector_search(request: VectorSearchRequest) -> Dict[str, Any]:
         kv_store.set("session:last_query_limit", str(request.limit))
 
         nexus_result = await _run_nexus_query(request.query, mode, request.limit)
-        results = (nexus_result.get("core", []) + nexus_result.get("extended", []))[:request.limit]
+        results = (nexus_result.get("core", []) + nexus_result.get("extended", []))[
+            : request.limit
+        ]
 
         event_log = get_event_log()
         event_log.log_event(
@@ -736,7 +781,7 @@ async def vector_search(request: VectorSearchRequest) -> Dict[str, Any]:
                 "mode": mode,
                 "limit": request.limit,
                 "results_count": len(results),
-            }
+            },
         )
 
         return {
@@ -744,7 +789,7 @@ async def vector_search(request: VectorSearchRequest) -> Dict[str, Any]:
             "mode": mode,
             "count": len(results),
             "query": request.query,
-            "processor": "nexus_5step"
+            "processor": "nexus_5step",
         }
     except Exception as e:
         logger.error(f"Vector search failed: {e}")
@@ -762,8 +807,7 @@ async def memory_store(request: MemoryStoreRequest) -> Dict[str, Any]:
             policy = _get_tagging_policy(load_config())
             if policy["strict"]:
                 raise HTTPException(
-                    status_code=400,
-                    detail=f"Missing required tags: {missing}"
+                    status_code=400, detail=f"Missing required tags: {missing}"
                 )
             if policy["auto_fill"]:
                 metadata = _autofill_metadata(metadata, missing)
@@ -800,7 +844,7 @@ async def detect_mode(request: DetectModeRequest) -> Dict[str, Any]:
             "confidence": confidence,
             "token_budget": profile.token_budget,
             "core_size": profile.core_size,
-            "extended_size": profile.extended_size
+            "extended_size": profile.extended_size,
         }
     except Exception as e:
         logger.error(f"Mode detection failed: {e}")
@@ -815,13 +859,11 @@ async def graph_query(request: GraphQueryRequest) -> Dict[str, Any]:
 
         return {
             "results": graph_engine.query(
-                query=request.query,
-                max_hops=request.max_hops,
-                top_k=request.limit
+                query=request.query, max_hops=request.max_hops, top_k=request.limit
             ),
             "query": request.query,
             "max_hops": request.max_hops,
-            "implementation": "graph_native"
+            "implementation": "graph_native",
         }
     except Exception as e:
         logger.error(f"Graph query failed: {e}")
@@ -843,7 +885,9 @@ async def search(request: SearchRequest) -> Dict[str, Any]:
         kv_store.set("session:last_query_limit", str(request.limit))
 
         nexus_result = await _run_nexus_query(request.query, mode, request.limit)
-        results = (nexus_result.get("core", []) + nexus_result.get("extended", []))[:request.limit]
+        results = (nexus_result.get("core", []) + nexus_result.get("extended", []))[
+            : request.limit
+        ]
 
         event_log = get_event_log()
         event_log.log_event(
@@ -853,15 +897,11 @@ async def search(request: SearchRequest) -> Dict[str, Any]:
                 "mode": mode,
                 "limit": request.limit,
                 "results_count": len(results),
-                "timestamp": datetime.utcnow().isoformat()
-            }
+                "timestamp": datetime.utcnow().isoformat(),
+            },
         )
 
-        return {
-            "results": results,
-            "processor": "nexus_5step",
-            "mode": mode
-        }
+        return {"results": results, "processor": "nexus_5step", "mode": mode}
     except Exception as e:
         logger.error(f"Unified search failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -874,7 +914,9 @@ async def obsidian_sync(request: ObsidianSyncRequest) -> Dict[str, Any]:
         from src.mcp.obsidian_client import ObsidianMCPClient
 
         if not os.path.exists(request.vault_path):
-            raise HTTPException(status_code=400, detail=f"Vault not found: {request.vault_path}")
+            raise HTTPException(
+                status_code=400, detail=f"Vault not found: {request.vault_path}"
+            )
 
         client = ObsidianMCPClient(vault_path=request.vault_path)
         result = client.sync_vault()
@@ -884,7 +926,7 @@ async def obsidian_sync(request: ObsidianSyncRequest) -> Dict[str, Any]:
             "files_synced": result.get("files_synced", 0),
             "total_chunks": result.get("total_chunks", 0),
             "duration_ms": result.get("duration_ms", 0),
-            "errors": result.get("errors", [])
+            "errors": result.get("errors", []),
         }
     except HTTPException:
         raise
@@ -917,9 +959,7 @@ async def unified_retrieve(request: UnifiedRetrievalRequest) -> Dict[str, Any]:
 
         # Execute unified retrieval
         result = await router.retrieve(
-            query=request.query,
-            mode=mode,
-            token_budget=request.token_budget
+            query=request.query, mode=mode, token_budget=request.token_budget
         )
 
         # Log the unified retrieval
@@ -933,21 +973,23 @@ async def unified_retrieve(request: UnifiedRetrievalRequest) -> Dict[str, Any]:
                 "beads_count": len(result.get("beads", [])),
                 "memory_count": len(result.get("memory", {}).get("core", [])),
                 "processor": "unified_router",
-                "timestamp": datetime.utcnow().isoformat()
-            }
+                "timestamp": datetime.utcnow().isoformat(),
+            },
         )
 
         # Transform beads tasks to serializable format
         beads_tasks = []
         for task in result.get("beads", []):
-            beads_tasks.append({
-                "id": task.id,
-                "title": task.title,
-                "description": task.description,
-                "status": task.status,
-                "priority": task.priority,
-                "type": "procedural_task"
-            })
+            beads_tasks.append(
+                {
+                    "id": task.id,
+                    "title": task.title,
+                    "description": task.description,
+                    "status": task.status,
+                    "priority": task.priority,
+                    "type": "procedural_task",
+                }
+            )
 
         return {
             "mode": result.get("mode"),
@@ -956,7 +998,7 @@ async def unified_retrieve(request: UnifiedRetrievalRequest) -> Dict[str, Any]:
             "memory_budget": result.get("memory_budget"),
             "beads": beads_tasks,
             "memory": result.get("memory", {}),
-            "processor": "unified_retrieval_router"
+            "processor": "unified_retrieval_router",
         }
     except Exception as e:
         logger.error(f"Unified retrieval failed: {e}")

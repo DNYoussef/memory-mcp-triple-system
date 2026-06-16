@@ -8,7 +8,7 @@ during optimal quiet periods detected by the activity monitor.
 
 import asyncio
 import logging
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Callable, Awaitable
 from dataclasses import dataclass, field
 from enum import Enum
@@ -19,29 +19,32 @@ logger = logging.getLogger(__name__)
 
 class TaskPriority(int, Enum):
     """Priority levels for scheduled tasks"""
-    CRITICAL = 1     # Must run, even during activity
-    HIGH = 2         # Run during quiet or low activity
-    MEDIUM = 3       # Run only during quiet periods
-    LOW = 4          # Run only during extended quiet
-    BACKGROUND = 5   # Run only during idle
+
+    CRITICAL = 1  # Must run, even during activity
+    HIGH = 2  # Run during quiet or low activity
+    MEDIUM = 3  # Run only during quiet periods
+    LOW = 4  # Run only during extended quiet
+    BACKGROUND = 5  # Run only during idle
 
 
 class TaskType(str, Enum):
     """Types of maintenance tasks"""
-    CONSOLIDATION = "consolidation"     # Memory chunk consolidation
-    DEDUPLICATION = "deduplication"     # Cross-tier deduplication
+
+    CONSOLIDATION = "consolidation"  # Memory chunk consolidation
+    DEDUPLICATION = "deduplication"  # Cross-tier deduplication
     GRAPH_COMPACTION = "graph_compaction"
     DRIFT_DETECTION = "drift_detection"
-    ARCHIVAL = "archival"               # Move to long-term
-    CLEANUP = "cleanup"                 # Delete expired
-    REINDEX = "reindex"                 # Rebuild indices
-    BACKUP = "backup"                   # Create backup
-    HEALTH_CHECK = "health_check"       # System health
+    ARCHIVAL = "archival"  # Move to long-term
+    CLEANUP = "cleanup"  # Delete expired
+    REINDEX = "reindex"  # Rebuild indices
+    BACKUP = "backup"  # Create backup
+    HEALTH_CHECK = "health_check"  # System health
 
 
 @dataclass
 class ScheduledTask:
     """A task scheduled for execution"""
+
     id: str
     task_type: TaskType
     priority: TaskPriority
@@ -62,6 +65,7 @@ class ScheduledTask:
 @dataclass
 class TaskResult:
     """Result of a task execution"""
+
     task_id: str
     task_type: TaskType
     started_at: datetime
@@ -88,9 +92,7 @@ class ConsolidationScheduler:
     DEFAULT_QUIET_HOURS = (2, 5)
 
     def __init__(
-        self,
-        activity_monitor: Optional[Any] = None,
-        check_interval_seconds: int = 60
+        self, activity_monitor: Optional[Any] = None, check_interval_seconds: int = 60
     ):
         self._activity_monitor = activity_monitor
         self._check_interval = check_interval_seconds
@@ -126,7 +128,7 @@ class ConsolidationScheduler:
                 callback=self._noop_callback,
                 interval_minutes=interval,
                 require_quiet=priority.value > TaskPriority.CRITICAL.value,
-                enabled=False  # Disabled until callback registered
+                enabled=False,  # Disabled until callback registered
             )
 
     async def _noop_callback(self) -> Dict[str, Any]:
@@ -165,7 +167,7 @@ class ConsolidationScheduler:
         cron_expression: Optional[str] = None,
         require_quiet: bool = True,
         min_quiet_minutes: int = 10,
-        max_duration_minutes: int = 60
+        max_duration_minutes: int = 60,
     ) -> ScheduledTask:
         """
         Register a new maintenance task.
@@ -194,7 +196,7 @@ class ConsolidationScheduler:
             require_quiet=require_quiet,
             min_quiet_minutes=min_quiet_minutes,
             max_duration_minutes=max_duration_minutes,
-            enabled=True
+            enabled=True,
         )
 
         self._tasks[task_id] = task
@@ -204,9 +206,7 @@ class ConsolidationScheduler:
         return task
 
     def set_callback(
-        self,
-        task_id: str,
-        callback: Callable[..., Awaitable[Dict[str, Any]]]
+        self, task_id: str, callback: Callable[..., Awaitable[Dict[str, Any]]]
     ) -> bool:
         """Set callback for an existing task and enable it"""
         task = self._tasks.get(task_id)
@@ -274,7 +274,8 @@ class ConsolidationScheduler:
 
         # Get due tasks sorted by priority
         due_tasks = [
-            task for task in self._tasks.values()
+            task
+            for task in self._tasks.values()
             if task.enabled and task.next_run and task.next_run <= now
         ]
 
@@ -342,8 +343,7 @@ class ConsolidationScheduler:
 
             # Execute with timeout
             result_data = await asyncio.wait_for(
-                task.callback(),
-                timeout=task.max_duration_minutes * 60
+                task.callback(), timeout=task.max_duration_minutes * 60
             )
             success = True
             task.run_count += 1
@@ -373,12 +373,12 @@ class ConsolidationScheduler:
                 success=success,
                 duration_ms=duration_ms,
                 result=result_data,
-                error=error_msg
+                error=error_msg,
             )
 
             self._history.append(result)
             if len(self._history) > self._max_history:
-                self._history = self._history[-self._max_history:]
+                self._history = self._history[-self._max_history :]
 
             async with self._lock:
                 self._current_task = None
@@ -415,15 +415,13 @@ class ConsolidationScheduler:
                 "last_run": t.last_run.isoformat() if t.last_run else None,
                 "next_run": t.next_run.isoformat() if t.next_run else None,
                 "run_count": t.run_count,
-                "error_count": t.error_count
+                "error_count": t.error_count,
             }
             for t in self._tasks.values()
         ]
 
     def get_history(
-        self,
-        task_id: Optional[str] = None,
-        limit: int = 100
+        self, task_id: Optional[str] = None, limit: int = 100
     ) -> List[Dict[str, Any]]:
         """Get task execution history"""
         history = self._history
@@ -438,7 +436,7 @@ class ConsolidationScheduler:
                 "completed_at": h.completed_at.isoformat(),
                 "success": h.success,
                 "duration_ms": h.duration_ms,
-                "error": h.error
+                "error": h.error,
             }
             for h in history[-limit:]
         ]
@@ -451,8 +449,7 @@ class ConsolidationScheduler:
         total_errors = sum(t.error_count for t in self._tasks.values())
 
         recent_history = [
-            h for h in self._history
-            if h.completed_at >= now - timedelta(hours=24)
+            h for h in self._history if h.completed_at >= now - timedelta(hours=24)
         ]
         recent_success = sum(1 for h in recent_history if h.success)
 
@@ -468,10 +465,9 @@ class ConsolidationScheduler:
                 "runs": len(recent_history),
                 "successes": recent_success,
                 "success_rate": (
-                    recent_success / len(recent_history)
-                    if recent_history else 0
-                )
-            }
+                    recent_success / len(recent_history) if recent_history else 0
+                ),
+            },
         }
 
 
@@ -480,14 +476,13 @@ _scheduler_instance: Optional[ConsolidationScheduler] = None
 
 
 def get_consolidation_scheduler(
-    activity_monitor: Optional[Any] = None,
-    check_interval_seconds: int = 60
+    activity_monitor: Optional[Any] = None, check_interval_seconds: int = 60
 ) -> ConsolidationScheduler:
     """Get singleton consolidation scheduler"""
     global _scheduler_instance
     if _scheduler_instance is None:
         _scheduler_instance = ConsolidationScheduler(
             activity_monitor=activity_monitor,
-            check_interval_seconds=check_interval_seconds
+            check_interval_seconds=check_interval_seconds,
         )
     return _scheduler_instance

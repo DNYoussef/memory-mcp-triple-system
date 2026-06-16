@@ -40,7 +40,7 @@ class BayesianGraphSync:
         self,
         graph_service: Any,
         prior_weight: float = DEFAULT_PRIOR_WEIGHT,
-        posterior_weight: float = DEFAULT_POSTERIOR_WEIGHT
+        posterior_weight: float = DEFAULT_POSTERIOR_WEIGHT,
     ):
         """
         Initialize Bayesian Graph Sync.
@@ -63,7 +63,7 @@ class BayesianGraphSync:
     def update_graph_from_inference(
         self,
         inference_results: Dict[str, Any],
-        query_context: Optional[Dict[str, Any]] = None
+        query_context: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Update graph edge confidence from Bayesian inference results.
@@ -114,7 +114,7 @@ class BayesianGraphSync:
                     target=target,
                     bayesian_posterior=posterior,
                     prior_weight=self.prior_weight,
-                    posterior_weight=self.posterior_weight
+                    posterior_weight=self.posterior_weight,
                 )
 
                 if success:
@@ -128,11 +128,7 @@ class BayesianGraphSync:
             f"BayesianGraphSync: {len(updates)} edges updated, {skipped} skipped"
         )
 
-        return {
-            "edges_updated": len(updates),
-            "updates": updates,
-            "skipped": skipped
-        }
+        return {"edges_updated": len(updates), "updates": updates, "skipped": skipped}
 
     @staticmethod
     def _positive_state_probability(probabilities: Dict[Any, Any]) -> float:
@@ -144,9 +140,7 @@ class BayesianGraphSync:
         return 0.5
 
     def _find_related_edges(
-        self,
-        variable: str,
-        evidence: Dict[str, str]
+        self, variable: str, evidence: Dict[str, str]
     ) -> List[Tuple[str, str]]:
         """
         Find graph edges related to a Bayesian variable.
@@ -186,9 +180,7 @@ class BayesianGraphSync:
         return related
 
     def sync_all_edges(
-        self,
-        bayesian_network: Any,
-        threshold: float = 0.3
+        self, bayesian_network: Any, threshold: float = 0.3
     ) -> Dict[str, Any]:
         """
         Batch sync all graph edges from Bayesian network CPDs.
@@ -218,7 +210,10 @@ class BayesianGraphSync:
 
         for source, target in graph.edges():
             # Check if both nodes exist in Bayesian network
-            if source not in bayesian_network.nodes() or target not in bayesian_network.nodes():
+            if (
+                source not in bayesian_network.nodes()
+                or target not in bayesian_network.nodes()
+            ):
                 unchanged += 1
                 continue
 
@@ -232,7 +227,7 @@ class BayesianGraphSync:
                         target=target,
                         bayesian_posterior=posterior,
                         prior_weight=self.prior_weight,
-                        posterior_weight=self.posterior_weight
+                        posterior_weight=self.posterior_weight,
                     )
                     if success:
                         updated += 1
@@ -244,21 +239,16 @@ class BayesianGraphSync:
                 logger.debug(f"CPD lookup failed for {source}->{target}: {e}")
                 unchanged += 1
 
-        logger.info(
-            f"Full sync complete: {updated} updated, {unchanged} unchanged"
-        )
+        logger.info(f"Full sync complete: {updated} updated, {unchanged} unchanged")
 
         return {
             "total_edges": graph.number_of_edges(),
             "updated": updated,
-            "unchanged": unchanged
+            "unchanged": unchanged,
         }
 
     def _get_edge_posterior(
-        self,
-        network: Any,
-        source: str,
-        target: str
+        self, network: Any, source: str, target: str
     ) -> Optional[float]:
         """
         Get posterior probability for edge relationship from Bayesian network.
@@ -334,5 +324,5 @@ class BayesianGraphSync:
             "edges_with_custom_confidence": edges_with_conf,
             "average_confidence": round(avg_confidence, 3),
             "prior_weight": self.prior_weight,
-            "posterior_weight": self.posterior_weight
+            "posterior_weight": self.posterior_weight,
         }

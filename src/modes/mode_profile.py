@@ -9,7 +9,14 @@ from dataclasses import dataclass
 from typing import Dict
 
 # ISS-030 FIX: Explicit exports for import validation
-__all__ = ['ModeProfile', 'EXECUTION', 'PLANNING', 'BRAINSTORMING', 'PROFILES', 'get_profile']
+__all__ = [
+    "ModeProfile",
+    "EXECUTION",
+    "PLANNING",
+    "BRAINSTORMING",
+    "PROFILES",
+    "get_profile",
+]
 
 
 @dataclass(frozen=True)
@@ -58,7 +65,9 @@ class ModeProfile:
             raise ValueError(f"extended_size must be ≥0, got {self.extended_size}")
 
         if self.latency_budget_ms <= 0:
-            raise ValueError(f"latency_budget_ms must be >0, got {self.latency_budget_ms}")
+            raise ValueError(
+                f"latency_budget_ms must be >0, got {self.latency_budget_ms}"
+            )
 
         if self.token_budget <= 0:
             raise ValueError(f"token_budget must be >0, got {self.token_budget}")
@@ -77,12 +86,12 @@ class ModeProfile:
 EXECUTION = ModeProfile(
     name="execution",
     core_size=5,
-    extended_size=0,           # Precision only (no extended)
+    extended_size=0,  # Precision only (no extended)
     verification_enabled=True,  # Verify against ground truth
-    constraints_enabled=True,   # Strict error handling
-    latency_budget_ms=500,     # Fast response
-    token_budget=5000,         # Minimal context
-    randomness=0.0             # No randomness
+    constraints_enabled=True,  # Strict error handling
+    latency_budget_ms=500,  # Fast response
+    token_budget=5000,  # Minimal context
+    randomness=0.0,  # No randomness
 )
 """
 Execution mode: High precision, minimal context.
@@ -94,12 +103,12 @@ Focus: Correct answers quickly.
 PLANNING = ModeProfile(
     name="planning",
     core_size=5,
-    extended_size=15,         # 5 + 15 = 20 total
+    extended_size=15,  # 5 + 15 = 20 total
     verification_enabled=True,
     constraints_enabled=True,
-    latency_budget_ms=1000,   # Medium response
-    token_budget=10000,       # Balanced context
-    randomness=0.05           # 5% random injection
+    latency_budget_ms=1000,  # Medium response
+    token_budget=10000,  # Balanced context
+    randomness=0.05,  # 5% random injection
 )
 """
 Planning mode: Balanced precision/recall.
@@ -111,12 +120,12 @@ Focus: Explore options, compare alternatives.
 BRAINSTORMING = ModeProfile(
     name="brainstorming",
     core_size=5,
-    extended_size=25,          # 5 + 25 = 30 total
+    extended_size=25,  # 5 + 25 = 30 total
     verification_enabled=False,  # No verification (allow creative errors)
-    constraints_enabled=False,   # No constraints
-    latency_budget_ms=2000,    # Slower response OK
-    token_budget=20000,        # Large context
-    randomness=0.10            # 10% random injection
+    constraints_enabled=False,  # No constraints
+    latency_budget_ms=2000,  # Slower response OK
+    token_budget=20000,  # Large context
+    randomness=0.10,  # 10% random injection
 )
 """
 Brainstorming mode: High recall, exploratory.
@@ -129,7 +138,7 @@ Focus: Maximum coverage, creative connections.
 PROFILES: Dict[str, ModeProfile] = {
     "execution": EXECUTION,
     "planning": PLANNING,
-    "brainstorming": BRAINSTORMING
+    "brainstorming": BRAINSTORMING,
 }
 
 
@@ -148,8 +157,7 @@ def get_profile(name: str) -> ModeProfile:
     """
     if name not in PROFILES:
         raise ValueError(
-            f"Unknown mode: {name}. "
-            f"Valid modes: {', '.join(PROFILES.keys())}"
+            f"Unknown mode: {name}. " f"Valid modes: {', '.join(PROFILES.keys())}"
         )
 
     return PROFILES[name]

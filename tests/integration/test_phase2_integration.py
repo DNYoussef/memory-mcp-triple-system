@@ -8,16 +8,23 @@ Tests:
 4. WHO/WHEN/PROJECT/WHY tagging works
 """
 
-import os
 import sys
 import pytest
 from pathlib import Path
-from datetime import datetime
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+# These tests validate a developer's LOCAL Claude Code hooks install, which is
+# not present on CI or a fresh checkout. Skip when the directory is absent.
+_HOOKS_DIR = Path.home() / ".claude" / "hooks" / "12fa"
+_requires_local_hooks = pytest.mark.skipif(
+    not _HOOKS_DIR.exists(),
+    reason="local Claude hooks install (~/.claude/hooks/12fa) not present",
+)
 
+
+@_requires_local_hooks
 class TestHooksDirectoryStructure:
     """Test C2.1: Hooks directory exists."""
 
@@ -29,38 +36,63 @@ class TestHooksDirectoryStructure:
 
     def test_tagging_protocol_hook_exists(self):
         """Verify memory-mcp-tagging-protocol.js exists."""
-        hook_file = Path.home() / ".claude" / "hooks" / "12fa" / "memory-mcp-tagging-protocol.js"
+        hook_file = (
+            Path.home()
+            / ".claude"
+            / "hooks"
+            / "12fa"
+            / "memory-mcp-tagging-protocol.js"
+        )
         assert hook_file.exists(), f"Tagging protocol hook not found: {hook_file}"
 
     def test_access_control_hook_exists(self):
         """Verify agent-mcp-access-control.js exists."""
-        hook_file = Path.home() / ".claude" / "hooks" / "12fa" / "agent-mcp-access-control.js"
+        hook_file = (
+            Path.home() / ".claude" / "hooks" / "12fa" / "agent-mcp-access-control.js"
+        )
         assert hook_file.exists(), f"Access control hook not found: {hook_file}"
 
 
+@_requires_local_hooks
 class TestHookFileValidity:
     """Test C2.2 and C2.3: Hook files are valid JavaScript."""
 
     def test_tagging_protocol_is_valid_js(self):
         """Verify tagging protocol hook is valid JavaScript."""
-        hook_file = Path.home() / ".claude" / "hooks" / "12fa" / "memory-mcp-tagging-protocol.js"
-        content = hook_file.read_text(encoding='utf-8')
+        hook_file = (
+            Path.home()
+            / ".claude"
+            / "hooks"
+            / "12fa"
+            / "memory-mcp-tagging-protocol.js"
+        )
+        content = hook_file.read_text(encoding="utf-8")
 
         # Check for required exports
         assert "module.exports" in content, "Missing CommonJS exports"
         assert "taggedMemoryStore" in content, "Missing taggedMemoryStore function"
-        assert "validateTaggedMetadata" in content, "Missing validateTaggedMetadata function"
+        assert (
+            "validateTaggedMetadata" in content
+        ), "Missing validateTaggedMetadata function"
 
         # Check for tagging protocol components
         assert "WHO" in content or "agent" in content, "Missing WHO metadata generation"
-        assert "WHEN" in content or "timestamp" in content, "Missing WHEN metadata generation"
-        assert "PROJECT" in content or "project" in content, "Missing PROJECT metadata generation"
-        assert "WHY" in content or "intent" in content, "Missing WHY metadata generation"
+        assert (
+            "WHEN" in content or "timestamp" in content
+        ), "Missing WHEN metadata generation"
+        assert (
+            "PROJECT" in content or "project" in content
+        ), "Missing PROJECT metadata generation"
+        assert (
+            "WHY" in content or "intent" in content
+        ), "Missing WHY metadata generation"
 
     def test_access_control_is_valid_js(self):
         """Verify access control hook is valid JavaScript."""
-        hook_file = Path.home() / ".claude" / "hooks" / "12fa" / "agent-mcp-access-control.js"
-        content = hook_file.read_text(encoding='utf-8')
+        hook_file = (
+            Path.home() / ".claude" / "hooks" / "12fa" / "agent-mcp-access-control.js"
+        )
+        content = hook_file.read_text(encoding="utf-8")
 
         # Check for required exports
         assert "module.exports" in content, "Missing CommonJS exports"
@@ -76,26 +108,36 @@ class TestNexusProcessorIntegration:
 
     def test_stdio_server_imports_nexus(self):
         """Verify stdio_server imports NexusProcessor."""
-        stdio_server_path = Path(__file__).parent.parent.parent / "src" / "mcp" / "stdio_server.py"
-        content = stdio_server_path.read_text(encoding='utf-8')
+        stdio_server_path = (
+            Path(__file__).parent.parent.parent / "src" / "mcp" / "stdio_server.py"
+        )
+        content = stdio_server_path.read_text(encoding="utf-8")
 
-        assert "from ..nexus.processor import NexusProcessor" in content, \
-            "stdio_server.py missing NexusProcessor import"
+        assert (
+            "from ..nexus.processor import NexusProcessor" in content
+        ), "stdio_server.py missing NexusProcessor import"
 
     def test_nexus_search_tool_class_exists(self):
         """Verify NexusSearchTool wrapper class exists."""
-        stdio_server_path = Path(__file__).parent.parent.parent / "src" / "mcp" / "stdio_server.py"
-        content = stdio_server_path.read_text(encoding='utf-8')
+        stdio_server_path = (
+            Path(__file__).parent.parent.parent / "src" / "mcp" / "stdio_server.py"
+        )
+        content = stdio_server_path.read_text(encoding="utf-8")
 
-        assert "class NexusSearchTool" in content, \
-            "NexusSearchTool wrapper class not found"
+        assert (
+            "class NexusSearchTool" in content
+        ), "NexusSearchTool wrapper class not found"
 
     def test_mode_parameter_in_vector_search(self):
         """Verify mode parameter added to vector_search tool."""
-        stdio_server_path = Path(__file__).parent.parent.parent / "src" / "mcp" / "stdio_server.py"
-        content = stdio_server_path.read_text(encoding='utf-8')
+        stdio_server_path = (
+            Path(__file__).parent.parent.parent / "src" / "mcp" / "stdio_server.py"
+        )
+        content = stdio_server_path.read_text(encoding="utf-8")
 
-        assert '"mode"' in content, "Mode parameter not found in vector_search tool schema"
+        assert (
+            '"mode"' in content
+        ), "Mode parameter not found in vector_search tool schema"
         assert '"execution"' in content, "Execution mode not found"
         assert '"planning"' in content, "Planning mode not found"
         assert '"brainstorming"' in content, "Brainstorming mode not found"
@@ -106,19 +148,25 @@ class TestTaggingProtocolIntegration:
 
     def test_enrich_metadata_function_exists(self):
         """Verify _enrich_metadata_with_tagging function exists."""
-        stdio_server_path = Path(__file__).parent.parent.parent / "src" / "mcp" / "stdio_server.py"
-        content = stdio_server_path.read_text(encoding='utf-8')
+        stdio_server_path = (
+            Path(__file__).parent.parent.parent / "src" / "mcp" / "stdio_server.py"
+        )
+        content = stdio_server_path.read_text(encoding="utf-8")
 
-        assert "def _enrich_metadata_with_tagging" in content, \
-            "Metadata enrichment function not found"
+        assert (
+            "def _enrich_metadata_with_tagging" in content
+        ), "Metadata enrichment function not found"
 
     def test_memory_store_uses_tagging(self):
         """Verify memory_store handler uses tagging protocol."""
-        stdio_server_path = Path(__file__).parent.parent.parent / "src" / "mcp" / "stdio_server.py"
-        content = stdio_server_path.read_text(encoding='utf-8')
+        stdio_server_path = (
+            Path(__file__).parent.parent.parent / "src" / "mcp" / "stdio_server.py"
+        )
+        content = stdio_server_path.read_text(encoding="utf-8")
 
-        assert "_enrich_metadata_with_tagging" in content, \
-            "memory_store not using metadata enrichment"
+        assert (
+            "_enrich_metadata_with_tagging" in content
+        ), "memory_store not using metadata enrichment"
 
     def test_tagging_includes_all_fields(self):
         """Verify tagging produces WHO/WHEN/PROJECT/WHY in the enriched metadata.
@@ -131,10 +179,10 @@ class TestTaggingProtocolIntegration:
 
         result = _enrich_metadata_with_tagging({})
 
-        assert 'agent' in result, "WHO (agent) field missing"
-        assert 'timestamp' in result, "WHEN (timestamp) field missing"
-        assert 'project' in result, "PROJECT field missing"
-        assert 'intent' in result, "WHY (intent) field missing"
+        assert "agent" in result, "WHO (agent) field missing"
+        assert "timestamp" in result, "WHEN (timestamp) field missing"
+        assert "project" in result, "PROJECT field missing"
+        assert "intent" in result, "WHY (intent) field missing"
 
 
 class TestMetadataEnrichment:
@@ -147,46 +195,46 @@ class TestMetadataEnrichment:
         result = _enrich_metadata_with_tagging({})
 
         # Check WHO
-        assert 'agent' in result
-        assert result['agent']['name'] == 'unknown'
+        assert "agent" in result
+        assert result["agent"]["name"] == "unknown"
 
         # Check WHEN
-        assert 'timestamp' in result
-        assert 'iso' in result['timestamp']
-        assert 'unix' in result['timestamp']
-        assert 'readable' in result['timestamp']
+        assert "timestamp" in result
+        assert "iso" in result["timestamp"]
+        assert "unix" in result["timestamp"]
+        assert "readable" in result["timestamp"]
 
         # Check PROJECT
-        assert 'project' in result
-        assert result['project'] == 'memory-mcp-triple-system'
+        assert "project" in result
+        assert result["project"] == "memory-mcp-triple-system"
 
         # Check WHY
-        assert 'intent' in result
-        assert result['intent'] == 'storage'
+        assert "intent" in result
+        assert result["intent"] == "storage"
 
         # Check protocol version
-        assert result['_tagging_protocol'] == 'memory-mcp-triple-system'
+        assert result["_tagging_protocol"] == "memory-mcp-triple-system"
 
     def test_enrich_metadata_with_custom_values(self):
         """Test enrichment with custom values."""
         from src.mcp.stdio_server import _enrich_metadata_with_tagging
 
         custom_metadata = {
-            'agent': 'coder',
-            'agent_category': 'development',
-            'project': 'test-project',
-            'intent': 'implementation',
-            'custom_field': 'custom_value'
+            "agent": "coder",
+            "agent_category": "development",
+            "project": "test-project",
+            "intent": "implementation",
+            "custom_field": "custom_value",
         }
 
         result = _enrich_metadata_with_tagging(custom_metadata)
 
         # Check custom values preserved
-        assert result['agent']['name'] == 'coder'
-        assert result['agent']['category'] == 'development'
-        assert result['project'] == 'test-project'
-        assert result['intent'] == 'implementation'
-        assert result['custom_field'] == 'custom_value'
+        assert result["agent"]["name"] == "coder"
+        assert result["agent"]["category"] == "development"
+        assert result["project"] == "test-project"
+        assert result["intent"] == "implementation"
+        assert result["custom_field"] == "custom_value"
 
 
 class TestNexusSearchToolInstantiation:
@@ -196,21 +244,14 @@ class TestNexusSearchToolInstantiation:
     def mock_config(self):
         """Create mock configuration."""
         return {
-            'embeddings': {
-                'model': 'all-MiniLM-L6-v2',
-                'dimension': 384
-            },
-            'storage': {
-                'vector_db': {
-                    'persist_directory': './test_chroma_data',
-                    'collection_name': 'test_collection'
+            "embeddings": {"model": "all-MiniLM-L6-v2", "dimension": 384},
+            "storage": {
+                "vector_db": {
+                    "persist_directory": "./test_chroma_data",
+                    "collection_name": "test_collection",
                 }
             },
-            'chunking': {
-                'min_chunk_size': 128,
-                'max_chunk_size': 512,
-                'overlap': 50
-            }
+            "chunking": {"min_chunk_size": 128, "max_chunk_size": 512, "overlap": 50},
         }
 
     def test_nexus_search_tool_init(self, mock_config):

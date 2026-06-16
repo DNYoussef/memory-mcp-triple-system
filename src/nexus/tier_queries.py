@@ -25,11 +25,7 @@ class TierQueryMixin:
         - self.bayesian_graph_sync (optional, BAY-002/BAY-005)
     """
 
-    def _query_vector_tier(
-        self,
-        query: str,
-        top_k: int
-    ) -> List[Dict[str, Any]]:
+    def _query_vector_tier(self, query: str, top_k: int) -> List[Dict[str, Any]]:
         """
         Query Vector tier (ChromaDB).
 
@@ -50,8 +46,7 @@ class TierQueryMixin:
 
             # Search vector index
             raw_results = self.vector_indexer.search_similar(
-                query_embedding=query_embedding,
-                top_k=top_k
+                query_embedding=query_embedding, top_k=top_k
             )
 
             # Convert to standard format
@@ -60,13 +55,15 @@ class TierQueryMixin:
                 # Chroma cosine distance is 1 - cosine similarity.
                 distance = result.get("distance", 1.0)
                 similarity = max(0.0, min(1.0, 1.0 - distance))
-                results.append({
-                    "text": result.get("document", ""),
-                    "score": similarity,
-                    "tier": "vector",
-                    "metadata": result.get("metadata", {}),
-                    "id": result.get("id", "")
-                })
+                results.append(
+                    {
+                        "text": result.get("document", ""),
+                        "score": similarity,
+                        "tier": "vector",
+                        "metadata": result.get("metadata", {}),
+                        "id": result.get("id", ""),
+                    }
+                )
 
             return results
 
@@ -74,11 +71,7 @@ class TierQueryMixin:
             logger.error(f"Vector tier query failed: {e}")
             return []
 
-    def _query_hipporag_tier(
-        self,
-        query: str,
-        top_k: int
-    ) -> List[Dict[str, Any]]:
+    def _query_hipporag_tier(self, query: str, top_k: int) -> List[Dict[str, Any]]:
         """
         Query HippoRAG tier (Multi-hop graph reasoning).
 
@@ -96,9 +89,7 @@ class TierQueryMixin:
         try:
             # Query graph with multi-hop reasoning
             raw_results = self.graph_query_engine.retrieve_multi_hop(
-                query=query,
-                top_k=top_k,
-                max_hops=3
+                query=query, top_k=top_k, max_hops=3
             )
 
             # Convert to standard format
@@ -110,13 +101,15 @@ class TierQueryMixin:
             for result in raw_results:
                 raw_score = float(result.get("ppr_score", result.get("score", 0.5)))
                 score = raw_score / max_score if max_score > 0 else raw_score
-                results.append({
-                    "text": result.get("text", result.get("content", "")),
-                    "score": max(0.0, min(1.0, score)),
-                    "tier": "hipporag",
-                    "metadata": result.get("metadata", {}),
-                    "id": result.get("chunk_id", result.get("id", ""))
-                })
+                results.append(
+                    {
+                        "text": result.get("text", result.get("content", "")),
+                        "score": max(0.0, min(1.0, score)),
+                        "tier": "hipporag",
+                        "metadata": result.get("metadata", {}),
+                        "id": result.get("chunk_id", result.get("id", "")),
+                    }
+                )
 
             return results
 
@@ -125,9 +118,7 @@ class TierQueryMixin:
             return []
 
     def _query_bayesian_tier(
-        self,
-        query: str,
-        top_k: int
+        self, query: str, top_k: int
     ) -> Optional[List[Dict[str, Any]]]:
         """
         Query Bayesian tier (Probabilistic inference).
@@ -178,17 +169,19 @@ class TierQueryMixin:
                     if state in ("entropy", "probabilities"):
                         continue
                     if isinstance(state, (int, str)) and isinstance(prob, (int, float)):
-                        results.append({
-                            "text": f"{var}={state}",
-                            "score": float(prob),
-                            "tier": "bayesian",
-                            "metadata": {
-                                "variable": var,
-                                "state": state,
-                                "entropy": entropy
-                            },
-                            "id": f"bayesian_{var}_{state}"
-                        })
+                        results.append(
+                            {
+                                "text": f"{var}={state}",
+                                "score": float(prob),
+                                "tier": "bayesian",
+                                "metadata": {
+                                    "variable": var,
+                                    "state": state,
+                                    "entropy": entropy,
+                                },
+                                "id": f"bayesian_{var}_{state}",
+                            }
+                        )
 
             return results[:top_k]
 
@@ -196,7 +189,9 @@ class TierQueryMixin:
             logger.warning(f"Bayesian tier query failed (expected): {e}")
             return None
 
-    def _query_bayesian_conditional(self, query_entity: str) -> Optional[Dict[str, Any]]:
+    def _query_bayesian_conditional(
+        self, query_entity: str
+    ) -> Optional[Dict[str, Any]]:
         """Call pgmpy or lightweight Bayesian engines despite signature drift."""
         try:
             return self.probabilistic_query_engine.query_conditional(
@@ -211,10 +206,7 @@ class TierQueryMixin:
                 network=None,
             )
 
-    def _apply_bayesian_feedback(
-        self,
-        inference_results: Dict[str, Any]
-    ) -> None:
+    def _apply_bayesian_feedback(self, inference_results: Dict[str, Any]) -> None:
         """
         BAY-002: Apply feedback loop to update graph edges from Bayesian inference.
 
@@ -227,7 +219,7 @@ class TierQueryMixin:
         NASA Rule 10: 20 LOC (<=60)
         """
         # Check if bayesian_graph_sync is available (optional dependency)
-        sync = getattr(self, 'bayesian_graph_sync', None)
+        sync = getattr(self, "bayesian_graph_sync", None)
         if sync is None:
             logger.debug("Bayesian feedback loop skipped (sync not configured)")
             return
@@ -272,15 +264,18 @@ class TierQueryMixin:
             logger.debug(f"spaCy entity extraction failed, using regex: {e}")
 
         # Find capitalized phrases (2+ adjacent capitalized words)
-        cap_phrase_pattern = r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b'
+        cap_phrase_pattern = r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b"
         phrases = re.findall(cap_phrase_pattern, query)
         if phrases:
             return max(phrases, key=len)
 
         # Find single capitalized words (excluding sentence starters)
         words = query.split()
-        cap_words = [w for i, w in enumerate(words)
-                     if w[0].isupper() and (i > 0 or len(words) == 1)]
+        cap_words = [
+            w
+            for i, w in enumerate(words)
+            if w[0].isupper() and (i > 0 or len(words) == 1)
+        ]
         if cap_words:
             return max(cap_words, key=len)
 

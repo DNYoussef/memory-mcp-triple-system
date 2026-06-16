@@ -21,8 +21,9 @@ from .lightweight_bayesian import (
 class LightweightNetworkBuilder:
     """Build Bayesian network from knowledge graph (no pgmpy/torch)."""
 
-    def __init__(self, max_nodes: int = 50, config_path: str = "",
-                 max_parents: int = MAX_PARENTS):
+    def __init__(
+        self, max_nodes: int = 50, config_path: str = "", max_parents: int = MAX_PARENTS
+    ):
         self.max_nodes = max_nodes
         self.max_parents = max_parents
         self._cache: Dict[str, LightweightBayesianNetwork] = {}
@@ -46,7 +47,7 @@ class LightweightNetworkBuilder:
         # Filter to top nodes by degree
         nodes = sorted(graph.nodes(), key=lambda n: graph.degree(n), reverse=True)
         if len(nodes) > self.max_nodes:
-            nodes = nodes[:self.max_nodes]
+            nodes = nodes[: self.max_nodes]
             subgraph = graph.subgraph(nodes).copy()
         else:
             subgraph = graph
@@ -75,7 +76,9 @@ class LightweightNetworkBuilder:
         if not bn.check_model():
             logger.warning("Bayesian network validation failed")
         else:
-            logger.info(f"Lightweight Bayesian network built: {len(bn.nodes())} nodes, {len(bn.edges())} edges")
+            logger.info(
+                f"Lightweight Bayesian network built: {len(bn.nodes())} nodes, {len(bn.edges())} edges"
+            )
         if len(self._cache) >= 100:  # bound: drop an arbitrary old entry
             self._cache.pop(next(iter(self._cache)))
         self._cache[cache_key] = bn  # degraded-but-usable nets are cached too
@@ -85,11 +88,14 @@ class LightweightNetworkBuilder:
     def _cache_key(graph: nx.DiGraph) -> str:
         """Graph-version key: structure + edge weight (the only CPD input here)."""
         import hashlib
+
         edges = sorted(
             (u, v, round(float(d.get("weight", 1.0)), 4))
             for u, v, d in graph.edges(data=True)
         )
-        return hashlib.md5((str(sorted(graph.nodes())) + str(edges)).encode()).hexdigest()
+        return hashlib.md5(
+            (str(sorted(graph.nodes())) + str(edges)).encode()
+        ).hexdigest()
 
     def estimate_cpds(
         self,
@@ -175,7 +181,9 @@ class LightweightNetworkBuilder:
             evidence_card=parent_cards,
         )
 
-    def _make_dag(self, edges: List[Tuple[str, str]], nodes: List[str]) -> List[Tuple[str, str]]:
+    def _make_dag(
+        self, edges: List[Tuple[str, str]], nodes: List[str]
+    ) -> List[Tuple[str, str]]:
         """Ensure edges form a DAG by removing back-edges."""
         g = nx.DiGraph()
         g.add_nodes_from(nodes)
@@ -191,5 +199,7 @@ class LightweightNetworkBuilder:
     def cache_network(self, network: LightweightBayesianNetwork, cache_key: str):
         self._cache[cache_key] = network
 
-    def get_cached_network(self, cache_key: str) -> Optional[LightweightBayesianNetwork]:
+    def get_cached_network(
+        self, cache_key: str
+    ) -> Optional[LightweightBayesianNetwork]:
         return self._cache.get(cache_key)

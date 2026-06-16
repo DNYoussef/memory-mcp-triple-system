@@ -12,13 +12,12 @@ Non-ASCII test content uses unicode escapes so this source file stays pure ASCII
 import io
 import sys
 
-import pytest
 
 from src.hooks.session_start_handler import _emit_context
 
-EM_DASH = chr(0x2014)            # em dash
+EM_DASH = chr(0x2014)  # em dash
 ACCENTED = "caf" + chr(0xE9) + " r" + chr(0xE9) + "sum" + chr(0xE9)  # cafe resume
-ROCKET = chr(0x1F680)            # rocket emoji
+ROCKET = chr(0x1F680)  # rocket emoji
 NON_ASCII = "Memory: " + ACCENTED + " " + EM_DASH + " rocket " + ROCKET
 
 
@@ -37,9 +36,9 @@ def test_emit_context_writes_utf8_for_non_ascii(monkeypatch):
     _emit_context(NON_ASCII)
 
     out = buf.getvalue().decode("utf-8")
-    assert EM_DASH in out          # em dash preserved
-    assert ROCKET in out           # emoji preserved
-    assert ACCENTED in out         # accented chars preserved
+    assert EM_DASH in out  # em dash preserved
+    assert ROCKET in out  # emoji preserved
+    assert ACCENTED in out  # accented chars preserved
     assert out.endswith("\n")
 
 

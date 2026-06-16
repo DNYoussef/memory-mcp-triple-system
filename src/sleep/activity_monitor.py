@@ -19,16 +19,18 @@ logger = logging.getLogger(__name__)
 
 class ActivityLevel(str, Enum):
     """System activity levels"""
-    IDLE = "idle"           # No activity, safe for heavy maintenance
-    LOW = "low"             # Light activity, safe for light maintenance
-    MODERATE = "moderate"   # Normal activity, defer maintenance
-    HIGH = "high"           # Heavy activity, avoid any maintenance
-    PEAK = "peak"           # Maximum activity, critical path
+
+    IDLE = "idle"  # No activity, safe for heavy maintenance
+    LOW = "low"  # Light activity, safe for light maintenance
+    MODERATE = "moderate"  # Normal activity, defer maintenance
+    HIGH = "high"  # Heavy activity, avoid any maintenance
+    PEAK = "peak"  # Maximum activity, critical path
 
 
 @dataclass
 class ActivityEvent:
     """A recorded activity event"""
+
     timestamp: datetime
     event_type: str
     weight: float = 1.0
@@ -38,6 +40,7 @@ class ActivityEvent:
 @dataclass
 class ActivityWindow:
     """Statistics for an activity time window"""
+
     start_time: datetime
     end_time: datetime
     event_count: int
@@ -64,7 +67,7 @@ class ActivityMonitor:
         ActivityLevel.LOW: 0.5,
         ActivityLevel.MODERATE: 2.0,
         ActivityLevel.HIGH: 5.0,
-        ActivityLevel.PEAK: 10.0
+        ActivityLevel.PEAK: 10.0,
     }
 
     # Event type weights
@@ -75,14 +78,14 @@ class ActivityMonitor:
         "query": 0.8,
         "background_task": 0.3,
         "user_interaction": 2.0,
-        "system_event": 0.2
+        "system_event": 0.2,
     }
 
     def __init__(
         self,
         window_minutes: int = 5,
         history_hours: int = 24,
-        quiet_threshold_minutes: int = 10
+        quiet_threshold_minutes: int = 10,
     ):
         self.window_minutes = window_minutes
         self.history_hours = history_hours
@@ -100,8 +103,7 @@ class ActivityMonitor:
         self._hourly_patterns: Dict[int, List[float]] = {h: [] for h in range(24)}
 
     def register_callback(
-        self,
-        callback: Callable[[ActivityLevel, ActivityLevel], None]
+        self, callback: Callable[[ActivityLevel, ActivityLevel], None]
     ) -> None:
         """Register callback for activity level changes"""
         self._callbacks.append(callback)
@@ -111,9 +113,7 @@ class ActivityMonitor:
         self._weights[event_type] = weight
 
     async def record_event(
-        self,
-        event_type: str,
-        metadata: Optional[Dict[str, Any]] = None
+        self, event_type: str, metadata: Optional[Dict[str, Any]] = None
     ) -> ActivityLevel:
         """
         Record an activity event.
@@ -128,7 +128,7 @@ class ActivityMonitor:
                 timestamp=now,
                 event_type=event_type,
                 weight=weight,
-                metadata=metadata or {}
+                metadata=metadata or {},
             )
 
             self._events.append(event)
@@ -174,8 +174,7 @@ class ActivityMonitor:
 
         # Count weighted events in window
         weighted_sum = sum(
-            e.weight for e in self._events
-            if e.timestamp >= window_start
+            e.weight for e in self._events if e.timestamp >= window_start
         )
 
         # Convert to events per minute
@@ -212,18 +211,14 @@ class ActivityMonitor:
         return self._current_level
 
     def get_activity_window(
-        self,
-        window_minutes: Optional[int] = None
+        self, window_minutes: Optional[int] = None
     ) -> ActivityWindow:
         """Get activity statistics for a time window"""
         now = datetime.utcnow()
         minutes = window_minutes or self.window_minutes
         window_start = now - timedelta(minutes=minutes)
 
-        events_in_window = [
-            e for e in self._events
-            if e.timestamp >= window_start
-        ]
+        events_in_window = [e for e in self._events if e.timestamp >= window_start]
 
         weighted_activity = sum(e.weight for e in events_in_window)
         peak_time = None
@@ -237,7 +232,7 @@ class ActivityMonitor:
             event_count=len(events_in_window),
             weighted_activity=weighted_activity,
             level=self._current_level,
-            peak_time=peak_time
+            peak_time=peak_time,
         )
 
     def predict_activity(self, hours_ahead: int = 1) -> ActivityLevel:
@@ -270,9 +265,7 @@ class ActivityMonitor:
             return ActivityLevel.IDLE
 
     def get_best_maintenance_window(
-        self,
-        duration_hours: int = 2,
-        lookahead_hours: int = 24
+        self, duration_hours: int = 2, lookahead_hours: int = 24
     ) -> Optional[int]:
         """
         Find the best upcoming hour for maintenance.
@@ -281,7 +274,7 @@ class ActivityMonitor:
         """
         now = datetime.utcnow()
         best_hour = None
-        lowest_activity = float('inf')
+        lowest_activity = float("inf")
 
         for offset in range(lookahead_hours):
             target_hour = (now.hour + offset) % 24
@@ -315,19 +308,20 @@ class ActivityMonitor:
             "is_quiet_period": self.is_quiet_period(),
             "quiet_duration_minutes": (
                 self.get_quiet_duration().total_seconds() / 60
-                if self.get_quiet_duration() else None
+                if self.get_quiet_duration()
+                else None
             ),
             "window": {
                 "event_count": window.event_count,
                 "weighted_activity": round(window.weighted_activity, 3),
                 "events_per_minute": round(
                     window.weighted_activity / self.window_minutes, 3
-                )
+                ),
             },
             "total_events_tracked": len(self._events),
             "hourly_patterns_available": sum(
                 1 for p in self._hourly_patterns.values() if p
-            )
+            ),
         }
 
 
@@ -336,9 +330,7 @@ _activity_monitor: Optional[ActivityMonitor] = None
 
 
 def get_activity_monitor(
-    window_minutes: int = 5,
-    history_hours: int = 24,
-    quiet_threshold_minutes: int = 10
+    window_minutes: int = 5, history_hours: int = 24, quiet_threshold_minutes: int = 10
 ) -> ActivityMonitor:
     """Get singleton activity monitor"""
     global _activity_monitor
@@ -346,6 +338,6 @@ def get_activity_monitor(
         _activity_monitor = ActivityMonitor(
             window_minutes=window_minutes,
             history_hours=history_hours,
-            quiet_threshold_minutes=quiet_threshold_minutes
+            quiet_threshold_minutes=quiet_threshold_minutes,
         )
     return _activity_monitor

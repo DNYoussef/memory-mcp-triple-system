@@ -24,6 +24,7 @@ class TestC32ObsidianClient:
     def test_obsidian_client_imported(self):
         """Verify ObsidianClient is imported in stdio_server."""
         from src.mcp.stdio_server import ObsidianMCPClient
+
         assert ObsidianMCPClient is not None
 
     def test_nexus_tool_has_obsidian_property(self, tmp_path):
@@ -31,18 +32,18 @@ class TestC32ObsidianClient:
         from src.mcp.stdio_server import NexusSearchTool
 
         config = {
-            'embeddings': {'model': 'all-MiniLM-L6-v2'},
-            'storage': {
-                'vector_db': {
-                    'persist_directory': str(tmp_path / 'chroma'),
-                    'collection_name': 'test'
+            "embeddings": {"model": "all-MiniLM-L6-v2"},
+            "storage": {
+                "vector_db": {
+                    "persist_directory": str(tmp_path / "chroma"),
+                    "collection_name": "test",
                 },
-                'data_dir': str(tmp_path / 'data')
-            }
+                "data_dir": str(tmp_path / "data"),
+            },
         }
 
         tool = NexusSearchTool(config)
-        assert hasattr(tool, 'obsidian_client')
+        assert hasattr(tool, "obsidian_client")
 
 
 class TestC33EventLogging:
@@ -53,18 +54,18 @@ class TestC33EventLogging:
         from src.mcp.stdio_server import NexusSearchTool
 
         config = {
-            'embeddings': {'model': 'all-MiniLM-L6-v2'},
-            'storage': {
-                'vector_db': {
-                    'persist_directory': str(tmp_path / 'chroma'),
-                    'collection_name': 'test'
+            "embeddings": {"model": "all-MiniLM-L6-v2"},
+            "storage": {
+                "vector_db": {
+                    "persist_directory": str(tmp_path / "chroma"),
+                    "collection_name": "test",
                 },
-                'data_dir': str(tmp_path / 'data')
-            }
+                "data_dir": str(tmp_path / "data"),
+            },
         }
 
         tool = NexusSearchTool(config)
-        assert hasattr(tool, 'event_log')
+        assert hasattr(tool, "event_log")
         assert tool.event_log is not None
 
     def test_log_event_method_exists(self, tmp_path):
@@ -72,18 +73,18 @@ class TestC33EventLogging:
         from src.mcp.stdio_server import NexusSearchTool
 
         config = {
-            'embeddings': {'model': 'all-MiniLM-L6-v2'},
-            'storage': {
-                'vector_db': {
-                    'persist_directory': str(tmp_path / 'chroma'),
-                    'collection_name': 'test'
+            "embeddings": {"model": "all-MiniLM-L6-v2"},
+            "storage": {
+                "vector_db": {
+                    "persist_directory": str(tmp_path / "chroma"),
+                    "collection_name": "test",
                 },
-                'data_dir': str(tmp_path / 'data')
-            }
+                "data_dir": str(tmp_path / "data"),
+            },
         }
 
         tool = NexusSearchTool(config)
-        assert callable(getattr(tool, 'log_event', None))
+        assert callable(getattr(tool, "log_event", None))
 
 
 class TestC34KVStore:
@@ -94,18 +95,18 @@ class TestC34KVStore:
         from src.mcp.stdio_server import NexusSearchTool
 
         config = {
-            'embeddings': {'model': 'all-MiniLM-L6-v2'},
-            'storage': {
-                'vector_db': {
-                    'persist_directory': str(tmp_path / 'chroma'),
-                    'collection_name': 'test'
+            "embeddings": {"model": "all-MiniLM-L6-v2"},
+            "storage": {
+                "vector_db": {
+                    "persist_directory": str(tmp_path / "chroma"),
+                    "collection_name": "test",
                 },
-                'data_dir': str(tmp_path / 'data')
-            }
+                "data_dir": str(tmp_path / "data"),
+            },
         }
 
         tool = NexusSearchTool(config)
-        assert hasattr(tool, 'kv_store')
+        assert hasattr(tool, "kv_store")
         assert tool.kv_store is not None
 
 
@@ -117,18 +118,18 @@ class TestC35LifecycleManager:
         from src.mcp.stdio_server import NexusSearchTool
 
         config = {
-            'embeddings': {'model': 'all-MiniLM-L6-v2'},
-            'storage': {
-                'vector_db': {
-                    'persist_directory': str(tmp_path / 'chroma'),
-                    'collection_name': 'test'
+            "embeddings": {"model": "all-MiniLM-L6-v2"},
+            "storage": {
+                "vector_db": {
+                    "persist_directory": str(tmp_path / "chroma"),
+                    "collection_name": "test",
                 },
-                'data_dir': str(tmp_path / 'data')
-            }
+                "data_dir": str(tmp_path / "data"),
+            },
         }
 
         tool = NexusSearchTool(config)
-        assert hasattr(tool, 'lifecycle_manager')
+        assert hasattr(tool, "lifecycle_manager")
         assert tool.lifecycle_manager is not None
 
 
@@ -140,14 +141,14 @@ class TestC36QueryTracing:
         from src.mcp.stdio_server import NexusSearchTool
 
         config = {
-            'embeddings': {'model': 'all-MiniLM-L6-v2'},
-            'storage': {
-                'vector_db': {
-                    'persist_directory': str(tmp_path / 'chroma'),
-                    'collection_name': 'test'
+            "embeddings": {"model": "all-MiniLM-L6-v2"},
+            "storage": {
+                "vector_db": {
+                    "persist_directory": str(tmp_path / "chroma"),
+                    "collection_name": "test",
                 },
-                'data_dir': str(tmp_path / 'data')
-            }
+                "data_dir": str(tmp_path / "data"),
+            },
         }
 
         tool = NexusSearchTool(config)
@@ -164,17 +165,14 @@ class TestC37Migrations:
     def test_apply_migrations_function_exists(self):
         """Verify _apply_migrations function exists."""
         from src.mcp.stdio_server import _apply_migrations
+
         assert callable(_apply_migrations)
 
     def test_migrations_applied_on_startup(self, tmp_path):
         """Verify migrations are applied without error."""
         from src.mcp.stdio_server import _apply_migrations
 
-        config = {
-            'storage': {
-                'data_dir': str(tmp_path / 'data')
-            }
-        }
+        config = {"storage": {"data_dir": str(tmp_path / "data")}}
 
         # Should not raise
         _apply_migrations(config)
@@ -186,6 +184,7 @@ class TestVersionUpdated:
     def test_version_is_1_4_0(self):
         """Verify version is 1.4.0 for Phase 6."""
         from src import __version__
+
         assert __version__ == "1.4.0", f"Expected 1.4.0, got {__version__}"
 
 
@@ -200,7 +199,7 @@ class TestProductionFeaturesSummary:
             QueryTrace,
             HotColdClassifier,
             MemoryLifecycleManager,
-            ObsidianMCPClient
+            ObsidianMCPClient,
         )
 
         assert EventLog is not None

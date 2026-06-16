@@ -17,10 +17,9 @@ Non-negotiable rule: HTTP and stdio MUST NOT have separate ingestion logic.
 """
 
 import hashlib
-import os
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
 
 from loguru import logger
 
@@ -96,7 +95,9 @@ class MemoryIngestionService:
 
         # 4. Process each chunk: ID → embed → index → graph
         all_entity_stats: Dict[str, Any] = {
-            "entities_added": 0, "relationships_created": 0, "entity_types": []
+            "entities_added": 0,
+            "relationships_created": 0,
+            "entity_types": [],
         }
         chunk_ids = []
         chunk_id = None  # Initialize to avoid NameError if loop is empty
@@ -127,7 +128,9 @@ class MemoryIngestionService:
             # Entity extraction → graph population
             stats = self._populate_graph(chunk_id, chunk_text, chunk_meta)
             all_entity_stats["entities_added"] += stats.get("entities_added", 0)
-            all_entity_stats["relationships_created"] += stats.get("relationships_created", 0)
+            all_entity_stats["relationships_created"] += stats.get(
+                "relationships_created", 0
+            )
             for et in stats.get("entity_types", []):
                 if et not in all_entity_stats["entity_types"]:
                     all_entity_stats["entity_types"].append(et)
@@ -135,7 +138,9 @@ class MemoryIngestionService:
         entity_stats = all_entity_stats
 
         # 7. Log event (log all chunk IDs, not just last)
-        self._log_event(text, metadata, ",".join(chunk_ids) if chunk_ids else "none", entity_stats)
+        self._log_event(
+            text, metadata, ",".join(chunk_ids) if chunk_ids else "none", entity_stats
+        )
 
         # 8. Lifecycle maintenance (non-critical)
         self._run_lifecycle_maintenance()
@@ -208,11 +213,14 @@ class MemoryIngestionService:
             return {"entities_added": 0, "relationships_created": 0, "entity_types": []}
         try:
             # Add chunk node to graph
-            self._graph_service.add_chunk_node(chunk_id, {
-                "text": text[:500],
-                "file_path": metadata.get("file_path", "/memory/stored.md"),
-                "timestamp": metadata.get("stored_at"),
-            })
+            self._graph_service.add_chunk_node(
+                chunk_id,
+                {
+                    "text": text[:500],
+                    "file_path": metadata.get("file_path", "/memory/stored.md"),
+                    "timestamp": metadata.get("stored_at"),
+                },
+            )
 
             # Use EntityService's built-in method (extracts + creates nodes + edges)
             stats = self._entity_service.add_entities_to_graph(
@@ -239,6 +247,7 @@ class MemoryIngestionService:
             return
         try:
             from src.stores.event_log import EventType
+
             self._event_log.log_event(
                 EventType.CHUNK_ADDED,
                 {

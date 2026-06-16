@@ -2,17 +2,12 @@
 Real NetworkX Graph Integration Tests (ISS-047)
 Tests graph operations with real NetworkX instead of mocks.
 """
-import pytest
 import sys
 from pathlib import Path
 
 # Add parent directories to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from fixtures.real_services import (
-    temp_data_dir, real_graph_service, real_graph_query_engine, populated_graph
-)
 
 
 class TestGraphServiceRealNetworkX:
@@ -145,27 +140,29 @@ class TestGraphServiceRealNetworkX:
 class TestGraphQueryEngineRealNetworkX:
     """Test GraphQueryEngine with real NetworkX."""
 
-    def test_personalized_pagerank_real_graph(self, real_graph_query_engine, populated_graph):
+    def test_personalized_pagerank_real_graph(
+        self, real_graph_query_engine, populated_graph
+    ):
         """Test PPR on real graph."""
         real_graph_query_engine.graph = populated_graph.graph
 
         # Run PPR from Memory MCP
         scores = real_graph_query_engine.personalized_pagerank(
-            query_nodes=["Memory MCP"],
-            alpha=0.85
+            query_nodes=["Memory MCP"], alpha=0.85
         )
 
         assert len(scores) > 0, "PPR returned no scores"
         assert "Memory MCP" in scores
 
-    def test_multi_hop_search_real_graph(self, real_graph_query_engine, populated_graph):
+    def test_multi_hop_search_real_graph(
+        self, real_graph_query_engine, populated_graph
+    ):
         """Test multi-hop traversal on real graph."""
         real_graph_query_engine.graph = populated_graph.graph
 
         # 2-hop search from Memory MCP
         results = real_graph_query_engine.multi_hop_search(
-            start_nodes=["Memory MCP"],
-            max_hops=2
+            start_nodes=["Memory MCP"], max_hops=2
         )
 
         assert len(results) > 0, "Multi-hop search returned no results"
@@ -182,26 +179,28 @@ class TestGraphQueryEngineRealNetworkX:
         assert len(neighbors) > 0, "No neighbors found"
         assert "ChromaDB" in neighbors or "HippoRAG" in neighbors
 
-    def test_get_entity_neighbors_with_filter(self, real_graph_query_engine, populated_graph):
+    def test_get_entity_neighbors_with_filter(
+        self, real_graph_query_engine, populated_graph
+    ):
         """Test neighbor retrieval with edge type filter."""
         real_graph_query_engine.graph = populated_graph.graph
 
         # Filter by 'uses' relationship
         neighbors = real_graph_query_engine.get_entity_neighbors(
-            "Memory MCP",
-            edge_type="uses"
+            "Memory MCP", edge_type="uses"
         )
 
         # Should find ChromaDB, HippoRAG, Bayesian based on fixture
         assert len(neighbors) >= 1
 
-    def test_ppr_with_multiple_query_nodes(self, real_graph_query_engine, populated_graph):
+    def test_ppr_with_multiple_query_nodes(
+        self, real_graph_query_engine, populated_graph
+    ):
         """Test PPR with multiple starting points."""
         real_graph_query_engine.graph = populated_graph.graph
 
         scores = real_graph_query_engine.personalized_pagerank(
-            query_nodes=["Memory MCP", "ChromaDB"],
-            alpha=0.85
+            query_nodes=["Memory MCP", "ChromaDB"], alpha=0.85
         )
 
         assert len(scores) > 0
@@ -228,10 +227,7 @@ class TestGraphQueryEngineRealNetworkX:
         service.add_entity("Synonym1", "concept")
 
         # Add similar_to edge
-        real_graph_query_engine.graph.add_edge(
-            "Entity1", "Synonym1",
-            type="similar_to"
-        )
+        real_graph_query_engine.graph.add_edge("Entity1", "Synonym1", type="similar_to")
 
         expanded = real_graph_query_engine.expand_with_synonyms(["Entity1"])
 
@@ -243,8 +239,7 @@ class TestGraphQueryEngineRealNetworkX:
         real_graph_query_engine.graph = populated_graph.graph
 
         neighborhood = real_graph_query_engine.get_entity_neighborhood(
-            entity_id="Memory MCP",
-            hops=2
+            entity_id="Memory MCP", hops=2
         )
 
         assert "entities" in neighborhood
@@ -260,30 +255,24 @@ class TestGraphQueryEngineRealNetworkX:
         service.add_entity("Entity1", "concept")
 
         # Add mentions edge
-        real_graph_query_engine.graph.add_edge(
-            "chunk_1", "Entity1",
-            type="mentions"
-        )
+        real_graph_query_engine.graph.add_edge("chunk_1", "Entity1", type="mentions")
 
         # Mock PPR scores
-        ppr_scores = {
-            "chunk_1": 0.3,
-            "Entity1": 0.7
-        }
+        ppr_scores = {"chunk_1": 0.3, "Entity1": 0.7}
 
         ranked = real_graph_query_engine.rank_chunks_by_ppr(ppr_scores, top_k=5)
 
         # Should have at least one ranked chunk
         assert len(ranked) >= 0
 
-    def test_multi_hop_with_edge_type_filter(self, real_graph_query_engine, populated_graph):
+    def test_multi_hop_with_edge_type_filter(
+        self, real_graph_query_engine, populated_graph
+    ):
         """Test multi-hop search with edge type filtering."""
         real_graph_query_engine.graph = populated_graph.graph
 
         results = real_graph_query_engine.multi_hop_search(
-            start_nodes=["Memory MCP"],
-            max_hops=2,
-            edge_types=["uses"]
+            start_nodes=["Memory MCP"], max_hops=2, edge_types=["uses"]
         )
 
         assert "entities" in results
@@ -305,20 +294,23 @@ class TestGraphQueryEngineRealNetworkX:
 class TestHippoRAGServiceRealGraph:
     """Test HippoRAG with real graph backend."""
 
-    def test_retrieve_with_graph_context(self, populated_graph, real_graph_query_engine):
+    def test_retrieve_with_graph_context(
+        self, populated_graph, real_graph_query_engine
+    ):
         """Test retrieval using graph for context expansion."""
         real_graph_query_engine.graph = populated_graph.graph
 
         # Get entity neighborhood
         neighborhood = real_graph_query_engine.get_entity_neighborhood(
-            entity_id="Memory MCP",
-            hops=2
+            entity_id="Memory MCP", hops=2
         )
 
         assert len(neighborhood) > 0, "No neighborhood found"
         assert "entities" in neighborhood
 
-    def test_graph_provides_context_for_retrieval(self, populated_graph, real_graph_query_engine):
+    def test_graph_provides_context_for_retrieval(
+        self, populated_graph, real_graph_query_engine
+    ):
         """Test that graph can expand query context."""
         real_graph_query_engine.graph = populated_graph.graph
 
@@ -327,14 +319,15 @@ class TestHippoRAGServiceRealGraph:
 
         # Expand via multi-hop
         expanded = real_graph_query_engine.multi_hop_search(
-            start_nodes=start_entities,
-            max_hops=1
+            start_nodes=start_entities, max_hops=1
         )
 
         # Should find related entities
         assert len(expanded["entities"]) > len(start_entities)
 
-    def test_ppr_ranks_related_nodes_higher(self, real_graph_query_engine, populated_graph):
+    def test_ppr_ranks_related_nodes_higher(
+        self, real_graph_query_engine, populated_graph
+    ):
         """Test that PPR gives higher scores to connected nodes."""
         real_graph_query_engine.graph = populated_graph.graph
 
@@ -350,9 +343,11 @@ class TestHippoRAGServiceRealGraph:
         connected_scores = [
             scores.get("ChromaDB", 0),
             scores.get("HippoRAG", 0),
-            scores.get("Bayesian", 0)
+            scores.get("Bayesian", 0),
         ]
 
+        # The PPR restart source must carry positive mass
+        assert memory_mcp_score > 0
         # At least one connected node should have a score
         assert any(s > 0 for s in connected_scores)
 
@@ -375,6 +370,7 @@ class TestGraphPersistence:
 
         # Create new service and load
         from src.services.graph_service import GraphService
+
         new_service = GraphService(data_dir=str(temp_data_dir))
         load_success = new_service.load_graph(str(save_path))
 
@@ -409,16 +405,12 @@ class TestRelationshipValidation:
         real_graph_service.add_entity("Target", "concept")
 
         # Valid relationship types from GraphService
-        valid_types = [
-            "references", "mentions", "similar_to", "related_to"
-        ]
+        valid_types = ["references", "mentions", "similar_to", "related_to"]
 
         for rel_type in valid_types:
             # Remove previous edge if exists
             if real_graph_service.graph.has_edge("Source", "Target"):
                 real_graph_service.graph.remove_edge("Source", "Target")
 
-            success = real_graph_service.add_relationship(
-                "Source", rel_type, "Target"
-            )
+            success = real_graph_service.add_relationship("Source", rel_type, "Target")
             assert success, f"Failed to add {rel_type} relationship"

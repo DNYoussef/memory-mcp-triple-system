@@ -68,9 +68,7 @@ class KVStore:
         """
         if not hasattr(self._local, "conn") or self._local.conn is None:
             self._local.conn = sqlite3.connect(
-                str(self.db_path),
-                check_same_thread=False,
-                timeout=30.0
+                str(self.db_path), check_same_thread=False, timeout=30.0
             )
             self._local.conn.row_factory = sqlite3.Row
             # WAL: the capture hooks open/close this file on every tool call
@@ -110,7 +108,8 @@ class KVStore:
         NASA Rule 10: 30 LOC (<=60)
         """
         with self._transaction() as cursor:
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS kv_store (
                     key TEXT PRIMARY KEY,
                     value TEXT NOT NULL,
@@ -118,22 +117,28 @@ class KVStore:
                     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     expires_at DATETIME
                 )
-            """)
+            """
+            )
 
             # Index for prefix queries
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_kv_key_prefix
                 ON kv_store(key)
-            """)
+            """
+            )
 
             # Index for expiration cleanup
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_kv_expires_at
                 ON kv_store(expires_at)
-            """)
+            """
+            )
 
             # Observations table (auto-capture from PostToolUse)
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS observations (
                     observation_id TEXT PRIMARY KEY,
                     session_id TEXT NOT NULL,
@@ -148,26 +153,36 @@ class KVStore:
                     entities TEXT NOT NULL DEFAULT '[]',
                     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
-            cursor.execute("""
+            """
+            )
+            cursor.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_obs_session
                 ON observations(session_id)
-            """)
-            cursor.execute("""
+            """
+            )
+            cursor.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_obs_created
                 ON observations(created_at)
-            """)
-            cursor.execute("""
+            """
+            )
+            cursor.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_obs_project
                 ON observations(project)
-            """)
-            cursor.execute("""
+            """
+            )
+            cursor.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_obs_type
                 ON observations(obs_type)
-            """)
+            """
+            )
 
             # Sessions table (lifecycle tracking)
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS sessions (
                     session_id TEXT PRIMARY KEY,
                     started_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -178,15 +193,20 @@ class KVStore:
                     working_dir TEXT NOT NULL DEFAULT '',
                     summary TEXT NOT NULL DEFAULT ''
                 )
-            """)
-            cursor.execute("""
+            """
+            )
+            cursor.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_sessions_project
                 ON sessions(project)
-            """)
-            cursor.execute("""
+            """
+            )
+            cursor.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_sessions_started
                 ON sessions(started_at)
-            """)
+            """
+            )
 
     def get(self, key: str) -> Optional[str]:
         """
@@ -204,8 +224,7 @@ class KVStore:
         try:
             with self._transaction() as cursor:
                 cursor.execute(
-                    "SELECT value, expires_at FROM kv_store WHERE key = ?",
-                    (key,)
+                    "SELECT value, expires_at FROM kv_store WHERE key = ?", (key,)
                 )
                 row = cursor.fetchone()
 
@@ -252,20 +271,17 @@ class KVStore:
 
         try:
             with self._transaction() as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO kv_store (key, value, created_at, updated_at, expires_at)
                     VALUES (?, ?, ?, ?, ?)
                     ON CONFLICT(key) DO UPDATE SET
                         value = excluded.value,
                         updated_at = excluded.updated_at,
                         expires_at = excluded.expires_at
-                """, (
-                    key,
-                    value,
-                    now.isoformat(),
-                    now.isoformat(),
-                    expires_at
-                ))
+                """,
+                    (key, value, now.isoformat(), now.isoformat(), expires_at),
+                )
             return True
 
         except sqlite3.Error as e:
@@ -286,10 +302,7 @@ class KVStore:
         """
         try:
             with self._transaction() as cursor:
-                cursor.execute(
-                    "DELETE FROM kv_store WHERE key = ?",
-                    (key,)
-                )
+                cursor.execute("DELETE FROM kv_store WHERE key = ?", (key,))
                 return cursor.rowcount > 0
 
         except sqlite3.Error as e:
@@ -313,7 +326,7 @@ class KVStore:
                 if prefix:
                     cursor.execute(
                         "SELECT key FROM kv_store WHERE key LIKE ? ORDER BY key",
-                        (f"{prefix}%",)
+                        (f"{prefix}%",),
                     )
                 else:
                     cursor.execute("SELECT key FROM kv_store ORDER BY key")
@@ -411,26 +424,29 @@ class KVStore:
         """
         try:
             with self._transaction() as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT OR REPLACE INTO observations
                     (observation_id, session_id, obs_type, concept,
                      tool_name, content, metadata, who, project,
                      why, entities, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    obs_dict["observation_id"],
-                    obs_dict["session_id"],
-                    obs_dict["obs_type"],
-                    obs_dict["concept"],
-                    obs_dict["tool_name"],
-                    obs_dict["content"],
-                    json.dumps(obs_dict.get("metadata", {})),
-                    obs_dict.get("who", "auto-capture:1.0.0"),
-                    obs_dict.get("project", ""),
-                    obs_dict.get("why", "observation"),
-                    json.dumps(obs_dict.get("entities", [])),
-                    obs_dict.get("created_at", datetime.now().isoformat()),
-                ))
+                """,
+                    (
+                        obs_dict["observation_id"],
+                        obs_dict["session_id"],
+                        obs_dict["obs_type"],
+                        obs_dict["concept"],
+                        obs_dict["tool_name"],
+                        obs_dict["content"],
+                        json.dumps(obs_dict.get("metadata", {})),
+                        obs_dict.get("who", "auto-capture:1.0.0"),
+                        obs_dict.get("project", ""),
+                        obs_dict.get("why", "observation"),
+                        json.dumps(obs_dict.get("entities", [])),
+                        obs_dict.get("created_at", datetime.now().isoformat()),
+                    ),
+                )
             return True
         except sqlite3.Error as e:
             logger.error(f"store_observation failed: {e}")
@@ -495,7 +511,7 @@ class KVStore:
             with self._transaction() as cursor:
                 cursor.execute(
                     "SELECT COUNT(*) as cnt FROM observations WHERE session_id = ?",
-                    (session_id,)
+                    (session_id,),
                 )
                 row = cursor.fetchone()
                 return int(row["cnt"]) if row else 0
@@ -510,7 +526,7 @@ class KVStore:
                 cursor.execute(
                     "SELECT 1 FROM observations "
                     "WHERE session_id = ? AND content = ? LIMIT 1",
-                    (session_id, content_hash)
+                    (session_id, content_hash),
                 )
                 return cursor.fetchone() is not None
         except sqlite3.Error as e:
@@ -538,21 +554,24 @@ class KVStore:
         """
         try:
             with self._transaction() as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT OR REPLACE INTO sessions
                     (session_id, started_at, ended_at, tool_count,
                      project, branch, working_dir, summary)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    session_dict["session_id"],
-                    session_dict["started_at"],
-                    session_dict.get("ended_at"),
-                    session_dict.get("tool_count", 0),
-                    session_dict.get("project", ""),
-                    session_dict.get("branch", ""),
-                    session_dict.get("working_dir", ""),
-                    session_dict.get("summary", ""),
-                ))
+                """,
+                    (
+                        session_dict["session_id"],
+                        session_dict["started_at"],
+                        session_dict.get("ended_at"),
+                        session_dict.get("tool_count", 0),
+                        session_dict.get("project", ""),
+                        session_dict.get("branch", ""),
+                        session_dict.get("working_dir", ""),
+                        session_dict.get("summary", ""),
+                    ),
+                )
             return True
         except sqlite3.Error as e:
             logger.error(f"create_session failed: {e}")
@@ -564,16 +583,19 @@ class KVStore:
         """Mark a session as ended with summary."""
         try:
             with self._transaction() as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     UPDATE sessions
                     SET ended_at = ?, summary = ?, tool_count = ?
                     WHERE session_id = ?
-                """, (
-                    datetime.now().isoformat(),
-                    summary,
-                    tool_count,
-                    session_id,
-                ))
+                """,
+                    (
+                        datetime.now().isoformat(),
+                        summary,
+                        tool_count,
+                        session_id,
+                    ),
+                )
             return True
         except sqlite3.Error as e:
             logger.error(f"end_session failed: {e}")
@@ -583,11 +605,14 @@ class KVStore:
         """Increment tool_count for a session by 1."""
         try:
             with self._transaction() as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     UPDATE sessions
                     SET tool_count = tool_count + 1
                     WHERE session_id = ?
-                """, (session_id,))
+                """,
+                    (session_id,),
+                )
             return True
         except sqlite3.Error as e:
             logger.error(f"increment_tool_count failed: {e}")
@@ -598,8 +623,7 @@ class KVStore:
         try:
             with self._transaction() as cursor:
                 cursor.execute(
-                    "SELECT * FROM sessions WHERE session_id = ?",
-                    (session_id,)
+                    "SELECT * FROM sessions WHERE session_id = ?", (session_id,)
                 )
                 row = cursor.fetchone()
                 return dict(row) if row else None
@@ -619,13 +643,12 @@ class KVStore:
                     cursor.execute(
                         "SELECT * FROM sessions WHERE project = ? "
                         "ORDER BY started_at DESC LIMIT ?",
-                        (project, limit)
+                        (project, limit),
                     )
                 else:
                     cursor.execute(
-                        "SELECT * FROM sessions "
-                        "ORDER BY started_at DESC LIMIT ?",
-                        (limit,)
+                        "SELECT * FROM sessions " "ORDER BY started_at DESC LIMIT ?",
+                        (limit,),
                     )
                 return [dict(row) for row in cursor.fetchall()]
         except sqlite3.Error as e:
@@ -669,11 +692,14 @@ class KVStore:
         """
         try:
             with self._transaction() as cursor:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     DELETE FROM kv_store
                     WHERE expires_at IS NOT NULL
                     AND expires_at < ?
-                """, (datetime.now().isoformat(),))
+                """,
+                    (datetime.now().isoformat(),),
+                )
 
                 deleted = cursor.rowcount
 

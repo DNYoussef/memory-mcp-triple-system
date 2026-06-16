@@ -27,10 +27,10 @@ logger = logging.getLogger(__name__)
 class ApprovalPriority(Enum):
     """Priority levels for approval queue."""
 
-    URGENT = 1        # High impact, needs immediate attention
-    HIGH = 2          # Important changes
-    NORMAL = 3        # Standard proposals
-    LOW = 4           # Minor improvements
+    URGENT = 1  # High impact, needs immediate attention
+    HIGH = 2  # Important changes
+    NORMAL = 3  # Standard proposals
+    LOW = 4  # Minor improvements
 
 
 @dataclass
@@ -40,7 +40,9 @@ class ApprovalRequest:
     request_id: str
     proposal: RuleProposal
     priority: ApprovalPriority = ApprovalPriority.NORMAL
-    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
 
     # Review state
     assigned_to: Optional[str] = None
@@ -62,7 +64,9 @@ class ApprovalRequest:
             "reviewed_at": self.reviewed_at,
             "decision": self.decision.value if self.decision else None,
             "notes": self.notes,
-            "modified_changes": [c.to_dict() for c in self.modified_changes] if self.modified_changes else None,
+            "modified_changes": [c.to_dict() for c in self.modified_changes]
+            if self.modified_changes
+            else None,
         }
 
 
@@ -155,7 +159,9 @@ class HumanApprovalGate:
 
         self._pending[request.request_id] = request
 
-        logger.info(f"Submitted proposal {proposal.proposal_id} for approval (priority: {priority.name})")
+        logger.info(
+            f"Submitted proposal {proposal.proposal_id} for approval (priority: {priority.name})"
+        )
 
         return request
 
@@ -417,19 +423,23 @@ class HumanApprovalGate:
             lines.append(f"      Type: {change.change_type}")
             lines.append(f"      Rationale: {change.rationale}")
 
-        lines.extend([
-            "",
-            "EXPECTED IMPROVEMENT:",
-        ])
+        lines.extend(
+            [
+                "",
+                "EXPECTED IMPROVEMENT:",
+            ]
+        )
         for metric, value in proposal.expected_improvement.items():
             lines.append(f"  - {metric}: {value}")
 
-        lines.extend([
-            "",
-            "=" * 60,
-            "OPTIONS: [A]pprove  [R]eject  [M]odify  [D]efer",
-            "=" * 60,
-        ])
+        lines.extend(
+            [
+                "",
+                "=" * 60,
+                "OPTIONS: [A]pprove  [R]eject  [M]odify  [D]efer",
+                "=" * 60,
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -474,7 +484,8 @@ class HumanApprovalGate:
             "modified": self._stats["modified"],
             "deferred": self._stats["deferred"],
             "approval_rate": round(
-                self._stats["approved"] / max(1, self._stats["total_submitted"] - len(self._pending)),
+                self._stats["approved"]
+                / max(1, self._stats["total_submitted"] - len(self._pending)),
                 4,
             ),
         }

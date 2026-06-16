@@ -5,7 +5,6 @@ Tests query logging for context debugger foundation.
 """
 
 import pytest
-from pathlib import Path
 from uuid import UUID
 from datetime import datetime
 from src.debug.query_trace import QueryTrace
@@ -18,6 +17,7 @@ def temp_db(tmp_path):
 
     # Apply migration
     import sqlite3
+
     conn = sqlite3.connect(str(db_path))
     with open("migrations/007_query_traces_table.sql", "r") as f:
         conn.executescript(f.read())
@@ -30,7 +30,7 @@ def test_query_trace_creation():
     """Test creating query trace."""
     trace = QueryTrace.create(
         query="What is NASA Rule 10?",
-        user_context={"session_id": "abc123", "user_id": "user1"}
+        user_context={"session_id": "abc123", "user_id": "user1"},
     )
 
     assert isinstance(trace.query_id, UUID)
@@ -44,8 +44,7 @@ def test_query_trace_creation():
 def test_query_trace_logging(temp_db):
     """Test logging query trace to SQLite."""
     trace = QueryTrace.create(
-        query="What is NASA Rule 10?",
-        user_context={"session_id": "abc123"}
+        query="What is NASA Rule 10?", user_context={"session_id": "abc123"}
     )
     trace.mode_detected = "execution"
     trace.mode_confidence = 0.92
@@ -68,8 +67,7 @@ def test_query_trace_logging(temp_db):
 def test_query_trace_error_attribution(temp_db):
     """Test error attribution classification."""
     trace = QueryTrace.create(
-        query="What's my coding style?",
-        user_context={"session_id": "abc123"}
+        query="What's my coding style?", user_context={"session_id": "abc123"}
     )
     trace.error = "Wrong output returned"
     trace.error_type = "context_bug"  # Wrong store queried
@@ -93,10 +91,7 @@ def test_query_trace_get_nonexistent(temp_db):
 
 def test_query_trace_to_dict():
     """Test converting trace to dictionary."""
-    trace = QueryTrace.create(
-        query="Test query",
-        user_context={"session_id": "xyz"}
-    )
+    trace = QueryTrace.create(query="Test query", user_context={"session_id": "xyz"})
     trace.mode_detected = "planning"
     trace.total_latency_ms = 150
 

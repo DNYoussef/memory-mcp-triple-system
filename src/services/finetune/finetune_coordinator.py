@@ -16,8 +16,6 @@ from typing import Dict, Any, List, Optional
 from src.services.finetune.finetune_schema import (
     FailureRecord,
     FailureCategory,
-    FailureCluster,
-    TrainingCandidate,
     TrainingRecommendation,
     RecommendationPriority,
 )
@@ -61,32 +59,32 @@ class FineTuneReport:
     def format_markdown(self) -> str:
         """Format report as markdown."""
         lines = [
-            f"# Fine-Tune Candidate Report",
-            f"",
+            "# Fine-Tune Candidate Report",
+            "",
             f"**Report ID:** {self.report_id}",
             f"**Generated:** {self.generated_at}",
-            f"",
-            f"## Summary",
-            f"",
+            "",
+            "## Summary",
+            "",
             f"{self.summary}",
-            f"",
-            f"## Statistics",
-            f"",
-            f"| Metric | Value |",
-            f"|--------|-------|",
+            "",
+            "## Statistics",
+            "",
+            "| Metric | Value |",
+            "|--------|-------|",
             f"| Total Failures | {self.total_failures} |",
             f"| Total Clusters | {self.total_clusters} |",
             f"| Significant Clusters | {self.significant_clusters} |",
             f"| Recommendations | {self.total_recommendations} |",
             f"| Training Candidates | {self.total_candidates} |",
-            f"",
+            "",
         ]
 
         if self.pattern_analysis.get("high_impact_categories"):
             lines.extend(
                 [
-                    f"## High-Impact Categories",
-                    f"",
+                    "## High-Impact Categories",
+                    "",
                 ]
             )
             for cat in self.pattern_analysis["high_impact_categories"]:
@@ -99,24 +97,24 @@ class FineTuneReport:
         if self.recommendations:
             lines.extend(
                 [
-                    f"## Recommendations",
-                    f"",
+                    "## Recommendations",
+                    "",
                 ]
             )
             for rec in self.recommendations:
                 lines.extend(
                     [
                         f"### [{rec.priority.name}] {rec.title}",
-                        f"",
+                        "",
                         f"- **Category:** {rec.category.value}",
                         f"- **Dataset Type:** {rec.dataset_type.value}",
                         f"- **Candidates:** {rec.candidate_count}",
                         f"- **Est. Examples:** {rec.estimated_examples}",
                         f"- **Est. Improvement:** {rec.estimated_improvement:.1%}",
                         f"- **Effort:** {rec.effort_level}",
-                        f"",
+                        "",
                         f"**Rationale:** {rec.rationale}",
-                        f"",
+                        "",
                     ]
                 )
 
@@ -309,15 +307,23 @@ class FineTuneCoordinator:
         parts = [f"Analyzed {total_failures} failures"]
 
         if total_clusters > 0:
-            parts.append(f"found {total_clusters} clusters ({significant_clusters} significant)")
+            parts.append(
+                f"found {total_clusters} clusters ({significant_clusters} significant)"
+            )
 
-        critical = [r for r in recommendations if r.priority == RecommendationPriority.CRITICAL]
+        critical = [
+            r for r in recommendations if r.priority == RecommendationPriority.CRITICAL
+        ]
         high = [r for r in recommendations if r.priority == RecommendationPriority.HIGH]
 
         if critical:
-            parts.append(f"{len(critical)} critical fine-tuning opportunities identified")
+            parts.append(
+                f"{len(critical)} critical fine-tuning opportunities identified"
+            )
         elif high:
-            parts.append(f"{len(high)} high-priority fine-tuning opportunities identified")
+            parts.append(
+                f"{len(high)} high-priority fine-tuning opportunities identified"
+            )
         elif recommendations:
             parts.append(f"{len(recommendations)} fine-tuning opportunities identified")
         else:

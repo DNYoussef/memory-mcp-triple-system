@@ -33,7 +33,7 @@ class VisualMemoryService:
         self,
         embedder: "Qwen3VLEmbedder",
         indexer: "VisualMemoryIndexer",
-        enabled: bool = True
+        enabled: bool = True,
     ):
         """
         Initialize visual memory service.
@@ -54,7 +54,7 @@ class VisualMemoryService:
         image_path: str,
         title: str = "",
         context: str = "",
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Ingest a screenshot into visual memory.
@@ -73,7 +73,7 @@ class VisualMemoryService:
             visual_type="screenshot",
             title=title,
             context=context,
-            metadata=metadata
+            metadata=metadata,
         )
 
     def ingest_diagram(
@@ -81,7 +81,7 @@ class VisualMemoryService:
         image_path: str,
         title: str = "",
         context: str = "",
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Ingest a diagram into visual memory.
@@ -100,7 +100,7 @@ class VisualMemoryService:
             visual_type="diagram",
             title=title,
             context=context,
-            metadata=metadata
+            metadata=metadata,
         )
 
     def ingest_visual(
@@ -109,7 +109,7 @@ class VisualMemoryService:
         visual_type: str = "other",
         title: str = "",
         context: str = "",
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Ingest any visual type into memory.
@@ -132,7 +132,7 @@ class VisualMemoryService:
             visual_type=visual_type,
             title=title,
             context=context,
-            metadata=metadata
+            metadata=metadata,
         )
 
     def _ingest_visual(
@@ -141,7 +141,7 @@ class VisualMemoryService:
         visual_type: str,
         title: str,
         context: str,
-        metadata: Optional[Dict[str, Any]]
+        metadata: Optional[Dict[str, Any]],
     ) -> Dict[str, Any]:
         """
         Internal method to ingest any visual type.
@@ -180,7 +180,7 @@ class VisualMemoryService:
             title=title,
             context=context,
             embedding_dim=len(embedding),
-            extra_metadata=metadata
+            extra_metadata=metadata,
         )
 
         # Store in index
@@ -189,7 +189,7 @@ class VisualMemoryService:
             doc_id=doc_id,
             embedding=embedding,
             metadata=full_metadata,
-            document=document_text
+            document=document_text,
         )
 
         logger.info(f"Ingested {visual_type}: {doc_id} ({embed_time*1000:.0f}ms)")
@@ -199,14 +199,10 @@ class VisualMemoryService:
             "doc_id": doc_id,
             "visual_type": visual_type,
             "embedding_dim": len(embedding),
-            "embed_time_ms": int(embed_time * 1000)
+            "embed_time_ms": int(embed_time * 1000),
         }
 
-    def _generate_embedding(
-        self,
-        image_path: str,
-        context: str
-    ) -> List[float]:
+    def _generate_embedding(self, image_path: str, context: str) -> List[float]:
         """Generate embedding using appropriate method."""
         if context:
             return self.embedder.embed_multimodal(image_path, context)
@@ -219,7 +215,7 @@ class VisualMemoryService:
         title: str,
         context: str,
         embedding_dim: int,
-        extra_metadata: Optional[Dict[str, Any]]
+        extra_metadata: Optional[Dict[str, Any]],
     ) -> Dict[str, Any]:
         """Build full metadata with WHO/WHEN/PROJECT/WHY tagging."""
         metadata = {
@@ -247,10 +243,7 @@ class VisualMemoryService:
         return metadata
 
     def search_visual(
-        self,
-        query: str,
-        top_k: int = 10,
-        visual_type: Optional[str] = None
+        self, query: str, top_k: int = 10, visual_type: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         Search visual memories with text query.
@@ -282,9 +275,7 @@ class VisualMemoryService:
 
         # Search
         results = self.indexer.search(
-            query_embedding=query_embedding,
-            top_k=top_k,
-            where=where
+            query_embedding=query_embedding, top_k=top_k, where=where
         )
 
         logger.debug(f"Visual search '{query}': {len(results)} results")
@@ -305,5 +296,5 @@ class VisualMemoryService:
             "total_visuals": self.indexer.count(),
             "embedder": self.embedder.get_info(),
             "indexer": self.indexer.get_info(),
-            "visual_types": self.VISUAL_TYPES
+            "visual_types": self.VISUAL_TYPES,
         }

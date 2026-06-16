@@ -169,13 +169,11 @@ class BeadTask:
             dependency_count=int(data.get("dependency_count", 0)),
             dependent_count=int(data.get("dependent_count", 0)),
             dependencies=[
-                BeadDependency.from_dict(dep)
-                for dep in data.get("dependencies", [])
+                BeadDependency.from_dict(dep) for dep in data.get("dependencies", [])
             ],
             labels=list(data.get("labels", [])),
             comments=[
-                BeadComment.from_dict(comment)
-                for comment in data.get("comments", [])
+                BeadComment.from_dict(comment) for comment in data.get("comments", [])
             ],
         )
 
@@ -430,9 +428,7 @@ class BeadsBridge:
             lines.append("".join(parts))
 
             # Render children (excluding self)
-            node_children = [
-                c for c in children.get(node.id, []) if c.id != node.id
-            ]
+            node_children = [c for c in children.get(node.id, []) if c.id != node.id]
             new_prefix = prefix + ("    " if is_last else "|   ")
             for i, child in enumerate(node_children):
                 _render_node(child, new_prefix, i == len(node_children) - 1, depth + 1)
@@ -454,9 +450,7 @@ class BeadsBridge:
             lines.append("".join(parts))
 
             # Render children of root (excluding root itself)
-            root_children = [
-                c for c in children.get(root.id, []) if c.id != root.id
-            ]
+            root_children = [c for c in children.get(root.id, []) if c.id != root.id]
             for i, child in enumerate(root_children):
                 _render_node(child, "", i == len(root_children) - 1, 1)
 
@@ -532,6 +526,7 @@ def _parse_datetime(value: Optional[str]) -> Optional[datetime]:
 
 # ========== ORG-005: Memory MCP Integration ==========
 
+
 class BeadsMemoryBridge:
     """
     ORG-005: Bridge between Beads and Memory MCP.
@@ -547,7 +542,7 @@ class BeadsMemoryBridge:
         self,
         beads_bridge: BeadsBridge,
         namespace_router: Optional[Any] = None,
-        vector_indexer: Optional[Any] = None
+        vector_indexer: Optional[Any] = None,
     ):
         """
         Initialize Memory MCP bridge for Beads.
@@ -571,7 +566,7 @@ class BeadsMemoryBridge:
         self,
         bead_id: str,
         include_dependencies: bool = True,
-        include_semantic: bool = True
+        include_semantic: bool = True,
     ) -> Dict[str, Any]:
         """
         ORG-005: Get semantic context for a bead.
@@ -602,7 +597,7 @@ class BeadsMemoryBridge:
             "dependencies": [],
             "semantic_matches": [],
             "related_findings": [],
-            "related_fixes": []
+            "related_fixes": [],
         }
 
         # Get bead details
@@ -614,7 +609,7 @@ class BeadsMemoryBridge:
                 "description": bead.description,
                 "status": bead.status,
                 "priority": bead.priority,
-                "labels": bead.labels
+                "labels": bead.labels,
             }
         except Exception as e:
             logger.warning(f"Failed to get bead {bead_id}: {e}")
@@ -650,10 +645,7 @@ class BeadsMemoryBridge:
         return context
 
     async def store_task_completion(
-        self,
-        bead_id: str,
-        result: Dict[str, Any],
-        agent_id: str = "unknown"
+        self, bead_id: str, result: Dict[str, Any], agent_id: str = "unknown"
     ) -> bool:
         """
         ORG-005: Store task completion in Memory MCP.
@@ -692,16 +684,17 @@ class BeadsMemoryBridge:
                 "WHO": agent_id,
                 "WHEN": datetime.now().isoformat(),
                 "PROJECT": self._extract_project(bead),
-                "WHY": "task_completion"
+                "WHY": "task_completion",
             }
 
             # Store in namespace
             from ..telemetry.namespace_router import TelemetryNamespace
+
             success = self.namespace_router.store(
                 TelemetryNamespace.TASKS,
                 payload,
                 project=payload["PROJECT"],
-                id=bead_id
+                id=bead_id,
             )
 
             if success:
@@ -729,7 +722,10 @@ class BeadsMemoryBridge:
             return []
         try:
             results = self.vector_indexer.search(query, top_k=limit)
-            return [{"text": r.get("text", "")[:200], "score": r.get("score", 0)} for r in results]
+            return [
+                {"text": r.get("text", "")[:200], "score": r.get("score", 0)}
+                for r in results
+            ]
         except Exception:
             return []
 
@@ -739,6 +735,7 @@ class BeadsMemoryBridge:
             return []
         try:
             from ..telemetry.namespace_router import TelemetryNamespace
+
             ns = TelemetryNamespace(namespace)
             keys = self.namespace_router.list_by_namespace(ns, prefix_filter="")
             related = []

@@ -71,7 +71,9 @@ else:
     assert result.returncode == 0, result.stderr + result.stdout
 
 
-def test_post_tool_hook_redacts_secret_output_and_preserves_normal_text(tmp_path, monkeypatch):
+def test_post_tool_hook_redacts_secret_output_and_preserves_normal_text(
+    tmp_path, monkeypatch
+):
     db_path = tmp_path / "agent_kv.db"
     session_file = tmp_path / "current_session.json"
     KVStore(str(db_path)).close()

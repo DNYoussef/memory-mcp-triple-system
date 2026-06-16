@@ -18,7 +18,7 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, Any, Optional, List, Set, Tuple
+from typing import Dict, Any, Optional, List, Set
 from collections import defaultdict
 from loguru import logger
 
@@ -41,6 +41,7 @@ class AggregatedLearning:
         namespaces: Namespaces contributing to cluster
         domains: Domains involved
     """
+
     cluster_id: str
     representative: str
     count: int
@@ -74,6 +75,7 @@ class ExpertiseGap:
         gap_type: missing, outdated, or low_confidence
         recommendation: Suggested action
     """
+
     domain: str
     topic: str
     gap_type: str
@@ -102,6 +104,7 @@ class OptimizationRecommendation:
         rationale: Why this is recommended
         affected_components: Components affected
     """
+
     priority: str
     category: str
     action: str
@@ -130,8 +133,12 @@ class RLMLearningAggregator:
     """
 
     # Memory MCP paths (env-first, portable fallbacks; no hardcoded host paths)
-    MEMORY_MCP_DATA_PATH = os.getenv("MEMORY_MCP_DATA_DIR") or str(Path.home() / ".claude" / "memory-mcp-data")
-    MEMORY_MCP_PROJECT_PATH = os.getenv("MEMORY_MCP_PROJECT_DIR") or str(Path(__file__).resolve().parents[3])
+    MEMORY_MCP_DATA_PATH = os.getenv("MEMORY_MCP_DATA_DIR") or str(
+        Path.home() / ".claude" / "memory-mcp-data"
+    )
+    MEMORY_MCP_PROJECT_PATH = os.getenv("MEMORY_MCP_PROJECT_DIR") or str(
+        Path(__file__).resolve().parents[3]
+    )
 
     # Namespaces to aggregate
     AGGREGATE_NAMESPACES = [
@@ -167,9 +174,7 @@ class RLMLearningAggregator:
         return self._kv_store
 
     def aggregate_all(
-        self,
-        days: int = 30,
-        min_confidence: float = 0.3
+        self, days: int = 30, min_confidence: float = 0.3
     ) -> Dict[str, Any]:
         """
         RLM-015: Recursively aggregate all learnings.
@@ -238,9 +243,7 @@ class RLMLearningAggregator:
         }
 
     def _cluster_learnings(
-        self,
-        entries: List[Dict[str, Any]],
-        similarity_threshold: float = 0.4
+        self, entries: List[Dict[str, Any]], similarity_threshold: float = 0.4
     ) -> List[AggregatedLearning]:
         """
         Cluster similar learnings together.
@@ -277,7 +280,7 @@ class RLMLearningAggregator:
             cluster_domains = [entry.get("domain", "unknown")]
             used.add(i)
 
-            for j, other in enumerate(entries[i + 1:], i + 1):
+            for j, other in enumerate(entries[i + 1 :], i + 1):
                 if j in used:
                     continue
 
@@ -294,31 +297,36 @@ class RLMLearningAggregator:
 
                 if similarity >= similarity_threshold:
                     cluster_entries.append(other)
-                    cluster_sources.append(other.get("session_id", other.get("WHO", "unknown")))
+                    cluster_sources.append(
+                        other.get("session_id", other.get("WHO", "unknown"))
+                    )
                     cluster_namespaces.append(other.get("_namespace", "unknown"))
                     cluster_domains.append(other.get("domain", "unknown"))
                     used.add(j)
 
             # Create cluster
-            avg_conf = sum(e.get("confidence", 0.5) for e in cluster_entries) / len(cluster_entries)
+            avg_conf = sum(e.get("confidence", 0.5) for e in cluster_entries) / len(
+                cluster_entries
+            )
 
-            clusters.append(AggregatedLearning(
-                cluster_id=f"CL-{len(clusters):04d}",
-                representative=content[:200],
-                count=len(cluster_entries),
-                avg_confidence=avg_conf,
-                sources=list(set(cluster_sources))[:10],
-                namespaces=list(set(cluster_namespaces)),
-                domains=list(set(cluster_domains)),
-            ))
+            clusters.append(
+                AggregatedLearning(
+                    cluster_id=f"CL-{len(clusters):04d}",
+                    representative=content[:200],
+                    count=len(cluster_entries),
+                    avg_confidence=avg_conf,
+                    sources=list(set(cluster_sources))[:10],
+                    namespaces=list(set(cluster_namespaces)),
+                    domains=list(set(cluster_domains)),
+                )
+            )
 
         # Sort by count (most common first)
         clusters.sort(key=lambda c: c.count, reverse=True)
         return clusters[:100]  # Limit clusters
 
     def detect_expertise_gaps(
-        self,
-        expected_domains: Optional[List[str]] = None
+        self, expected_domains: Optional[List[str]] = None
     ) -> List[ExpertiseGap]:
         """
         RLM-015: Detect gaps in expertise coverage.
@@ -340,9 +348,16 @@ class RLMLearningAggregator:
         # Default expected domains
         if not expected_domains:
             expected_domains = [
-                "coding", "python", "typescript", "testing",
-                "architecture", "security", "performance",
-                "documentation", "communication", "workflow"
+                "coding",
+                "python",
+                "typescript",
+                "testing",
+                "architecture",
+                "security",
+                "performance",
+                "documentation",
+                "communication",
+                "workflow",
             ]
 
         # Check what domains exist
@@ -361,16 +376,18 @@ class RLMLearningAggregator:
         # Find missing domains
         for domain in expected_domains:
             if domain not in existing_domains:
-                gaps.append(ExpertiseGap(
-                    domain=domain,
-                    topic="general",
-                    gap_type="missing",
-                    recommendation=f"Create expertise entries for {domain} domain"
-                ))
+                gaps.append(
+                    ExpertiseGap(
+                        domain=domain,
+                        topic="general",
+                        gap_type="missing",
+                        recommendation=f"Create expertise entries for {domain} domain",
+                    )
+                )
 
         # Check for outdated entries (older than 30 days)
         cutoff = datetime.utcnow() - timedelta(days=30)
-        for key in keys[:500] if 'keys' in dir() else []:
+        for key in keys[:500] if "keys" in dir() else []:
             try:
                 value = kv.get(key)
                 if not value:
@@ -381,20 +398,21 @@ class RLMLearningAggregator:
                     ts = datetime.fromisoformat(timestamp.replace("Z", ""))
                     if ts < cutoff:
                         parts = key.split(":")
-                        gaps.append(ExpertiseGap(
-                            domain=parts[1] if len(parts) > 1 else "unknown",
-                            topic=parts[2] if len(parts) > 2 else "unknown",
-                            gap_type="outdated",
-                            recommendation="Update or refresh this expertise entry"
-                        ))
+                        gaps.append(
+                            ExpertiseGap(
+                                domain=parts[1] if len(parts) > 1 else "unknown",
+                                topic=parts[2] if len(parts) > 2 else "unknown",
+                                gap_type="outdated",
+                                recommendation="Update or refresh this expertise entry",
+                            )
+                        )
             except Exception:
                 continue
 
         return gaps
 
     def generate_recommendations(
-        self,
-        aggregation_result: Dict[str, Any]
+        self, aggregation_result: Dict[str, Any]
     ) -> List[OptimizationRecommendation]:
         """
         RLM-015: Generate optimization recommendations.
@@ -413,35 +431,41 @@ class RLMLearningAggregator:
         # High-frequency patterns -> skill updates
         for cluster in clusters[:10]:
             if cluster.get("count", 0) >= 5:
-                recommendations.append(OptimizationRecommendation(
-                    priority="HIGH",
-                    category="skill",
-                    action=f"Add to LEARNED PATTERNS: {cluster.get('representative', '')[:80]}",
-                    rationale=f"Pattern appeared {cluster.get('count')} times",
-                    affected_components=cluster.get("domains", []),
-                ))
+                recommendations.append(
+                    OptimizationRecommendation(
+                        priority="HIGH",
+                        category="skill",
+                        action=f"Add to LEARNED PATTERNS: {cluster.get('representative', '')[:80]}",
+                        rationale=f"Pattern appeared {cluster.get('count')} times",
+                        affected_components=cluster.get("domains", []),
+                    )
+                )
 
         # Cross-namespace patterns -> cascade updates
         for cluster in clusters:
             if len(cluster.get("namespaces", [])) >= 3:
-                recommendations.append(OptimizationRecommendation(
-                    priority="MEDIUM",
-                    category="cascade",
-                    action="Update cascade config based on cross-domain pattern",
-                    rationale=f"Pattern spans {len(cluster.get('namespaces', []))} namespaces",
-                    affected_components=cluster.get("namespaces", []),
-                ))
+                recommendations.append(
+                    OptimizationRecommendation(
+                        priority="MEDIUM",
+                        category="cascade",
+                        action="Update cascade config based on cross-domain pattern",
+                        rationale=f"Pattern spans {len(cluster.get('namespaces', []))} namespaces",
+                        affected_components=cluster.get("namespaces", []),
+                    )
+                )
 
         # Low total entries -> increase reflection
         total = aggregation_result.get("total_entries", 0)
         if total < 10:
-            recommendations.append(OptimizationRecommendation(
-                priority="HIGH",
-                category="mode",
-                action="Enable auto-reflection (/reflect-on)",
-                rationale=f"Only {total} learnings captured - increase session reflection",
-                affected_components=["reflect-skill"],
-            ))
+            recommendations.append(
+                OptimizationRecommendation(
+                    priority="HIGH",
+                    category="mode",
+                    action="Enable auto-reflection (/reflect-on)",
+                    rationale=f"Only {total} learnings captured - increase session reflection",
+                    affected_components=["reflect-skill"],
+                )
+            )
 
         # Namespace imbalance -> targeted learning
         ns_counts = aggregation_result.get("namespace_counts", {})
@@ -449,13 +473,15 @@ class RLMLearningAggregator:
             max_ns = max(ns_counts.values()) if ns_counts else 0
             for ns, count in ns_counts.items():
                 if count < max_ns * 0.1:  # Less than 10% of max
-                    recommendations.append(OptimizationRecommendation(
-                        priority="LOW",
-                        category="agent",
-                        action=f"Increase {ns} namespace contributions",
-                        rationale=f"Only {count} entries vs {max_ns} in other namespaces",
-                        affected_components=[ns],
-                    ))
+                    recommendations.append(
+                        OptimizationRecommendation(
+                            priority="LOW",
+                            category="agent",
+                            action=f"Increase {ns} namespace contributions",
+                            rationale=f"Only {count} entries vs {max_ns} in other namespaces",
+                            affected_components=[ns],
+                        )
+                    )
 
         # Sort by priority
         priority_order = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
@@ -463,10 +489,7 @@ class RLMLearningAggregator:
 
         return recommendations
 
-    def prepare_loop3_input(
-        self,
-        days: int = 3
-    ) -> Dict[str, Any]:
+    def prepare_loop3_input(self, days: int = 3) -> Dict[str, Any]:
         """
         RLM-015: Prepare complete input for Loop 3 cycle.
 
@@ -491,7 +514,9 @@ class RLMLearningAggregator:
                 "clusters_found": aggregation.get("cluster_count", 0),
                 "gaps_detected": len(gaps),
                 "recommendations_count": len(recommendations),
-                "high_priority_count": sum(1 for r in recommendations if r.priority == "HIGH"),
+                "high_priority_count": sum(
+                    1 for r in recommendations if r.priority == "HIGH"
+                ),
             },
             "prepared_at": datetime.utcnow().isoformat(),
         }
@@ -530,8 +555,12 @@ if __name__ == "__main__":
         print(f"\n{'='*60}")
         print("!! RLM LOOP 3 LEARNING AGGREGATION !!")
         print(f"{'='*60}")
-        print(f"Total Entries: {result.get('aggregation', result).get('total_entries', result.get('total_entries', 0))}")
-        print(f"Clusters Found: {result.get('aggregation', result).get('cluster_count', result.get('cluster_count', 0))}")
+        print(
+            f"Total Entries: {result.get('aggregation', result).get('total_entries', result.get('total_entries', 0))}"
+        )
+        print(
+            f"Clusters Found: {result.get('aggregation', result).get('cluster_count', result.get('cluster_count', 0))}"
+        )
 
         if "recommendations" in result:
             print(f"\nRecommendations ({len(result['recommendations'])}):")

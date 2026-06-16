@@ -49,7 +49,7 @@ class GraphQueryService:
         """Get local subgraph around a node."""
         try:
             if node_id not in self.graph:
-                return {'nodes': [], 'edges': []}
+                return {"nodes": [], "edges": []}
 
             # BFS to find nodes within depth
             nodes_to_include = {node_id}
@@ -66,15 +66,12 @@ class GraphQueryService:
             subgraph = self.graph.subgraph(nodes_to_include)
 
             return {
-                'nodes': [
-                    {'id': n, **self.graph.nodes[n]}
-                    for n in subgraph.nodes()
-                ],
-                'edges': [
-                    {'source': u, 'target': v, **self.graph.edges[u, v]}
+                "nodes": [{"id": n, **self.graph.nodes[n]} for n in subgraph.nodes()],
+                "edges": [
+                    {"source": u, "target": v, **self.graph.edges[u, v]}
                     for u, v in subgraph.edges()
-                ]
+                ],
             }
         except Exception as e:
             logger.error(f"Subgraph failed: {e}")
-            return {'nodes': [], 'edges': []}
+            return {"nodes": [], "edges": []}

@@ -10,7 +10,6 @@ import os
 import pytest
 import tempfile
 import shutil
-from pathlib import Path
 
 from src.services.ownership_registry import OwnershipRegistry
 from src.integrations.ontology_schema import (
@@ -81,7 +80,9 @@ def test_register_nonexistent_file(registry, temp_dir):
 def test_list_components(registry, temp_dir):
     """Test listing components."""
     # Create multiple files
-    for i, comp_type in enumerate([ComponentType.SKILL, ComponentType.AGENT, ComponentType.SKILL]):
+    for i, comp_type in enumerate(
+        [ComponentType.SKILL, ComponentType.AGENT, ComponentType.SKILL]
+    ):
         file_path = os.path.join(temp_dir, f"component_{i}.md")
         with open(file_path, "w") as f:
             f.write(f"# Component {i}")
@@ -190,7 +191,10 @@ def test_detect_drift_duplicate(registry, temp_dir, sample_file):
     violations = registry.detect_drift(scan_paths=[scan_dir])
 
     assert len(violations) > 0
-    assert any(v.violation_type == OwnershipViolationType.DUPLICATE_LOCATION for v in violations)
+    assert any(
+        v.violation_type == OwnershipViolationType.DUPLICATE_LOCATION
+        for v in violations
+    )
 
 
 def test_detect_drift_modified_copy(registry, temp_dir, sample_file):
@@ -212,7 +216,9 @@ def test_detect_drift_modified_copy(registry, temp_dir, sample_file):
     violations = registry.detect_drift(scan_paths=[scan_dir])
 
     assert len(violations) > 0
-    assert any(v.violation_type == OwnershipViolationType.HASH_MISMATCH for v in violations)
+    assert any(
+        v.violation_type == OwnershipViolationType.HASH_MISMATCH for v in violations
+    )
 
 
 # ========== FIX VIOLATION TESTS ==========
@@ -293,7 +299,9 @@ def test_fix_violations_dry_run(registry, temp_dir, sample_file):
     violations = registry.detect_drift(scan_paths=[scan_dir])
 
     # Dry run
-    results = registry.fix_violations(violations, auto_fix=True, dry_run=True)
+    results = registry.fix_violations(  # noqa: F841
+        violations, auto_fix=True, dry_run=True
+    )
 
     # File should still exist
     assert os.path.exists(duplicate_path)

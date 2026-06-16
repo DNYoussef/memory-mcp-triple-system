@@ -14,11 +14,9 @@ import asyncio
 import hashlib
 import hmac
 import aiofiles
-import aiohttp
-from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from urllib.parse import urlencode
-from typing import Optional, Dict, Any, List, Callable, Awaitable
+from typing import Optional, Dict, List, Callable, Awaitable
 from dataclasses import dataclass
 import logging
 
@@ -96,8 +94,7 @@ class RailwayBufferService:
 
         # Persistence path for buffer registry
         self._registry_path = os.path.join(
-            self._get_storage_path(),
-            "buffer_registry.json"
+            self._get_storage_path(), "buffer_registry.json"
         )
 
         # Stats tracking
@@ -112,9 +109,7 @@ class RailwayBufferService:
         if self.config.local_mode or not self.config.temp_storage_path:
             # Use local storage for development
             local_path = self.config.local_storage_path or os.path.join(
-                os.path.expanduser("~"),
-                ".claude",
-                "ephemeral-buffers"
+                os.path.expanduser("~"), ".claude", "ephemeral-buffers"
             )
             return local_path
         return self.config.temp_storage_path
@@ -262,7 +257,7 @@ class RailwayBufferService:
         railway_path = os.path.join(
             storage_path,
             f"{datetime.now(timezone.utc).strftime('%Y-%m-%d')}",
-            os.path.basename(file_path)
+            os.path.basename(file_path),
         )
 
         buffer = EphemeralBuffer.create(
@@ -345,9 +340,7 @@ class RailwayBufferService:
         expiry = expires_in_days or self.config.default_expiry_days
         storage_path = self._get_storage_path()
         railway_path = os.path.join(
-            storage_path,
-            f"{datetime.now(timezone.utc).strftime('%Y-%m-%d')}",
-            filename
+            storage_path, f"{datetime.now(timezone.utc).strftime('%Y-%m-%d')}", filename
         )
 
         buffer = EphemeralBuffer.create(
@@ -474,9 +467,15 @@ class RailwayBufferService:
             logger.error("Railway API token is required for signed download URLs")
             return None
 
-        expires_at = int((datetime.now(timezone.utc) + timedelta(seconds=expires_in_seconds)).timestamp())
+        expires_at = int(
+            (
+                datetime.now(timezone.utc) + timedelta(seconds=expires_in_seconds)
+            ).timestamp()
+        )
         path = f"/buffers/{buffer.buffer_id}/download"
-        message = f"{buffer.buffer_id}:{buffer.railway_path}:{expires_at}".encode("utf-8")
+        message = f"{buffer.buffer_id}:{buffer.railway_path}:{expires_at}".encode(
+            "utf-8"
+        )
         signature = hmac.new(
             self.config.railway_api_token.encode("utf-8"),
             message,
@@ -666,7 +665,6 @@ class RailwayBufferService:
         """
         pending = await self.list_buffers(status=BufferStatus.PENDING_DELETE)
         expired = await self.list_buffers(
-            status=BufferStatus.EXPIRED,
-            include_expired=True
+            status=BufferStatus.EXPIRED, include_expired=True
         )
         return pending + expired

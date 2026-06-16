@@ -9,7 +9,6 @@ WHY: infrastructure (IMPROVE-001)
 """
 
 import logging
-import os
 import shutil
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
@@ -31,7 +30,9 @@ class DeploymentResult:
 
     proposal_id: str
     success: bool
-    deployed_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    deployed_at: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
 
     # Details
     changes_applied: int = 0
@@ -60,7 +61,9 @@ class RollbackResult:
 
     proposal_id: str
     success: bool
-    rolled_back_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    rolled_back_at: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
 
     # Details
     files_restored: int = 0
@@ -226,7 +229,9 @@ class RuleDeploymentService:
             )
 
         # Restore from backup
-        files_restored, error = self._restore_backup(proposal_id, deployment.backup_path)
+        files_restored, error = self._restore_backup(
+            proposal_id, deployment.backup_path
+        )
 
         success = files_restored > 0 and not error
 
@@ -280,7 +285,11 @@ class RuleDeploymentService:
             Backup directory path or None
         """
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_dir = self.base_path / self.config.backup_dir / f"{proposal.proposal_id}_{timestamp}"
+        backup_dir = (
+            self.base_path
+            / self.config.backup_dir
+            / f"{proposal.proposal_id}_{timestamp}"
+        )
 
         try:
             backup_dir.mkdir(parents=True, exist_ok=True)
@@ -502,7 +511,8 @@ class RuleDeploymentService:
             "total_deployments": len(self._deployments),
             "total_rollbacks": len(self._rollbacks),
             "success_rate": round(
-                self._stats["deployments_succeeded"] / max(1, self._stats["deployments_attempted"]),
+                self._stats["deployments_succeeded"]
+                / max(1, self._stats["deployments_attempted"]),
                 4,
             ),
         }

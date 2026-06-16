@@ -22,9 +22,9 @@ class GraphNodeManager:
     Cohesion: HIGH - all methods work with nodes.
     """
 
-    NODE_TYPE_CHUNK = 'chunk'
-    NODE_TYPE_ENTITY = 'entity'
-    NODE_TYPE_CONCEPT = 'concept'
+    NODE_TYPE_CHUNK = "chunk"
+    NODE_TYPE_ENTITY = "entity"
+    NODE_TYPE_CONCEPT = "concept"
 
     def __init__(self, graph: nx.DiGraph):
         """
@@ -36,16 +36,12 @@ class GraphNodeManager:
         self.graph = graph
 
     def add_chunk(
-        self,
-        chunk_id: str,
-        metadata: Optional[Dict[str, Any]] = None
+        self, chunk_id: str, metadata: Optional[Dict[str, Any]] = None
     ) -> bool:
         """Add chunk node to graph."""
         try:
             self.graph.add_node(
-                chunk_id,
-                type=self.NODE_TYPE_CHUNK,
-                metadata=metadata or {}
+                chunk_id, type=self.NODE_TYPE_CHUNK, metadata=metadata or {}
             )
             logger.debug(f"Added chunk node: {chunk_id}")
             return True
@@ -57,7 +53,7 @@ class GraphNodeManager:
         self,
         entity_id: str,
         entity_type: str,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """Add entity node to graph."""
         try:
@@ -65,7 +61,7 @@ class GraphNodeManager:
                 entity_id,
                 type=self.NODE_TYPE_ENTITY,
                 entity_type=entity_type,
-                metadata=metadata or {}
+                metadata=metadata or {},
             )
             logger.debug(f"Added entity: {entity_id} ({entity_type})")
             return True
@@ -77,7 +73,7 @@ class GraphNodeManager:
         """Get node data by ID."""
         if node_id not in self.graph:
             return None
-        return {'id': node_id, **self.graph.nodes[node_id]}
+        return {"id": node_id, **self.graph.nodes[node_id]}
 
     def remove_node(self, node_id: str) -> bool:
         """Remove node from graph."""
@@ -112,12 +108,17 @@ class GraphNodeManager:
             logger.warning(f"Node not found for importance update: {node_id}")
             return False
         node = self.graph.nodes[node_id]
-        frequency_score = min(1.0, math.log1p(float(node.get("frequency", 0))) / math.log(101))
+        frequency_score = min(
+            1.0, math.log1p(float(node.get("frequency", 0))) / math.log(101)
+        )
         decay_score = float(node.get("decay_score", 1.0))
         explicit_weight = max(0.0, min(1.0, explicit_weight))
         node["importance"] = max(
             0.0,
-            min(1.0, (0.5 * explicit_weight) + (0.3 * frequency_score) + (0.2 * decay_score)),
+            min(
+                1.0,
+                (0.5 * explicit_weight) + (0.3 * frequency_score) + (0.2 * decay_score),
+            ),
         )
         return True
 
@@ -133,9 +134,7 @@ class GraphNodeManager:
         return True
 
     def get_nodes_by_importance(
-        self,
-        min_importance: float = 0.0,
-        max_importance: float = 1.0
+        self, min_importance: float = 0.0, max_importance: float = 1.0
     ) -> list[tuple]:
         """Return nodes whose importance is within the requested range."""
         matches = []
@@ -143,7 +142,11 @@ class GraphNodeManager:
             importance = float(attrs.get("importance", 0.0))
             if min_importance <= importance <= max_importance:
                 matches.append((node_id, attrs))
-        return sorted(matches, key=lambda item: float(item[1].get("importance", 0.0)), reverse=True)
+        return sorted(
+            matches,
+            key=lambda item: float(item[1].get("importance", 0.0)),
+            reverse=True,
+        )
 
 
 def _age_days(timestamp: Optional[str]) -> float:
@@ -155,4 +158,8 @@ def _age_days(timestamp: Optional[str]) -> float:
         return 0.0
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
-    return max(0.0, (datetime.now(timezone.utc) - parsed.astimezone(timezone.utc)).total_seconds() / 86400.0)
+    return max(
+        0.0,
+        (datetime.now(timezone.utc) - parsed.astimezone(timezone.utc)).total_seconds()
+        / 86400.0,
+    )

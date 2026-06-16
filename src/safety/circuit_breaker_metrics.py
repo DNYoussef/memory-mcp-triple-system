@@ -8,26 +8,26 @@ Supports Prometheus-compatible metrics format.
 
 import asyncio
 import logging
-import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, List, Optional, Any, Callable
 from dataclasses import dataclass, field
 from enum import Enum
-import json
 
 logger = logging.getLogger(__name__)
 
 
 class CircuitState(str, Enum):
     """Standard circuit breaker states"""
-    CLOSED = "closed"      # Normal operation
-    OPEN = "open"          # Failing fast
+
+    CLOSED = "closed"  # Normal operation
+    OPEN = "open"  # Failing fast
     HALF_OPEN = "half_open"  # Testing recovery
 
 
 @dataclass
 class CircuitBreakerSnapshot:
     """Point-in-time snapshot of a circuit breaker"""
+
     name: str
     service: str
     state: CircuitState
@@ -49,20 +49,25 @@ class CircuitBreakerSnapshot:
             "state": self.state.value,
             "failure_count": self.failure_count,
             "success_count": self.success_count,
-            "last_failure_time": self.last_failure_time.isoformat() if self.last_failure_time else None,
-            "last_success_time": self.last_success_time.isoformat() if self.last_success_time else None,
+            "last_failure_time": self.last_failure_time.isoformat()
+            if self.last_failure_time
+            else None,
+            "last_success_time": self.last_success_time.isoformat()
+            if self.last_success_time
+            else None,
             "last_state_change": self.last_state_change.isoformat(),
             "open_duration_seconds": round(self.open_duration_seconds, 3),
             "trip_count": self.trip_count,
             "recovery_count": self.recovery_count,
             "current_backoff_seconds": round(self.current_backoff_seconds, 3),
-            "metadata": self.metadata
+            "metadata": self.metadata,
         }
 
 
 @dataclass
 class CircuitBreakerEvent:
     """Event from a circuit breaker state change"""
+
     timestamp: datetime
     breaker_name: str
     service: str
@@ -81,7 +86,7 @@ class CircuitBreakerEvent:
             "old_state": self.old_state.value if self.old_state else None,
             "new_state": self.new_state.value,
             "reason": self.reason,
-            "metadata": self.metadata
+            "metadata": self.metadata,
         }
 
 
@@ -112,8 +117,7 @@ class CircuitBreakerRegistry:
         self._lock = asyncio.Lock()
 
     def register_callback(
-        self,
-        callback: Callable[[CircuitBreakerEvent], None]
+        self, callback: Callable[[CircuitBreakerEvent], None]
     ) -> None:
         """Register a callback for circuit breaker events"""
         self._callbacks.append(callback)
@@ -123,7 +127,7 @@ class CircuitBreakerRegistry:
         name: str,
         service: str,
         state: CircuitState = CircuitState.CLOSED,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Register a new circuit breaker"""
         async with self._lock:
@@ -143,7 +147,7 @@ class CircuitBreakerRegistry:
                 trip_count=0,
                 recovery_count=0,
                 current_backoff_seconds=0.0,
-                metadata=metadata or {}
+                metadata=metadata or {},
             )
 
             self._breakers[key] = snapshot
@@ -155,7 +159,7 @@ class CircuitBreakerRegistry:
         service: str,
         new_state: CircuitState,
         reason: Optional[str] = None,
-        backoff_seconds: float = 0.0
+        backoff_seconds: float = 0.0,
     ) -> None:
         """Update circuit breaker state"""
         async with self._lock:
@@ -201,12 +205,12 @@ class CircuitBreakerRegistry:
                 event_type=event_type,
                 old_state=old_state,
                 new_state=new_state,
-                reason=reason
+                reason=reason,
             )
 
             self._events.append(event)
             if len(self._events) > self._max_events:
-                self._events = self._events[-self._max_events:]
+                self._events = self._events[-self._max_events :]
 
             # Notify callbacks
             for callback in self._callbacks:
@@ -220,11 +224,7 @@ class CircuitBreakerRegistry:
                 f"(reason={reason})"
             )
 
-    async def record_failure(
-        self,
-        name: str,
-        service: str
-    ) -> None:
+    async def record_failure(self, name: str, service: str) -> None:
         """Record a failure for a circuit breaker"""
         async with self._lock:
             key = f"{service}:{name}"
@@ -234,11 +234,7 @@ class CircuitBreakerRegistry:
                 breaker.failure_count += 1
                 breaker.last_failure_time = datetime.utcnow()
 
-    async def record_success(
-        self,
-        name: str,
-        service: str
-    ) -> None:
+    async def record_success(self, name: str, service: str) -> None:
         """Record a success for a circuit breaker"""
         async with self._lock:
             key = f"{service}:{name}"
@@ -248,19 +244,13 @@ class CircuitBreakerRegistry:
                 breaker.success_count += 1
                 breaker.last_success_time = datetime.utcnow()
 
-    def get_breaker(
-        self,
-        name: str,
-        service: str
-    ) -> Optional[CircuitBreakerSnapshot]:
+    def get_breaker(self, name: str, service: str) -> Optional[CircuitBreakerSnapshot]:
         """Get a specific circuit breaker snapshot"""
         key = f"{service}:{name}"
         return self._breakers.get(key)
 
     def get_all_breakers(
-        self,
-        service: Optional[str] = None,
-        state: Optional[CircuitState] = None
+        self, service: Optional[str] = None, state: Optional[CircuitState] = None
     ) -> List[CircuitBreakerSnapshot]:
         """Get all circuit breakers with optional filters"""
         breakers = list(self._breakers.values())
@@ -276,7 +266,7 @@ class CircuitBreakerRegistry:
         self,
         service: Optional[str] = None,
         event_type: Optional[str] = None,
-        limit: int = 100
+        limit: int = 100,
     ) -> List[CircuitBreakerEvent]:
         """Get recent events with optional filters"""
         events = self._events.copy()
@@ -297,7 +287,9 @@ class CircuitBreakerRegistry:
         lines = []
 
         # Circuit breaker state (0=closed, 1=half_open, 2=open)
-        lines.append(f"# HELP {self.METRIC_STATE} Current state of circuit breaker (0=closed, 1=half_open, 2=open)")
+        lines.append(
+            f"# HELP {self.METRIC_STATE} Current state of circuit breaker (0=closed, 1=half_open, 2=open)"
+        )
         lines.append(f"# TYPE {self.METRIC_STATE} gauge")
         for breaker in self._breakers.values():
             state_value = {"closed": 0, "half_open": 1, "open": 2}[breaker.state.value]
@@ -306,7 +298,9 @@ class CircuitBreakerRegistry:
             )
 
         # Trip count
-        lines.append(f"# HELP {self.METRIC_TRIPS_TOTAL} Total number of times circuit breaker tripped")
+        lines.append(
+            f"# HELP {self.METRIC_TRIPS_TOTAL} Total number of times circuit breaker tripped"
+        )
         lines.append(f"# TYPE {self.METRIC_TRIPS_TOTAL} counter")
         for breaker in self._breakers.values():
             lines.append(
@@ -314,7 +308,9 @@ class CircuitBreakerRegistry:
             )
 
         # Recovery count
-        lines.append(f"# HELP {self.METRIC_RECOVERIES_TOTAL} Total number of circuit breaker recoveries")
+        lines.append(
+            f"# HELP {self.METRIC_RECOVERIES_TOTAL} Total number of circuit breaker recoveries"
+        )
         lines.append(f"# TYPE {self.METRIC_RECOVERIES_TOTAL} counter")
         for breaker in self._breakers.values():
             lines.append(
@@ -322,13 +318,17 @@ class CircuitBreakerRegistry:
             )
 
         # Open duration
-        lines.append(f"# HELP {self.METRIC_OPEN_DURATION} Total time circuit breaker spent in open state")
+        lines.append(
+            f"# HELP {self.METRIC_OPEN_DURATION} Total time circuit breaker spent in open state"
+        )
         lines.append(f"# TYPE {self.METRIC_OPEN_DURATION} counter")
         for breaker in self._breakers.values():
             duration = breaker.open_duration_seconds
             # Add current open duration if currently open
             if breaker.state == CircuitState.OPEN:
-                duration += (datetime.utcnow() - breaker.last_state_change).total_seconds()
+                duration += (
+                    datetime.utcnow() - breaker.last_state_change
+                ).total_seconds()
             lines.append(
                 f'{self.METRIC_OPEN_DURATION}{{name="{breaker.name}",service="{breaker.service}"}} {duration:.3f}'
             )
@@ -353,18 +353,16 @@ class CircuitBreakerRegistry:
 
     def export_json_metrics(self) -> Dict[str, Any]:
         """Export metrics as JSON for dashboard consumption"""
-        breakers_by_state = {
-            "closed": 0,
-            "half_open": 0,
-            "open": 0
-        }
+        breakers_by_state = {"closed": 0, "half_open": 0, "open": 0}
 
         for breaker in self._breakers.values():
             breakers_by_state[breaker.state.value] += 1
 
         total_trips = sum(b.trip_count for b in self._breakers.values())
         total_recoveries = sum(b.recovery_count for b in self._breakers.values())
-        total_open_duration = sum(b.open_duration_seconds for b in self._breakers.values())
+        total_open_duration = sum(
+            b.open_duration_seconds for b in self._breakers.values()
+        )
 
         return {
             "summary": {
@@ -373,10 +371,10 @@ class CircuitBreakerRegistry:
                 "total_trips": total_trips,
                 "total_recoveries": total_recoveries,
                 "total_open_duration_seconds": round(total_open_duration, 3),
-                "total_events": len(self._events)
+                "total_events": len(self._events),
             },
             "breakers": [b.to_dict() for b in self._breakers.values()],
-            "recent_events": [e.to_dict() for e in self._events[-20:]]
+            "recent_events": [e.to_dict() for e in self._events[-20:]],
         }
 
     def get_system_status(self) -> Dict[str, Any]:
@@ -406,7 +404,7 @@ class CircuitBreakerRegistry:
             "status": status,
             "message": message,
             "open_breakers": [b.name for b in open_breakers],
-            "half_open_breakers": [b.name for b in half_open_breakers]
+            "half_open_breakers": [b.name for b in half_open_breakers],
         }
 
 

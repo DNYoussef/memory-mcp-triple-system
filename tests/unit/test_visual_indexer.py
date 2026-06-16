@@ -14,7 +14,6 @@ Tests:
 """
 
 import pytest
-from unittest.mock import Mock, patch
 import tempfile
 import shutil
 from pathlib import Path
@@ -43,8 +42,7 @@ class TestVisualMemoryIndexerInitialization:
     def test_initialization_custom_collection(self, temp_dir):
         """Test custom collection name."""
         indexer = VisualMemoryIndexer(
-            persist_directory=temp_dir,
-            collection_name="my_visuals"
+            persist_directory=temp_dir, collection_name="my_visuals"
         )
         assert indexer.collection_name == "my_visuals"
 
@@ -54,7 +52,7 @@ class TestVisualMemoryIndexerInitialization:
         new_dir = Path(temp) / "new_subdir"
 
         try:
-            indexer = VisualMemoryIndexer(persist_directory=str(new_dir))
+            indexer = VisualMemoryIndexer(persist_directory=str(new_dir))  # noqa: F841
             assert new_dir.exists()
         finally:
             try:
@@ -93,7 +91,7 @@ class TestVisualMemoryIndexerAddVisual:
             doc_id="test-doc-1",
             embedding=sample_embedding,
             metadata={"visual_type": "screenshot"},
-            document="Test document"
+            document="Test document",
         )
         assert result == "test-doc-1"
 
@@ -105,7 +103,7 @@ class TestVisualMemoryIndexerAddVisual:
             doc_id="test-doc-1",
             embedding=sample_embedding,
             metadata={"visual_type": "screenshot"},
-            document="Test document"
+            document="Test document",
         )
 
         assert indexer.count() == initial_count + 1
@@ -117,7 +115,7 @@ class TestVisualMemoryIndexerAddVisual:
                 doc_id=f"test-doc-{i}",
                 embedding=sample_embedding,
                 metadata={"visual_type": "screenshot", "index": i},
-                document=f"Document {i}"
+                document=f"Document {i}",
             )
 
         assert indexer.count() == 5
@@ -129,9 +127,9 @@ class TestVisualMemoryIndexerAddVisual:
             embedding=sample_embedding,
             metadata={
                 "visual_type": "screenshot",
-                "agent": {"name": "test", "version": "1.0"}
+                "agent": {"name": "test", "version": "1.0"},
             },
-            document="Test"
+            document="Test",
         )
 
         result = indexer.get_by_id("test-doc-1")
@@ -161,7 +159,7 @@ class TestVisualMemoryIndexerSearch:
                 doc_id=f"doc-{i+1}",
                 embedding=emb,
                 metadata={"visual_type": "screenshot" if i < 2 else "diagram"},
-                document=f"Document {i+1}"
+                document=f"Document {i+1}",
             )
 
         yield idx
@@ -198,9 +196,7 @@ class TestVisualMemoryIndexerSearch:
         """Test search with metadata filter."""
         query_embedding = [0.5] * 384
         results = populated_indexer.search(
-            query_embedding,
-            top_k=10,
-            where={"visual_type": "diagram"}
+            query_embedding, top_k=10, where={"visual_type": "diagram"}
         )
 
         for result in results:
@@ -241,7 +237,7 @@ class TestVisualMemoryIndexerGetById:
             doc_id="test-doc-1",
             embedding=[0.5] * 384,
             metadata={"visual_type": "screenshot", "title": "Test"},
-            document="Test document content"
+            document="Test document content",
         )
 
         yield idx
@@ -288,7 +284,7 @@ class TestVisualMemoryIndexerDelete:
                 doc_id=f"doc-{i}",
                 embedding=[0.5] * 384,
                 metadata={"visual_type": "screenshot"},
-                document=f"Document {i}"
+                document=f"Document {i}",
             )
 
         yield idx
@@ -304,14 +300,14 @@ class TestVisualMemoryIndexerDelete:
 
         result = indexer_with_docs.delete("doc-0")
 
-        assert result == True
+        assert result is True
         assert indexer_with_docs.count() == initial_count - 1
 
     def test_delete_nonexistent(self, indexer_with_docs):
         """Test deleting nonexistent document."""
         initial_count = indexer_with_docs.count()
 
-        result = indexer_with_docs.delete("nonexistent")
+        result = indexer_with_docs.delete("nonexistent")  # noqa: F841
 
         # ChromaDB doesn't error on deleting nonexistent
         assert indexer_with_docs.count() == initial_count
@@ -338,7 +334,7 @@ class TestVisualMemoryIndexerUpdateMetadata:
             doc_id="test-doc-1",
             embedding=[0.5] * 384,
             metadata={"visual_type": "screenshot", "title": "Original"},
-            document="Test document"
+            document="Test document",
         )
 
         yield idx
@@ -351,11 +347,10 @@ class TestVisualMemoryIndexerUpdateMetadata:
     def test_update_metadata(self, indexer_with_doc):
         """Test updating metadata."""
         result = indexer_with_doc.update_metadata(
-            "test-doc-1",
-            {"visual_type": "diagram", "title": "Updated"}
+            "test-doc-1", {"visual_type": "diagram", "title": "Updated"}
         )
 
-        assert result == True
+        assert result is True
 
         doc = indexer_with_doc.get_by_id("test-doc-1")
         assert doc["metadata"]["title"] == "Updated"
@@ -401,7 +396,7 @@ class TestVisualMemoryIndexerMetadataCleaning:
             "str_val": "hello",
             "int_val": 42,
             "float_val": 3.14,
-            "bool_val": True
+            "bool_val": True,
         }
 
         cleaned = indexer._clean_metadata(metadata)
@@ -409,13 +404,11 @@ class TestVisualMemoryIndexerMetadataCleaning:
         assert cleaned["str_val"] == "hello"
         assert cleaned["int_val"] == 42
         assert cleaned["float_val"] == 3.14
-        assert cleaned["bool_val"] == True
+        assert cleaned["bool_val"] is True
 
     def test_clean_metadata_flattens_nested_dict(self, indexer):
         """Test that nested dicts are flattened."""
-        metadata = {
-            "agent": {"name": "test", "version": "1.0"}
-        }
+        metadata = {"agent": {"name": "test", "version": "1.0"}}
 
         cleaned = indexer._clean_metadata(metadata)
 

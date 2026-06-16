@@ -1,5 +1,4 @@
 """Tests for lightweight Bayesian inference (no torch/pgmpy)."""
-import pytest
 from src.bayesian.lightweight_bayesian import (
     LightweightBayesianNetwork,
     LightweightCPD,
@@ -28,9 +27,14 @@ def test_cpd_creation():
 def test_model_check():
     bn = LightweightBayesianNetwork([("A", "B")])
     cpd_a = LightweightCPD("A", 2, [[0.6], [0.4]], state_names={"A": ["true", "false"]})
-    cpd_b = LightweightCPD("B", 2, [[0.8, 0.2], [0.2, 0.8]],
+    cpd_b = LightweightCPD(
+        "B",
+        2,
+        [[0.8, 0.2], [0.2, 0.8]],
         state_names={"B": ["true", "false"], "A": ["true", "false"]},
-        evidence=["A"], evidence_card=[2])
+        evidence=["A"],
+        evidence_card=[2],
+    )
     bn.add_cpds(cpd_a, cpd_b)
     assert bn.check_model()
 
@@ -38,9 +42,14 @@ def test_model_check():
 def test_variable_elimination_query():
     bn = LightweightBayesianNetwork([("A", "B")])
     cpd_a = LightweightCPD("A", 2, [[0.6], [0.4]], state_names={"A": ["true", "false"]})
-    cpd_b = LightweightCPD("B", 2, [[0.9, 0.1], [0.1, 0.9]],
+    cpd_b = LightweightCPD(
+        "B",
+        2,
+        [[0.9, 0.1], [0.1, 0.9]],
         state_names={"B": ["true", "false"], "A": ["true", "false"]},
-        evidence=["A"], evidence_card=[2])
+        evidence=["A"],
+        evidence_card=[2],
+    )
     bn.add_cpds(cpd_a, cpd_b)
 
     infer = LightweightVariableElimination(bn)
@@ -53,9 +62,14 @@ def test_variable_elimination_query():
 def test_map_query():
     bn = LightweightBayesianNetwork([("A", "B")])
     cpd_a = LightweightCPD("A", 2, [[0.6], [0.4]], state_names={"A": ["true", "false"]})
-    cpd_b = LightweightCPD("B", 2, [[0.9, 0.1], [0.1, 0.9]],
+    cpd_b = LightweightCPD(
+        "B",
+        2,
+        [[0.9, 0.1], [0.1, 0.9]],
         state_names={"B": ["true", "false"], "A": ["true", "false"]},
-        evidence=["A"], evidence_card=[2])
+        evidence=["A"],
+        evidence_card=[2],
+    )
     bn.add_cpds(cpd_a, cpd_b)
 
     infer = LightweightVariableElimination(bn)
@@ -78,7 +92,7 @@ def test_probabilities_normalize():
         est = LightweightMLEstimator(bn)
         cpd = est.estimate_cpd(node)
         bn.add_cpds(cpd)
-    
+
     infer = LightweightVariableElimination(bn)
     result = infer.query(["B"])
     total = sum(result.values())

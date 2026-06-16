@@ -17,6 +17,7 @@ def _graph_service():
 
     class GS:
         graph = g
+
     return GS()
 
 
@@ -61,4 +62,5 @@ class TestBayesianInferenceCache:
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(pytest.main([__file__, "-v"]))

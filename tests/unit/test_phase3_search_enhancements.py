@@ -9,12 +9,8 @@ Tests:
   6. Tool registry includes detail param in vector_search schema
 """
 
-import os
-import json
-import sqlite3
-import tempfile
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -29,6 +25,7 @@ from src.stores.kv_store import KVStore
 
 
 # --- Formatter Tests ---
+
 
 class TestProgressiveDisclosure:
     """Test compact vs full result formatting."""
@@ -75,10 +72,13 @@ class TestProgressiveDisclosure:
     def test_compact_no_tier_if_absent(self):
         result = {"text": "no tier here", "score": 0.5, "file_path": "f.py"}
         formatted = _format_result_compact(1, result)
-        assert "[" not in formatted["text"].split("(")[0]  # No tier bracket before score
+        assert (
+            "[" not in formatted["text"].split("(")[0]
+        )  # No tier bracket before score
 
 
 # --- KVStore Date Filter Tests ---
+
 
 class TestKVStoreDateFilters:
     """Test after/before filters on get_observations."""
@@ -147,6 +147,7 @@ class TestKVStoreDateFilters:
 
 # --- Tool Registry Tests ---
 
+
 class TestToolRegistryPhase3:
     """Test that Phase 3 tool definitions are correct."""
 
@@ -185,6 +186,7 @@ class TestToolRegistryPhase3:
 
 
 # --- Timeline Handler Tests ---
+
 
 class TestObservationTimeline:
     """Test the observation_timeline handler."""
@@ -245,7 +247,12 @@ class TestObservationTimeline:
     def test_passes_filters_to_kv_store(self):
         tool = self._make_mock_tool([])
         handle_observation_timeline(
-            {"project": "myproj", "obs_type": "error", "session_id": "s-1", "limit": 10},
+            {
+                "project": "myproj",
+                "obs_type": "error",
+                "session_id": "s-1",
+                "limit": 10,
+            },
             tool,
         )
         call_kwargs = tool.kv_store.get_observations.call_args

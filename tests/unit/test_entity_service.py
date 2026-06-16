@@ -6,15 +6,15 @@ NASA Rule 10 Compliant: All test functions ≤60 LOC
 """
 
 import pytest
-from unittest.mock import MagicMock
 
 from src.services.entity_service import EntityService
 from src.services.graph_service import GraphService
 
 try:
     import spacy
+
     _nlp = spacy.load("en_core_web_sm")
-    HAS_SPACY = _nlp is not None and hasattr(_nlp, 'lang')
+    HAS_SPACY = _nlp is not None and hasattr(_nlp, "lang")
 except (ImportError, OSError):
     HAS_SPACY = False
 
@@ -44,12 +44,12 @@ class TestInitialization:
         """Test EntityService loads spaCy model when available."""
         service = EntityService()
         assert service.nlp is not None
-        assert service.nlp.lang == 'en'
+        assert service.nlp.lang == "en"
 
     @pytest.mark.skipif(not HAS_SPACY, reason="spaCy model not available")
     def test_initialization_with_custom_model(self):
         """Test initialization with specific model name."""
-        service = EntityService(model_name='en_core_web_sm')
+        service = EntityService(model_name="en_core_web_sm")
         assert service.nlp is not None
 
 
@@ -65,9 +65,9 @@ class TestExtractEntities:
         # Should extract "Barack Obama" as PERSON
         assert len(entities) > 0
 
-        person_entities = [e for e in entities if e['type'] == 'PERSON']
+        person_entities = [e for e in entities if e["type"] == "PERSON"]
         assert len(person_entities) >= 1
-        assert any('Obama' in e['text'] for e in person_entities)
+        assert any("Obama" in e["text"] for e in person_entities)
 
     @pytest.mark.skipif(not HAS_SPACY, reason="ORG classification requires spaCy NER")
     def test_extract_entities_organization(self, entity_service):
@@ -76,9 +76,9 @@ class TestExtractEntities:
 
         entities = entity_service.extract_entities(text)
 
-        org_entities = [e for e in entities if e['type'] == 'ORG']
+        org_entities = [e for e in entities if e["type"] == "ORG"]
         assert len(org_entities) >= 1
-        assert any('Google' in e['text'] for e in org_entities)
+        assert any("Google" in e["text"] for e in org_entities)
 
     @pytest.mark.skipif(not HAS_SPACY, reason="GPE classification requires spaCy NER")
     def test_extract_entities_gpe(self, entity_service):
@@ -87,7 +87,7 @@ class TestExtractEntities:
 
         entities = entity_service.extract_entities(text)
 
-        gpe_entities = [e for e in entities if e['type'] == 'GPE']
+        gpe_entities = [e for e in entities if e["type"] == "GPE"]
         assert len(gpe_entities) >= 1
 
     def test_extract_entities_date(self, entity_service):
@@ -96,7 +96,7 @@ class TestExtractEntities:
 
         entities = entity_service.extract_entities(text)
 
-        date_entities = [e for e in entities if e['type'] == 'DATE']
+        date_entities = [e for e in entities if e["type"] == "DATE"]
         assert len(date_entities) >= 1
 
     def test_extract_entities_empty_text(self, entity_service):
@@ -122,10 +122,10 @@ class TestExtractEntities:
 
         # Check that entities have position info
         for ent in entities:
-            assert 'start' in ent
-            assert 'end' in ent
-            assert 'text' in ent
-            assert 'type' in ent
+            assert "start" in ent
+            assert "end" in ent
+            assert "text" in ent
+            assert "type" in ent
 
 
 class TestExtractEntitiesByType:
@@ -135,35 +135,26 @@ class TestExtractEntitiesByType:
         """Test filtering for PERSON entities only."""
         text = "Barack Obama works at Google in California."
 
-        entities = entity_service.extract_entities_by_type(
-            text,
-            ['PERSON']
-        )
+        entities = entity_service.extract_entities_by_type(text, ["PERSON"])
 
         # Should only include PERSON entities
-        assert all(e['type'] == 'PERSON' for e in entities)
+        assert all(e["type"] == "PERSON" for e in entities)
 
     def test_filter_multiple_types(self, entity_service):
         """Test filtering for multiple entity types."""
         text = "Barack Obama founded the company in California on January 1, 2020."
 
-        entities = entity_service.extract_entities_by_type(
-            text,
-            ['PERSON', 'DATE']
-        )
+        entities = entity_service.extract_entities_by_type(text, ["PERSON", "DATE"])
 
         # Should only include PERSON and DATE
-        types = {e['type'] for e in entities}
-        assert types.issubset({'PERSON', 'DATE'})
+        types = {e["type"] for e in entities}
+        assert types.issubset({"PERSON", "DATE"})
 
     def test_filter_no_matches(self, entity_service):
         """Test filtering with no matching entities."""
         text = "Simple sentence with no names."
 
-        entities = entity_service.extract_entities_by_type(
-            text,
-            ['PERSON']
-        )
+        entities = entity_service.extract_entities_by_type(text, ["PERSON"])
 
         # Should return empty list
         assert entities == []
@@ -174,52 +165,48 @@ class TestAddEntitiesToGraph:
 
     def test_add_entities_to_graph(self, entity_service, graph_service):
         """Test adding entities to graph."""
-        graph_service.add_chunk_node('chunk1', {'text': 'Sample chunk'})
+        graph_service.add_chunk_node("chunk1", {"text": "Sample chunk"})
 
         text = "Barack Obama was the president."
 
-        result = entity_service.add_entities_to_graph(
-            'chunk1',
-            text,
-            graph_service
-        )
+        result = entity_service.add_entities_to_graph("chunk1", text, graph_service)
 
         # Should add at least one entity
-        assert result['entities_added'] > 0
-        assert result['relationships_created'] > 0
-        assert len(result['entity_types']) > 0
+        assert result["entities_added"] > 0
+        assert result["relationships_created"] > 0
+        assert len(result["entity_types"]) > 0
 
     def test_entities_added_as_nodes(self, entity_service, graph_service):
         """Test entities are added as graph nodes."""
-        graph_service.add_chunk_node('chunk1')
+        graph_service.add_chunk_node("chunk1")
 
         text = "Google is in California."
 
-        entity_service.add_entities_to_graph('chunk1', text, graph_service)
+        entity_service.add_entities_to_graph("chunk1", text, graph_service)
 
         # Check graph has entity nodes
         assert graph_service.get_node_count() > 1
 
     def test_relationships_created(self, entity_service, graph_service):
         """Test mentions relationships are created."""
-        graph_service.add_chunk_node('chunk1')
+        graph_service.add_chunk_node("chunk1")
 
         text = "Barack Obama lives in Washington."
 
-        entity_service.add_entities_to_graph('chunk1', text, graph_service)
+        entity_service.add_entities_to_graph("chunk1", text, graph_service)
 
         # Check relationships exist
-        neighbors = graph_service.get_neighbors('chunk1', GraphService.EDGE_MENTIONS)
+        neighbors = graph_service.get_neighbors("chunk1", GraphService.EDGE_MENTIONS)
         assert len(neighbors) > 0
 
     def test_empty_text_no_entities(self, entity_service, graph_service):
         """Test empty text adds no entities."""
-        graph_service.add_chunk_node('chunk1')
+        graph_service.add_chunk_node("chunk1")
 
-        result = entity_service.add_entities_to_graph('chunk1', '', graph_service)
+        result = entity_service.add_entities_to_graph("chunk1", "", graph_service)
 
-        assert result['entities_added'] == 0
-        assert result['relationships_created'] == 0
+        assert result["entities_added"] == 0
+        assert result["relationships_created"] == 0
 
 
 class TestGetEntityStats:
@@ -236,8 +223,8 @@ class TestGetEntityStats:
         assert len(stats) > 0
 
         # Check some expected types
-        if 'PERSON' in stats:
-            assert stats['PERSON'] >= 1
+        if "PERSON" in stats:
+            assert stats["PERSON"] >= 1
 
     def test_entity_stats_empty_text(self, entity_service):
         """Test stats for empty text."""
@@ -252,8 +239,8 @@ class TestGetEntityStats:
         stats = entity_service.get_entity_stats(text)
 
         # Should count multiple PERSON entities
-        if 'PERSON' in stats:
-            assert stats['PERSON'] >= 2
+        if "PERSON" in stats:
+            assert stats["PERSON"] >= 2
 
 
 class TestDeduplicateEntities:
@@ -262,9 +249,9 @@ class TestDeduplicateEntities:
     def test_deduplicate_removes_duplicates(self, entity_service):
         """Test deduplication removes exact duplicates."""
         entities = [
-            {'text': 'Barack Obama', 'type': 'PERSON', 'start': 0, 'end': 12},
-            {'text': 'Barack Obama', 'type': 'PERSON', 'start': 20, 'end': 32},
-            {'text': 'Google', 'type': 'ORG', 'start': 40, 'end': 46}
+            {"text": "Barack Obama", "type": "PERSON", "start": 0, "end": 12},
+            {"text": "Barack Obama", "type": "PERSON", "start": 20, "end": 32},
+            {"text": "Google", "type": "ORG", "start": 40, "end": 46},
         ]
 
         deduplicated = entity_service.deduplicate_entities(entities)
@@ -274,8 +261,8 @@ class TestDeduplicateEntities:
     def test_deduplicate_preserves_unique(self, entity_service):
         """Test deduplication preserves unique entities."""
         entities = [
-            {'text': 'Barack Obama', 'type': 'PERSON', 'start': 0, 'end': 12},
-            {'text': 'Google', 'type': 'ORG', 'start': 20, 'end': 26}
+            {"text": "Barack Obama", "type": "PERSON", "start": 0, "end": 12},
+            {"text": "Google", "type": "ORG", "start": 20, "end": 26},
         ]
 
         deduplicated = entity_service.deduplicate_entities(entities)
@@ -297,7 +284,7 @@ class TestBatchExtract:
         texts = [
             "Barack Obama was president.",
             "Google is a technology company.",
-            "The meeting is in California."
+            "The meeting is in California.",
         ]
 
         results = entity_service.batch_extract_entities(texts)

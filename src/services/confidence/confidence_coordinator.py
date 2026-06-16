@@ -10,11 +10,9 @@ WHY: infrastructure (CAPTURE-003)
 
 import logging
 from typing import Dict, Any, List, Optional
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass
 
 from src.integrations.confidence_scoring_schema import (
-    ConfidenceScore,
     ClassificationResult,
     ClassificationType,
     EscalationRequest,
@@ -28,7 +26,6 @@ from src.services.confidence.entity_extractor import EntityExtractionScorer
 from src.services.confidence.quality_gate import (
     QualityGateAggregator,
     GateType,
-    GateCheck,
 )
 from src.services.confidence.tag_scorer import TagAssignmentScorer
 from src.services.confidence.escalation_service import EscalationService
@@ -126,9 +123,7 @@ class ConfidenceCoordinator:
         tag_result = self.tag_scorer.assign_tags_with_result(text, context)
 
         # 4. Quality gate aggregation
-        quality_gate = self._run_quality_gate(
-            mode_result, entity_result, tag_result
-        )
+        quality_gate = self._run_quality_gate(mode_result, entity_result, tag_result)
 
         # Calculate overall confidence
         overall = self._calculate_overall_confidence(
@@ -193,7 +188,8 @@ class ConfidenceCoordinator:
         if self.config.track_stats:
             self._stats.total_classifications += 1
             self._stats.by_type[ClassificationType.ENTITY_EXTRACTION.value] = (
-                self._stats.by_type.get(ClassificationType.ENTITY_EXTRACTION.value, 0) + 1
+                self._stats.by_type.get(ClassificationType.ENTITY_EXTRACTION.value, 0)
+                + 1
             )
 
         return result
@@ -257,9 +253,7 @@ class ConfidenceCoordinator:
         Returns:
             Created escalation request
         """
-        escalation = self.escalation_service.create_escalation(
-            result, reason, context
-        )
+        escalation = self.escalation_service.create_escalation(result, reason, context)
 
         if self.config.track_stats:
             self._stats.escalations_created += 1
@@ -291,7 +285,9 @@ class ConfidenceCoordinator:
 
         if escalation and self.config.track_stats:
             self._stats.escalations_resolved += 1
-            self._stats.escalations_pending = max(0, self._stats.escalations_pending - 1)
+            self._stats.escalations_pending = max(
+                0, self._stats.escalations_pending - 1
+            )
 
         return escalation
 
@@ -423,7 +419,7 @@ class ConfidenceCoordinator:
             # Create escalation for the lowest scoring result
             min_result = min(
                 [mode_result, entity_result, tag_result],
-                key=lambda r: r.confidence.score
+                key=lambda r: r.confidence.score,
             )
             return self.create_escalation(min_result, reason, context)
 
@@ -443,16 +439,12 @@ class ConfidenceCoordinator:
         # By type
         for result in [mode_result, entity_result, tag_result]:
             type_key = result.classification_type.value
-            self._stats.by_type[type_key] = (
-                self._stats.by_type.get(type_key, 0) + 1
-            )
+            self._stats.by_type[type_key] = self._stats.by_type.get(type_key, 0) + 1
 
         # By level
         for result in [mode_result, entity_result, tag_result]:
             level_key = result.confidence.level.value
-            self._stats.by_level[level_key] = (
-                self._stats.by_level.get(level_key, 0) + 1
-            )
+            self._stats.by_level[level_key] = self._stats.by_level.get(level_key, 0) + 1
 
         # Update average confidence (running average)
         all_scores = [
@@ -466,8 +458,8 @@ class ConfidenceCoordinator:
         current_avg = self._stats.average_confidence
 
         self._stats.average_confidence = (
-            (current_avg * (total - 3) + new_avg * 3) / total
-        )
+            current_avg * (total - 3) + new_avg * 3
+        ) / total
 
 
 # Singleton instance for convenience

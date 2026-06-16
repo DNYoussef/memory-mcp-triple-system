@@ -10,8 +10,8 @@ WHY: infrastructure (IMPROVE-001)
 
 import logging
 from typing import Dict, Any, List, Optional, Tuple
-from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from collections import defaultdict
 import statistics
 import re
@@ -19,7 +19,6 @@ import re
 from src.services.improvement.outcome_schema import (
     Outcome,
     OutcomeType,
-    OutcomeSource,
     Pattern,
 )
 
@@ -30,26 +29,26 @@ logger = logging.getLogger(__name__)
 class PatternType:
     """Types of patterns to detect."""
 
-    FAILURE_CLUSTER = "failure_cluster"        # Multiple failures in category
-    CORRECTION_TREND = "correction_trend"      # Increasing corrections
-    CONFIDENCE_DROP = "confidence_drop"        # Declining confidence
-    ESCALATION_SPIKE = "escalation_spike"      # Too many escalations
-    SUCCESS_DECLINE = "success_decline"        # Success rate dropping
-    INPUT_PATTERN = "input_pattern"            # Common failing inputs
-    CATEGORY_DRIFT = "category_drift"          # Category behavior changing
+    FAILURE_CLUSTER = "failure_cluster"  # Multiple failures in category
+    CORRECTION_TREND = "correction_trend"  # Increasing corrections
+    CONFIDENCE_DROP = "confidence_drop"  # Declining confidence
+    ESCALATION_SPIKE = "escalation_spike"  # Too many escalations
+    SUCCESS_DECLINE = "success_decline"  # Success rate dropping
+    INPUT_PATTERN = "input_pattern"  # Common failing inputs
+    CATEGORY_DRIFT = "category_drift"  # Category behavior changing
 
 
 @dataclass
 class PatternDetectionConfig:
     """Configuration for pattern detection."""
 
-    min_sample_size: int = 10               # Minimum outcomes to detect pattern
-    failure_threshold: float = 0.3          # Failure rate to flag
-    correction_threshold: float = 0.2       # Correction rate to flag
-    escalation_threshold: float = 0.25      # Escalation rate to flag
+    min_sample_size: int = 10  # Minimum outcomes to detect pattern
+    failure_threshold: float = 0.3  # Failure rate to flag
+    correction_threshold: float = 0.2  # Correction rate to flag
+    escalation_threshold: float = 0.25  # Escalation rate to flag
     confidence_drop_threshold: float = 0.1  # Confidence drop to flag
-    pattern_confidence_min: float = 0.6     # Minimum pattern confidence
-    lookback_hours: int = 168               # 7 days default
+    pattern_confidence_min: float = 0.6  # Minimum pattern confidence
+    lookback_hours: int = 168  # 7 days default
 
 
 class PatternDetectionService:
@@ -115,8 +114,7 @@ class PatternDetectionService:
 
         # Filter by minimum confidence
         patterns = [
-            p for p in patterns
-            if p.confidence >= self.config.pattern_confidence_min
+            p for p in patterns if p.confidence >= self.config.pattern_confidence_min
         ]
 
         # Store patterns
@@ -154,7 +152,8 @@ class PatternDetectionService:
 
             # Calculate failure rate
             failures = [
-                o for o in cat_outcomes
+                o
+                for o in cat_outcomes
                 if o.outcome_type in (OutcomeType.FAILURE, OutcomeType.TIMEOUT)
             ]
             failure_rate = len(failures) / len(cat_outcomes)
@@ -208,7 +207,11 @@ class PatternDetectionService:
             for c in corrections:
                 by_category[c.category] += 1
 
-            top_category = max(by_category.keys(), key=lambda k: by_category[k]) if by_category else ""
+            top_category = (
+                max(by_category.keys(), key=lambda k: by_category[k])
+                if by_category
+                else ""
+            )
 
             confidence = min(0.9, correction_rate * 2)
 
@@ -305,8 +308,7 @@ class PatternDetectionService:
                 continue
 
             escalations = [
-                o for o in cat_outcomes
-                if o.outcome_type == OutcomeType.ESCALATED
+                o for o in cat_outcomes if o.outcome_type == OutcomeType.ESCALATED
             ]
             escalation_rate = len(escalations) / len(cat_outcomes)
 
@@ -345,8 +347,10 @@ class PatternDetectionService:
 
         # Get failures
         failures = [
-            o for o in outcomes
-            if o.outcome_type in (
+            o
+            for o in outcomes
+            if o.outcome_type
+            in (
                 OutcomeType.FAILURE,
                 OutcomeType.CORRECTION,
                 OutcomeType.ESCALATED,
@@ -360,16 +364,14 @@ class PatternDetectionService:
         word_counts: Dict[str, int] = defaultdict(int)
 
         for f in failures:
-            words = re.findall(r'\b\w{3,}\b', f.input_text.lower())
+            words = re.findall(r"\b\w{3,}\b", f.input_text.lower())
             for word in set(words):
                 word_counts[word] += 1
 
         # Find words that appear in >30% of failures
         threshold = len(failures) * 0.3
         common_words = [
-            (word, count)
-            for word, count in word_counts.items()
-            if count >= threshold
+            (word, count) for word, count in word_counts.items() if count >= threshold
         ]
 
         if common_words:
@@ -493,8 +495,7 @@ class PatternDetectionService:
             List of patterns
         """
         patterns = [
-            p for p in self._patterns.values()
-            if p.pattern_type == pattern_type
+            p for p in self._patterns.values() if p.pattern_type == pattern_type
         ]
         return sorted(patterns, key=lambda p: p.confidence, reverse=True)[:limit]
 
@@ -512,11 +513,10 @@ class PatternDetectionService:
         Returns:
             List of high-impact patterns
         """
-        patterns = [
-            p for p in self._patterns.values()
-            if p.impact >= impact_threshold
+        patterns = [p for p in self._patterns.values() if p.impact >= impact_threshold]
+        return sorted(patterns, key=lambda p: p.impact * p.confidence, reverse=True)[
+            :limit
         ]
-        return sorted(patterns, key=lambda p: p.impact * p.confidence, reverse=True)[:limit]
 
     def get_stats(self) -> Dict[str, Any]:
         """Get service statistics.

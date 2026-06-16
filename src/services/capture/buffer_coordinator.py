@@ -8,9 +8,7 @@ PROJECT: memory-mcp-triple-system
 WHY: infrastructure (CAPTURE-001)
 """
 
-import os
-import asyncio
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
 import logging
@@ -151,7 +149,9 @@ class BufferCoordinator:
 
         # Start transcription verifier
         if self.config.enable_transcription and self._railway:
-            transcription_config = self.config.transcription_config or TranscriptionConfig()
+            transcription_config = (
+                self.config.transcription_config or TranscriptionConfig()
+            )
             self._transcription = TranscriptionVerifier(
                 self._railway,
                 transcription_config,
@@ -492,7 +492,9 @@ class BufferCoordinator:
                 buffer = await self._railway.get_buffer(buffer_id)
                 success = await self._railway.delete_buffer(buffer_id, force=True)
                 if success and self._audit and buffer:
-                    await self._audit.log_deleted(buffer, reason, AuditLogger.ACTOR_USER)
+                    await self._audit.log_deleted(
+                        buffer, reason, AuditLogger.ACTOR_USER
+                    )
                 return success
             return False
 

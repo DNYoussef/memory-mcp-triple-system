@@ -18,14 +18,16 @@ logger = logging.getLogger(__name__)
 
 class MemoryTier(str, Enum):
     """Memory retention tiers"""
-    SHORT_TERM = "short_term"   # 24 hours
-    MID_TERM = "mid_term"       # 7 days
-    LONG_TERM = "long_term"     # 30+ days
+
+    SHORT_TERM = "short_term"  # 24 hours
+    MID_TERM = "mid_term"  # 7 days
+    LONG_TERM = "long_term"  # 30+ days
 
 
 @dataclass
 class ChunkReference:
     """Reference to a memory chunk"""
+
     chunk_id: str
     tier: MemoryTier
     content_hash: str
@@ -41,6 +43,7 @@ class ChunkReference:
 @dataclass
 class DuplicatePair:
     """A pair of duplicate chunks across tiers"""
+
     primary: ChunkReference
     duplicate: ChunkReference
     similarity: float
@@ -55,13 +58,14 @@ class DuplicatePair:
             "duplicate_tier": self.duplicate.tier.value,
             "similarity": self.similarity,
             "merge_recommendation": self.merge_recommendation,
-            "reason": self.reason
+            "reason": self.reason,
         }
 
 
 @dataclass
 class DeduplicationResult:
     """Result of a deduplication operation"""
+
     run_id: str
     started_at: datetime
     completed_at: datetime
@@ -88,7 +92,7 @@ class DeduplicationResult:
             "bytes_freed": self.bytes_freed,
             "bytes_reclaimable": self.bytes_reclaimable,
             "pairs": [p.to_dict() for p in self.pairs],
-            "errors": self.errors
+            "errors": self.errors,
         }
 
 
@@ -120,14 +124,14 @@ class TierDeduplicator:
     TIER_PRIORITY = {
         MemoryTier.LONG_TERM: 3,
         MemoryTier.MID_TERM: 2,
-        MemoryTier.SHORT_TERM: 1
+        MemoryTier.SHORT_TERM: 1,
     }
 
     def __init__(
         self,
         similarity_threshold: float = 0.95,
         prefer_higher_tier: bool = True,
-        prefer_higher_confidence: bool = True
+        prefer_higher_confidence: bool = True,
     ):
         self.similarity_threshold = similarity_threshold
         self.prefer_higher_tier = prefer_higher_tier
@@ -135,8 +139,7 @@ class TierDeduplicator:
         self._run_counter = 0
 
     def find_duplicates_by_hash(
-        self,
-        chunks: List[ChunkReference]
+        self, chunks: List[ChunkReference]
     ) -> List[DuplicatePair]:
         """
         Find exact duplicates via content hash.
@@ -160,20 +163,20 @@ class TierDeduplicator:
                 primary = sorted_group[0]
 
                 for duplicate in sorted_group[1:]:
-                    pairs.append(DuplicatePair(
-                        primary=primary,
-                        duplicate=duplicate,
-                        similarity=1.0,
-                        merge_recommendation="delete_duplicate",
-                        reason=f"exact_hash_match:{content_hash[:16]}"
-                    ))
+                    pairs.append(
+                        DuplicatePair(
+                            primary=primary,
+                            duplicate=duplicate,
+                            similarity=1.0,
+                            merge_recommendation="delete_duplicate",
+                            reason=f"exact_hash_match:{content_hash[:16]}",
+                        )
+                    )
 
         return pairs
 
     def find_duplicates_by_embedding(
-        self,
-        chunks: List[ChunkReference],
-        threshold: Optional[float] = None
+        self, chunks: List[ChunkReference], threshold: Optional[float] = None
     ) -> List[DuplicatePair]:
         """
         Find near-duplicates via embedding similarity.
@@ -190,7 +193,7 @@ class TierDeduplicator:
         chunks_with_embeddings = [c for c in chunks if c.embedding is not None]
 
         for i, chunk_a in enumerate(chunks_with_embeddings):
-            for chunk_b in chunks_with_embeddings[i + 1:]:
+            for chunk_b in chunks_with_embeddings[i + 1 :]:
                 # Skip same chunk
                 if chunk_a.chunk_id == chunk_b.chunk_id:
                     continue
@@ -202,8 +205,7 @@ class TierDeduplicator:
 
                 # Calculate similarity
                 similarity = self._cosine_similarity(
-                    chunk_a.embedding,
-                    chunk_b.embedding
+                    chunk_a.embedding, chunk_b.embedding
                 )
 
                 if similarity >= threshold:
@@ -214,13 +216,15 @@ class TierDeduplicator:
                         primary, duplicate, similarity
                     )
 
-                    pairs.append(DuplicatePair(
-                        primary=primary,
-                        duplicate=duplicate,
-                        similarity=similarity,
-                        merge_recommendation=recommendation,
-                        reason=f"semantic_similarity:{similarity:.4f}"
-                    ))
+                    pairs.append(
+                        DuplicatePair(
+                            primary=primary,
+                            duplicate=duplicate,
+                            similarity=similarity,
+                            merge_recommendation=recommendation,
+                            reason=f"semantic_similarity:{similarity:.4f}",
+                        )
+                    )
 
                     seen_pairs.add(pair_key)
 
@@ -230,7 +234,7 @@ class TierDeduplicator:
         self,
         short_term: List[ChunkReference],
         mid_term: List[ChunkReference],
-        long_term: List[ChunkReference]
+        long_term: List[ChunkReference],
     ) -> List[DuplicatePair]:
         """
         Find duplicates specifically across tier boundaries.
@@ -241,19 +245,15 @@ class TierDeduplicator:
         pairs = []
 
         # Check short-term against long-term (highest value cleanup)
-        pairs.extend(self._find_cross_tier_pairs(
-            short_term, long_term, "short_vs_long"
-        ))
+        pairs.extend(
+            self._find_cross_tier_pairs(short_term, long_term, "short_vs_long")
+        )
 
         # Check short-term against mid-term
-        pairs.extend(self._find_cross_tier_pairs(
-            short_term, mid_term, "short_vs_mid"
-        ))
+        pairs.extend(self._find_cross_tier_pairs(short_term, mid_term, "short_vs_mid"))
 
         # Check mid-term against long-term
-        pairs.extend(self._find_cross_tier_pairs(
-            mid_term, long_term, "mid_vs_long"
-        ))
+        pairs.extend(self._find_cross_tier_pairs(mid_term, long_term, "mid_vs_long"))
 
         return pairs
 
@@ -261,7 +261,7 @@ class TierDeduplicator:
         self,
         lower_tier: List[ChunkReference],
         higher_tier: List[ChunkReference],
-        comparison_type: str
+        comparison_type: str,
     ) -> List[DuplicatePair]:
         """Find duplicates between two specific tiers"""
         pairs = []
@@ -271,13 +271,15 @@ class TierDeduplicator:
         for higher_chunk in higher_tier:
             if higher_chunk.content_hash in lower_hashes:
                 lower_chunk = lower_hashes[higher_chunk.content_hash]
-                pairs.append(DuplicatePair(
-                    primary=higher_chunk,  # Higher tier is always primary
-                    duplicate=lower_chunk,
-                    similarity=1.0,
-                    merge_recommendation="delete_lower_tier",
-                    reason=f"{comparison_type}:exact_hash"
-                ))
+                pairs.append(
+                    DuplicatePair(
+                        primary=higher_chunk,  # Higher tier is always primary
+                        duplicate=lower_chunk,
+                        similarity=1.0,
+                        merge_recommendation="delete_lower_tier",
+                        reason=f"{comparison_type}:exact_hash",
+                    )
+                )
 
         # Then check semantic similarity
         for lower_chunk in lower_tier:
@@ -293,18 +295,19 @@ class TierDeduplicator:
                     continue
 
                 similarity = self._cosine_similarity(
-                    lower_chunk.embedding,
-                    higher_chunk.embedding
+                    lower_chunk.embedding, higher_chunk.embedding
                 )
 
                 if similarity >= self.similarity_threshold:
-                    pairs.append(DuplicatePair(
-                        primary=higher_chunk,
-                        duplicate=lower_chunk,
-                        similarity=similarity,
-                        merge_recommendation="merge_to_higher_tier",
-                        reason=f"{comparison_type}:semantic_{similarity:.4f}"
-                    ))
+                    pairs.append(
+                        DuplicatePair(
+                            primary=higher_chunk,
+                            duplicate=lower_chunk,
+                            similarity=similarity,
+                            merge_recommendation="merge_to_higher_tier",
+                            reason=f"{comparison_type}:semantic_{similarity:.4f}",
+                        )
+                    )
 
         return pairs
 
@@ -316,9 +319,7 @@ class TierDeduplicator:
         return frozenset({pair.primary.chunk_id, pair.duplicate.chunk_id})
 
     def run_deduplication(
-        self,
-        chunks: List[ChunkReference],
-        dry_run: bool = False
+        self, chunks: List[ChunkReference], dry_run: bool = False
     ) -> DeduplicationResult:
         """
         Run full deduplication analysis.
@@ -331,7 +332,9 @@ class TierDeduplicator:
             DeduplicationResult with findings and actions
         """
         self._run_counter += 1
-        run_id = f"dedup-{self._run_counter}-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+        run_id = (
+            f"dedup-{self._run_counter}-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+        )
         started_at = datetime.utcnow()
 
         all_pairs = []
@@ -355,8 +358,7 @@ class TierDeduplicator:
             # double-counting bytes below.
             existing_pairs = {self._pair_key(p) for p in hash_pairs}
             new_embedding_pairs = [
-                p for p in embedding_pairs
-                if self._pair_key(p) not in existing_pairs
+                p for p in embedding_pairs if self._pair_key(p) not in existing_pairs
             ]
             all_pairs.extend(new_embedding_pairs)
             logger.info(f"Found {len(new_embedding_pairs)} semantic duplicate pairs")
@@ -371,8 +373,7 @@ class TierDeduplicator:
             # Filter already found (orientation-independent, same rationale).
             existing_ids = {self._pair_key(p) for p in all_pairs}
             new_cross_pairs = [
-                p for p in cross_pairs
-                if self._pair_key(p) not in existing_ids
+                p for p in cross_pairs if self._pair_key(p) not in existing_ids
             ]
             all_pairs.extend(new_cross_pairs)
             logger.info(f"Found {len(new_cross_pairs)} cross-tier duplicate pairs")
@@ -413,7 +414,7 @@ class TierDeduplicator:
             bytes_freed=0,
             bytes_reclaimable=bytes_reclaimable,
             pairs=all_pairs,
-            errors=errors
+            errors=errors,
         )
 
         logger.info(
@@ -424,10 +425,7 @@ class TierDeduplicator:
 
         return result
 
-    def get_merge_plan(
-        self,
-        result: DeduplicationResult
-    ) -> List[Dict[str, Any]]:
+    def get_merge_plan(self, result: DeduplicationResult) -> List[Dict[str, Any]]:
         """
         Generate a merge plan from deduplication results.
 
@@ -440,12 +438,11 @@ class TierDeduplicator:
             "delete_duplicate": 1,
             "delete_lower_tier": 2,
             "merge_to_higher_tier": 3,
-            "consolidate": 4
+            "consolidate": 4,
         }
 
         sorted_pairs = sorted(
-            result.pairs,
-            key=lambda p: priority_order.get(p.merge_recommendation, 99)
+            result.pairs, key=lambda p: priority_order.get(p.merge_recommendation, 99)
         )
 
         for pair in sorted_pairs:
@@ -457,19 +454,19 @@ class TierDeduplicator:
                 "duplicate_tier": pair.duplicate.tier.value,
                 "similarity": pair.similarity,
                 "bytes_saved": pair.duplicate.byte_size,
-                "reason": pair.reason
+                "reason": pair.reason,
             }
 
             # Add specific instructions based on recommendation
             if pair.merge_recommendation == "delete_duplicate":
                 operation["instructions"] = [
                     f"DELETE chunk {pair.duplicate.chunk_id} from {pair.duplicate.tier.value}",
-                    f"UPDATE primary {pair.primary.chunk_id} access_count += {pair.duplicate.access_count}"
+                    f"UPDATE primary {pair.primary.chunk_id} access_count += {pair.duplicate.access_count}",
                 ]
             elif pair.merge_recommendation == "merge_to_higher_tier":
                 operation["instructions"] = [
                     f"MERGE metadata from {pair.duplicate.chunk_id} to {pair.primary.chunk_id}",
-                    f"DELETE chunk {pair.duplicate.chunk_id} from {pair.duplicate.tier.value}"
+                    f"DELETE chunk {pair.duplicate.chunk_id} from {pair.duplicate.tier.value}",
                 ]
 
             plan.append(operation)
@@ -477,9 +474,7 @@ class TierDeduplicator:
         return plan
 
     def _determine_primary(
-        self,
-        chunk_a: ChunkReference,
-        chunk_b: ChunkReference
+        self, chunk_a: ChunkReference, chunk_b: ChunkReference
     ) -> Tuple[ChunkReference, ChunkReference]:
         """Determine which chunk should be primary"""
         score_a = 0
@@ -504,10 +499,7 @@ class TierDeduplicator:
             return chunk_a, chunk_b
         return chunk_b, chunk_a
 
-    def _sort_by_priority(
-        self,
-        chunks: List[ChunkReference]
-    ) -> List[ChunkReference]:
+    def _sort_by_priority(self, chunks: List[ChunkReference]) -> List[ChunkReference]:
         """Sort chunks by priority, highest first (chunks[0] becomes primary).
 
         Lexicographic: higher tier, then higher confidence, then OLDER wins
@@ -516,6 +508,7 @@ class TierDeduplicator:
         implemented and equal tier+confidence ties fell back to input order. A
         chunk missing created_at ranks below any chunk that has one.
         """
+
         def priority_key(c):
             created_ts = c.created_at.timestamp() if c.created_at else None
             return (
@@ -523,16 +516,13 @@ class TierDeduplicator:
                 c.confidence,
                 # reverse=True sorts descending, so negate the timestamp to put
                 # the OLDEST (smallest timestamp) first; missing -> ranks last.
-                -created_ts if created_ts is not None else float('-inf'),
+                -created_ts if created_ts is not None else float("-inf"),
             )
 
         return sorted(chunks, key=priority_key, reverse=True)
 
     def _get_merge_recommendation(
-        self,
-        primary: ChunkReference,
-        duplicate: ChunkReference,
-        similarity: float
+        self, primary: ChunkReference, duplicate: ChunkReference, similarity: float
     ) -> str:
         """Get merge recommendation based on pair characteristics"""
         # Exact match - safe to delete duplicate
@@ -568,7 +558,7 @@ _deduplicator_instance: Optional[TierDeduplicator] = None
 def get_tier_deduplicator(
     similarity_threshold: float = 0.95,
     prefer_higher_tier: bool = True,
-    prefer_higher_confidence: bool = True
+    prefer_higher_confidence: bool = True,
 ) -> TierDeduplicator:
     """Get singleton tier deduplicator instance"""
     global _deduplicator_instance
@@ -576,6 +566,6 @@ def get_tier_deduplicator(
         _deduplicator_instance = TierDeduplicator(
             similarity_threshold=similarity_threshold,
             prefer_higher_tier=prefer_higher_tier,
-            prefer_higher_confidence=prefer_higher_confidence
+            prefer_higher_confidence=prefer_higher_confidence,
         )
     return _deduplicator_instance

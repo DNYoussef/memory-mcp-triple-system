@@ -315,8 +315,7 @@ class EscalationService:
 
         # Get highest priority
         pending = sorted(
-            self._pending.values(),
-            key=lambda e: (-e.priority, e.created_at)
+            self._pending.values(), key=lambda e: (-e.priority, e.created_at)
         )
 
         if pending:
@@ -352,7 +351,7 @@ class EscalationService:
         resolved = sorted(
             self._resolved.values(),
             key=lambda e: e.resolved_at or e.created_at,
-            reverse=True
+            reverse=True,
         )
         return resolved[:limit]
 
@@ -384,7 +383,7 @@ class EscalationService:
         for escalation in stale:
             self.dismiss(
                 escalation.request_id,
-                notes=f"Auto-dismissed after {self.config.stale_after_hours} hours"
+                notes=f"Auto-dismissed after {self.config.stale_after_hours} hours",
             )
 
         return len(stale)
@@ -455,13 +454,10 @@ class EscalationService:
         # Find lowest priority
         lowest = min(
             self._pending.values(),
-            key=lambda e: (e.priority, -e.created_at.timestamp())
+            key=lambda e: (e.priority, -e.created_at.timestamp()),
         )
 
-        self.dismiss(
-            lowest.request_id,
-            notes="Auto-dismissed due to queue limit"
-        )
+        self.dismiss(lowest.request_id, notes="Auto-dismissed due to queue limit")
 
     def _update_avg_resolution_time(
         self,
@@ -480,9 +476,8 @@ class EscalationService:
         current_avg = self._stats["avg_resolution_time_hours"]
 
         new_avg = (
-            (current_avg * (total_resolved - 1) + resolution_time)
-            / total_resolved
-        )
+            current_avg * (total_resolved - 1) + resolution_time
+        ) / total_resolved
         self._stats["avg_resolution_time_hours"] = new_avg
 
     def get_stats(self) -> Dict[str, Any]:
@@ -505,7 +500,8 @@ class EscalationService:
             ),
             "resolution_rate": (
                 self._stats["total_resolved"] / self._stats["total_created"]
-                if self._stats["total_created"] > 0 else 0.0
+                if self._stats["total_created"] > 0
+                else 0.0
             ),
         }
 
@@ -539,21 +535,23 @@ class EscalationService:
         resolved = sorted(
             self._resolved.values(),
             key=lambda e: e.resolved_at or e.created_at,
-            reverse=True
+            reverse=True,
         )[:limit]
 
         for escalation in resolved:
             if escalation.status != EscalationStatus.RESOLVED:
                 continue
 
-            training_data.append({
-                "input_text": escalation.classification_result.input_text,
-                "original_value": escalation.classification_result.value,
-                "original_confidence": escalation.classification_result.confidence.score,
-                "corrected_value": escalation.resolved_value,
-                "classification_type": escalation.classification_result.classification_type.value,
-                "reason": escalation.reason.value,
-                "resolution_notes": escalation.resolution_notes,
-            })
+            training_data.append(
+                {
+                    "input_text": escalation.classification_result.input_text,
+                    "original_value": escalation.classification_result.value,
+                    "original_confidence": escalation.classification_result.confidence.score,
+                    "corrected_value": escalation.resolved_value,
+                    "classification_type": escalation.classification_result.classification_type.value,
+                    "reason": escalation.reason.value,
+                    "resolution_notes": escalation.resolution_notes,
+                }
+            )
 
         return training_data

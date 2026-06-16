@@ -4,7 +4,7 @@ Following TDD (London School) with proper test structure.
 """
 
 import pytest
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 from src.mcp.tools.vector_search import VectorSearchTool
 
 
@@ -15,21 +15,14 @@ class TestVectorSearchTool:
     def config(self):
         """Create test configuration."""
         return {
-            'embeddings': {
-                'model': 'all-MiniLM-L6-v2',
-                'dimension': 384
-            },
-            'storage': {
-                'vector_db': {
-                    'persist_directory': './test_chroma_data',
-                    'collection_name': 'test_collection'
+            "embeddings": {"model": "all-MiniLM-L6-v2", "dimension": 384},
+            "storage": {
+                "vector_db": {
+                    "persist_directory": "./test_chroma_data",
+                    "collection_name": "test_collection",
                 }
             },
-            'chunking': {
-                'min_chunk_size': 128,
-                'max_chunk_size': 512,
-                'overlap': 50
-            }
+            "chunking": {"min_chunk_size": 128, "max_chunk_size": 512, "overlap": 50},
         }
 
     @pytest.fixture
@@ -45,18 +38,18 @@ class TestVectorSearchTool:
     def test_initialization_missing_embeddings_config(self):
         """Test initialization fails without embeddings config."""
         with pytest.raises(ValueError):
-            VectorSearchTool({'storage': {}})
+            VectorSearchTool({"storage": {}})
 
     def test_initialization_missing_storage_config(self):
         """Test initialization fails without storage config."""
         with pytest.raises(ValueError):
-            VectorSearchTool({'embeddings': {}})
+            VectorSearchTool({"embeddings": {}})
 
     def test_lazy_loading_chunker(self, tool):
         """Test chunker is lazy loaded."""
         assert tool._chunker is None
 
-        with patch('src.mcp.tools.vector_search.SemanticChunker') as MockChunker:
+        with patch("src.mcp.tools.vector_search.SemanticChunker") as MockChunker:
             _ = tool.chunker
             MockChunker.assert_called_once()
 
@@ -64,7 +57,7 @@ class TestVectorSearchTool:
         """Test embedder is lazy loaded."""
         assert tool._embedder is None
 
-        with patch('src.mcp.tools.vector_search.EmbeddingPipeline') as MockEmbedder:
+        with patch("src.mcp.tools.vector_search.EmbeddingPipeline") as MockEmbedder:
             _ = tool.embedder
             MockEmbedder.assert_called_once()
 
@@ -72,7 +65,7 @@ class TestVectorSearchTool:
         """Test indexer is lazy loaded."""
         assert tool._indexer is None
 
-        with patch('src.mcp.tools.vector_search.VectorIndexer') as MockIndexer:
+        with patch("src.mcp.tools.vector_search.VectorIndexer") as MockIndexer:
             _ = tool.indexer
             MockIndexer.get_instance.assert_called_once()
 
@@ -91,10 +84,10 @@ class TestVectorSearchTool:
 
         services = tool.check_services()
 
-        assert 'chromadb' in services
-        assert 'embeddings' in services
-        assert services['chromadb'] == 'unavailable'
-        assert services['embeddings'] == 'unavailable'
+        assert "chromadb" in services
+        assert "embeddings" in services
+        assert services["chromadb"] == "unavailable"
+        assert services["embeddings"] == "unavailable"
 
 
 class TestVectorSearchExecution:
@@ -104,21 +97,14 @@ class TestVectorSearchExecution:
     def config(self):
         """Create test configuration."""
         return {
-            'embeddings': {
-                'model': 'all-MiniLM-L6-v2',
-                'dimension': 384
-            },
-            'storage': {
-                'vector_db': {
-                    'persist_directory': './test_chroma_data',
-                    'collection_name': 'test_collection'
+            "embeddings": {"model": "all-MiniLM-L6-v2", "dimension": 384},
+            "storage": {
+                "vector_db": {
+                    "persist_directory": "./test_chroma_data",
+                    "collection_name": "test_collection",
                 }
             },
-            'chunking': {
-                'min_chunk_size': 128,
-                'max_chunk_size': 512,
-                'overlap': 50
-            }
+            "chunking": {"min_chunk_size": 128, "max_chunk_size": 512, "overlap": 50},
         }
 
     @pytest.fixture
@@ -134,19 +120,23 @@ class TestVectorSearchExecution:
 
         # Mock indexer
         mock_indexer = MagicMock()
-        mock_indexer.collection_name = 'test_collection'
+        mock_indexer.collection_name = "test_collection"
 
         # Mock ChromaDB query result (returns dict with lists)
         mock_collection = MagicMock()
         mock_collection.query.return_value = {
-            'ids': [['test_id_1']],
-            'documents': [['Test chunk text']],
-            'metadatas': [[{
-                'file_path': '/test/file.md',
-                'chunk_index': 0,
-                'title': 'Test Document'
-            }]],
-            'distances': [[0.05]]  # Low distance = high similarity
+            "ids": [["test_id_1"]],
+            "documents": [["Test chunk text"]],
+            "metadatas": [
+                [
+                    {
+                        "file_path": "/test/file.md",
+                        "chunk_index": 0,
+                        "title": "Test Document",
+                    }
+                ]
+            ],
+            "distances": [[0.05]],  # Low distance = high similarity
         }
         mock_indexer.collection = mock_collection
         tool._indexer = mock_indexer
@@ -158,9 +148,9 @@ class TestVectorSearchExecution:
         results = tool.execute("test query", limit=5)
 
         assert len(results) > 0
-        assert results[0]['text'] == 'Test chunk text'
-        assert results[0]['file_path'] == '/test/file.md'
-        assert results[0]['score'] >= 0.9  # Score should be high similarity
+        assert results[0]["text"] == "Test chunk text"
+        assert results[0]["file_path"] == "/test/file.md"
+        assert results[0]["score"] >= 0.9  # Score should be high similarity
 
     def test_execute_empty_query_fails(self, tool):
         """Test execute fails with empty query."""
@@ -195,19 +185,19 @@ class TestVectorSearchExecution:
 
         assert isinstance(results, list)
         result = results[0]
-        assert 'text' in result
-        assert 'file_path' in result
-        assert 'chunk_index' in result
-        assert 'score' in result
-        assert 'metadata' in result
+        assert "text" in result
+        assert "file_path" in result
+        assert "chunk_index" in result
+        assert "score" in result
+        assert "metadata" in result
 
     def test_execute_metadata_extraction(self, tool):
         """Test metadata is correctly extracted."""
         results = tool.execute("test query", limit=5)
 
         # Metadata should contain 'title' but not 'text', 'file_path', 'chunk_index'
-        metadata = results[0]['metadata']
-        assert 'title' in metadata
-        assert 'text' not in metadata
-        assert 'file_path' not in metadata
-        assert 'chunk_index' not in metadata
+        metadata = results[0]["metadata"]
+        assert "title" in metadata
+        assert "text" not in metadata
+        assert "file_path" not in metadata
+        assert "chunk_index" not in metadata

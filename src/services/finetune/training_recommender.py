@@ -452,9 +452,7 @@ class TrainingDataRecommender:
 
         return {
             "total_recommendations": len(self._recommendations),
-            "total_candidates": sum(
-                len(r.candidates) for r in self._recommendations
-            ),
+            "total_candidates": sum(len(r.candidates) for r in self._recommendations),
             "by_priority": by_priority,
             "by_category": by_category,
         }

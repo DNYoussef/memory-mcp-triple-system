@@ -28,6 +28,7 @@ MODE_DETECTOR = ModeDetector()
 
 # === Metadata Helpers ===
 
+
 def _normalize_metadata_tags(metadata: Dict[str, Any]) -> Dict[str, Any]:
     """Normalize tag case (uppercase to lowercase)."""
     normalized = dict(metadata)
@@ -65,43 +66,44 @@ def _get_tagging_policy(config: Dict[str, Any]) -> Dict[str, bool]:
     tagging = config.get("tagging", {})
     return {
         "strict": bool(tagging.get("strict", False)),
-        "auto_fill": bool(tagging.get("auto_fill", True))
+        "auto_fill": bool(tagging.get("auto_fill", True)),
     }
 
 
 def _enrich_metadata_with_tagging(metadata: Dict[str, Any]) -> Dict[str, Any]:
     """Enrich metadata with WHO/WHEN/PROJECT/WHY tagging protocol."""
     import os
+
     now = datetime.utcnow()
 
-    agent_name = metadata.get('agent', 'unknown')
-    agent_category = metadata.get('agent_category', 'general')
-    who = metadata.get('who', metadata.get('WHO', agent_name))
-    timestamp_iso = metadata.get('when', metadata.get('WHEN', now.isoformat() + 'Z'))
+    agent_name = metadata.get("agent", "unknown")
+    agent_category = metadata.get("agent_category", "general")
+    who = metadata.get("who", metadata.get("WHO", agent_name))
+    timestamp_iso = metadata.get("when", metadata.get("WHEN", now.isoformat() + "Z"))
     timestamp_unix = int(now.timestamp())
-    timestamp_readable = now.strftime('%Y-%m-%d %H:%M:%S')
+    timestamp_readable = now.strftime("%Y-%m-%d %H:%M:%S")
 
     project = os.environ.get(
-        'MEMORY_MCP_PROJECT',
-        metadata.get('project', metadata.get('PROJECT', 'memory-mcp-triple-system'))
+        "MEMORY_MCP_PROJECT",
+        metadata.get("project", metadata.get("PROJECT", "memory-mcp-triple-system")),
     )
-    intent = metadata.get('intent', metadata.get('why', metadata.get('WHY', 'storage')))
+    intent = metadata.get("intent", metadata.get("why", metadata.get("WHY", "storage")))
 
     return {
         **metadata,
-        'WHO': who,
-        'WHEN': timestamp_iso,
-        'PROJECT': project,
-        'WHY': intent,
-        'agent_name': agent_name,
-        'agent_category': agent_category,
-        'timestamp_iso': timestamp_iso,
-        'timestamp_unix': timestamp_unix,
-        'timestamp_readable': timestamp_readable,
-        'project': project,
-        'intent': intent,
-        '_tagging_version': '1.0.0',
-        '_tagging_protocol': 'memory-mcp-triple-system'
+        "WHO": who,
+        "WHEN": timestamp_iso,
+        "PROJECT": project,
+        "WHY": intent,
+        "agent_name": agent_name,
+        "agent_category": agent_category,
+        "timestamp_iso": timestamp_iso,
+        "timestamp_unix": timestamp_unix,
+        "timestamp_readable": timestamp_readable,
+        "project": project,
+        "intent": intent,
+        "_tagging_version": "1.0.0",
+        "_tagging_protocol": "memory-mcp-triple-system",
     }
 
 
@@ -111,7 +113,9 @@ def _assign_confidence(metadata: Dict[str, Any]) -> float:
     if existing is not None:
         return float(existing)
 
-    source_type = str(metadata.get("source_type") or metadata.get("source") or "").lower()
+    source_type = str(
+        metadata.get("source_type") or metadata.get("source") or ""
+    ).lower()
     mapping = {
         "witnessed": 0.95,
         "reported": 0.70,
@@ -123,6 +127,7 @@ def _assign_confidence(metadata: Dict[str, Any]) -> float:
 
 # === Tool Handlers ===
 
+
 def _format_result_compact(idx: int, result: Dict[str, Any]) -> Dict[str, Any]:
     """Format a search result in compact mode (~50 tokens)."""
     text_preview = result.get("text", "")[:80].replace("\n", " ")
@@ -132,7 +137,7 @@ def _format_result_compact(idx: int, result: Dict[str, Any]) -> Dict[str, Any]:
     file_path = result.get("file_path", "")
     return {
         "type": "text",
-        "text": f"{idx}. ({score:.3f}){tier_tag} {text_preview}... | {file_path}"
+        "text": f"{idx}. ({score:.3f}){tier_tag} {text_preview}... | {file_path}",
     }
 
 
@@ -149,13 +154,12 @@ def _format_result_full(idx: int, result: Dict[str, Any]) -> Dict[str, Any]:
             f"Result {idx}:\n{result.get('text', '')}\n\n"
             f"{tier_info}Score: {score:.4f}\n"
             f"File: {result.get('file_path', '')}\n"
-        )
+        ),
     }
 
 
 def handle_vector_search(
-    arguments: Dict[str, Any],
-    tool: "NexusSearchTool"
+    arguments: Dict[str, Any], tool: "NexusSearchTool"
 ) -> Dict[str, Any]:
     """Handle vector_search tool execution."""
     query = arguments.get("query", "")
@@ -178,18 +182,23 @@ def handle_vector_search(
     trace.total_latency_ms = trace.retrieval_ms
 
     data_dir = os.getenv(
-        'MEMORY_MCP_DATA_DIR',
-        tool.config.get('storage', {}).get('data_dir', '/data')
+        "MEMORY_MCP_DATA_DIR", tool.config.get("storage", {}).get("data_dir", "/data")
     )
     try:
         trace.log(db_path=f"{data_dir}/query_traces.db")
     except Exception:
         pass
 
-    tool.log_event("vector_search", {
-        "query": query[:100], "mode": mode, "limit": limit,
-        "results_count": len(results), "latency_ms": trace.retrieval_ms
-    })
+    tool.log_event(
+        "vector_search",
+        {
+            "query": query[:100],
+            "mode": mode,
+            "limit": limit,
+            "results_count": len(results),
+            "latency_ms": trace.retrieval_ms,
+        },
+    )
 
     formatter = _format_result_compact if detail == "compact" else _format_result_full
     content = [formatter(idx, r) for idx, r in enumerate(results, 1)]
@@ -198,8 +207,7 @@ def handle_vector_search(
 
 
 def handle_memory_store(
-    arguments: Dict[str, Any],
-    tool: "NexusSearchTool"
+    arguments: Dict[str, Any], tool: "NexusSearchTool"
 ) -> Dict[str, Any]:
     """Handle memory_store through the shared ingestion service."""
     text = arguments.get("text", "")
@@ -210,8 +218,10 @@ def handle_memory_store(
         policy = _get_tagging_policy(tool.config)
         if policy["strict"]:
             return {
-                "content": [{"type": "text", "text": f"Missing required tags: {missing}"}],
-                "isError": True
+                "content": [
+                    {"type": "text", "text": f"Missing required tags: {missing}"}
+                ],
+                "isError": True,
             }
         if policy["auto_fill"]:
             metadata = _autofill_metadata(metadata, missing)
@@ -220,7 +230,7 @@ def handle_memory_store(
     if not text:
         return {
             "content": [{"type": "text", "text": "Error: Empty text provided"}],
-            "isError": True
+            "isError": True,
         }
 
     try:
@@ -231,8 +241,13 @@ def handle_memory_store(
         result = ingestion.ingest(text=text, metadata=enriched_metadata, source="stdio")
         if not result.get("success"):
             return {
-                "content": [{"type": "text", "text": f"Storage failed: {result.get('error', 'unknown error')}"}],
-                "isError": True
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Storage failed: {result.get('error', 'unknown error')}",
+                    }
+                ],
+                "isError": True,
             }
 
         returned_meta = result.get("metadata", enriched_metadata)
@@ -241,9 +256,14 @@ def handle_memory_store(
         chunk_info = f"Chunks: {', '.join(result.get('chunk_ids', []))}"
 
         return {
-            "content": [{"type": "text", "text": f"Stored memory: {text[:100]}...\n{tagging_info}\n{lifecycle_info}\n{chunk_info}"}],
+            "content": [
+                {
+                    "type": "text",
+                    "text": f"Stored memory: {text[:100]}...\n{tagging_info}\n{lifecycle_info}\n{chunk_info}",
+                }
+            ],
             "isError": False,
-            "tags_auto_filled": missing if not is_valid else []
+            "tags_auto_filled": missing if not is_valid else [],
         }
 
     except Exception as e:
@@ -274,10 +294,7 @@ def _get_ingestion_service(tool: "NexusSearchTool"):
 
 
 def _store_entities_to_graph(
-    text: str,
-    metadata: Dict[str, Any],
-    tool: "NexusSearchTool",
-    embedder
+    text: str, metadata: Dict[str, Any], tool: "NexusSearchTool", embedder
 ) -> int:
     """Extract and store entities to graph. Returns count added."""
     if not tool.entity_service:
@@ -285,27 +302,39 @@ def _store_entities_to_graph(
 
     try:
         from ..services.graph_service import GraphService
+
         chunk_id = hashlib.md5(text.encode()).hexdigest()[:16]
         entities = tool.entity_service.extract_entities(text)
 
         if not entities:
             return 0
 
-        tool.graph_service.add_chunk_node(chunk_id, {
-            'text': text[:500],
-            'file_path': metadata.get('key', 'manual_entry'),
-            'timestamp': metadata.get('timestamp')
-        })
+        tool.graph_service.add_chunk_node(
+            chunk_id,
+            {
+                "text": text[:500],
+                "file_path": metadata.get("key", "manual_entry"),
+                "timestamp": metadata.get("timestamp"),
+            },
+        )
 
         entities_added = 0
         for ent in entities:
-            entity_id = ent['text'].lower().replace(' ', '_')
-            tool.graph_service.add_entity_node(entity_id, ent['type'], {
-                'text': ent['text'], 'start': ent['start'], 'end': ent['end']
-            })
+            entity_id = ent["text"].lower().replace(" ", "_")
+            tool.graph_service.add_entity_node(
+                entity_id,
+                ent["type"],
+                {"text": ent["text"], "start": ent["start"], "end": ent["end"]},
+            )
             tool.graph_service.add_relationship(
-                chunk_id, GraphService.EDGE_MENTIONS, entity_id,
-                {'entity_type': ent['type'], 'position': ent['start'], 'confidence': 0.8}
+                chunk_id,
+                GraphService.EDGE_MENTIONS,
+                entity_id,
+                {
+                    "entity_type": ent["type"],
+                    "position": ent["start"],
+                    "confidence": 0.8,
+                },
             )
             try:
                 tool.graph_service.link_similar_entities(entity_id, embedder=embedder)
@@ -320,8 +349,7 @@ def _store_entities_to_graph(
 
 
 def handle_graph_query(
-    arguments: Dict[str, Any],
-    tool: "NexusSearchTool"
+    arguments: Dict[str, Any], tool: "NexusSearchTool"
 ) -> Dict[str, Any]:
     """Handle graph_query - HippoRAG multi-hop reasoning."""
     query = arguments.get("query", "")
@@ -336,16 +364,18 @@ def handle_graph_query(
         else:
             results = tool.execute(query, limit, "planning")
             for r in results:
-                r['note'] = "Graph engine not available - using vector fallback"
+                r["note"] = "Graph engine not available - using vector fallback"
 
         content = []
         for idx, result in enumerate(results, 1):
-            note = result.get('note', '')
+            note = result.get("note", "")
             note_text = f"\nNote: {note}" if note else ""
-            content.append({
-                "type": "text",
-                "text": f"Result {idx}:\n{result.get('text', '')[:500]}...{note_text}\n"
-            })
+            content.append(
+                {
+                    "type": "text",
+                    "text": f"Result {idx}:\n{result.get('text', '')[:500]}...{note_text}\n",
+                }
+            )
 
         return {"content": content, "isError": False}
     except Exception as e:
@@ -353,11 +383,11 @@ def handle_graph_query(
 
 
 def handle_entity_extraction(
-    arguments: Dict[str, Any],
-    tool: "NexusSearchTool"
+    arguments: Dict[str, Any], tool: "NexusSearchTool"
 ) -> Dict[str, Any]:
     """Handle entity_extraction - NER from text."""
     import re
+
     text = arguments.get("text", "")
     entity_types = arguments.get("entity_types", ["PERSON", "ORG", "GPE", "CONCEPT"])
 
@@ -366,32 +396,37 @@ def handle_entity_extraction(
             entities = tool.entity_service.extract_entities_by_type(text, entity_types)
         else:
             entities = []
-            cap_pattern = r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b'
+            cap_pattern = r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b"
             matches = re.findall(cap_pattern, text)
 
             for match in matches[:20]:
                 if len(match.split()) > 1:
-                    etype = "ORG" if any(w in match for w in ["Inc", "Corp", "Ltd"]) else "CONCEPT"
+                    etype = (
+                        "ORG"
+                        if any(w in match for w in ["Inc", "Corp", "Ltd"])
+                        else "CONCEPT"
+                    )
                 else:
                     etype = "PERSON" if match[0].isupper() else "CONCEPT"
                 if etype in entity_types:
                     entities.append({"text": match, "type": etype, "confidence": 0.7})
 
         return {
-            "content": [{
-                "type": "text",
-                "text": f"Extracted {len(entities)} entities:\n" +
-                       "\n".join([f"- {e['text']} ({e['type']})" for e in entities])
-            }],
-            "isError": False
+            "content": [
+                {
+                    "type": "text",
+                    "text": f"Extracted {len(entities)} entities:\n"
+                    + "\n".join([f"- {e['text']} ({e['type']})" for e in entities]),
+                }
+            ],
+            "isError": False,
         }
     except Exception as e:
         return _text_result(f"Entity extraction error: {e}", True)
 
 
 def handle_hipporag_retrieve(
-    arguments: Dict[str, Any],
-    tool: "NexusSearchTool"
+    arguments: Dict[str, Any], tool: "NexusSearchTool"
 ) -> Dict[str, Any]:
     """Handle hipporag_retrieve - Full HippoRAG pipeline."""
     query = arguments.get("query", "")
@@ -405,24 +440,31 @@ def handle_hipporag_retrieve(
         else:
             results = tool.execute(query, limit, mode)
 
-        content = [{"type": "text", "text": f"=== HippoRAG Pipeline Results ===\nMode: {mode}\nQuery: {query}\n"}]
+        content = [
+            {
+                "type": "text",
+                "text": f"=== HippoRAG Pipeline Results ===\nMode: {mode}\nQuery: {query}\n",
+            }
+        ]
 
         if not entity_result.get("isError"):
             content.append(entity_result["content"][0])
 
         for idx, result in enumerate(results, 1):
             if isinstance(result, dict):
-                tier = result.get('tier', 'hipporag')
-                score = result.get('score', 0.0)
-                text_content = result.get('text', '')
+                tier = result.get("tier", "hipporag")
+                score = result.get("score", 0.0)
+                text_content = result.get("text", "")
             else:
-                tier = 'hipporag'
+                tier = "hipporag"
                 score = getattr(result, "score", 0.0)
                 text_content = getattr(result, "text", "")
-            content.append({
-                "type": "text",
-                "text": f"\nResult {idx} [{tier}] (score: {score:.4f}):\n{text_content[:300]}...\n"
-            })
+            content.append(
+                {
+                    "type": "text",
+                    "text": f"\nResult {idx} [{tier}] (score: {score:.4f}):\n{text_content[:300]}...\n",
+                }
+            )
 
         return {"content": content, "isError": False}
     except Exception as e:
@@ -430,8 +472,7 @@ def handle_hipporag_retrieve(
 
 
 def handle_detect_mode(
-    arguments: Dict[str, Any],
-    tool: "NexusSearchTool"
+    arguments: Dict[str, Any], tool: "NexusSearchTool"
 ) -> Dict[str, Any]:
     """Handle detect_mode - Classify query intent."""
     query = arguments.get("query", "")
@@ -439,8 +480,13 @@ def handle_detect_mode(
     mode = profile.name
 
     return {
-        "content": [{"type": "text", "text": f"Detected mode: {mode}\nConfidence: {confidence:.0%}\nQuery: {query[:100]}"}],
-        "isError": False
+        "content": [
+            {
+                "type": "text",
+                "text": f"Detected mode: {mode}\nConfidence: {confidence:.0%}\nQuery: {query[:100]}",
+            }
+        ],
+        "isError": False,
     }
 
 
@@ -486,8 +532,7 @@ def _run_coroutine_sync(coro, timeout: Optional[float] = None):
 
 
 def handle_lifecycle_status(
-    arguments: Dict[str, Any],
-    tool: "NexusSearchTool"
+    arguments: Dict[str, Any], tool: "NexusSearchTool"
 ) -> Dict[str, Any]:
     """Handle lifecycle_status - Get lifecycle statistics."""
     stats = tool.lifecycle_manager.get_stage_stats()
@@ -495,8 +540,7 @@ def handle_lifecycle_status(
 
 
 def handle_bayesian_inference(
-    arguments: Dict[str, Any],
-    tool: "NexusSearchTool"
+    arguments: Dict[str, Any], tool: "NexusSearchTool"
 ) -> Dict[str, Any]:
     """Handle bayesian_inference - Probabilistic inference."""
     query = arguments.get("query", "")
@@ -517,12 +561,23 @@ def handle_bayesian_inference(
         # CPDs are estimated from real graph co-occurrence, not fabricated.
         # ponytail: rebuilt per call; cache keyed on graph version if it ever matters.
         network = None
-        if hasattr(tool, "_build_bayesian_network") and getattr(tool, "graph_service", None):
+        if hasattr(tool, "_build_bayesian_network") and getattr(
+            tool, "graph_service", None
+        ):
             network = tool._build_bayesian_network(tool.graph_service)
         if network is None:
-            return {"content": [{"type": "text", "text": (
-                "Bayesian inference unavailable: not enough entity co-occurrence in stored "
-                "memory to build a network yet (store related memories first)")}], "isError": False}
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            "Bayesian inference unavailable: not enough entity co-occurrence in stored "
+                            "memory to build a network yet (store related memories first)"
+                        ),
+                    }
+                ],
+                "isError": False,
+            }
 
         # Graph nodes are normalized (lowercase, spaces->underscores) and NER
         # often stores a multi-word entity under a single token (spaCy tags
@@ -532,13 +587,36 @@ def handle_bayesian_inference(
         candidates = [query_var, query_var.lower().replace(" ", "_")]
         # per-word fallback: skip short/stopword tokens so we don't match a
         # common node ("the", "project") when the real entity is absent.
-        _stop = {"the", "and", "for", "with", "that", "this", "about", "tell", "what", "from"}
-        candidates += [w.lower() for w in query_var.split()
-                       if len(w) > 3 and w.lower() not in _stop]
+        _stop = {
+            "the",
+            "and",
+            "for",
+            "with",
+            "that",
+            "this",
+            "about",
+            "tell",
+            "what",
+            "from",
+        }
+        candidates += [
+            w.lower()
+            for w in query_var.split()
+            if len(w) > 3 and w.lower() not in _stop
+        ]
         node_var = next((v for v in candidates if v in nodes), None)
         if node_var is None:
-            return {"content": [{"type": "text", "text": (
-                f"Bayesian: '{query_var}' is not a node in the stored-memory network yet")}], "isError": False}
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            f"Bayesian: '{query_var}' is not a node in the stored-memory network yet"
+                        ),
+                    }
+                ],
+                "isError": False,
+            }
 
         result = tool.nexus_processor.probabilistic_query_engine.query_conditional(
             network=network, query_vars=[node_var], evidence=evidence
@@ -548,14 +626,15 @@ def handle_bayesian_inference(
         return _text_result(f"Bayesian inference failed: {exc}", True)
 
     if result is None:
-        return _text_result("No Bayesian inference available (inference returned no result)")
+        return _text_result(
+            "No Bayesian inference available (inference returned no result)"
+        )
 
     return _text_result(json.dumps(result, default=str))
 
 
 def handle_unified_search(
-    arguments: Dict[str, Any],
-    tool: "NexusSearchTool"
+    arguments: Dict[str, Any], tool: "NexusSearchTool"
 ) -> Dict[str, Any]:
     """Handle unified_search - NexusProcessor 5-step SOP."""
     query = arguments.get("query", "")
@@ -580,33 +659,40 @@ def handle_unified_search(
             score = r.get("score", 0.0)
             tier = r.get("tier", "")
             tier_tag = f" [{tier}]" if tier else ""
-            content.append({
-                "type": "text",
-                "text": f"{idx}. ({score:.3f}){tier_tag} {text_preview}..."
-            })
+            content.append(
+                {
+                    "type": "text",
+                    "text": f"{idx}. ({score:.3f}){tier_tag} {text_preview}...",
+                }
+            )
         stats = nexus_result.get("pipeline_stats", {})
-        content.append({
-            "type": "text",
-            "text": f"--- {len(limited)} results | mode={mode} | {stats.get('total_ms', '?')}ms"
-        })
+        content.append(
+            {
+                "type": "text",
+                "text": f"--- {len(limited)} results | mode={mode} | {stats.get('total_ms', '?')}ms",
+            }
+        )
         return {"content": content, "isError": False}
 
     return {
-        "content": [{
-            "type": "text",
-            "text": json.dumps({
-                "results": limited,
-                "pipeline_stats": nexus_result.get("pipeline_stats"),
-                "mode": mode
-            })
-        }],
-        "isError": False
+        "content": [
+            {
+                "type": "text",
+                "text": json.dumps(
+                    {
+                        "results": limited,
+                        "pipeline_stats": nexus_result.get("pipeline_stats"),
+                        "mode": mode,
+                    }
+                ),
+            }
+        ],
+        "isError": False,
     }
 
 
 def handle_obsidian_sync(
-    arguments: Dict[str, Any],
-    tool: "NexusSearchTool"
+    arguments: Dict[str, Any], tool: "NexusSearchTool"
 ) -> Dict[str, Any]:
     """Handle obsidian_sync - Sync Obsidian vault to memory (C3.2)."""
     file_extensions = arguments.get("file_extensions", [".md"])
@@ -614,31 +700,43 @@ def handle_obsidian_sync(
     try:
         if not tool.obsidian_client:
             return {
-                "content": [{"type": "text", "text": "Obsidian vault not configured. Set vault_path in config."}],
-                "isError": True
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "Obsidian vault not configured. Set vault_path in config.",
+                    }
+                ],
+                "isError": True,
             }
 
         result = tool.obsidian_client.sync_vault(file_extensions)
 
-        tool.log_event("chunk_added", {
-            "source": "obsidian_sync",
-            "files_synced": result["files_synced"],
-            "total_chunks": result["total_chunks"],
-            "duration_ms": result["duration_ms"]
-        })
+        tool.log_event(
+            "chunk_added",
+            {
+                "source": "obsidian_sync",
+                "files_synced": result["files_synced"],
+                "total_chunks": result["total_chunks"],
+                "duration_ms": result["duration_ms"],
+            },
+        )
 
         success_text = f"Synced {result['files_synced']} files ({result['total_chunks']} chunks) in {result['duration_ms']}ms"
         if result["errors"]:
-            success_text += "\nErrors:\n" + "\n".join(f"- {e}" for e in result["errors"][:5])
+            success_text += "\nErrors:\n" + "\n".join(
+                f"- {e}" for e in result["errors"][:5]
+            )
 
-        return {"content": [{"type": "text", "text": success_text}], "isError": not result["success"]}
+        return {
+            "content": [{"type": "text", "text": success_text}],
+            "isError": not result["success"],
+        }
     except Exception as e:
         return _text_result(f"Obsidian sync error: {e}", True)
 
 
 def handle_beads_ready_tasks(
-    arguments: Dict[str, Any],
-    tool: "NexusSearchTool"
+    arguments: Dict[str, Any], tool: "NexusSearchTool"
 ) -> Dict[str, Any]:
     """Handle beads_ready_tasks - Get unblocked tasks ready for work."""
     limit = arguments.get("limit", 10)
@@ -656,19 +754,25 @@ def handle_beads_ready_tasks(
         task_lines = []
         for task in tasks:
             priority_icon = ["", "P1", "P2", "P3", "P4", "P5"][min(task.priority, 5)]
-            task_lines.append(f"[{task.id}] {priority_icon} {task.title} ({task.status})")
+            task_lines.append(
+                f"[{task.id}] {priority_icon} {task.title} ({task.status})"
+            )
 
         return {
-            "content": [{"type": "text", "text": f"Ready tasks ({len(tasks)}):\n" + "\n".join(task_lines)}],
-            "isError": False
+            "content": [
+                {
+                    "type": "text",
+                    "text": f"Ready tasks ({len(tasks)}):\n" + "\n".join(task_lines),
+                }
+            ],
+            "isError": False,
         }
     except Exception as e:
         return _text_result(f"Beads error: {e}", True)
 
 
 def handle_beads_task_detail(
-    arguments: Dict[str, Any],
-    tool: "NexusSearchTool"
+    arguments: Dict[str, Any], tool: "NexusSearchTool"
 ) -> Dict[str, Any]:
     """Handle beads_task_detail - Get full task details."""
     task_id = arguments.get("task_id", "")
@@ -685,9 +789,17 @@ def handle_beads_task_detail(
         if task.status == "unknown":
             return _text_result(f"Task {task_id} not found", True)
 
-        deps_text = ", ".join([d.id for d in task.dependencies]) if task.dependencies else "None"
+        deps_text = (
+            ", ".join([d.id for d in task.dependencies])
+            if task.dependencies
+            else "None"
+        )
         labels_text = ", ".join(task.labels) if task.labels else "None"
-        comments_text = "\n".join([f"  - {c.author}: {c.body[:100]}" for c in task.comments[:3]]) if task.comments else "  None"
+        comments_text = (
+            "\n".join([f"  - {c.author}: {c.body[:100]}" for c in task.comments[:3]])
+            if task.comments
+            else "  None"
+        )
 
         detail = f"""Task: {task.id}
 Title: {task.title}
@@ -707,8 +819,7 @@ Comments:
 
 
 def handle_beads_query_tasks(
-    arguments: Dict[str, Any],
-    tool: "NexusSearchTool"
+    arguments: Dict[str, Any], tool: "NexusSearchTool"
 ) -> Dict[str, Any]:
     """Handle beads_query_tasks - Query tasks with filters."""
     status = arguments.get("status")
@@ -719,7 +830,11 @@ def handle_beads_query_tasks(
     try:
         tasks = _run_coroutine_sync(
             tool.beads_bridge.query_tasks(
-                status=status, priority=priority, assignee=assignee, limit=limit, brief=True
+                status=status,
+                priority=priority,
+                assignee=assignee,
+                limit=limit,
+                brief=True,
             ),
             timeout=_BEADS_SYNC_TIMEOUT,
         )
@@ -739,19 +854,26 @@ def handle_beads_query_tasks(
         for task in tasks:
             priority_icon = ["", "P1", "P2", "P3", "P4", "P5"][min(task.priority, 5)]
             assignee_str = f" @{task.assignee}" if task.assignee else ""
-            task_lines.append(f"[{task.id}] {priority_icon} {task.title} ({task.status}){assignee_str}")
+            task_lines.append(
+                f"[{task.id}] {priority_icon} {task.title} ({task.status}){assignee_str}"
+            )
 
         return {
-            "content": [{"type": "text", "text": f"Query results ({len(tasks)} tasks):\n" + "\n".join(task_lines)}],
-            "isError": False
+            "content": [
+                {
+                    "type": "text",
+                    "text": f"Query results ({len(tasks)} tasks):\n"
+                    + "\n".join(task_lines),
+                }
+            ],
+            "isError": False,
         }
     except Exception as e:
         return _text_result(f"Beads error: {e}", True)
 
 
 def handle_observation_timeline(
-    arguments: Dict[str, Any],
-    tool: "NexusSearchTool"
+    arguments: Dict[str, Any], tool: "NexusSearchTool"
 ) -> Dict[str, Any]:
     """Handle observation_timeline - query auto-captured observations."""
     project = arguments.get("project")
@@ -777,8 +899,13 @@ def handle_observation_timeline(
 
         if not observations:
             return {
-                "content": [{"type": "text", "text": "No observations found for the given filters."}],
-                "isError": False
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "No observations found for the given filters.",
+                    }
+                ],
+                "isError": False,
             }
 
         content = []
@@ -788,39 +915,41 @@ def handle_observation_timeline(
                 tool_name = obs.get("tool_name", "")
                 otype = obs.get("obs_type", "")
                 snippet = obs.get("content", "")[:60].replace("\n", " ")
-                content.append({
-                    "type": "text",
-                    "text": f"[{ts}] {otype}/{tool_name}: {snippet}"
-                })
+                content.append(
+                    {"type": "text", "text": f"[{ts}] {otype}/{tool_name}: {snippet}"}
+                )
         else:
             for obs in observations:
                 ts = obs.get("created_at", "")
-                content.append({
-                    "type": "text",
-                    "text": (
-                        f"--- {obs.get('observation_id', '')[:8]} ---\n"
-                        f"Time: {ts}\n"
-                        f"Type: {obs.get('obs_type', '')}\n"
-                        f"Tool: {obs.get('tool_name', '')}\n"
-                        f"Project: {obs.get('project', '')}\n"
-                        f"Content: {obs.get('content', '')[:400]}\n"
-                        f"Entities: {', '.join(obs.get('entities', []))}\n"
-                    )
-                })
+                content.append(
+                    {
+                        "type": "text",
+                        "text": (
+                            f"--- {obs.get('observation_id', '')[:8]} ---\n"
+                            f"Time: {ts}\n"
+                            f"Type: {obs.get('obs_type', '')}\n"
+                            f"Tool: {obs.get('tool_name', '')}\n"
+                            f"Project: {obs.get('project', '')}\n"
+                            f"Content: {obs.get('content', '')[:400]}\n"
+                            f"Entities: {', '.join(obs.get('entities', []))}\n"
+                        ),
+                    }
+                )
 
         header = {
             "type": "text",
-            "text": f"Timeline: {len(observations)} observations (last {hours_back}h)"
+            "text": f"Timeline: {len(observations)} observations (last {hours_back}h)",
         }
         return {"content": [header] + content, "isError": False}
     except Exception as e:
         return {
             "content": [{"type": "text", "text": f"Timeline error: {e}"}],
-            "isError": True
+            "isError": True,
         }
 
 
 # === KV tools (B4) ===
+
 
 def _text_result(text: str, is_error: bool = False) -> Dict[str, Any]:
     return {"content": [{"type": "text", "text": text}], "isError": is_error}
@@ -845,7 +974,9 @@ def handle_kv_set(arguments: Dict[str, Any], tool: "NexusSearchTool") -> Dict[st
     return _text_result("ok" if ok else "failed", not ok)
 
 
-def handle_kv_delete(arguments: Dict[str, Any], tool: "NexusSearchTool") -> Dict[str, Any]:
+def handle_kv_delete(
+    arguments: Dict[str, Any], tool: "NexusSearchTool"
+) -> Dict[str, Any]:
     """Handle kv_delete - remove a key from the KV store."""
     key = arguments.get("key", "")
     if not key:
@@ -853,7 +984,9 @@ def handle_kv_delete(arguments: Dict[str, Any], tool: "NexusSearchTool") -> Dict
     return _text_result("deleted" if tool.kv_store.delete(key) else "not found", False)
 
 
-def handle_context_retrieve(arguments: Dict[str, Any], tool: "NexusSearchTool") -> Dict[str, Any]:
+def handle_context_retrieve(
+    arguments: Dict[str, Any], tool: "NexusSearchTool"
+) -> Dict[str, Any]:
     """Handle context_retrieve - surface relevant stored memory to inject for a query.
 
     This is the server side of proactive context injection: given the current
@@ -876,15 +1009,16 @@ def handle_context_retrieve(arguments: Dict[str, Any], tool: "NexusSearchTool") 
         text = r.get("text", "") if isinstance(r, dict) else getattr(r, "text", "")
         score = r.get("score", 0.0) if isinstance(r, dict) else getattr(r, "score", 0.0)
         lines.append(f"[{score:.2f}] {text[:300]}")
-    return _text_result("\n".join(lines) if results else "No relevant context found", False)
+    return _text_result(
+        "\n".join(lines) if results else "No relevant context found", False
+    )
 
 
 # === Main Router ===
 
+
 def handle_call_tool(
-    tool_name: str,
-    arguments: Dict[str, Any],
-    tool: "NexusSearchTool"
+    tool_name: str, arguments: Dict[str, Any], tool: "NexusSearchTool"
 ) -> Dict[str, Any]:
     """Execute a tool and return results."""
     handlers = {
@@ -914,7 +1048,7 @@ def handle_call_tool(
             return handler(arguments, tool)
         return {
             "content": [{"type": "text", "text": f"Unknown tool: {tool_name}"}],
-            "isError": True
+            "isError": True,
         }
     except Exception as e:
         logger.error(f"Tool execution failed: {e}")

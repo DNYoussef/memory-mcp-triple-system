@@ -31,6 +31,7 @@ class _LightweightCPD:
 
 # ---- helper-level ----
 
+
 def test_positive_state_row_finds_positive_state():
     class C:
         state_names = {"B": ["false", "true"]}
@@ -59,6 +60,7 @@ def test_cpd_values_as_lists_handles_list_and_ndarray():
 
 # ---- end-to-end _get_edge_posterior ----
 
+
 def test_get_edge_posterior_lightweight_cpd_no_flatten_crash():
     """A lightweight List[List[float]] CPD must not hit .flatten(); the positive
     state ('true', row 1) cell is returned."""
@@ -81,7 +83,7 @@ def test_get_edge_posterior_pgmpy_reads_positive_cell_not_state0():
     net.predecessors.return_value = ["A"]
     cpd = MagicMock()
     arr = np.array([[0.8, 0.3], [0.2, 0.7]])
-    cpd.values = arr            # what the old code used (flatten()[0] = 0.8)
+    cpd.values = arr  # what the old code used (flatten()[0] = 0.8)
     cpd.get_values.return_value = arr
     cpd.state_names = {"B": ["false", "true"]}
     net.get_cpds.return_value = cpd

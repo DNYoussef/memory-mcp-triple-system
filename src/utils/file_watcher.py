@@ -20,7 +20,7 @@ class MarkdownFileHandler(FileSystemEventHandler):
         self,
         on_change: Callable[[Path], None],
         on_delete: Callable[[Path], None] = None,
-        debounce_seconds: float = 2.0
+        debounce_seconds: float = 2.0,
     ):
         """
         Initialize handler.
@@ -39,11 +39,11 @@ class MarkdownFileHandler(FileSystemEventHandler):
 
     def _is_markdown(self, path: str) -> bool:
         """Check if file is markdown."""
-        return path.endswith('.md')
+        return path.endswith(".md")
 
     def _should_ignore(self, path: str) -> bool:
         """Check if file should be ignored."""
-        ignore_patterns = ['.trash', '.obsidian', '.git']
+        ignore_patterns = [".trash", ".obsidian", ".git"]
         return any(pattern in path for pattern in ignore_patterns)
 
     def on_created(self, event: FileSystemEvent) -> None:
@@ -87,7 +87,7 @@ class ObsidianVaultWatcher:
         vault_path: Path,
         on_change: Callable[[Path], None],
         on_delete: Callable[[Path], None] = None,
-        debounce_seconds: float = 2.0
+        debounce_seconds: float = 2.0,
     ):
         """
         Initialize vault watcher.
@@ -114,11 +114,7 @@ class ObsidianVaultWatcher:
 
     def start(self) -> None:
         """Start watching vault."""
-        self.observer.schedule(
-            self.handler,
-            str(self.vault_path),
-            recursive=True
-        )
+        self.observer.schedule(self.handler, str(self.vault_path), recursive=True)
         self.observer.start()
         logger.info("Watcher started")
 

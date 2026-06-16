@@ -6,7 +6,7 @@ and enforces mode-based budgets with graceful truncation.
 NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List
 
 
 # Mode-based token budgets
@@ -130,9 +130,7 @@ class TokenTracker:
         self.sections[section] = self.sections.get(section, 0) + actual_tokens
         return truncated
 
-    def truncate_list(
-        self, section: str, items: List[str]
-    ) -> List[str]:
+    def truncate_list(self, section: str, items: List[str]) -> List[str]:
         """Add items from a list until budget exhausted.
 
         Args:

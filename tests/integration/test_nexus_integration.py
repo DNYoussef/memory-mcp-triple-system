@@ -12,20 +12,25 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
 import pytest
-import tempfile
-import asyncio
 from pathlib import Path
 from typing import Dict, Any
 import networkx as nx
 
 # Module imports
 import sys
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.bridges.cytoscape_exporter import CytoscapeExporter, ConstellationGraphData
-from src.integrations.frontmatter_mapper import FrontmatterMapper, FileRelationships
-from src.integrations.property_inheritance import PropertyInheritanceChain, InheritanceConfig
-from src.visualization.dashboard_graphs import (
+from src.bridges.cytoscape_exporter import (  # noqa: E402
+    CytoscapeExporter,
+    ConstellationGraphData,
+)
+from src.integrations.frontmatter_mapper import (  # noqa: E402
+    FrontmatterMapper,
+    FileRelationships,
+)
+from src.integrations.property_inheritance import PropertyInheritanceChain  # noqa: E402
+from src.visualization.dashboard_graphs import (  # noqa: E402
     DashboardGraphVisualizer,
     GraphFormat,
     ViewType,
@@ -39,9 +44,25 @@ class TestCytoscapeExporter:
     def sample_graph(self) -> nx.DiGraph:
         """Create a sample NetworkX graph."""
         G = nx.DiGraph()
-        G.add_node("chunk-1", type="chunk", metadata={"ppr_score": 0.8, "decay_score": 0.9, "title": "Memory Architecture"})
-        G.add_node("chunk-2", type="chunk", metadata={"ppr_score": 0.6, "decay_score": 0.7, "title": "Vector Search"})
-        G.add_node("chunk-3", type="chunk", metadata={"ppr_score": 0.5, "decay_score": 0.4, "title": "Graph Traversal"})
+        G.add_node(
+            "chunk-1",
+            type="chunk",
+            metadata={
+                "ppr_score": 0.8,
+                "decay_score": 0.9,
+                "title": "Memory Architecture",
+            },
+        )
+        G.add_node(
+            "chunk-2",
+            type="chunk",
+            metadata={"ppr_score": 0.6, "decay_score": 0.7, "title": "Vector Search"},
+        )
+        G.add_node(
+            "chunk-3",
+            type="chunk",
+            metadata={"ppr_score": 0.5, "decay_score": 0.4, "title": "Graph Traversal"},
+        )
         G.add_edge("chunk-1", "chunk-2", type="REFERENCES")
         G.add_edge("chunk-1", "chunk-3", type="MENTIONS")
         G.add_edge("chunk-2", "chunk-3", type="RELATED_TO")
@@ -189,13 +210,12 @@ class TestPropertyInheritanceChain:
 
     def test_compute_effective_frontmatter(self, chain, sample_frontmatters):
         """Test computing effective frontmatter with inheritance."""
+
         def get_fm(path):
             return sample_frontmatters.get(path, {})
 
         result = chain.compute_effective_frontmatter(
-            "Child",
-            sample_frontmatters["Child"],
-            get_fm
+            "Child", sample_frontmatters["Child"], get_fm
         )
 
         assert result.get("title") == "Child Task"  # Local value
@@ -205,6 +225,7 @@ class TestPropertyInheritanceChain:
 
     def test_get_inherited_value(self, chain, sample_frontmatters):
         """Test tracing inheritance for a specific property."""
+
         def get_fm(path):
             return sample_frontmatters.get(path, {})
 
@@ -242,11 +263,7 @@ class TestPropertyInheritanceChain:
         def get_fm(path):
             return fm
 
-        result = chain.compute_effective_frontmatter(
-            "Archive/OldNote",
-            {},
-            get_fm
-        )
+        result = chain.compute_effective_frontmatter("Archive/OldNote", {}, get_fm)
 
         # project should not be inherited for Archive/* paths
         assert "project" not in result or result.get("project") is None
@@ -264,17 +281,45 @@ class TestDashboardGraphVisualizer:
     def sample_tasks(self):
         """Sample task data for Beads view."""
         return [
-            {"id": "T1", "title": "Task 1", "status": "closed", "priority": 1, "dependencies": []},
-            {"id": "T2", "title": "Task 2", "status": "in_progress", "priority": 2, "dependencies": [{"depends_on_id": "T1", "type": "blocks"}]},
-            {"id": "T3", "title": "Task 3", "status": "open", "priority": 3, "dependencies": [{"depends_on_id": "T2", "type": "related"}]},
+            {
+                "id": "T1",
+                "title": "Task 1",
+                "status": "closed",
+                "priority": 1,
+                "dependencies": [],
+            },
+            {
+                "id": "T2",
+                "title": "Task 2",
+                "status": "in_progress",
+                "priority": 2,
+                "dependencies": [{"depends_on_id": "T1", "type": "blocks"}],
+            },
+            {
+                "id": "T3",
+                "title": "Task 3",
+                "status": "open",
+                "priority": 3,
+                "dependencies": [{"depends_on_id": "T2", "type": "related"}],
+            },
         ]
 
     @pytest.fixture
     def sample_chunks(self):
         """Sample chunk data for Idea Web view."""
         return [
-            {"id": "C1", "text": "Memory systems", "type": "chunk", "metadata": {"ppr_score": 0.8}},
-            {"id": "C2", "text": "Graph algorithms", "type": "chunk", "metadata": {"ppr_score": 0.6}},
+            {
+                "id": "C1",
+                "text": "Memory systems",
+                "type": "chunk",
+                "metadata": {"ppr_score": 0.8},
+            },
+            {
+                "id": "C2",
+                "text": "Graph algorithms",
+                "type": "chunk",
+                "metadata": {"ppr_score": 0.6},
+            },
         ]
 
     @pytest.fixture
@@ -358,9 +403,16 @@ class TestCrossModuleIntegration:
 
         # Create frontmatter data
         files = {
-            "note1.md": {"title": "Note 1", "children": ["[[note2.md]]", "[[note3.md]]"]},
+            "note1.md": {
+                "title": "Note 1",
+                "children": ["[[note2.md]]", "[[note3.md]]"],
+            },
             "note2.md": {"title": "Note 2", "parents": ["[[note1.md]]"]},
-            "note3.md": {"title": "Note 3", "parents": ["[[note1.md]]"], "related": ["[[note2.md]]"]},
+            "note3.md": {
+                "title": "Note 3",
+                "parents": ["[[note1.md]]"],
+                "related": ["[[note2.md]]"],
+            },
         }
 
         # Extract relationships and create chunks
@@ -369,12 +421,14 @@ class TestCrossModuleIntegration:
 
         for file_path, fm in files.items():
             rel = mapper.extract_relationships(file_path, fm)
-            chunks.append({
-                "id": file_path,
-                "text": fm.get("title", ""),
-                "type": "note",
-                "metadata": fm,
-            })
+            chunks.append(
+                {
+                    "id": file_path,
+                    "text": fm.get("title", ""),
+                    "type": "note",
+                    "metadata": fm,
+                }
+            )
             edges = mapper.relationships_to_edges(rel)
             for edge in edges:
                 relationships.append(edge)
@@ -397,7 +451,11 @@ class TestCrossModuleIntegration:
             "Epic-1": {"title": "Epic", "status": "in_progress", "priority": 1},
             "Story-1": {"title": "Story", "parents": ["[[Epic-1]]"], "priority": 2},
             "Task-1": {"title": "Task", "parents": ["[[Story-1]]"], "status": "open"},
-            "Task-2": {"title": "Task 2", "parents": ["[[Story-1]]"], "status": "blocked"},
+            "Task-2": {
+                "title": "Task 2",
+                "parents": ["[[Story-1]]"],
+                "status": "blocked",
+            },
         }
 
         def get_fm(path):
@@ -409,13 +467,15 @@ class TestCrossModuleIntegration:
             effective = chain.compute_effective_frontmatter(task_id, fm, get_fm)
             parents = fm.get("parents", [])
             deps = [{"depends_on_id": p.strip("[]"), "type": "blocks"} for p in parents]
-            tasks.append({
-                "id": task_id,
-                "title": effective.get("title", task_id),
-                "status": effective.get("status", "open"),
-                "priority": effective.get("priority", 3),
-                "dependencies": deps,
-            })
+            tasks.append(
+                {
+                    "id": task_id,
+                    "title": effective.get("title", task_id),
+                    "status": effective.get("status", "open"),
+                    "priority": effective.get("priority", 3),
+                    "dependencies": deps,
+                }
+            )
 
         # Create Beads visualization
         graph = visualizer.create_beads_view(tasks)

@@ -37,47 +37,42 @@ class TestGetGraph:
     def test_get_graph_allows_mutation(self, graph_service):
         """Test get_graph() allows direct graph manipulation."""
         # Add nodes via service
-        graph_service.add_chunk_node('chunk_1', {'text': 'test'})
+        graph_service.add_chunk_node("chunk_1", {"text": "test"})
 
         # Get graph and verify nodes
         graph = graph_service.get_graph()
 
-        assert 'chunk_1' in graph.nodes()
+        assert "chunk_1" in graph.nodes()
         assert len(graph.nodes()) == 1
 
     def test_get_graph_for_pagerank(self, graph_service):
         """Test get_graph() works with NetworkX PageRank."""
         # Build small graph
-        graph_service.add_entity_node('entity_1', 'PERSON', {})
-        graph_service.add_entity_node('entity_2', 'ORG', {})
-        graph_service.add_relationship(
-            'entity_1', 'entity_2', 'related_to', {}
-        )
+        graph_service.add_entity_node("entity_1", "PERSON", {})
+        graph_service.add_entity_node("entity_2", "ORG", {})
+        graph_service.add_relationship("entity_1", "entity_2", "related_to", {})
 
         # Get graph and run PageRank
         graph = graph_service.get_graph()
         ppr_scores = nx.pagerank(graph)
 
         assert ppr_scores is not None
-        assert 'entity_1' in ppr_scores
-        assert 'entity_2' in ppr_scores
+        assert "entity_1" in ppr_scores
+        assert "entity_2" in ppr_scores
 
 
 def test_link_similar_entities_adds_edge(graph_service):
     """Ensure similar entities across components are linked."""
-    graph_service.add_entity_node('entity_a', 'ORG', {'text': 'Alpha'})
-    graph_service.add_entity_node('entity_b', 'ORG', {'text': 'Alpha'})
+    graph_service.add_entity_node("entity_a", "ORG", {"text": "Alpha"})
+    graph_service.add_entity_node("entity_b", "ORG", {"text": "Alpha"})
 
     class DummyEmbedder:
         def encode(self, texts):
             return [[1.0, 0.0] for _ in texts]
 
     links_added = graph_service.link_similar_entities(
-        'entity_a',
-        embedder=DummyEmbedder(),
-        similarity_threshold=0.5,
-        max_links=1
+        "entity_a", embedder=DummyEmbedder(), similarity_threshold=0.5, max_links=1
     )
 
     assert links_added == 1
-    assert graph_service.graph.has_edge('entity_a', 'entity_b')
+    assert graph_service.graph.has_edge("entity_a", "entity_b")

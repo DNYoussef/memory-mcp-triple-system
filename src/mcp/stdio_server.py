@@ -17,7 +17,7 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 from . import _utf8_io  # noqa: F401  (import runs ensure_utf8_io())
 
 # Compatibility import retained for Phase 2 integration tests
-from ..nexus.processor import NexusProcessor
+from ..nexus.processor import NexusProcessor  # noqa: F401  (compat re-export)
 
 # Re-export from service_wiring for backwards compatibility
 from .service_wiring import (
@@ -51,14 +51,15 @@ def __getattr__(name):
         return _lazy_map[name]()
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
+
 # Re-export from tool_registry
-from .tool_registry import (
+from .tool_registry import (  # noqa: E402
     get_tool_definitions,
     handle_list_tools,
 )
 
 # Re-export from request_router
-from .request_router import (
+from .request_router import (  # noqa: E402
     handle_call_tool as _handle_call_tool,
     handle_vector_search,
     handle_memory_store,
@@ -78,7 +79,7 @@ from .request_router import (
 )
 
 # Re-export from protocol_handler
-from .protocol_handler import (
+from .protocol_handler import (  # noqa: E402
     handle_initialize_method,
     handle_tools_list_method,
     handle_tools_call_method,
@@ -163,8 +164,9 @@ def handle_call_tool(tool_name, arguments, tool):
     except Exception as e:
         return {
             "isError": True,
-            "content": [{"type": "text", "text": f"Error: {str(e)}"}]
+            "content": [{"type": "text", "text": f"Error: {str(e)}"}],
         }
+
 
 # Expose all public names
 __all__ = [

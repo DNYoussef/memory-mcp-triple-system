@@ -22,6 +22,7 @@ from loguru import logger
 
 class CostAlertLevel(Enum):
     """Alert severity levels."""
+
     INFO = "info"
     WARNING = "warning"
     CRITICAL = "critical"
@@ -39,6 +40,7 @@ class CostConfig:
         token_budget: Maximum tokens per session (default 100000)
         warning_threshold: Warning at this % of limit (default 0.8)
     """
+
     max_recursion_depth: int = 10
     cost_limit_usd: float = 1.0
     spike_threshold: float = 3.0
@@ -57,6 +59,7 @@ class CostRecord:
         depth: Recursion depth at time of operation
         timestamp: When operation occurred
     """
+
     operation: str
     tokens: int
     cost_usd: float
@@ -75,6 +78,7 @@ class CostAlert:
         limit: Configured limit
         triggered_at: When alert was triggered
     """
+
     level: CostAlertLevel
     message: str
     current_cost: float
@@ -84,6 +88,7 @@ class CostAlert:
 
 class RecursionLimitError(Exception):
     """Raised when recursion depth limit is exceeded."""
+
     def __init__(self, depth: int, max_depth: int):
         self.depth = depth
         self.max_depth = max_depth
@@ -92,6 +97,7 @@ class RecursionLimitError(Exception):
 
 class CostLimitError(Exception):
     """Raised when cost limit is exceeded."""
+
     def __init__(self, cost: float, limit: float):
         self.cost = cost
         self.limit = limit
@@ -162,21 +168,18 @@ class CostTracker:
         if depth > self.config.max_recursion_depth:
             self._add_alert(
                 CostAlertLevel.CRITICAL,
-                f"Recursion depth {depth} exceeds limit {self.config.max_recursion_depth}"
+                f"Recursion depth {depth} exceeds limit {self.config.max_recursion_depth}",
             )
             raise RecursionLimitError(depth, self.config.max_recursion_depth)
 
         if depth > self.config.max_recursion_depth * 0.8:
             self._add_alert(
                 CostAlertLevel.WARNING,
-                f"Approaching recursion limit: {depth}/{self.config.max_recursion_depth}"
+                f"Approaching recursion limit: {depth}/{self.config.max_recursion_depth}",
             )
 
     def record_cost(
-        self,
-        operation: str,
-        tokens: int,
-        model: str = "default"
+        self, operation: str, tokens: int, model: str = "default"
     ) -> CostRecord:
         """
         Record a cost event.
@@ -209,9 +212,11 @@ class CostTracker:
                 self._circuit_open = True
                 self._add_alert(
                     CostAlertLevel.CIRCUIT_BREAK,
-                    f"Cost spike detected: {current_rate:.4f} vs baseline {self._baseline_cost_rate:.4f}"
+                    f"Cost spike detected: {current_rate:.4f} vs baseline {self._baseline_cost_rate:.4f}",
                 )
-                raise CostLimitError(self._total_cost + cost_usd, self.config.cost_limit_usd)
+                raise CostLimitError(
+                    self._total_cost + cost_usd, self.config.cost_limit_usd
+                )
 
         # Update totals
         self._total_cost += cost_usd
@@ -219,14 +224,16 @@ class CostTracker:
 
         # Update baseline
         if len(self._records) < 5:
-            self._baseline_cost_rate = self._total_cost / max(1, self._total_tokens / 1000)
+            self._baseline_cost_rate = self._total_cost / max(
+                1, self._total_tokens / 1000
+            )
 
         # Record
         record = CostRecord(
             operation=operation,
             tokens=tokens,
             cost_usd=cost_usd,
-            depth=self._current_depth
+            depth=self._current_depth,
         )
         self._records.append(record)
 
@@ -245,22 +252,25 @@ class CostTracker:
         if self._total_cost >= self.config.cost_limit_usd:
             self._add_alert(
                 CostAlertLevel.CRITICAL,
-                f"Cost limit exceeded: ${self._total_cost:.4f} >= ${self.config.cost_limit_usd}"
+                f"Cost limit exceeded: ${self._total_cost:.4f} >= ${self.config.cost_limit_usd}",
             )
             raise CostLimitError(self._total_cost, self.config.cost_limit_usd)
 
         # Warning threshold
-        if self._total_cost >= self.config.cost_limit_usd * self.config.warning_threshold:
+        if (
+            self._total_cost
+            >= self.config.cost_limit_usd * self.config.warning_threshold
+        ):
             self._add_alert(
                 CostAlertLevel.WARNING,
-                f"Approaching cost limit: ${self._total_cost:.4f} of ${self.config.cost_limit_usd}"
+                f"Approaching cost limit: ${self._total_cost:.4f} of ${self.config.cost_limit_usd}",
             )
 
         # Token budget
         if self._total_tokens >= self.config.token_budget:
             self._add_alert(
                 CostAlertLevel.CRITICAL,
-                f"Token budget exceeded: {self._total_tokens} >= {self.config.token_budget}"
+                f"Token budget exceeded: {self._total_tokens} >= {self.config.token_budget}",
             )
             raise CostLimitError(self._total_cost, self.config.cost_limit_usd)
 
@@ -270,7 +280,7 @@ class CostTracker:
             level=level,
             message=message,
             current_cost=self._total_cost,
-            limit=self.config.cost_limit_usd
+            limit=self.config.cost_limit_usd,
         )
         self._alerts.append(alert)
         logger.log(level.value.upper(), message)
@@ -291,13 +301,14 @@ class CostTracker:
             "limits": {
                 "cost_limit_usd": self.config.cost_limit_usd,
                 "max_recursion_depth": self.config.max_recursion_depth,
-                "token_budget": self.config.token_budget
+                "token_budget": self.config.token_budget,
             },
             "usage_percent": {
                 "cost": (self._total_cost / self.config.cost_limit_usd) * 100,
                 "tokens": (self._total_tokens / self.config.token_budget) * 100,
-                "depth": (self._max_depth_reached / self.config.max_recursion_depth) * 100
-            }
+                "depth": (self._max_depth_reached / self.config.max_recursion_depth)
+                * 100,
+            },
         }
 
     def get_alerts(self, level: Optional[CostAlertLevel] = None) -> List[CostAlert]:

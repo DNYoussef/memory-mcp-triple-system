@@ -114,7 +114,7 @@ class QueryTrace:
             output="",
             total_latency_ms=0,
             error=None,
-            error_type=None
+            error_type=None,
         )
 
     @classmethod
@@ -138,7 +138,8 @@ class QueryTrace:
         try:
             conn = sqlite3.connect(str(db))
             cursor = conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS query_traces (
                     query_id TEXT PRIMARY KEY,
                     timestamp TEXT NOT NULL,
@@ -158,7 +159,8 @@ class QueryTrace:
                     error TEXT,
                     error_type TEXT
                 )
-            """)
+            """
+            )
             conn.commit()
             conn.close()
             logger.info(f"QueryTrace schema initialized in {db_path}")
@@ -189,7 +191,8 @@ class QueryTrace:
             # ISS-051 FIX: Ensure schema exists before insert
             self.init_schema(db_path)
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO query_traces (
                     query_id, timestamp, query, user_context,
                     mode_detected, mode_confidence, mode_detection_ms,
@@ -199,25 +202,29 @@ class QueryTrace:
                     output, total_latency_ms,
                     error, error_type
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                str(self.query_id),
-                self.timestamp.isoformat(),
-                self.query,
-                json.dumps(self.user_context),
-                self.mode_detected,
-                self.mode_confidence,
-                self.mode_detection_ms,
-                json.dumps(self.stores_queried),
-                self.routing_logic,
-                json.dumps(self.retrieved_chunks),
-                self.retrieval_ms,
-                json.dumps(self.verification_result) if self.verification_result else None,
-                self.verification_ms,
-                self.output,
-                self.total_latency_ms,
-                self.error,
-                self.error_type
-            ))
+            """,
+                (
+                    str(self.query_id),
+                    self.timestamp.isoformat(),
+                    self.query,
+                    json.dumps(self.user_context),
+                    self.mode_detected,
+                    self.mode_confidence,
+                    self.mode_detection_ms,
+                    json.dumps(self.stores_queried),
+                    self.routing_logic,
+                    json.dumps(self.retrieved_chunks),
+                    self.retrieval_ms,
+                    json.dumps(self.verification_result)
+                    if self.verification_result
+                    else None,
+                    self.verification_ms,
+                    self.output,
+                    self.total_latency_ms,
+                    self.error,
+                    self.error_type,
+                ),
+            )
 
             conn.commit()
             conn.close()
@@ -228,7 +235,9 @@ class QueryTrace:
             return False
 
     @classmethod
-    def get_trace(cls, query_id: UUID, db_path: str = "memory.db") -> Optional["QueryTrace"]:
+    def get_trace(
+        cls, query_id: UUID, db_path: str = "memory.db"
+    ) -> Optional["QueryTrace"]:
         """
         Retrieve trace by query_id.
 
@@ -247,8 +256,7 @@ class QueryTrace:
             cursor = conn.cursor()
 
             cursor.execute(
-                "SELECT * FROM query_traces WHERE query_id = ?",
-                (str(query_id),)
+                "SELECT * FROM query_traces WHERE query_id = ?", (str(query_id),)
             )
 
             row = cursor.fetchone()
@@ -265,16 +273,22 @@ class QueryTrace:
                 mode_detected=row["mode_detected"] or "",
                 mode_confidence=row["mode_confidence"] or 0.0,
                 mode_detection_ms=row["mode_detection_ms"] or 0,
-                stores_queried=json.loads(row["stores_queried"]) if row["stores_queried"] else [],
+                stores_queried=json.loads(row["stores_queried"])
+                if row["stores_queried"]
+                else [],
                 routing_logic=row["routing_logic"] or "",
-                retrieved_chunks=json.loads(row["retrieved_chunks"]) if row["retrieved_chunks"] else [],
+                retrieved_chunks=json.loads(row["retrieved_chunks"])
+                if row["retrieved_chunks"]
+                else [],
                 retrieval_ms=row["retrieval_ms"] or 0,
-                verification_result=json.loads(row["verification_result"]) if row["verification_result"] else None,
+                verification_result=json.loads(row["verification_result"])
+                if row["verification_result"]
+                else None,
                 verification_ms=row["verification_ms"] or 0,
                 output=row["output"] or "",
                 total_latency_ms=row["total_latency_ms"] or 0,
                 error=row["error"],
-                error_type=row["error_type"]
+                error_type=row["error_type"],
             )
 
         except (sqlite3.Error, json.JSONDecodeError) as e:

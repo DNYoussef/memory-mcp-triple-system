@@ -10,7 +10,8 @@ from src.indexing.embedding_pipeline import EmbeddingPipeline
 # Check if model is available
 try:
     from sentence_transformers import SentenceTransformer
-    SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
+
+    SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
     HAS_MODEL = True
 except Exception:
     HAS_MODEL = False
@@ -19,8 +20,8 @@ except Exception:
 pytestmark = pytest.mark.skipif(
     not HAS_MODEL,
     reason="Embedding model 'sentence-transformers/all-MiniLM-L6-v2' not downloaded. "
-           "Run: python -c \"from sentence_transformers import SentenceTransformer; "
-           "SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')\" to download."
+    'Run: python -c "from sentence_transformers import SentenceTransformer; '
+    "SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')\" to download.",
 )
 
 
@@ -48,11 +49,7 @@ class TestEmbeddingPipeline:
 
     def test_encode_multiple_texts(self, pipeline):
         """Test encoding multiple texts."""
-        texts = [
-            "First sentence.",
-            "Second sentence.",
-            "Third sentence."
-        ]
+        texts = ["First sentence.", "Second sentence.", "Third sentence."]
         embeddings = pipeline.encode(texts)
 
         assert isinstance(embeddings, np.ndarray)
