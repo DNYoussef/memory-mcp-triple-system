@@ -12,6 +12,10 @@ decomposed modules created in MEM-CLEAN-003:
 NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
+# F4: force UTF-8 stdout/stderr BEFORE any heavy import (transformers et al.
+# print non-cp1252 glyphs at import time and crash on a Windows pipe).
+from . import _utf8_io  # noqa: F401  (import runs ensure_utf8_io())
+
 # Compatibility import retained for Phase 2 integration tests
 from ..nexus.processor import NexusProcessor
 

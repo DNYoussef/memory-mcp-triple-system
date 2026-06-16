@@ -27,6 +27,9 @@ from datetime import datetime
 # Add src to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+# F4: force UTF-8 stdout/stderr before heavy imports (cp1252 pipe crash).
+from src.mcp import _utf8_io  # noqa: F401  (import runs ensure_utf8_io())
+
 from fastapi import Depends, FastAPI, Header, HTTPException, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.middleware.cors import CORSMiddleware
