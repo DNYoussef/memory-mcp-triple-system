@@ -522,13 +522,14 @@ def handle_bayesian_inference(
                 "Bayesian inference unavailable: not enough entity co-occurrence in stored "
                 "memory to build a network yet (store related memories first)")}], "isError": False}
 
-        # Graph nodes are normalized (lowercase, spaces->underscores); the query
-        # extractor returns the raw surface form. Match against both.
+        # Graph nodes are normalized (lowercase, spaces->underscores) and NER
+        # often stores a multi-word entity under a single token (spaCy tags
+        # "Wilhelmina Ashgrove" as just "wilhelmina"). Try, in priority order:
+        # the raw form, the underscored form, then each lowercased word.
         nodes = set(network.nodes())
-        node_var = next(
-            (v for v in (query_var, query_var.lower().replace(" ", "_")) if v in nodes),
-            None,
-        )
+        candidates = [query_var, query_var.lower().replace(" ", "_")]
+        candidates += [w.lower() for w in query_var.split() if w]
+        node_var = next((v for v in candidates if v in nodes), None)
         if node_var is None:
             return {"content": [{"type": "text", "text": (
                 f"Bayesian: '{query_var}' is not a node in the stored-memory network yet")}], "isError": False}

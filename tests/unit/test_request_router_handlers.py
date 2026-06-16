@@ -45,6 +45,25 @@ def _tool_with_engine():
     return tool
 
 
+def test_bayesian_inference_resolves_multiword_entity_to_single_token_node():
+    """NER stores "Wilhelmina Ashgrove" as the node "wilhelmina"; the handler
+    must resolve the multi-word query to that single-token node."""
+    tool = MagicMock()
+    tool.nexus_processor._extract_query_entity.return_value = "Wilhelmina Ashgrove"
+    net = MagicMock()
+    net.nodes.return_value = ["wilhelmina", "guardspine"]
+    tool._build_bayesian_network.return_value = net
+    tool.nexus_processor.probabilistic_query_engine.query_conditional.return_value = {"p": 0.7}
+
+    result = handle_bayesian_inference({"query": "tell me about Wilhelmina Ashgrove"}, tool)
+
+    assert result["isError"] is False
+    assert "is not a node" not in result["content"][0]["text"]
+    # resolved to the single-token node
+    _, kwargs = tool.nexus_processor.probabilistic_query_engine.query_conditional.call_args
+    assert kwargs["query_vars"] == ["wilhelmina"]
+
+
 def test_bayesian_inference_returns_error_not_raises_on_exception():
     """An inference exception must become an isError result, not propagate."""
     tool = _tool_with_engine()
