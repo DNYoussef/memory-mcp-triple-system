@@ -336,13 +336,16 @@ class NexusSearchTool:
             # This ensures NexusProcessor uses the same graph that was loaded from graph.json
             graph_query_engine = GraphQueryEngine(graph_service=self.graph_service)
 
-            # ISS-018 fix: Build Bayesian network from knowledge graph
-            bayesian_network = self._build_bayesian_network(self.graph_service)
-
+            # F2: do NOT build the Bayesian net synchronously here - that put a
+            # full graph build on the first fused read's critical path. Start
+            # the engine with no net (the Bayesian tier degrades gracefully,
+            # exactly as it already does on timeout) and build it in the
+            # background; set_network wires it in once ready.
             probabilistic_engine = ProbabilisticQueryEngine(
                 timeout_seconds=1.0,
-                network=bayesian_network
+                network=None
             )
+            self._start_bayesian_build(probabilistic_engine)
 
             # MEM-QWEN-002: Initialize cross-encoder reranker
             reranker = self._init_reranker()
@@ -387,6 +390,30 @@ class NexusSearchTool:
         except Exception as e:
             logger.warning(f"Reranker init failed (disabled): {e}")
             return None
+
+    def _start_bayesian_build(self, engine) -> None:
+        """F2: build the Bayesian net off the fused-read hot path.
+
+        Runs the (now bounded, cached) build in a daemon thread and wires it
+        into the engine via set_network when ready. Until then the Bayesian
+        tier degrades to no contribution - the same state it already reaches on
+        a query timeout - so the vector/HippoRAG tiers are never blocked on it.
+        MEMORY_MCP_SYNC_BAYESIAN=1 forces a synchronous build (tests/determinism).
+        """
+        def _build():
+            try:
+                net = self._build_bayesian_network(self.graph_service)
+                if net is not None:
+                    engine.set_network(net)
+            except Exception as e:
+                logger.warning(f"Background Bayesian build failed: {e}")
+
+        if os.getenv("MEMORY_MCP_SYNC_BAYESIAN") == "1":
+            _build()
+            return
+        t = threading.Thread(target=_build, name="bayesian-build", daemon=True)
+        t.start()
+        self._bayesian_build_thread = t
 
     def _build_bayesian_network(self, graph_service: GraphService):
         """Build the Bayesian network from the knowledge graph.
