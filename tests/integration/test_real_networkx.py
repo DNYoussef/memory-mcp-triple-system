@@ -339,13 +339,15 @@ class TestHippoRAGServiceRealGraph:
         assert "Memory MCP" in scores
 
         # Connected nodes should also have scores
-        memory_mcp_score = scores["Memory MCP"]  # noqa: F841
+        memory_mcp_score = scores["Memory MCP"]
         connected_scores = [
             scores.get("ChromaDB", 0),
             scores.get("HippoRAG", 0),
             scores.get("Bayesian", 0),
         ]
 
+        # The PPR restart source must carry positive mass
+        assert memory_mcp_score > 0
         # At least one connected node should have a score
         assert any(s > 0 for s in connected_scores)
 

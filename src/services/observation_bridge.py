@@ -15,11 +15,11 @@ import re
 from typing import Any, Dict, List, Optional
 from loguru import logger
 
+from ..stores.kv_store import KVStore
+from ..models.observation_types import Observation, classify_tool
+
 # Privacy tag regex -- redacts <private>...</private> content before storage
 _PRIVATE_RE = re.compile(r"<private>.*?</private>", re.DOTALL)
-
-from ..stores.kv_store import KVStore  # noqa: E402
-from ..models.observation_types import Observation, classify_tool  # noqa: E402
 
 
 class ObservationBridge:

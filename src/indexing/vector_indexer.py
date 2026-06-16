@@ -13,6 +13,13 @@ import time
 import sqlite3
 import threading
 from loguru import logger
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+    before_sleep_log,
+)
 
 
 def resolve_persist_dir(
@@ -50,13 +57,6 @@ except ImportError:
     CHROMADB_AVAILABLE = False
     _CHROMA_NOT_FOUND = Exception  # never matched when chromadb absent
     chromadb = None  # type: ignore[assignment]
-from tenacity import (  # noqa: E402
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-    retry_if_exception_type,
-    before_sleep_log,
-)
 
 
 # Retry decorator for database operations that may encounter locks

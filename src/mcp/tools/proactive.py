@@ -6,6 +6,7 @@ PROJECT: memory-mcp-triple-system
 WHY: implementation (RETRIEVE-001)
 """
 
+from datetime import datetime
 from typing import Any, Dict, Optional
 from loguru import logger
 
@@ -358,7 +359,3 @@ def register_proactive_tools(server: Any, injector: ProactiveContextInjector) ->
     )
 
     logger.info("Proactive tools registered with MCP server")
-
-
-# Import datetime at top
-from datetime import datetime  # noqa: E402

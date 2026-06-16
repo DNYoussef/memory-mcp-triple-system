@@ -106,11 +106,13 @@ class TestNetworkBuilder:
     def test_cache_network(self, builder, sample_graph):
         """Test network caching with TTL."""
         # Build network (should cache)
-        network1 = builder.build_network(sample_graph, use_cache=True)  # noqa: F841
+        network1 = builder.build_network(sample_graph, use_cache=True)
 
         # Build again (should hit cache)
-        network2 = builder.build_network(sample_graph, use_cache=True)  # noqa: F841
+        network2 = builder.build_network(sample_graph, use_cache=True)
 
+        # A cache hit must return the SAME object, not a rebuild
+        assert network1 is network2
         assert len(builder.cache) == 1
 
     def test_cache_invalidation(self, builder, sample_graph):
@@ -121,13 +123,15 @@ class TestNetworkBuilder:
         # Set short TTL
         builder.cache_ttl = timedelta(seconds=0)
 
-        network1 = builder.build_network(sample_graph, use_cache=True)  # noqa: F841
+        network1 = builder.build_network(sample_graph, use_cache=True)
 
         # Immediately try to use cache (should be expired)
         time.sleep(0.1)
 
-        network2 = builder.build_network(sample_graph, use_cache=True)  # noqa: F841
+        network2 = builder.build_network(sample_graph, use_cache=True)
 
+        # TTL expired -> the second build must be a fresh object, not the cache
+        assert network1 is not network2
         # Cache should have been rebuilt
         assert len(builder.cache) >= 1
 

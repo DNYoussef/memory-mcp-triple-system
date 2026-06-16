@@ -320,11 +320,12 @@ async def test_bayesian_inference(nexus_tool):
         engine = ProbabilisticQueryEngine(timeout_seconds=1.0)
 
         # Simple test - query conditional with no network should return None gracefully
-        result = engine.query_conditional(  # noqa: F841
+        result = engine.query_conditional(
             network=None, query_vars=["test"], evidence={}
         )
 
         # None is expected when no network is set
+        assert result is None
         print_result(
             "bayesian_inference",
             True,
