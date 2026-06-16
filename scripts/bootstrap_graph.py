@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from services.graph_service import GraphService
 from services.entity_service import EntityService
+from indexing.vector_indexer import resolve_persist_dir
 
 
 def load_config() -> Dict[str, Any]:
@@ -204,7 +205,7 @@ def main():
     parser.add_argument(
         "--chroma-dir",
         type=str,
-        default=vector_config.get("persist_directory", "./chroma_data"),
+        default=resolve_persist_dir(default=vector_config.get("persist_directory", "./chroma_data")),
         help="ChromaDB directory"
     )
     parser.add_argument(

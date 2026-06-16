@@ -27,6 +27,8 @@ from typing import Optional, Dict, Any
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from indexing.vector_indexer import resolve_persist_dir
+
 
 def get_config():
     """Load configuration."""
@@ -61,7 +63,7 @@ def store_memory(
     import hashlib
 
     config = get_config()
-    chroma_dir = Path(config['storage']['vector_db']['persist_directory'])
+    chroma_dir = Path(resolve_persist_dir(default=config['storage']['vector_db']['persist_directory']))
     collection_name = config['storage']['vector_db']['collection_name']
 
     # Initialize ChromaDB
@@ -122,7 +124,7 @@ def recall_memory(
     from chromadb.config import Settings
 
     config = get_config()
-    chroma_dir = Path(config['storage']['vector_db']['persist_directory'])
+    chroma_dir = Path(resolve_persist_dir(default=config['storage']['vector_db']['persist_directory']))
     collection_name = config['storage']['vector_db']['collection_name']
 
     # Initialize ChromaDB
@@ -179,7 +181,7 @@ def get_stats() -> Dict[str, Any]:
     from chromadb.config import Settings
 
     config = get_config()
-    chroma_dir = Path(config['storage']['vector_db']['persist_directory'])
+    chroma_dir = Path(resolve_persist_dir(default=config['storage']['vector_db']['persist_directory']))
 
     client = chromadb.PersistentClient(
         path=str(chroma_dir),

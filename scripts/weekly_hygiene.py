@@ -31,6 +31,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import chromadb
 from chromadb.config import Settings
+from indexing.vector_indexer import resolve_persist_dir
 
 
 def load_config():
@@ -72,7 +73,7 @@ def cleanup_low_confidence(dry_run: bool = True) -> Dict[str, Any]:
     print("\n--- Step 2: Cleanup Low Confidence ---")
 
     config = load_config()
-    chroma_dir = Path(config['storage']['vector_db']['persist_directory'])
+    chroma_dir = Path(resolve_persist_dir(default=config['storage']['vector_db']['persist_directory']))
     collection_name = config['storage']['vector_db']['collection_name']
 
     client = chromadb.PersistentClient(
@@ -122,7 +123,7 @@ def reinforce_active_memories(dry_run: bool = True) -> Dict[str, Any]:
     # For now, reinforce recent high-confidence ecosystem memories
 
     config = load_config()
-    chroma_dir = Path(config['storage']['vector_db']['persist_directory'])
+    chroma_dir = Path(resolve_persist_dir(default=config['storage']['vector_db']['persist_directory']))
     collection_name = config['storage']['vector_db']['collection_name']
 
     client = chromadb.PersistentClient(
@@ -157,7 +158,7 @@ def calculate_decay_scores() -> Dict[str, Any]:
     print("\n--- Step 4: Calculate Decay Scores ---")
 
     config = load_config()
-    chroma_dir = Path(config['storage']['vector_db']['persist_directory'])
+    chroma_dir = Path(resolve_persist_dir(default=config['storage']['vector_db']['persist_directory']))
     collection_name = config['storage']['vector_db']['collection_name']
 
     client = chromadb.PersistentClient(
@@ -213,7 +214,7 @@ def export_dashboard_stats(audit_results: Dict, cleanup_stats: Dict) -> str:
     print("\n--- Step 5: Export Dashboard Stats ---")
 
     config = load_config()
-    chroma_dir = Path(config['storage']['vector_db']['persist_directory'])
+    chroma_dir = Path(resolve_persist_dir(default=config['storage']['vector_db']['persist_directory']))
     collection_name = config['storage']['vector_db']['collection_name']
 
     client = chromadb.PersistentClient(

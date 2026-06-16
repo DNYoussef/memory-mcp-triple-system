@@ -9,6 +9,7 @@ from typing import Any, Dict, List
 import chromadb
 
 from src.mcp.stdio_server import load_config
+from src.indexing.vector_indexer import resolve_persist_dir
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ def _compute_confidence(metadata: Dict[str, Any]) -> float:
 def migrate_confidence(batch_size: int) -> int:
     config = load_config()
     vector_config = config["storage"]["vector_db"]
-    client = chromadb.PersistentClient(path=vector_config["persist_directory"])
+    client = chromadb.PersistentClient(path=resolve_persist_dir(default=vector_config["persist_directory"]))
     collection = client.get_collection(vector_config["collection_name"])
 
     total = collection.count()

@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.chunking.semantic_chunker import SemanticChunker
 from src.indexing.embedding_pipeline import EmbeddingPipeline
-from src.indexing.vector_indexer import VectorIndexer
+from src.indexing.vector_indexer import VectorIndexer, resolve_persist_dir
 
 
 def load_config() -> Dict[str, Any]:
@@ -200,7 +200,7 @@ def main():
     config = load_config()
     vector_config = config.get("storage", {}).get("vector_db", {})
     collection_name = vector_config.get("collection_name", "memory_chunks")
-    persist_directory = vector_config.get("persist_directory", "./chroma_data")
+    persist_directory = resolve_persist_dir(default=vector_config.get("persist_directory", "./chroma_data"))
 
     # Step 1: Initialize components
     print_header("Step 1: Initialize Components")
