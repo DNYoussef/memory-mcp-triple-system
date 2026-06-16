@@ -80,6 +80,11 @@ class ConsolidationMixin:
         consolidated_count = 0
         processed = set()
 
+        # F9: compute all pairwise cosine similarities in one matmul instead of
+        # N^2 per-pair Python calls. Greedy merge order/semantics are unchanged;
+        # the loop just reads sim_matrix[i, j] instead of recomputing.
+        sim_matrix = self._pairwise_cosine(embeddings)
+
         for i in range(len(chunk_ids)):
             if chunk_ids[i] in processed:
                 continue
@@ -88,7 +93,7 @@ class ConsolidationMixin:
                 if chunk_ids[j] in processed:
                     continue
 
-                similarity = self._calculate_similarity(embeddings[i], embeddings[j])
+                similarity = float(sim_matrix[i, j])
 
                 if similarity >= threshold:
                     self._merge_chunk_pair(
@@ -132,6 +137,18 @@ class ConsolidationMixin:
         self.vector_indexer.collection.delete(ids=[id2])
 
         logger.debug(f"Consolidated {id2} into {id1} (similarity: {similarity:.2f})")
+
+    @staticmethod
+    def _pairwise_cosine(embeddings) -> "np.ndarray":
+        """Full cosine-similarity matrix for a list of embeddings (one matmul).
+
+        Zero-norm rows yield 0 similarity, matching _calculate_similarity.
+        """
+        E = np.asarray(embeddings, dtype=float)
+        norms = np.linalg.norm(E, axis=1)
+        safe = np.where(norms == 0, 1.0, norms)
+        En = E / safe[:, None]
+        return En @ En.T
 
     def _calculate_similarity(
         self,
