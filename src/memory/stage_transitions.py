@@ -239,5 +239,9 @@ class StageTransitionsMixin:
                         "archived_at_ts": archived_at.timestamp(),
                     }
                 except ValueError:
-                    return {"archived_at": raw_value, "archived_at_ts": 0.0}
+                    # Unparseable date -> far future, NOT 0.0. With 0.0 the
+                    # `archived_at_ts < cutoff` check was always true, so
+                    # corrupted metadata was auto-rehydrated every sweep. Keep
+                    # it archived until handled explicitly.
+                    return {"archived_at": raw_value, "archived_at_ts": float("inf")}
             return {}
