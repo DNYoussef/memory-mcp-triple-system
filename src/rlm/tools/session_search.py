@@ -395,13 +395,15 @@ class RLMSessionSearch:
                     {
                         "pattern": learnings[0].content,
                         "occurrences": len(learnings),
-                        "skills": list(set(l.skill_name for l in learnings)),
-                        "avg_confidence": sum(l.confidence for l in learnings)
+                        "skills": list(set(lr.skill_name for lr in learnings)),
+                        "avg_confidence": sum(lr.confidence for lr in learnings)
                         / len(learnings),
                         "first_seen": min(
-                            l.timestamp for l in learnings if l.timestamp
+                            lr.timestamp for lr in learnings if lr.timestamp
                         ),
-                        "last_seen": max(l.timestamp for l in learnings if l.timestamp),
+                        "last_seen": max(
+                            lr.timestamp for lr in learnings if lr.timestamp
+                        ),
                     }
                 )
 

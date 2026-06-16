@@ -388,7 +388,7 @@ class SleepCycleManager:
             if self._state == SleepState.AWAKE:
                 return
 
-            prev_state = self._state
+            prev_state = self._state  # noqa: F841
             self._state = SleepState.WAKING
             self._state_changed_at = datetime.utcnow()
 

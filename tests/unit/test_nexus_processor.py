@@ -573,13 +573,13 @@ class TestNexusProcessorRerank:
     def test_initialization_with_reranker(self, processor_with_reranker, mock_reranker):
         """Test processor initializes with reranker."""
         assert processor_with_reranker.reranker is mock_reranker
-        assert processor_with_reranker.rerank_enabled == True
+        assert processor_with_reranker.rerank_enabled is True
         assert processor_with_reranker.rerank_top_k == 30
 
     def test_initialization_without_reranker(self, processor_without_reranker):
         """Test processor initializes without reranker."""
         assert processor_without_reranker.reranker is None
-        assert processor_without_reranker.rerank_enabled == False
+        assert processor_without_reranker.rerank_enabled is False
 
     def test_custom_rerank_top_k(
         self,

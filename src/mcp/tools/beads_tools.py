@@ -496,7 +496,7 @@ class BeadsTools:
 
             labels = []
             if labels_str:
-                labels = [l.strip() for l in labels_str.split(",") if l.strip()]
+                labels = [s.strip() for s in labels_str.split(",") if s.strip()]
 
             return {
                 "task_id": task_id,
@@ -545,7 +545,7 @@ class BeadsTools:
             elif "LABELS:" in line:
                 in_description = False
                 labels = line.replace("LABELS:", "").strip()
-                task["labels"] = [l.strip() for l in labels.split(",") if l.strip()]
+                task["labels"] = [s.strip() for s in labels.split(",") if s.strip()]
             elif "DEPENDS ON" in line:
                 in_description = False
             elif line.startswith("Owner:"):

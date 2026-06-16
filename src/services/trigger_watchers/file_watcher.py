@@ -19,13 +19,7 @@ from loguru import logger
 
 try:
     from watchdog.observers import Observer
-    from watchdog.events import (
-        FileSystemEventHandler,
-        FileOpenedEvent,
-        FileModifiedEvent,
-        FileCreatedEvent,
-        DirModifiedEvent,
-    )
+    from watchdog.events import FileSystemEventHandler
 
     WATCHDOG_AVAILABLE = True
 except ImportError:

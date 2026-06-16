@@ -53,13 +53,13 @@ def __getattr__(name):
 
 
 # Re-export from tool_registry
-from .tool_registry import (
+from .tool_registry import (  # noqa: E402
     get_tool_definitions,
     handle_list_tools,
 )
 
 # Re-export from request_router
-from .request_router import (
+from .request_router import (  # noqa: E402
     handle_call_tool as _handle_call_tool,
     handle_vector_search,
     handle_memory_store,
@@ -79,7 +79,7 @@ from .request_router import (
 )
 
 # Re-export from protocol_handler
-from .protocol_handler import (
+from .protocol_handler import (  # noqa: E402
     handle_initialize_method,
     handle_tools_list_method,
     handle_tools_call_method,

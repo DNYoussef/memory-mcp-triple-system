@@ -294,23 +294,23 @@ class TestUnifiedSearchRouterHelpers:
 
         assert info["text_weight"] == 0.7
         assert info["visual_weight"] == 0.3
-        assert info["visual_enabled"] == True
+        assert info["visual_enabled"] is True
         assert info["visual_stats"] is not None
 
     def test_get_info_without_visual(self, router_without_visual):
         """Test get_info without visual service."""
         info = router_without_visual.get_info()
 
-        assert info["visual_enabled"] == False
+        assert info["visual_enabled"] is False
         assert info["visual_stats"] is None
 
     def test_visual_available_true(self, router_with_visual):
         """Test _visual_available returns True when available."""
-        assert router_with_visual._visual_available() == True
+        assert router_with_visual._visual_available() is True
 
     def test_visual_available_false_no_service(self, router_without_visual):
         """Test _visual_available returns False without service."""
-        assert router_without_visual._visual_available() == False
+        assert router_without_visual._visual_available() is False
 
     def test_visual_available_false_disabled(self):
         """Test _visual_available returns False when disabled."""
@@ -321,7 +321,7 @@ class TestUnifiedSearchRouterHelpers:
             nexus_processor=Mock(), visual_memory_service=visual_service
         )
 
-        assert router._visual_available() == False
+        assert router._visual_available() is False
 
 
 class TestUnifiedSearchRouterMergeResults:

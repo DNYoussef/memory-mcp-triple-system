@@ -339,7 +339,7 @@ class TestHippoRAGServiceRealGraph:
         assert "Memory MCP" in scores
 
         # Connected nodes should also have scores
-        memory_mcp_score = scores["Memory MCP"]
+        memory_mcp_score = scores["Memory MCP"]  # noqa: F841
         connected_scores = [
             scores.get("ChromaDB", 0),
             scores.get("HippoRAG", 0),

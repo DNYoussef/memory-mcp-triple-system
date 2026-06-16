@@ -583,7 +583,7 @@ class EntityConsolidator:
             canonical_entities.append(canonical)
             total_entities_merged += len(group) - 1  # -1 for canonical itself
 
-        final_entity_count = graph.number_of_nodes()
+        final_entity_count = graph.number_of_nodes()  # noqa: F841
 
         # Calculate consolidation rate
         consolidation_rate = (

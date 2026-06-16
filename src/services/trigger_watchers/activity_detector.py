@@ -428,7 +428,7 @@ class ActivityDetector:
 
         # Filter by confidence and cooldown
         filtered = []
-        now = datetime.utcnow()
+        now = datetime.utcnow()  # noqa: F841
 
         for pattern in all_patterns:
             if pattern.confidence < 0.5:

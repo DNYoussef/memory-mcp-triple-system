@@ -171,7 +171,7 @@ class TestEndToEndRetrieval:
     def test_synonymy_expansion_integration(self, integrated_system):
         """Test synonymy edges improve recall."""
         hippo = integrated_system["hippo"]
-        graph = integrated_system["graph"]
+        graph = integrated_system["graph"]  # noqa: F841
 
         # Query using synonym
         results = hippo.retrieve(query="United States", top_k=5)
@@ -306,7 +306,7 @@ class TestPerformanceIntegration:
 
         # Measure query latency on large graph
         start = time.perf_counter()
-        results = hippo_service.retrieve(query="Entity 0", top_k=10)
+        results = hippo_service.retrieve(query="Entity 0", top_k=10)  # noqa: F841
         end = time.perf_counter()
 
         latency_ms = (end - start) * 1000

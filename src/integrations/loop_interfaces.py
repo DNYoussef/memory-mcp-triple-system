@@ -415,9 +415,19 @@ class Loop3QueryInterface:
             return self._default_5d_params()
 
         # Aggregate signals by type
-        corrections = [l for l in learnings if l.get("signal_type") == "correction"]
-        rules = [l for l in learnings if l.get("signal_type") == "rule"]
-        approvals = [l for l in learnings if l.get("signal_type") == "approval"]
+        corrections = [
+            learning
+            for learning in learnings
+            if learning.get("signal_type") == "correction"
+        ]
+        rules = [
+            learning for learning in learnings if learning.get("signal_type") == "rule"
+        ]
+        approvals = [
+            learning
+            for learning in learnings
+            if learning.get("signal_type") == "approval"
+        ]
 
         # Estimate parameters from signal patterns
         correction_rate = len(corrections) / len(learnings) if learnings else 0
@@ -529,16 +539,16 @@ class Loop3QueryInterface:
 
         cutoff = datetime.utcnow() - timedelta(days=days_back)
         recent_learnings = []
-        for l in learnings:
-            created = l.get("created_at")
+        for learning in learnings:
+            created = learning.get("created_at")
             if created:
                 try:
                     if datetime.fromisoformat(created.replace("Z", "")) >= cutoff:
-                        recent_learnings.append(l)
+                        recent_learnings.append(learning)
                 except (ValueError, TypeError):
-                    recent_learnings.append(l)
+                    recent_learnings.append(learning)
             else:
-                recent_learnings.append(l)
+                recent_learnings.append(learning)
 
         return {
             "globalmoo_5d": self.extract_globalmoo_5d(recent_learnings),

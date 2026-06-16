@@ -106,10 +106,10 @@ class TestNetworkBuilder:
     def test_cache_network(self, builder, sample_graph):
         """Test network caching with TTL."""
         # Build network (should cache)
-        network1 = builder.build_network(sample_graph, use_cache=True)
+        network1 = builder.build_network(sample_graph, use_cache=True)  # noqa: F841
 
         # Build again (should hit cache)
-        network2 = builder.build_network(sample_graph, use_cache=True)
+        network2 = builder.build_network(sample_graph, use_cache=True)  # noqa: F841
 
         assert len(builder.cache) == 1
 
@@ -121,12 +121,12 @@ class TestNetworkBuilder:
         # Set short TTL
         builder.cache_ttl = timedelta(seconds=0)
 
-        network1 = builder.build_network(sample_graph, use_cache=True)
+        network1 = builder.build_network(sample_graph, use_cache=True)  # noqa: F841
 
         # Immediately try to use cache (should be expired)
         time.sleep(0.1)
 
-        network2 = builder.build_network(sample_graph, use_cache=True)
+        network2 = builder.build_network(sample_graph, use_cache=True)  # noqa: F841
 
         # Cache should have been rebuilt
         assert len(builder.cache) >= 1
@@ -234,7 +234,7 @@ class TestNetworkBuilder:
 
     def test_network_serialization(self, builder, sample_graph):
         """Test that network can be cached and retrieved."""
-        network1 = builder.build_network(sample_graph, use_cache=True)
+        network1 = builder.build_network(sample_graph, use_cache=True)  # noqa: F841
 
         # Get cache key
         cache_key = builder._get_cache_key(sample_graph)

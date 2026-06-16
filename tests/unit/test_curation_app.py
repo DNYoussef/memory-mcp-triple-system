@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 pytest.importorskip("flask")
 
-from src.ui.curation_app import app, _get_run_options
+from src.ui.curation_app import app, _get_run_options  # noqa: E402
 
 
 @pytest.fixture

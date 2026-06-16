@@ -30,7 +30,7 @@ from loguru import logger
 # Add project paths for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.woundhealer.rlm_client import RLMClient, PatternMatch
+from src.woundhealer.rlm_client import RLMClient, PatternMatch  # noqa: E402
 
 
 class RepairStatus(Enum):

@@ -25,8 +25,8 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.stores.kv_store import KVStore
-from src.services.observation_bridge import ObservationBridge
+from src.stores.kv_store import KVStore  # noqa: E402
+from src.services.observation_bridge import ObservationBridge  # noqa: E402
 
 
 # Default paths

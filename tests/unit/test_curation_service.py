@@ -53,7 +53,7 @@ class TestCurationServiceInitialization:
         """Test initialization creates data directory."""
         data_dir = tmp_path / "data"
 
-        service = CurationService(
+        service = CurationService(  # noqa: F841
             chroma_client=mock_chroma_client, data_dir=str(data_dir)
         )
 

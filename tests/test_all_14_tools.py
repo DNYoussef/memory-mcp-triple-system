@@ -32,8 +32,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 os.environ["MEMORY_MCP_DATA_DIR"] = str(Path.home() / ".claude" / "memory-mcp-data")
 
 # Import the MCP server components
-from src.mcp.stdio_server import NexusSearchTool, handle_list_tools
-import yaml
+from src.mcp.stdio_server import NexusSearchTool, handle_list_tools  # noqa: E402
+import yaml  # noqa: E402
 
 # Test results tracking
 results = {}
@@ -296,7 +296,9 @@ async def test_graph_query(nexus_tool):
         edge_count = nexus_tool.graph_service.get_edge_count()
 
         # Run PPR with empty nodes (will return empty dict but validates engine works)
-        ppr_result = engine.personalized_pagerank(query_nodes=[], alpha=0.85)
+        ppr_result = engine.personalized_pagerank(  # noqa: F841
+            query_nodes=[], alpha=0.85
+        )
 
         print_result(
             "graph_query",
@@ -318,7 +320,7 @@ async def test_bayesian_inference(nexus_tool):
         engine = ProbabilisticQueryEngine(timeout_seconds=1.0)
 
         # Simple test - query conditional with no network should return None gracefully
-        result = engine.query_conditional(
+        result = engine.query_conditional(  # noqa: F841
             network=None, query_vars=["test"], evidence={}
         )
 
@@ -446,7 +448,7 @@ async def test_beads_task_detail(nexus_tool):
     """Test 13: Beads task detail"""
     try:
         # Try with a dummy task ID
-        detail = await nexus_tool.beads_bridge.get_task_detail("TEST-001")
+        detail = await nexus_tool.beads_bridge.get_task_detail("TEST-001")  # noqa: F841
         print_result("beads_task_detail", True, "Beads task detail query works")
         return True
     except FileNotFoundError:

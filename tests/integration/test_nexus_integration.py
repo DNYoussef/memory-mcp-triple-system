@@ -21,10 +21,16 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.bridges.cytoscape_exporter import CytoscapeExporter, ConstellationGraphData
-from src.integrations.frontmatter_mapper import FrontmatterMapper, FileRelationships
-from src.integrations.property_inheritance import PropertyInheritanceChain
-from src.visualization.dashboard_graphs import (
+from src.bridges.cytoscape_exporter import (  # noqa: E402
+    CytoscapeExporter,
+    ConstellationGraphData,
+)
+from src.integrations.frontmatter_mapper import (  # noqa: E402
+    FrontmatterMapper,
+    FileRelationships,
+)
+from src.integrations.property_inheritance import PropertyInheritanceChain  # noqa: E402
+from src.visualization.dashboard_graphs import (  # noqa: E402
     DashboardGraphVisualizer,
     GraphFormat,
     ViewType,

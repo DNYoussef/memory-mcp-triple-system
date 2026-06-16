@@ -273,7 +273,9 @@ class TestIntegration:
 
         # Tesla should have highest score (query node)
         tesla_score = ppr_scores.get("tesla", 0)
-        other_scores = [score for node, score in ppr_scores.items() if node != "tesla"]
+        other_scores = [  # noqa: F841
+            score for node, score in ppr_scores.items() if node != "tesla"
+        ]
 
         # Tesla should rank high (though not necessarily highest in all cases)
         assert tesla_score > 0.0

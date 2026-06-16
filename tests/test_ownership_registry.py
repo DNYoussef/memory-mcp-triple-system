@@ -299,7 +299,9 @@ def test_fix_violations_dry_run(registry, temp_dir, sample_file):
     violations = registry.detect_drift(scan_paths=[scan_dir])
 
     # Dry run
-    results = registry.fix_violations(violations, auto_fix=True, dry_run=True)
+    results = registry.fix_violations(  # noqa: F841
+        violations, auto_fix=True, dry_run=True
+    )
 
     # File should still exist
     assert os.path.exists(duplicate_path)

@@ -18,8 +18,8 @@ from loguru import logger
 # Privacy tag regex -- redacts <private>...</private> content before storage
 _PRIVATE_RE = re.compile(r"<private>.*?</private>", re.DOTALL)
 
-from ..stores.kv_store import KVStore
-from ..models.observation_types import Observation, classify_tool
+from ..stores.kv_store import KVStore  # noqa: E402
+from ..models.observation_types import Observation, classify_tool  # noqa: E402
 
 
 class ObservationBridge:

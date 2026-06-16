@@ -26,7 +26,7 @@ class TestQwen3VLEmbedderInitialization:
         """Test default model selection."""
         embedder = Qwen3VLEmbedder(enabled=False)
         assert embedder.model_name == "Qwen/Qwen3-VL-Embedding-2B"
-        assert embedder.enabled == False
+        assert embedder.enabled is False
 
     def test_initialization_custom_model(self):
         """Test custom model name."""
@@ -37,13 +37,13 @@ class TestQwen3VLEmbedderInitialization:
     def test_initialization_mrl_enabled(self):
         """Test MRL dimension reduction enabled by default."""
         embedder = Qwen3VLEmbedder(enabled=False)
-        assert embedder.use_mrl == True
+        assert embedder.use_mrl is True
         assert embedder.target_dim == 384
 
     def test_initialization_mrl_disabled(self):
         """Test MRL dimension reduction disabled."""
         embedder = Qwen3VLEmbedder(use_mrl=False, enabled=False)
-        assert embedder.use_mrl == False
+        assert embedder.use_mrl is False
         assert embedder.target_dim == 2048  # Native dimension
 
     def test_initialization_custom_target_dim(self):
@@ -191,7 +191,7 @@ class TestQwen3VLEmbedderHelpers:
     def test_is_available_when_disabled(self):
         """Test is_available returns False when disabled."""
         embedder = Qwen3VLEmbedder(enabled=False)
-        assert embedder.is_available() == False
+        assert embedder.is_available() is False
 
     def test_is_available_when_model_not_loaded(self):
         """Test is_available returns False when the model is not loaded.
@@ -208,13 +208,13 @@ class TestQwen3VLEmbedderHelpers:
             embedder = Qwen3VLEmbedder(enabled=True)
             embedder._model = None
             embedder._processor = None
-            assert embedder.is_available() == False
+            assert embedder.is_available() is False
 
     def test_is_available_when_enabled_and_loaded(self):
         """Test is_available returns True when enabled and loaded."""
         embedder = Qwen3VLEmbedder(enabled=True)
         embedder._model = Mock()  # Simulate loaded model
-        assert embedder.is_available() == True
+        assert embedder.is_available() is True
 
     def test_get_info(self):
         """Test get_info returns correct information."""
@@ -231,8 +231,8 @@ class TestQwen3VLEmbedderHelpers:
 
         assert info["native_dim"] == 2048
         assert info["target_dim"] == 384
-        assert info["enabled"] == False
-        assert info["loaded"] == False
+        assert info["enabled"] is False
+        assert info["loaded"] is False
 
 
 class TestQwen3VLEmbedderModelLoading:

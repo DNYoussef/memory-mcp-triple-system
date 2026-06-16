@@ -170,7 +170,7 @@ class OwnershipRegistry:
             "last_verified": component.last_verified.isoformat(),
         }
 
-        entity_type = f"ownership-{component_type.value}"
+        entity_type = f"ownership-{component_type.value}"  # noqa: F841
         self.graph.add_chunk_node(component_id, metadata)
 
         self._components[component_id] = component

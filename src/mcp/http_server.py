@@ -29,34 +29,34 @@ sys.path.insert(
 )
 
 # F4: force UTF-8 stdout/stderr before heavy imports (cp1252 pipe crash).
-from src.mcp import _utf8_io  # noqa: F401  (import runs ensure_utf8_io())
+from src.mcp import _utf8_io  # noqa: F401,E402  (import runs ensure_utf8_io())
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Security
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
-import uvicorn
-from loguru import logger
+from fastapi import Depends, FastAPI, Header, HTTPException, Security  # noqa: E402
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
+import uvicorn  # noqa: E402
+from loguru import logger  # noqa: E402
 
 # Import Memory MCP components
-from src.indexing.vector_indexer import VectorIndexer, resolve_persist_dir
-from src.indexing.embedding_pipeline import EmbeddingPipeline
-from src.modes.mode_detector import ModeDetector
-from src.routing.query_router import QueryRouter
-from src.routing.unified_router import UnifiedRetrievalRouter
-from src.nexus.processor import NexusProcessor
-from src.services.graph_service import GraphService
-from src.services.graph_query_engine import GraphQueryEngine
-from src.bayesian import (
+from src.indexing.vector_indexer import VectorIndexer, resolve_persist_dir  # noqa: E402
+from src.indexing.embedding_pipeline import EmbeddingPipeline  # noqa: E402
+from src.modes.mode_detector import ModeDetector  # noqa: E402
+from src.routing.query_router import QueryRouter  # noqa: E402
+from src.routing.unified_router import UnifiedRetrievalRouter  # noqa: E402
+from src.nexus.processor import NexusProcessor  # noqa: E402
+from src.services.graph_service import GraphService  # noqa: E402
+from src.services.graph_query_engine import GraphQueryEngine  # noqa: E402
+from src.bayesian import (  # noqa: E402
     BAYESIAN_AVAILABLE,
     BAYESIAN_BACKEND,
     NetworkBuilder,
     ProbabilisticQueryEngine,
 )
-from src.stores.event_log import EventLog, EventType
-from src.stores.kv_store import KVStore, DEFAULT_DB_NAME
-from src.memory.lifecycle_manager import MemoryLifecycleManager
-from src.memory.lifecycle_scheduler import LifecycleScheduler
+from src.stores.event_log import EventLog, EventType  # noqa: E402
+from src.stores.kv_store import KVStore, DEFAULT_DB_NAME  # noqa: E402
+from src.memory.lifecycle_manager import MemoryLifecycleManager  # noqa: E402
+from src.memory.lifecycle_scheduler import LifecycleScheduler  # noqa: E402
 
 # Lazy imports to avoid startup crashes if dependencies are missing
 # These are imported inside get_*() functions instead
@@ -64,8 +64,11 @@ from src.memory.lifecycle_scheduler import LifecycleScheduler
 # from src.services.entity_service import EntityService
 # from src.lifecycle.hotcold_classifier import HotColdClassifier
 # from src.chunking.semantic_chunker import SemanticChunker
-from src.integrations.beads_bridge import BeadsBridge, resolve_beads_binary
-from src.universal_components import (
+from src.integrations.beads_bridge import (  # noqa: E402
+    BeadsBridge,
+    resolve_beads_binary,
+)
+from src.universal_components import (  # noqa: E402
     init_connascence_bridge,
     init_memory_client,
     init_tagger,

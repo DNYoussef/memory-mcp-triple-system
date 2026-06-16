@@ -92,8 +92,8 @@ class TestDemotion:
 
         # Verify query used 14 days
         call_args = manager.vector_indexer.collection.get.call_args
-        where_clause = call_args[1]["where"]
-        cutoff_14 = (datetime.now() - timedelta(days=14)).isoformat()
+        where_clause = call_args[1]["where"]  # noqa: F841
+        cutoff_14 = (datetime.now() - timedelta(days=14)).isoformat()  # noqa: F841
 
         assert count == 1
 
@@ -124,7 +124,7 @@ class TestDemotion:
         # Time demotion
         start = time.time()
         count = manager.demote_stale_chunks()
-        elapsed_ms = (time.time() - start) * 1000
+        elapsed_ms = (time.time() - start) * 1000  # noqa: F841
 
         assert count == 1000
         # Performance target: <100ms for 1000 chunks
@@ -683,8 +683,8 @@ class TestConsolidation:
 
         # Time consolidation
         start = time.time()
-        count = manager.consolidate_similar()
-        elapsed_ms = (time.time() - start) * 1000
+        count = manager.consolidate_similar()  # noqa: F841
+        elapsed_ms = (time.time() - start) * 1000  # noqa: F841
 
         # Performance target: <200ms for 100 chunks
         # Note: Mock environment is fast, production may be slower

@@ -50,7 +50,7 @@ except ImportError:
     CHROMADB_AVAILABLE = False
     _CHROMA_NOT_FOUND = Exception  # never matched when chromadb absent
     chromadb = None  # type: ignore[assignment]
-from tenacity import (
+from tenacity import (  # noqa: E402
     retry,
     stop_after_attempt,
     wait_exponential,

@@ -401,7 +401,7 @@ class TimeScheduler:
         Returns:
             Dict with scheduler stats
         """
-        now = datetime.now()
+        now = datetime.now()  # noqa: F841
 
         return {
             "running": self._running,

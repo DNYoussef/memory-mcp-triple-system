@@ -24,9 +24,9 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.stores.kv_store import KVStore
-from src.models.observation_types import Session
-from src.services.token_calculator import TokenTracker
+from src.stores.kv_store import KVStore  # noqa: E402
+from src.models.observation_types import Session  # noqa: E402
+from src.services.token_calculator import TokenTracker  # noqa: E402
 
 
 # Default paths
@@ -162,7 +162,7 @@ def main():
     try:
         raw = sys.stdin.read()
         if raw.strip():
-            payload = json.loads(raw)
+            payload = json.loads(raw)  # noqa: F841
     except (json.JSONDecodeError, IOError):
         pass
 

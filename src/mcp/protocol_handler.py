@@ -16,7 +16,7 @@ from loguru import logger
 # Module-level singleton for NexusSearchTool (avoid OOM from re-init per call)
 _nexus_tool = None
 
-from .tool_registry import get_tool_definitions
+from .tool_registry import get_tool_definitions  # noqa: E402
 
 
 def handle_initialize_method(params: Dict[str, Any]) -> Dict[str, Any]:

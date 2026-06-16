@@ -23,7 +23,7 @@ from loguru import logger
 # Add project path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from src.rlm.rlm_codebase_env import (
+from src.rlm.rlm_codebase_env import (  # noqa: E402
     RLMCodebaseEnvironment,
     PatternType,
     PATTERN_SIGNATURES,

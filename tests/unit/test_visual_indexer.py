@@ -52,7 +52,7 @@ class TestVisualMemoryIndexerInitialization:
         new_dir = Path(temp) / "new_subdir"
 
         try:
-            indexer = VisualMemoryIndexer(persist_directory=str(new_dir))
+            indexer = VisualMemoryIndexer(persist_directory=str(new_dir))  # noqa: F841
             assert new_dir.exists()
         finally:
             try:
@@ -300,14 +300,14 @@ class TestVisualMemoryIndexerDelete:
 
         result = indexer_with_docs.delete("doc-0")
 
-        assert result == True
+        assert result is True
         assert indexer_with_docs.count() == initial_count - 1
 
     def test_delete_nonexistent(self, indexer_with_docs):
         """Test deleting nonexistent document."""
         initial_count = indexer_with_docs.count()
 
-        result = indexer_with_docs.delete("nonexistent")
+        result = indexer_with_docs.delete("nonexistent")  # noqa: F841
 
         # ChromaDB doesn't error on deleting nonexistent
         assert indexer_with_docs.count() == initial_count
@@ -350,7 +350,7 @@ class TestVisualMemoryIndexerUpdateMetadata:
             "test-doc-1", {"visual_type": "diagram", "title": "Updated"}
         )
 
-        assert result == True
+        assert result is True
 
         doc = indexer_with_doc.get_by_id("test-doc-1")
         assert doc["metadata"]["title"] == "Updated"
@@ -404,7 +404,7 @@ class TestVisualMemoryIndexerMetadataCleaning:
         assert cleaned["str_val"] == "hello"
         assert cleaned["int_val"] == 42
         assert cleaned["float_val"] == 3.14
-        assert cleaned["bool_val"] == True
+        assert cleaned["bool_val"] is True
 
     def test_clean_metadata_flattens_nested_dict(self, indexer):
         """Test that nested dicts are flattened."""

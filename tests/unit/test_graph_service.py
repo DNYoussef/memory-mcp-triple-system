@@ -54,7 +54,7 @@ class TestInitialization:
     def test_initialization_creates_data_dir(self, tmp_path):
         """Test data directory is created."""
         data_dir = tmp_path / "test_data"
-        service = GraphService(data_dir=str(data_dir))
+        service = GraphService(data_dir=str(data_dir))  # noqa: F841
 
         assert data_dir.exists()
         assert data_dir.is_dir()

@@ -361,4 +361,4 @@ def register_proactive_tools(server: Any, injector: ProactiveContextInjector) ->
 
 
 # Import datetime at top
-from datetime import datetime
+from datetime import datetime  # noqa: E402

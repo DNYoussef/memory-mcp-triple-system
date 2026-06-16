@@ -24,7 +24,7 @@ class TestRerankerServiceInitialization:
         """Test default model selection."""
         service = RerankerService(enabled=False)
         assert service.model_name == "cross-encoder/ms-marco-MiniLM-L-6-v2"
-        assert service.enabled == False
+        assert service.enabled is False
 
     def test_initialization_small_model(self):
         """Test small model selection."""
@@ -144,7 +144,7 @@ class TestRerankerServiceRerank:
         )
 
         assert "rerank_enabled" in stats
-        assert stats["rerank_enabled"] == True
+        assert stats["rerank_enabled"] is True
         assert "rerank_ms" in stats
         assert "rerank_input_count" in stats
         assert stats["rerank_input_count"] == 3
@@ -162,7 +162,7 @@ class TestRerankerServiceRerank:
         assert len(reranked) == 3
         # Order should be preserved when disabled
         assert reranked[0]["id"] == "doc-1"
-        assert stats["rerank_skipped"] == True
+        assert stats["rerank_skipped"] is True
 
     def test_rerank_empty_documents(self, service_with_mock_model):
         """Test rerank with empty document list."""
@@ -171,7 +171,7 @@ class TestRerankerServiceRerank:
         )
 
         assert len(reranked) == 0
-        assert stats["rerank_skipped"] == True
+        assert stats["rerank_skipped"] is True
 
     def test_rerank_model_not_loaded(self, sample_documents):
         """Test rerank when model property returns None."""
@@ -186,7 +186,7 @@ class TestRerankerServiceRerank:
 
             # Should return original documents when model is None
             assert len(reranked) == 3
-            assert stats.get("rerank_skipped", False) == True
+            assert stats.get("rerank_skipped", False) is True
 
     def test_rerank_handles_document_field(self, service_with_mock_model):
         """Test rerank handles 'document' field instead of 'text'."""
@@ -368,12 +368,12 @@ class TestRerankerServiceHelpers:
         """Test is_available returns True when model is loaded."""
         service.enabled = True
         service._model = Mock()  # Simulate loaded model
-        assert service.is_available() == True
+        assert service.is_available() is True
 
     def test_is_available_when_disabled(self, service):
         """Test is_available returns False when disabled."""
         service.enabled = False
-        assert service.is_available() == False
+        assert service.is_available() is False
 
     def test_is_available_when_model_not_loaded(self):
         """Test is_available returns False when model not loaded."""
@@ -385,7 +385,7 @@ class TestRerankerServiceHelpers:
         # When model is None, is_available should return False
         # But since is_available calls self.model (lazy load), we test the disabled case instead
         service.enabled = False
-        assert service.is_available() == False
+        assert service.is_available() is False
 
     def test_get_info(self, service):
         """Test get_info returns correct information."""

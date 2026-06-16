@@ -24,8 +24,8 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.stores.kv_store import KVStore
-from src.services.session_summarizer import SessionSummarizer
+from src.stores.kv_store import KVStore  # noqa: E402
+from src.services.session_summarizer import SessionSummarizer  # noqa: E402
 
 
 # Default paths
@@ -50,7 +50,7 @@ def main():
     """Main entry point for Stop hook."""
     # Read hook payload from stdin (may be empty)
     try:
-        raw = sys.stdin.read()
+        raw = sys.stdin.read()  # noqa: F841
     except IOError:
         pass
 

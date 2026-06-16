@@ -7,9 +7,12 @@ Single Responsibility: Classify errors into categories.
 NASA Rule 10 Compliant: All functions <=60 LOC
 """
 
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from enum import Enum
 from loguru import logger
+
+if TYPE_CHECKING:
+    from src.debug.detection_rules import DetectionRules
 
 
 class ErrorType(Enum):

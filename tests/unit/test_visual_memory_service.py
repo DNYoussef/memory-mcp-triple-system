@@ -48,14 +48,14 @@ class TestVisualMemoryServiceInitialization:
         service = VisualMemoryService(
             embedder=mock_embedder, indexer=mock_indexer, enabled=True
         )
-        assert service.enabled == True
+        assert service.enabled is True
 
     def test_initialization_disabled(self, mock_embedder, mock_indexer):
         """Test service initializes disabled."""
         service = VisualMemoryService(
             embedder=mock_embedder, indexer=mock_indexer, enabled=False
         )
-        assert service.enabled == False
+        assert service.enabled is False
 
     def test_visual_types_constant(self, mock_embedder, mock_indexer):
         """Test VISUAL_TYPES constant."""
@@ -89,7 +89,7 @@ class TestVisualMemoryServiceIngestion:
         yield temp.name
         try:
             Path(temp.name).unlink()
-        except:
+        except Exception:
             pass
 
     def test_ingest_screenshot_success(self, service, temp_image):
@@ -98,7 +98,7 @@ class TestVisualMemoryServiceIngestion:
             image_path=temp_image, title="Test Screenshot", context="A test screenshot"
         )
 
-        assert result["success"] == True
+        assert result["success"] is True
         assert "doc_id" in result
         assert result["visual_type"] == "screenshot"
 
@@ -108,7 +108,7 @@ class TestVisualMemoryServiceIngestion:
             image_path=temp_image, title="Test Diagram", context="Architecture diagram"
         )
 
-        assert result["success"] == True
+        assert result["success"] is True
         assert result["visual_type"] == "diagram"
 
     def test_ingest_visual_generic(self, service, temp_image):
@@ -117,7 +117,7 @@ class TestVisualMemoryServiceIngestion:
             image_path=temp_image, visual_type="chart", title="Test Chart"
         )
 
-        assert result["success"] == True
+        assert result["success"] is True
         assert result["visual_type"] == "chart"
 
     def test_ingest_file_not_found(self, service):
@@ -126,7 +126,7 @@ class TestVisualMemoryServiceIngestion:
             image_path="/nonexistent/path/image.png", title="Test"
         )
 
-        assert result["success"] == False
+        assert result["success"] is False
         assert "not found" in result["error"].lower()
 
     def test_ingest_disabled_service(self, temp_image):
@@ -135,7 +135,7 @@ class TestVisualMemoryServiceIngestion:
 
         result = service.ingest_screenshot(image_path=temp_image)
 
-        assert result["success"] == False
+        assert result["success"] is False
         assert "disabled" in result["error"].lower()
 
     def test_ingest_uses_multimodal_with_context(self, service, temp_image):
@@ -165,7 +165,7 @@ class TestVisualMemoryServiceIngestion:
             image_path=temp_image, visual_type="invalid_type"
         )
 
-        assert result["success"] == True
+        assert result["success"] is True
         assert result["visual_type"] == "other"
 
 
@@ -192,7 +192,7 @@ class TestVisualMemoryServiceMetadata:
         yield temp.name
         try:
             Path(temp.name).unlink()
-        except:
+        except Exception:
             pass
 
     def test_metadata_includes_who_when_project_why(self, service, temp_image):
@@ -325,7 +325,7 @@ class TestVisualMemoryServiceHelpers:
         result = service.delete_visual("doc-1")
 
         service.indexer.delete.assert_called_once_with("doc-1")
-        assert result == True
+        assert result is True
 
     def test_get_stats(self, service):
         """Test get_stats returns statistics."""
@@ -337,5 +337,5 @@ class TestVisualMemoryServiceHelpers:
         assert "indexer" in stats
         assert "visual_types" in stats
 
-        assert stats["enabled"] == True
+        assert stats["enabled"] is True
         assert stats["total_visuals"] == 10
