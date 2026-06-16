@@ -10,13 +10,20 @@ from loguru import logger
 
 from .mode_profile import ModeProfile, EXECUTION, PLANNING, BRAINSTORMING
 
-# ISS-030 FIX: Validate imports at module load time
-assert isinstance(EXECUTION, ModeProfile), "EXECUTION must be ModeProfile"
-assert isinstance(PLANNING, ModeProfile), "PLANNING must be ModeProfile"
-assert isinstance(BRAINSTORMING, ModeProfile), "BRAINSTORMING must be ModeProfile"
-assert EXECUTION.name == "execution", "EXECUTION.name must be 'execution'"
-assert PLANNING.name == "planning", "PLANNING.name must be 'planning'"
-assert BRAINSTORMING.name == "brainstorming", "BRAINSTORMING.name must be 'brainstorming'"
+# ISS-030 FIX: validate imports at module load time. Use explicit raises, not
+# asserts - assert statements are stripped under `python -OO`, which would
+# silently skip this validation. (F13)
+def _validate_mode_profiles() -> None:
+    for profile, expected in (
+        (EXECUTION, "execution"), (PLANNING, "planning"), (BRAINSTORMING, "brainstorming"),
+    ):
+        if not isinstance(profile, ModeProfile):
+            raise TypeError(f"{expected} must be a ModeProfile, got {type(profile)}")
+        if profile.name != expected:
+            raise ValueError(f"mode profile name must be {expected!r}, got {profile.name!r}")
+
+
+_validate_mode_profiles()
 
 
 class ModeDetector:
