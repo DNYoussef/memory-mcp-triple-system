@@ -7,11 +7,36 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 
 from typing import List, Dict, Any, Optional, Tuple
 import json
+import os
 import uuid
 import time
 import sqlite3
 import threading
 from loguru import logger
+
+
+def resolve_persist_dir(
+    persist_directory: Optional[str] = None,
+    default: str = "/data/chroma",
+) -> str:
+    """Resolve the ChromaDB persist directory with one consistent precedence.
+
+    explicit arg > CHROMA_PERSIST_DIR > MEMORY_MCP_DATA_DIR/chroma > default
+
+    Closes the silent wrong-store footgun: callers that pass no directory used
+    to land on the hardcoded /data/chroma even when MEMORY_MCP_DATA_DIR pointed
+    elsewhere. The /data/chroma fallback (Railway volume) is preserved when
+    nothing is set.
+    """
+    if persist_directory:
+        return persist_directory
+    env_chroma = os.getenv("CHROMA_PERSIST_DIR")
+    if env_chroma:
+        return env_chroma
+    data_dir = os.getenv("MEMORY_MCP_DATA_DIR")
+    if data_dir:
+        return os.path.join(data_dir, "chroma")
+    return default
 
 # ChromaDB is optional -- vector tier degrades gracefully when unavailable
 try:
@@ -53,10 +78,11 @@ class VectorIndexer:
     @classmethod
     def get_instance(
         cls,
-        persist_directory: str = "/data/chroma",
+        persist_directory: Optional[str] = None,
         collection_name: str = "memory_chunks"
     ) -> "VectorIndexer":
         """Return a shared VectorIndexer instance for given configuration."""
+        persist_directory = resolve_persist_dir(persist_directory)
         key = (persist_directory, collection_name)
         if key not in cls._instances:
             with cls._instance_lock:
@@ -69,16 +95,18 @@ class VectorIndexer:
 
     def __init__(
         self,
-        persist_directory: str = "/data/chroma",
+        persist_directory: Optional[str] = None,
         collection_name: str = "memory_chunks"
     ):
         """
         Initialize vector indexer with ChromaDB.
 
         Args:
-            persist_directory: Directory to persist ChromaDB data
+            persist_directory: Directory to persist ChromaDB data. When None,
+                resolved from CHROMA_PERSIST_DIR / MEMORY_MCP_DATA_DIR / default.
             collection_name: Collection name
         """
+        persist_directory = resolve_persist_dir(persist_directory)
         assert isinstance(persist_directory, str), "persist_directory must be string"
         assert isinstance(collection_name, str), "collection_name must be string"
 

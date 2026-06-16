@@ -35,7 +35,7 @@ import uvicorn
 from loguru import logger
 
 # Import Memory MCP components
-from src.indexing.vector_indexer import VectorIndexer
+from src.indexing.vector_indexer import VectorIndexer, resolve_persist_dir
 from src.indexing.embedding_pipeline import EmbeddingPipeline
 from src.modes.mode_detector import ModeDetector
 from src.routing.query_router import QueryRouter
@@ -285,7 +285,9 @@ def get_indexer() -> VectorIndexer:
                 # Default /data/chroma matches config/memory-mcp.yaml:18.
                 # /app/chroma_data was a broken workaround that made every
                 # redeploy amnesia. Do not revert to container-local.
-                persist_dir = os.getenv("CHROMA_PERSIST_DIR", "/data/chroma")
+                # resolve_persist_dir adds MEMORY_MCP_DATA_DIR resolution while
+                # keeping this durable default when nothing is set.
+                persist_dir = resolve_persist_dir(default="/data/chroma")
                 _verify_volume_writable(persist_dir)
                 _indexer = VectorIndexer.get_instance(persist_directory=persist_dir)
     return _indexer

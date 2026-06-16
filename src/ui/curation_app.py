@@ -12,6 +12,7 @@ import chromadb
 from loguru import logger
 
 from ..services.curation_service import CurationService
+from ..indexing.vector_indexer import resolve_persist_dir
 
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
@@ -29,7 +30,9 @@ def init_services() -> CurationService:
         CurationService instance
     """
     data_dir = os.getenv("MEMORY_MCP_DATA_DIR", "./data")
-    chroma_path = os.path.join(data_dir, "chroma")
+    # Single resolver: honors CHROMA_PERSIST_DIR / MEMORY_MCP_DATA_DIR so the UI
+    # opens the same store as the stdio/HTTP server.
+    chroma_path = resolve_persist_dir(default=os.path.join(data_dir, "chroma"))
     client = chromadb.PersistentClient(path=chroma_path)
     service = CurationService(
         chroma_client=client,
