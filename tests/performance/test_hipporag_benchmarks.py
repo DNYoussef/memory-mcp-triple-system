@@ -7,6 +7,7 @@ for Week 5 audit deliverables.
 NASA Rule 10 Compliant: All functions ≤60 LOC
 """
 
+import os
 import pytest
 import time
 import cProfile
@@ -16,6 +17,14 @@ import io
 from src.services.hipporag_service import HippoRagService
 from src.services.graph_service import GraphService
 from src.services.entity_service import EntityService
+
+# Absolute latency thresholds (e.g. duration_ms < 100) are hardware-dependent
+# and flake on shared CI runners. These are local performance benchmarks, not
+# a CI correctness gate, so skip them under CI.
+pytestmark = pytest.mark.skipif(
+    os.getenv("CI") is not None,
+    reason="hardware-dependent performance benchmark; not a CI correctness gate",
+)
 
 
 class TestScalabilityBenchmarks:

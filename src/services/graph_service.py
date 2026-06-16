@@ -16,6 +16,7 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 Cohesion: HIGH (facade pattern - coordinates focused components)
 """
 
+import os
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 import networkx as nx
@@ -53,14 +54,17 @@ class GraphService:
     EDGE_SIMILAR_TO = GraphEdgeManager.EDGE_SIMILAR_TO
     EDGE_RELATED_TO = GraphEdgeManager.EDGE_RELATED_TO
 
-    def __init__(self, data_dir: str = "/data"):
+    def __init__(self, data_dir: Optional[str] = None):
         """
         Initialize GraphService facade.
 
         Args:
-            data_dir: Directory for graph persistence
+            data_dir: Directory for graph persistence. Defaults to
+                MEMORY_MCP_DATA_DIR, then "/data" -- matching how the rest of
+                the system resolves its data dir (a bare "/data" default is
+                unwritable on CI and diverges from _get_data_dir).
         """
-        self.data_dir = Path(data_dir)
+        self.data_dir = Path(data_dir or os.getenv("MEMORY_MCP_DATA_DIR") or "/data")
         self.data_dir.mkdir(parents=True, exist_ok=True)
 
         # Initialize graph

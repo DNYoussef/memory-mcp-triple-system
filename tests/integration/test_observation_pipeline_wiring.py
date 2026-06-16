@@ -23,6 +23,8 @@ import json
 import os
 from pathlib import Path
 
+import pytest
+
 
 from src.stores.kv_store import KVStore, DEFAULT_DB_NAME
 from src.models.observation_types import Session
@@ -169,8 +171,15 @@ def test_claude_settings_wire_capture_hooks():
 
     Fails before the fix: neither settings.json nor settings.local.json has a
     hooks block, so the PostToolUse handler never runs.
+
+    Local-only: validates THIS developer's Claude config. Skipped on CI / a
+    fresh checkout where ~/.claude settings do not exist.
     """
     claude_dir = Path.home() / ".claude"
+    if not any(
+        (claude_dir / n).exists() for n in ("settings.json", "settings.local.json")
+    ):
+        pytest.skip("no ~/.claude settings file present (CI/fresh checkout)")
     # Assert the FULL handler script path, not just the basename -- a hook
     # pointing at the wrong repo would silently run unfixed code.
     hooks_dir = "D:/Projects/memory-mcp-triple-system/src/hooks"

@@ -15,7 +15,16 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+# These tests validate a developer's LOCAL Claude Code hooks install, which is
+# not present on CI or a fresh checkout. Skip when the directory is absent.
+_HOOKS_DIR = Path.home() / ".claude" / "hooks" / "12fa"
+_requires_local_hooks = pytest.mark.skipif(
+    not _HOOKS_DIR.exists(),
+    reason="local Claude hooks install (~/.claude/hooks/12fa) not present",
+)
 
+
+@_requires_local_hooks
 class TestHooksDirectoryStructure:
     """Test C2.1: Hooks directory exists."""
 
@@ -44,6 +53,7 @@ class TestHooksDirectoryStructure:
         assert hook_file.exists(), f"Access control hook not found: {hook_file}"
 
 
+@_requires_local_hooks
 class TestHookFileValidity:
     """Test C2.2 and C2.3: Hook files are valid JavaScript."""
 

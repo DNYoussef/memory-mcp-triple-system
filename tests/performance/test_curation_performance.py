@@ -6,6 +6,7 @@ Target: <5 minutes to curate 20 chunks
 NASA Rule 10 Compliant: All functions ≤60 LOC
 """
 
+import os
 import pytest
 import chromadb
 import uuid
@@ -13,6 +14,13 @@ import time
 from typing import List, Dict, Any
 
 from src.services.curation_service import CurationService
+
+# Absolute latency thresholds are hardware-dependent and flake on shared CI
+# runners. Local performance benchmarks, not a CI correctness gate.
+pytestmark = pytest.mark.skipif(
+    os.getenv("CI") is not None,
+    reason="hardware-dependent performance benchmark; not a CI correctness gate",
+)
 
 
 # ============================================================================
