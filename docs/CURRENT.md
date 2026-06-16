@@ -25,6 +25,12 @@ prefer this file. History lives under `docs/project-history/`.
   lazily on first use, NOT at server boot (the stdio handshake stays fast).
 - `MEMORY_MCP_SYNC_BAYESIAN=1` forces the Bayesian network to build synchronously
   instead of in the background (tests / deterministic startup).
+- `OBSIDIAN_VAULT_PATH` - absolute path to an Obsidian vault. When set (or
+  `storage.obsidian_vault` in config), `obsidian_sync` ingests the vault's `.md`
+  notes (chunked + embedded + entity-extracted) into the same tiers as
+  `memory_store`. Unset by default; the tool returns "not configured" until it
+  is set. It is read from the env, so it lives in the MCP client config (e.g.
+  the server's `env` block), not in this repo.
 
 ## Tools (18)
 vector_search, unified_search, memory_store, graph_query, bayesian_inference,
