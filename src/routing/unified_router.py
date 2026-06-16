@@ -71,7 +71,9 @@ class UnifiedRetrievalRouter:
         try:
             limit = max(1, min(25, budget // 200))
             if mode == "execution":
-                tasks = await self._beads_bridge.get_ready_tasks(limit=limit, brief=True)
+                tasks = await self._beads_bridge.get_ready_tasks(
+                    limit=limit, brief=True
+                )
             else:
                 tasks = await self._beads_bridge.query_tasks(limit=limit, brief=True)
             return self._trim_to_budget(tasks, budget)

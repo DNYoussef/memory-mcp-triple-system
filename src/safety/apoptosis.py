@@ -18,15 +18,17 @@ logger = logging.getLogger(__name__)
 
 class HealthState(str, Enum):
     """Component health states"""
-    HEALTHY = "healthy"           # Normal operation
-    DEGRADED = "degraded"         # Reduced functionality
-    CRITICAL = "critical"         # Imminent failure
-    TERMINAL = "terminal"         # Shutting down
-    DEAD = "dead"                 # Shutdown complete
+
+    HEALTHY = "healthy"  # Normal operation
+    DEGRADED = "degraded"  # Reduced functionality
+    CRITICAL = "critical"  # Imminent failure
+    TERMINAL = "terminal"  # Shutting down
+    DEAD = "dead"  # Shutdown complete
 
 
 class ApoptosisReason(str, Enum):
     """Reasons for triggering apoptosis"""
+
     HEALTH_DEGRADATION = "health_degradation"
     CIRCUIT_BREAKER_EXHAUSTED = "circuit_breaker_exhausted"
     RESOURCE_EXHAUSTION = "resource_exhaustion"
@@ -40,12 +42,13 @@ class ApoptosisReason(str, Enum):
 @dataclass
 class HealthMetrics:
     """Health metrics for a component"""
-    error_rate: float = 0.0           # Errors / total requests
-    latency_p95_ms: float = 0.0       # 95th percentile latency
-    success_rate: float = 1.0         # Successful requests / total
-    circuit_breakers_open: int = 0    # Number of open circuit breakers
-    memory_usage_pct: float = 0.0     # Memory usage percentage
-    cpu_usage_pct: float = 0.0        # CPU usage percentage
+
+    error_rate: float = 0.0  # Errors / total requests
+    latency_p95_ms: float = 0.0  # 95th percentile latency
+    success_rate: float = 1.0  # Successful requests / total
+    circuit_breakers_open: int = 0  # Number of open circuit breakers
+    memory_usage_pct: float = 0.0  # Memory usage percentage
+    cpu_usage_pct: float = 0.0  # CPU usage percentage
     last_heartbeat: Optional[datetime] = None
     consecutive_failures: int = 0
     uptime_seconds: float = 0.0
@@ -58,15 +61,18 @@ class HealthMetrics:
             "circuit_breakers_open": self.circuit_breakers_open,
             "memory_usage_pct": round(self.memory_usage_pct, 2),
             "cpu_usage_pct": round(self.cpu_usage_pct, 2),
-            "last_heartbeat": self.last_heartbeat.isoformat() if self.last_heartbeat else None,
+            "last_heartbeat": self.last_heartbeat.isoformat()
+            if self.last_heartbeat
+            else None,
             "consecutive_failures": self.consecutive_failures,
-            "uptime_seconds": round(self.uptime_seconds, 2)
+            "uptime_seconds": round(self.uptime_seconds, 2),
         }
 
 
 @dataclass
 class ApoptosisConfig:
     """Configuration for apoptosis thresholds"""
+
     # Health score thresholds (0.0 - 1.0)
     degraded_threshold: float = 0.7
     critical_threshold: float = 0.4
@@ -92,6 +98,7 @@ class ApoptosisConfig:
 @dataclass
 class ComponentState:
     """State of a registered component"""
+
     name: str
     state: HealthState
     health_score: float
@@ -113,7 +120,9 @@ class ComponentState:
             "dependents": self.dependents,
             "registered_at": self.registered_at.isoformat(),
             "state_changed_at": self.state_changed_at.isoformat(),
-            "apoptosis_reason": self.apoptosis_reason.value if self.apoptosis_reason else None
+            "apoptosis_reason": self.apoptosis_reason.value
+            if self.apoptosis_reason
+            else None,
         }
 
 
@@ -155,9 +164,7 @@ class ApoptosisService:
         logger.info("Apoptosis service stopped")
 
     async def register_component(
-        self,
-        name: str,
-        dependencies: Optional[List[str]] = None
+        self, name: str, dependencies: Optional[List[str]] = None
     ) -> ComponentState:
         """
         Register a component for health monitoring.
@@ -179,7 +186,7 @@ class ApoptosisService:
                 dependencies=dependencies or [],
                 dependents=[],
                 registered_at=now,
-                state_changed_at=now
+                state_changed_at=now,
             )
 
             self._components[name] = state
@@ -193,9 +200,7 @@ class ApoptosisService:
             return state
 
     def register_shutdown_callback(
-        self,
-        component_name: str,
-        callback: Callable[..., Awaitable[None]]
+        self, component_name: str, callback: Callable[..., Awaitable[None]]
     ) -> None:
         """Register a callback to run when component shuts down"""
         if component_name not in self._shutdown_callbacks:
@@ -203,9 +208,7 @@ class ApoptosisService:
         self._shutdown_callbacks[component_name].append(callback)
 
     async def update_metrics(
-        self,
-        component_name: str,
-        metrics: HealthMetrics
+        self, component_name: str, metrics: HealthMetrics
     ) -> Optional[HealthState]:
         """
         Update health metrics for a component.
@@ -239,8 +242,7 @@ class ApoptosisService:
                 # Check if apoptosis triggered
                 if new_state == HealthState.TERMINAL:
                     await self._initiate_apoptosis(
-                        component_name,
-                        ApoptosisReason.HEALTH_DEGRADATION
+                        component_name, ApoptosisReason.HEALTH_DEGRADATION
                     )
 
                 return new_state
@@ -278,19 +280,21 @@ class ApoptosisService:
             component.metrics.consecutive_failures += 1
 
             # Check if consecutive failures exceeded
-            if component.metrics.consecutive_failures >= self.config.max_consecutive_failures:
+            if (
+                component.metrics.consecutive_failures
+                >= self.config.max_consecutive_failures
+            ):
                 logger.warning(
                     f"Component {component_name} exceeded max consecutive failures"
                 )
                 await self._initiate_apoptosis(
-                    component_name,
-                    ApoptosisReason.UNRECOVERABLE_ERROR
+                    component_name, ApoptosisReason.UNRECOVERABLE_ERROR
                 )
 
     async def trigger_apoptosis(
         self,
         component_name: str,
-        reason: ApoptosisReason = ApoptosisReason.MANUAL_TRIGGER
+        reason: ApoptosisReason = ApoptosisReason.MANUAL_TRIGGER,
     ) -> bool:
         """
         Manually trigger apoptosis for a component.
@@ -300,9 +304,7 @@ class ApoptosisService:
         return await self._initiate_apoptosis(component_name, reason)
 
     async def _initiate_apoptosis(
-        self,
-        component_name: str,
-        reason: ApoptosisReason
+        self, component_name: str, reason: ApoptosisReason
     ) -> bool:
         """Internal: initiate apoptosis sequence"""
         component = self._components.get(component_name)
@@ -349,8 +351,7 @@ class ApoptosisService:
 
         for dependent_name in component.dependents:
             await self._initiate_apoptosis(
-                dependent_name,
-                ApoptosisReason.CASCADE_FROM_PARENT
+                dependent_name, ApoptosisReason.CASCADE_FROM_PARENT
             )
 
     async def _run_shutdown_callbacks(self, component_name: str) -> None:
@@ -392,8 +393,7 @@ class ApoptosisService:
                     if elapsed > timeout:
                         logger.warning(f"Heartbeat timeout for {name}")
                         await self._initiate_apoptosis(
-                            name,
-                            ApoptosisReason.HEARTBEAT_TIMEOUT
+                            name, ApoptosisReason.HEARTBEAT_TIMEOUT
                         )
 
     async def _check_recovery(self) -> None:
@@ -428,31 +428,36 @@ class ApoptosisService:
         scores.append(metrics.success_rate * 0.25)
 
         # Latency (inverted - lower is better)
-        latency_score = max(0, 1.0 - (metrics.latency_p95_ms / self.config.max_latency_ms))
+        latency_score = max(
+            0, 1.0 - (metrics.latency_p95_ms / self.config.max_latency_ms)
+        )
         scores.append(latency_score * 0.15)
 
         # Circuit breakers (inverted - fewer is better)
-        cb_score = max(0, 1.0 - (
-            metrics.circuit_breakers_open / self.config.max_circuit_breakers_open
-        ))
+        cb_score = max(
+            0,
+            1.0
+            - (metrics.circuit_breakers_open / self.config.max_circuit_breakers_open),
+        )
         scores.append(cb_score * 0.15)
 
         # Memory usage (inverted)
-        memory_score = max(0, 1.0 - (metrics.memory_usage_pct / self.config.max_memory_pct))
+        memory_score = max(
+            0, 1.0 - (metrics.memory_usage_pct / self.config.max_memory_pct)
+        )
         scores.append(memory_score * 0.10)
 
         # Consecutive failures (inverted)
-        failure_score = max(0, 1.0 - (
-            metrics.consecutive_failures / self.config.max_consecutive_failures
-        ))
+        failure_score = max(
+            0,
+            1.0 - (metrics.consecutive_failures / self.config.max_consecutive_failures),
+        )
         scores.append(failure_score * 0.10)
 
         return sum(scores)
 
     def _determine_state(
-        self,
-        health_score: float,
-        component: ComponentState
+        self, health_score: float, component: ComponentState
     ) -> HealthState:
         """Determine component state from health score"""
         # Don't resurrect terminal/dead components
@@ -474,10 +479,7 @@ class ApoptosisService:
 
     def get_all_states(self) -> Dict[str, Dict[str, Any]]:
         """Get states of all components"""
-        return {
-            name: state.to_dict()
-            for name, state in self._components.items()
-        }
+        return {name: state.to_dict() for name, state in self._components.items()}
 
     def get_system_health(self) -> Dict[str, Any]:
         """Get overall system health summary"""
@@ -512,8 +514,9 @@ class ApoptosisService:
             "by_state": state_counts,
             "uptime_seconds": (
                 (datetime.utcnow() - self._started_at).total_seconds()
-                if self._started_at else 0
-            )
+                if self._started_at
+                else 0
+            ),
         }
 
 
@@ -521,9 +524,7 @@ class ApoptosisService:
 _apoptosis_service: Optional[ApoptosisService] = None
 
 
-def get_apoptosis_service(
-    config: Optional[ApoptosisConfig] = None
-) -> ApoptosisService:
+def get_apoptosis_service(config: Optional[ApoptosisConfig] = None) -> ApoptosisService:
     """Get singleton apoptosis service"""
     global _apoptosis_service
     if _apoptosis_service is None:

@@ -32,9 +32,7 @@ class ProbabilisticQueryEngine:
     """
 
     def __init__(
-        self,
-        timeout_seconds: float = 1.0,
-        network: Optional[BayesianNetwork] = None
+        self, timeout_seconds: float = 1.0, network: Optional[BayesianNetwork] = None
     ):
         """
         Initialize Probabilistic Query Engine.
@@ -64,7 +62,7 @@ class ProbabilisticQueryEngine:
         self,
         network: Optional[BayesianNetwork],
         query_vars: List[str],
-        evidence: Optional[Dict[str, str]] = None
+        evidence: Optional[Dict[str, str]] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         Calculate conditional probability P(X|Y=y, Z=z).
@@ -87,7 +85,9 @@ class ProbabilisticQueryEngine:
         # ISS-018 FIX: Use stored network if none provided
         effective_network = network if network is not None else self._network
         if effective_network is None:
-            logger.warning("No Bayesian network available (pass network or call set_network)")
+            logger.warning(
+                "No Bayesian network available (pass network or call set_network)"
+            )
             return None
 
         if evidence is None:
@@ -95,7 +95,9 @@ class ProbabilisticQueryEngine:
 
         # Execute with timeout
         result = self.execute_with_timeout(
-            lambda: self._query_conditional_impl(effective_network, query_vars, evidence)
+            lambda: self._query_conditional_impl(
+                effective_network, query_vars, evidence
+            )
         )
 
         if result is None:
@@ -108,9 +110,7 @@ class ProbabilisticQueryEngine:
         return result
 
     def query_marginal(
-        self,
-        network: Optional[BayesianNetwork],
-        query_vars: List[str]
+        self, network: Optional[BayesianNetwork], query_vars: List[str]
     ) -> Optional[Dict[str, Any]]:
         """
         Calculate marginal probability P(X).
@@ -131,9 +131,7 @@ class ProbabilisticQueryEngine:
         return self.query_conditional(network, query_vars, evidence={})
 
     def get_most_probable_explanation(
-        self,
-        network: Optional[BayesianNetwork],
-        evidence: Dict[str, str]
+        self, network: Optional[BayesianNetwork], evidence: Dict[str, str]
     ) -> Optional[Dict[str, Any]]:
         """
         Find MAP (Maximum A Posteriori) assignment.
@@ -156,7 +154,9 @@ class ProbabilisticQueryEngine:
         """
         effective_network = network if network is not None else self._network
         if effective_network is None:
-            logger.warning("No Bayesian network available (pass network or call set_network)")
+            logger.warning(
+                "No Bayesian network available (pass network or call set_network)"
+            )
             return None
 
         result = self.execute_with_timeout(
@@ -164,7 +164,9 @@ class ProbabilisticQueryEngine:
         )
 
         if result is None:
-            logger.warning(f"MAP query timeout ({self.timeout_seconds}s): evidence={evidence}")
+            logger.warning(
+                f"MAP query timeout ({self.timeout_seconds}s): evidence={evidence}"
+            )
             return None
 
         return result
@@ -193,9 +195,7 @@ class ProbabilisticQueryEngine:
         return entropy
 
     def execute_with_timeout(
-        self,
-        query_func,
-        timeout: Optional[float] = None
+        self, query_func, timeout: Optional[float] = None
     ) -> Optional[Any]:
         """
         Execute query with timeout.
@@ -227,10 +227,7 @@ class ProbabilisticQueryEngine:
             return None
 
     def _query_conditional_impl(
-        self,
-        network: BayesianNetwork,
-        query_vars: List[str],
-        evidence: Dict[str, str]
+        self, network: BayesianNetwork, query_vars: List[str], evidence: Dict[str, str]
     ) -> Dict[str, Any]:
         """
         Internal implementation of conditional query.
@@ -254,21 +251,12 @@ class ProbabilisticQueryEngine:
             # Calculate entropy
             entropy = self.calculate_entropy(prob_dist)
 
-            results[var] = {
-                "probabilities": prob_dist,
-                "entropy": entropy
-            }
+            results[var] = {"probabilities": prob_dist, "entropy": entropy}
 
-        return {
-            "results": results,
-            "evidence": evidence,
-            "timeout": False
-        }
+        return {"results": results, "evidence": evidence, "timeout": False}
 
     def _map_query_impl(
-        self,
-        network: BayesianNetwork,
-        evidence: Dict[str, str]
+        self, network: BayesianNetwork, evidence: Dict[str, str]
     ) -> Dict[str, Any]:
         """
         Internal implementation of MAP query.
@@ -290,13 +278,11 @@ class ProbabilisticQueryEngine:
             "assignment": map_assignment,
             "probability": prob,
             "evidence": evidence,
-            "timeout": False
+            "timeout": False,
         }
 
     def _calculate_assignment_probability(
-        self,
-        network: BayesianNetwork,
-        assignment: Dict[str, str]
+        self, network: BayesianNetwork, assignment: Dict[str, str]
     ) -> float:
         """
         Calculate probability of full assignment.

@@ -20,10 +20,10 @@ class GraphEdgeManager:
     Cohesion: HIGH - all methods work with edges.
     """
 
-    EDGE_REFERENCES = 'references'
-    EDGE_MENTIONS = 'mentions'
-    EDGE_SIMILAR_TO = 'similar_to'
-    EDGE_RELATED_TO = 'related_to'
+    EDGE_REFERENCES = "references"
+    EDGE_MENTIONS = "mentions"
+    EDGE_SIMILAR_TO = "similar_to"
+    EDGE_RELATED_TO = "related_to"
 
     def __init__(self, graph: nx.DiGraph):
         """
@@ -39,7 +39,7 @@ class GraphEdgeManager:
         source: str,
         relationship_type: str,
         target: str,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """Add relationship edge between nodes."""
         try:
@@ -47,16 +47,14 @@ class GraphEdgeManager:
                 self.EDGE_REFERENCES,
                 self.EDGE_MENTIONS,
                 self.EDGE_SIMILAR_TO,
-                self.EDGE_RELATED_TO
+                self.EDGE_RELATED_TO,
             }
 
             if relationship_type not in standard_types:
                 logger.debug(f"Custom relationship: {relationship_type}")
 
             self.graph.add_edge(
-                source, target,
-                type=relationship_type,
-                metadata=metadata or {}
+                source, target, type=relationship_type, metadata=metadata or {}
             )
             logger.debug(f"Added edge: {source} --{relationship_type}--> {target}")
             return True
@@ -78,9 +76,7 @@ class GraphEdgeManager:
             return False
 
     def get_neighbors(
-        self,
-        node_id: str,
-        relationship_type: Optional[str] = None
+        self, node_id: str, relationship_type: Optional[str] = None
     ) -> List[str]:
         """Get neighboring nodes, optionally filtered by edge type."""
         try:
@@ -93,7 +89,7 @@ class GraphEdgeManager:
                 filtered = []
                 for neighbor in neighbors:
                     edge_data = self.graph.get_edge_data(node_id, neighbor)
-                    if edge_data and edge_data.get('type') == relationship_type:
+                    if edge_data and edge_data.get("type") == relationship_type:
                         filtered.append(neighbor)
                 return filtered
 
@@ -107,14 +103,13 @@ class GraphEdgeManager:
         return self.graph.number_of_edges()
 
     def update_edge_confidence(
-        self,
-        source: str,
-        target: str,
-        confidence: float
+        self, source: str, target: str, confidence: float
     ) -> bool:
         """Update an existing edge confidence value."""
         if not self.graph.has_edge(source, target):
-            logger.warning(f"Edge not found for confidence update: {source} -> {target}")
+            logger.warning(
+                f"Edge not found for confidence update: {source} -> {target}"
+            )
             return False
         self.graph.edges[source, target]["confidence"] = max(0.0, min(1.0, confidence))
         return True

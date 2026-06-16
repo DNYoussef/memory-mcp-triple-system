@@ -67,7 +67,9 @@ class ProactiveTools:
                 priority=ContextPriority(priority),
             )
 
-            context = await self.injector.handle_trigger(event, mode=mode, dry_run=dry_run)
+            context = await self.injector.handle_trigger(
+                event, mode=mode, dry_run=dry_run
+            )
 
             if context:
                 return {
@@ -127,7 +129,9 @@ class ProactiveTools:
         """
         try:
             trigger = TriggerType(trigger_type) if trigger_type else None
-            history = self.injector.get_injection_history(limit=limit, trigger_type=trigger)
+            history = self.injector.get_injection_history(
+                limit=limit, trigger_type=trigger
+            )
 
             return {
                 "success": True,
@@ -238,7 +242,14 @@ def register_proactive_tools(server: Any, injector: ProactiveContextInjector) ->
             "properties": {
                 "trigger_type": {
                     "type": "string",
-                    "enum": ["file-open", "git-checkout", "time-of-day", "activity-pattern", "project-switch", "beads-task-ready"],
+                    "enum": [
+                        "file-open",
+                        "git-checkout",
+                        "time-of-day",
+                        "activity-pattern",
+                        "project-switch",
+                        "beads-task-ready",
+                    ],
                     "description": "Type of trigger event",
                 },
                 "source_data": {
@@ -292,7 +303,12 @@ def register_proactive_tools(server: Any, injector: ProactiveContextInjector) ->
                 },
                 "trigger_type": {
                     "type": "string",
-                    "enum": ["file-open", "git-checkout", "time-of-day", "activity-pattern"],
+                    "enum": [
+                        "file-open",
+                        "git-checkout",
+                        "time-of-day",
+                        "activity-pattern",
+                    ],
                     "description": "Filter by trigger type",
                 },
             },

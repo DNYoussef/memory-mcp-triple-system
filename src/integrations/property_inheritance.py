@@ -19,15 +19,19 @@ from loguru import logger
 @dataclass
 class InheritedValue:
     """A value and its inheritance source."""
+
     value: Any
     source_path: str  # File path where value originates
-    inheritance_chain: List[str] = field(default_factory=list)  # Path from source to current
+    inheritance_chain: List[str] = field(
+        default_factory=list
+    )  # Path from source to current
     is_overridden: bool = False  # True if local value exists
 
 
 @dataclass
 class PathExclusion:
     """Exclude certain properties for files matching a path pattern."""
+
     path_pattern: str  # e.g., "Projects/*" or "Archive/**"
     excluded_props: Set[str]
     enabled: bool = True
@@ -36,10 +40,18 @@ class PathExclusion:
 @dataclass
 class InheritanceConfig:
     """Configuration for property inheritance system."""
+
     # Properties that should never inherit
-    globally_excluded: Set[str] = field(default_factory=lambda: {
-        "parents", "children", "related", "aliases", "tags", "id"
-    })
+    globally_excluded: Set[str] = field(
+        default_factory=lambda: {
+            "parents",
+            "children",
+            "related",
+            "aliases",
+            "tags",
+            "id",
+        }
+    )
 
     # Path-based exclusions
     path_exclusions: List[PathExclusion] = field(default_factory=list)
@@ -90,7 +102,7 @@ class PropertyInheritanceChain:
         self,
         file_path: str,
         local_frontmatter: Dict[str, Any],
-        get_frontmatter: Callable[[str], Dict[str, Any]]
+        get_frontmatter: Callable[[str], Dict[str, Any]],
     ) -> Dict[str, Any]:
         """
         Compute effective frontmatter including inherited values.
@@ -113,9 +125,7 @@ class PropertyInheritanceChain:
 
         # Process parents from furthest ancestor to nearest
         for parent_path, parent_fm in reversed(parents):
-            self._apply_inherited_props(
-                effective, parent_fm, file_path, parent_path
-            )
+            self._apply_inherited_props(effective, parent_fm, file_path, parent_path)
 
         return effective
 
@@ -123,7 +133,7 @@ class PropertyInheritanceChain:
         self,
         file_path: str,
         prop_name: str,
-        get_frontmatter: Callable[[str], Dict[str, Any]]
+        get_frontmatter: Callable[[str], Dict[str, Any]],
     ) -> Optional[InheritedValue]:
         """
         Get inheritance info for a specific property.
@@ -144,7 +154,7 @@ class PropertyInheritanceChain:
                 value=local_fm[prop_name],
                 source_path=file_path,
                 inheritance_chain=[file_path],
-                is_overridden=False
+                is_overridden=False,
             )
 
         # Check if excluded for this path
@@ -160,9 +170,7 @@ class PropertyInheritanceChain:
         )
 
     def get_inheritance_tree(
-        self,
-        file_path: str,
-        get_frontmatter: Callable[[str], Dict[str, Any]]
+        self, file_path: str, get_frontmatter: Callable[[str], Dict[str, Any]]
     ) -> Dict[str, InheritedValue]:
         """
         Get inheritance info for all properties.
@@ -184,9 +192,7 @@ class PropertyInheritanceChain:
         return result
 
     def detect_circular_inheritance(
-        self,
-        file_path: str,
-        get_frontmatter: Callable[[str], Dict[str, Any]]
+        self, file_path: str, get_frontmatter: Callable[[str], Dict[str, Any]]
     ) -> Optional[List[str]]:
         """
         Detect circular parent references.
@@ -219,9 +225,7 @@ class PropertyInheritanceChain:
 
     def add_path_exclusion(self, path_pattern: str, props: Set[str]) -> None:
         """Add path-based exclusion rule."""
-        self.config.path_exclusions.append(
-            PathExclusion(path_pattern, props, True)
-        )
+        self.config.path_exclusions.append(PathExclusion(path_pattern, props, True))
         logger.debug(f"Added path exclusion: {path_pattern} -> {props}")
 
     def _get_parent_chain(
@@ -229,7 +233,7 @@ class PropertyInheritanceChain:
         file_path: str,
         frontmatter: Dict[str, Any],
         get_frontmatter: Callable[[str], Dict[str, Any]],
-        visited: Set[str]
+        visited: Set[str],
     ) -> List[Tuple[str, Dict[str, Any]]]:
         """Get ordered list of (parent_path, parent_frontmatter) pairs."""
         parents = self._extract_parents(frontmatter)
@@ -267,7 +271,7 @@ class PropertyInheritanceChain:
         target: Dict[str, Any],
         source: Dict[str, Any],
         target_path: str,
-        source_path: str
+        source_path: str,
     ) -> None:
         """Apply inherited properties from source to target (if not present)."""
         for prop_name, value in source.items():
@@ -287,7 +291,7 @@ class PropertyInheritanceChain:
         prop_name: str,
         get_frontmatter: Callable[[str], Dict[str, Any]],
         visited: Set[str],
-        chain: List[str]
+        chain: List[str],
     ) -> Optional[InheritedValue]:
         """Trace inheritance chain to find property source."""
         frontmatter = get_frontmatter(file_path)
@@ -316,7 +320,7 @@ class PropertyInheritanceChain:
                     value=parent_fm[prop_name],
                     source_path=parent_path,
                     inheritance_chain=chain + [parent_path],
-                    is_overridden=False
+                    is_overridden=False,
                 )
 
             # Recurse
@@ -346,9 +350,7 @@ class PropertyInheritanceChain:
         return result
 
     def _get_priority_parent(
-        self,
-        frontmatter: Dict[str, Any],
-        parents: List[str]
+        self, frontmatter: Dict[str, Any], parents: List[str]
     ) -> Optional[str]:
         """Get the prioritized parent from frontmatter."""
         priority = frontmatter.get(self.config.prioritize_parent_prop)

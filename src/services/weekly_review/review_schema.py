@@ -18,10 +18,10 @@ import uuid
 class SuggestionPriority(Enum):
     """Priority levels for improvement suggestions."""
 
-    CRITICAL = 1      # Must address immediately
-    HIGH = 2          # Address this week
-    MEDIUM = 3        # Address when possible
-    LOW = 4           # Nice to have
+    CRITICAL = 1  # Must address immediately
+    HIGH = 2  # Address this week
+    MEDIUM = 3  # Address when possible
+    LOW = 4  # Nice to have
 
 
 class TrendDirection(Enum):
@@ -188,12 +188,12 @@ class ImprovementSuggestion:
     rationale: str = ""
 
     # Action
-    action_type: str = ""           # "config_change", "code_change", "process_change"
-    specific_action: str = ""       # What to do
+    action_type: str = ""  # "config_change", "code_change", "process_change"
+    specific_action: str = ""  # What to do
 
     # Impact
     expected_benefit: str = ""
-    estimated_effort: str = ""      # "trivial", "small", "medium", "large"
+    estimated_effort: str = ""  # "trivial", "small", "medium", "large"
 
     # Source
     source_metric: str = ""
@@ -221,7 +221,9 @@ class WeeklyReview:
     """Complete weekly review report."""
 
     review_id: str = field(default_factory=lambda: f"review-{uuid.uuid4().hex[:8]}")
-    generated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    generated_at: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
 
     # Time period
     week_start: str = ""
@@ -236,7 +238,7 @@ class WeeklyReview:
 
     # Summary
     executive_summary: str = ""
-    health_score: float = 0.0              # 0-100
+    health_score: float = 0.0  # 0-100
     key_highlights: List[str] = field(default_factory=list)
     areas_of_concern: List[str] = field(default_factory=list)
 
@@ -250,7 +252,9 @@ class WeeklyReview:
             "week_number": self.week_number,
             "usage": self.usage.to_dict() if self.usage else None,
             "quality_trends": [t.to_dict() for t in self.quality_trends],
-            "cost_analysis": self.cost_analysis.to_dict() if self.cost_analysis else None,
+            "cost_analysis": self.cost_analysis.to_dict()
+            if self.cost_analysis
+            else None,
             "suggestions": [s.to_dict() for s in self.suggestions],
             "executive_summary": self.executive_summary,
             "health_score": round(self.health_score, 1),
@@ -285,30 +289,38 @@ class WeeklyReview:
             lines.append("")
 
         if self.usage:
-            lines.extend([
-                "## Usage Summary",
-                f"- Total stores: {self.usage.total_stores:,}",
-                f"- Total retrievals: {self.usage.total_retrievals:,}",
-                f"- Memories created: {self.usage.memories_created:,}",
-                f"- Cache hit rate: {self.usage.cache_hit_rate:.1%}",
-                "",
-            ])
+            lines.extend(
+                [
+                    "## Usage Summary",
+                    f"- Total stores: {self.usage.total_stores:,}",
+                    f"- Total retrievals: {self.usage.total_retrievals:,}",
+                    f"- Memories created: {self.usage.memories_created:,}",
+                    f"- Cache hit rate: {self.usage.cache_hit_rate:.1%}",
+                    "",
+                ]
+            )
 
         if self.quality_trends:
             lines.append("## Quality Trends")
             for trend in self.quality_trends:
-                icon = {"improving": "+", "stable": "=", "declining": "-"}.get(trend.direction.value, "")
-                lines.append(f"- {trend.metric_name}: {trend.current_value:.2f} ({icon}{trend.change_percent:+.1f}%)")
+                icon = {"improving": "+", "stable": "=", "declining": "-"}.get(
+                    trend.direction.value, ""
+                )
+                lines.append(
+                    f"- {trend.metric_name}: {trend.current_value:.2f} ({icon}{trend.change_percent:+.1f}%)"
+                )
             lines.append("")
 
         if self.cost_analysis:
-            lines.extend([
-                "## Cost Analysis",
-                f"- Total tokens: {self.cost_analysis.total_tokens:,}",
-                f"- Estimated cost: ${self.cost_analysis.estimated_cost:.2f}",
-                f"- Cost per task: ${self.cost_analysis.cost_per_task:.4f}",
-                "",
-            ])
+            lines.extend(
+                [
+                    "## Cost Analysis",
+                    f"- Total tokens: {self.cost_analysis.total_tokens:,}",
+                    f"- Estimated cost: ${self.cost_analysis.estimated_cost:.2f}",
+                    f"- Cost per task: ${self.cost_analysis.cost_per_task:.4f}",
+                    "",
+                ]
+            )
 
         if self.suggestions:
             lines.append("## Improvement Suggestions")

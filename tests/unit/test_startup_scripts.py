@@ -33,7 +33,7 @@ def test_tunnel_startup_requires_local_health_before_exposing_public_url():
 def test_tunnel_startup_uses_resolved_cloudflared_and_unique_output_file():
     script = _read("scripts/startup/start-memory-tunnel.ps1")
 
-    assert '-FilePath $cloudflared.Source' in script
+    assert "-FilePath $cloudflared.Source" in script
     assert "[System.IO.Path]::GetTempFileName()" in script
     assert 'Join-Path $env:TEMP "cloudflared-output.txt"' not in script
 

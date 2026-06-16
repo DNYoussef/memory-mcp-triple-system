@@ -119,9 +119,7 @@ class DeletionRule:
     priority: int = 0
 
     def can_delete(
-        self,
-        buffer: "EphemeralBuffer",
-        now: Optional[datetime] = None
+        self, buffer: "EphemeralBuffer", now: Optional[datetime] = None
     ) -> tuple[bool, Optional[DeleteReason]]:
         """Check if buffer can be deleted according to this rule.
 
@@ -300,8 +298,12 @@ class EphemeralBuffer:
             "local_checksum": self.local_checksum,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "uploaded_at": self.uploaded_at.isoformat() if self.uploaded_at else None,
-            "downloaded_at": self.downloaded_at.isoformat() if self.downloaded_at else None,
-            "transcribed_at": self.transcribed_at.isoformat() if self.transcribed_at else None,
+            "downloaded_at": self.downloaded_at.isoformat()
+            if self.downloaded_at
+            else None,
+            "transcribed_at": self.transcribed_at.isoformat()
+            if self.transcribed_at
+            else None,
             "deleted_at": self.deleted_at.isoformat() if self.deleted_at else None,
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
             "is_expired": self.is_expired(),
@@ -310,7 +312,9 @@ class EphemeralBuffer:
                 "word_count": self.transcription.word_count,
                 "confidence_score": self.transcription.confidence_score,
                 "is_verified": self.transcription.is_verified(),
-            } if self.transcription else None,
+            }
+            if self.transcription
+            else None,
             "error_message": self.error_message,
             "retry_count": self.retry_count,
         }
@@ -414,7 +418,9 @@ class AuditLogEntry:
             "timestamp": self.timestamp.isoformat(),
             "actor": self.actor,
             "details": self.details,
-            "previous_status": self.previous_status.value if self.previous_status else None,
+            "previous_status": self.previous_status.value
+            if self.previous_status
+            else None,
             "new_status": self.new_status.value if self.new_status else None,
             "success": self.success,
             "error_message": self.error_message,

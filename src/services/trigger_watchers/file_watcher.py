@@ -26,6 +26,7 @@ try:
         FileCreatedEvent,
         DirModifiedEvent,
     )
+
     WATCHDOG_AVAILABLE = True
 except ImportError:
     WATCHDOG_AVAILABLE = False
@@ -40,25 +41,50 @@ class WatchConfig:
     """Configuration for file watching."""
 
     paths: List[str] = field(default_factory=list)
-    extensions: Set[str] = field(default_factory=lambda: {
-        ".py", ".js", ".ts", ".tsx", ".jsx", ".md", ".yaml", ".yml",
-        ".json", ".toml", ".sql", ".sh", ".ps1", ".bat", ".go", ".rs",
-        ".java", ".kt", ".swift", ".cpp", ".c", ".h", ".hpp", ".cs",
-    })
-    ignore_patterns: List[str] = field(default_factory=lambda: [
-        r"__pycache__",
-        r"\.git",
-        r"node_modules",
-        r"\.venv",
-        r"venv",
-        r"\.pytest_cache",
-        r"\.mypy_cache",
-        r"dist",
-        r"build",
-        r"\.egg-info",
-        r"\.tox",
-        r"\.coverage",
-    ])
+    extensions: Set[str] = field(
+        default_factory=lambda: {
+            ".py",
+            ".js",
+            ".ts",
+            ".tsx",
+            ".jsx",
+            ".md",
+            ".yaml",
+            ".yml",
+            ".json",
+            ".toml",
+            ".sql",
+            ".sh",
+            ".ps1",
+            ".bat",
+            ".go",
+            ".rs",
+            ".java",
+            ".kt",
+            ".swift",
+            ".cpp",
+            ".c",
+            ".h",
+            ".hpp",
+            ".cs",
+        }
+    )
+    ignore_patterns: List[str] = field(
+        default_factory=lambda: [
+            r"__pycache__",
+            r"\.git",
+            r"node_modules",
+            r"\.venv",
+            r"venv",
+            r"\.pytest_cache",
+            r"\.mypy_cache",
+            r"dist",
+            r"build",
+            r"\.egg-info",
+            r"\.tox",
+            r"\.coverage",
+        ]
+    )
     debounce_seconds: float = 2.0
     project_name: Optional[str] = None
 
@@ -181,7 +207,9 @@ class PollingFileWatcher:
 
         for root, dirs, files in os.walk(directory):
             # Filter out ignored directories
-            dirs[:] = [d for d in dirs if not self._should_ignore(os.path.join(root, d))]
+            dirs[:] = [
+                d for d in dirs if not self._should_ignore(os.path.join(root, d))
+            ]
 
             for file in files:
                 file_path = os.path.join(root, file)
@@ -209,7 +237,9 @@ class PollingFileWatcher:
             if os.path.isdir(path):
                 self._file_mtimes.update(self._scan_directory(path))
 
-        logger.info(f"Polling watcher started, monitoring {len(self._file_mtimes)} files")
+        logger.info(
+            f"Polling watcher started, monitoring {len(self._file_mtimes)} files"
+        )
 
         while self._running:
             await asyncio.sleep(self.poll_interval)

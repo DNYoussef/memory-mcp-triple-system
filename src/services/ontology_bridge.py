@@ -142,7 +142,12 @@ class OntologyBridge:
             bucket=LifeBucketType(metadata.get("bucket", "admin")),
             name=metadata.get("name", entity_id),
             description=metadata.get("description"),
-            metadata={k: v for k, v in metadata.items() if k not in ["type", "bucket", "name", "description", "created_at", "tags"]},
+            metadata={
+                k: v
+                for k, v in metadata.items()
+                if k
+                not in ["type", "bucket", "name", "description", "created_at", "tags"]
+            },
             created_at=datetime.fromisoformat(metadata["created_at"])
             if metadata.get("created_at")
             else None,
@@ -203,7 +208,20 @@ class OntologyBridge:
             status_percent=metadata.get("status_percent", 0),
             repository=metadata.get("repository"),
             tech_stack=metadata.get("tech_stack", []),
-            metadata={k: v for k, v in metadata.items() if k not in ["type", "name", "role", "location", "status_percent", "repository", "tech_stack"]},
+            metadata={
+                k: v
+                for k, v in metadata.items()
+                if k
+                not in [
+                    "type",
+                    "name",
+                    "role",
+                    "location",
+                    "status_percent",
+                    "repository",
+                    "tech_stack",
+                ]
+            },
         )
 
     def list_project_entities(self) -> List[ProjectEntity]:
@@ -278,7 +296,21 @@ class OntologyBridge:
             dependents=metadata.get("dependents", []),
             estimated_minutes=metadata.get("estimated_minutes", 0),
             labels=metadata.get("labels", []),
-            metadata={k: v for k, v in metadata.items() if k not in ["type", "title", "status", "project_id", "dependencies", "dependents", "estimated_minutes", "labels"]},
+            metadata={
+                k: v
+                for k, v in metadata.items()
+                if k
+                not in [
+                    "type",
+                    "title",
+                    "status",
+                    "project_id",
+                    "dependencies",
+                    "dependents",
+                    "estimated_minutes",
+                    "labels",
+                ]
+            },
         )
 
     def list_beads_entities(

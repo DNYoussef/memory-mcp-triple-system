@@ -81,7 +81,9 @@ class MemoryMCPQueryService:
                 logger.warning("Failed to build Bayesian network: %s", exc)
             probabilistic_engine = ProbabilisticQueryEngine(network=bayesian_network)
         else:
-            logger.info("Bayesian layer unavailable (torch/pgmpy not installed). Running vector + graph only.")
+            logger.info(
+                "Bayesian layer unavailable (torch/pgmpy not installed). Running vector + graph only."
+            )
         return NexusProcessor(
             vector_indexer=self._vector_tool.indexer,
             graph_query_engine=graph_query_engine,

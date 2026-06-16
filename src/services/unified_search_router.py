@@ -28,7 +28,7 @@ class UnifiedSearchRouter:
         nexus_processor: "NexusProcessor",
         visual_memory_service: Optional["VisualMemoryService"] = None,
         visual_weight: float = 0.3,
-        text_weight: float = 0.7
+        text_weight: float = 0.7,
     ):
         """
         Initialize unified search router.
@@ -55,7 +55,7 @@ class UnifiedSearchRouter:
         mode: str = "execution",
         top_k: int = 10,
         include_visual: bool = True,
-        include_text: bool = True
+        include_text: bool = True,
     ) -> Dict[str, Any]:
         """
         Unified search across all memory types.
@@ -76,7 +76,7 @@ class UnifiedSearchRouter:
             "text_results": [],
             "visual_results": [],
             "unified_results": [],
-            "stats": {}
+            "stats": {},
         }
 
         # Calculate per-source limits
@@ -95,17 +95,14 @@ class UnifiedSearchRouter:
         results["unified_results"] = self._merge_results(
             text_results=results["text_results"],
             visual_results=results["visual_results"],
-            top_k=top_k
+            top_k=top_k,
         )
         results["stats"]["unified_count"] = len(results["unified_results"])
 
         return results
 
     def _calculate_limits(
-        self,
-        top_k: int,
-        include_text: bool,
-        include_visual: bool
+        self, top_k: int, include_text: bool, include_visual: bool
     ) -> tuple:
         """Calculate per-source result limits."""
         if include_text and include_visual:
@@ -121,49 +118,27 @@ class UnifiedSearchRouter:
 
     def _visual_available(self) -> bool:
         """Check if visual service is available."""
-        return (
-            self.visual_service is not None and
-            self.visual_service.enabled
-        )
+        return self.visual_service is not None and self.visual_service.enabled
 
-    def _search_text(
-        self,
-        query: str,
-        mode: str,
-        top_k: int
-    ) -> List[Dict[str, Any]]:
+    def _search_text(self, query: str, mode: str, top_k: int) -> List[Dict[str, Any]]:
         """Execute text search via NexusProcessor."""
         try:
-            result = self.nexus_processor.process(
-                query=query,
-                mode=mode,
-                top_k=top_k
-            )
+            result = self.nexus_processor.process(query=query, mode=mode, top_k=top_k)
             return result.get("core", []) + result.get("extended", [])
         except Exception as e:
             logger.error(f"Text search failed: {e}")
             return []
 
-    def _search_visual(
-        self,
-        query: str,
-        top_k: int
-    ) -> List[Dict[str, Any]]:
+    def _search_visual(self, query: str, top_k: int) -> List[Dict[str, Any]]:
         """Execute visual search via VisualMemoryService."""
         try:
-            return self.visual_service.search_visual(
-                query=query,
-                top_k=top_k
-            )
+            return self.visual_service.search_visual(query=query, top_k=top_k)
         except Exception as e:
             logger.error(f"Visual search failed: {e}")
             return []
 
     def _merge_results(
-        self,
-        text_results: List[Dict],
-        visual_results: List[Dict],
-        top_k: int
+        self, text_results: List[Dict], visual_results: List[Dict], top_k: int
     ) -> List[Dict[str, Any]]:
         """
         Merge and rank text and visual results.
@@ -202,10 +177,7 @@ class UnifiedSearchRouter:
         return merged[:top_k]
 
     def search_text_only(
-        self,
-        query: str,
-        mode: str = "execution",
-        top_k: int = 10
+        self, query: str, mode: str = "execution", top_k: int = 10
     ) -> List[Dict[str, Any]]:
         """
         Search only text memories.
@@ -221,10 +193,7 @@ class UnifiedSearchRouter:
         return self._search_text(query, mode, top_k)
 
     def search_visual_only(
-        self,
-        query: str,
-        top_k: int = 10,
-        visual_type: Optional[str] = None
+        self, query: str, top_k: int = 10, visual_type: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         Search only visual memories.
@@ -241,9 +210,7 @@ class UnifiedSearchRouter:
             return []
 
         return self.visual_service.search_visual(
-            query=query,
-            top_k=top_k,
-            visual_type=visual_type
+            query=query, top_k=top_k, visual_type=visual_type
         )
 
     def get_info(self) -> Dict[str, Any]:
@@ -253,8 +220,6 @@ class UnifiedSearchRouter:
             "visual_weight": self.visual_weight,
             "visual_enabled": self._visual_available(),
             "visual_stats": (
-                self.visual_service.get_stats()
-                if self._visual_available()
-                else None
-            )
+                self.visual_service.get_stats() if self._visual_available() else None
+            ),
         }

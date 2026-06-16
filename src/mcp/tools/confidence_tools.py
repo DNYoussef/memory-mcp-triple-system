@@ -82,7 +82,9 @@ class ConfidenceTools:
                 "confidence": result.mode.confidence.score,
             },
             "entities": {
-                "count": len(result.entities.value) if isinstance(result.entities.value, list) else 0,
+                "count": len(result.entities.value)
+                if isinstance(result.entities.value, list)
+                else 0,
                 "confidence": result.entities.confidence.score,
             },
             "tags": {
@@ -263,6 +265,7 @@ class ConfidenceTools:
 
         # Create a classification result
         from src.integrations.confidence_scoring_schema import ClassificationType
+
         try:
             class_type = ClassificationType(classification_type)
         except ValueError:
@@ -587,7 +590,13 @@ CONFIDENCE_TOOLS = [
                     "description": "Additional context",
                 },
             },
-            "required": ["classification_type", "value", "confidence", "input_text", "reason"],
+            "required": [
+                "classification_type",
+                "value",
+                "confidence",
+                "input_text",
+                "reason",
+            ],
         },
     },
     {

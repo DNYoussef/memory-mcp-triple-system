@@ -65,7 +65,9 @@ class TestPgmpyBuilderBounded:
         net = builder.build_network(_hub_graph(40), use_cache=False)
         assert net is not None, "build returned None (CPD explosion lost the net)"
         max_in = max((d for _, d in net.in_degree()), default=0)
-        assert max_in <= MAX_PARENTS, f"hub kept {max_in} parents, expected <= {MAX_PARENTS}"
+        assert (
+            max_in <= MAX_PARENTS
+        ), f"hub kept {max_in} parents, expected <= {MAX_PARENTS}"
 
 
 class TestLightweightBuilderBounded:
@@ -77,9 +79,12 @@ class TestLightweightBuilderBounded:
         # Completing at all proves it did not enter the 2^40 loop.
         assert net is not None
         max_in = max((len(net.get_parents(n)) for n in net.nodes()), default=0)
-        assert max_in <= MAX_PARENTS, f"hub kept {max_in} parents, expected <= {MAX_PARENTS}"
+        assert (
+            max_in <= MAX_PARENTS
+        ), f"hub kept {max_in} parents, expected <= {MAX_PARENTS}"
 
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(pytest.main([__file__, "-v"]))

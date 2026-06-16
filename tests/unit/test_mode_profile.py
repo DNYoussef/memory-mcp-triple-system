@@ -10,7 +10,7 @@ from src.modes.mode_profile import (
     EXECUTION,
     PLANNING,
     BRAINSTORMING,
-    get_profile
+    get_profile,
 )
 
 
@@ -27,7 +27,7 @@ class TestModeProfileCreation:
             constraints_enabled=True,
             latency_budget_ms=1000,
             token_budget=15000,
-            randomness=0.05
+            randomness=0.05,
         )
 
         assert profile.name == "custom"
@@ -51,7 +51,7 @@ class TestModeProfileCreation:
                 constraints_enabled=True,
                 latency_budget_ms=1000,
                 token_budget=10000,
-                randomness=0.0
+                randomness=0.0,
             )
 
     def test_mode_profile_validation_negative_extended(self):
@@ -65,7 +65,7 @@ class TestModeProfileCreation:
                 constraints_enabled=True,
                 latency_budget_ms=1000,
                 token_budget=10000,
-                randomness=0.0
+                randomness=0.0,
             )
 
     def test_mode_profile_validation_invalid_latency(self):
@@ -79,7 +79,7 @@ class TestModeProfileCreation:
                 constraints_enabled=True,
                 latency_budget_ms=0,
                 token_budget=10000,
-                randomness=0.0
+                randomness=0.0,
             )
 
     def test_mode_profile_validation_invalid_token_budget(self):
@@ -93,7 +93,7 @@ class TestModeProfileCreation:
                 constraints_enabled=True,
                 latency_budget_ms=1000,
                 token_budget=-100,
-                randomness=0.0
+                randomness=0.0,
             )
 
     def test_mode_profile_validation_randomness_out_of_range(self):
@@ -107,7 +107,7 @@ class TestModeProfileCreation:
                 constraints_enabled=True,
                 latency_budget_ms=1000,
                 token_budget=10000,
-                randomness=1.5
+                randomness=1.5,
             )
 
 

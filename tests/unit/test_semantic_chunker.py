@@ -14,11 +14,7 @@ class TestSemanticChunker:
     @pytest.fixture
     def chunker(self):
         """Create chunker instance."""
-        return SemanticChunker(
-            min_chunk_size=128,
-            max_chunk_size=512,
-            overlap=50
-        )
+        return SemanticChunker(min_chunk_size=128, max_chunk_size=512, overlap=50)
 
     @pytest.fixture
     def sample_markdown(self, tmp_path):
@@ -46,7 +42,7 @@ This is another section with different content.
 It should be processed correctly."""
 
         file_path = tmp_path / "test.md"
-        file_path.write_text(content, encoding='utf-8')
+        file_path.write_text(content, encoding="utf-8")
         return file_path
 
     def test_initialization(self, chunker):
@@ -68,18 +64,18 @@ It should be processed correctly."""
         chunks = chunker.chunk_file(sample_markdown)
 
         assert len(chunks) > 0
-        assert all('text' in chunk for chunk in chunks)
-        assert all('file_path' in chunk for chunk in chunks)
-        assert all('chunk_index' in chunk for chunk in chunks)
+        assert all("text" in chunk for chunk in chunks)
+        assert all("file_path" in chunk for chunk in chunks)
+        assert all("chunk_index" in chunk for chunk in chunks)
 
     def test_extract_frontmatter(self, chunker, sample_markdown):
         """Test frontmatter extraction."""
         chunks = chunker.chunk_file(sample_markdown)
 
         # Verify metadata extracted
-        metadata = chunks[0]['metadata']
-        assert 'title' in metadata
-        assert metadata['title'] == 'Test Document'
+        metadata = chunks[0]["metadata"]
+        assert "title" in metadata
+        assert metadata["title"] == "Test Document"
 
     def test_remove_frontmatter(self, chunker, sample_markdown):
         """Test frontmatter removal."""
@@ -87,8 +83,8 @@ It should be processed correctly."""
 
         # Verify frontmatter not in text
         for chunk in chunks:
-            assert '---' not in chunk['text']
-            assert 'title:' not in chunk['text']
+            assert "---" not in chunk["text"]
+            assert "title:" not in chunk["text"]
 
     def test_file_not_found(self, chunker):
         """Test handling of non-existent file."""

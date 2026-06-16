@@ -30,9 +30,7 @@ from src.services.token_calculator import TokenTracker
 
 
 # Default paths
-DEFAULT_DB = os.path.join(
-    str(Path.home()), ".claude", "memory-mcp-data", "agent_kv.db"
-)
+DEFAULT_DB = os.path.join(str(Path.home()), ".claude", "memory-mcp-data", "agent_kv.db")
 
 
 def get_project_info() -> dict:
@@ -42,9 +40,13 @@ def get_project_info() -> dict:
     branch = ""
     try:
         import subprocess
+
         result = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True, text=True, timeout=5, cwd=cwd
+            capture_output=True,
+            text=True,
+            timeout=5,
+            cwd=cwd,
         )
         if result.returncode == 0:
             branch = result.stdout.strip()
@@ -55,16 +57,17 @@ def get_project_info() -> dict:
 
 def _get_beads_ready_tasks(limit: int = 3) -> str:
     """Query Beads for ready tasks. Returns formatted text or empty string."""
-    bd_exe = os.path.join(
-        str(Path.home()), "AppData", "Local", "beads", "bd.exe"
-    )
+    bd_exe = os.path.join(str(Path.home()), "AppData", "Local", "beads", "bd.exe")
     if not os.path.exists(bd_exe):
         return ""
     try:
         import subprocess
+
         result = subprocess.run(
             [bd_exe, "ls", "--ready", "--limit", str(limit)],
-            capture_output=True, text=True, timeout=3,
+            capture_output=True,
+            text=True,
+            timeout=3,
         )
         if result.returncode == 0 and result.stdout.strip():
             return result.stdout.strip()
@@ -86,9 +89,7 @@ def build_context_block(store: KVStore, project: str, mode: str = "execution") -
     if last_session and last_session.get("summary"):
         summary = last_session["summary"]
         if tracker.try_add("last_session", summary):
-            sections.append(
-                f"## Previous Session\n{summary}"
-            )
+            sections.append(f"## Previous Session\n{summary}")
 
     # Section 2: Recent observations for this project
     recent_obs = store.get_observations(project=project, limit=15)
@@ -119,9 +120,7 @@ def build_context_block(store: KVStore, project: str, mode: str = "execution") -
 
         sess_text = "\n".join(sess_lines)
         if tracker.try_add("prior_sessions", sess_text):
-            sections.append(
-                f"## Prior Sessions\n{sess_text}"
-            )
+            sections.append(f"## Prior Sessions\n{sess_text}")
 
     # Section 4: Beads ready tasks (if bd.exe available)
     beads_text = _get_beads_ready_tasks(limit=3)
@@ -133,8 +132,7 @@ def build_context_block(store: KVStore, project: str, mode: str = "execution") -
 
     header = f"# Memory Context [{project}]"
     footer = (
-        f"\n---\n_Tokens: {tracker.used}/{tracker.budget} "
-        f"({tracker.mode} mode)_"
+        f"\n---\n_Tokens: {tracker.used}/{tracker.budget} " f"({tracker.mode} mode)_"
     )
     return header + "\n\n" + "\n\n".join(sections) + footer
 
@@ -199,12 +197,15 @@ def main():
         )
         os.makedirs(os.path.dirname(session_file), exist_ok=True)
         with open(session_file, "w") as f:
-            json.dump({
-                "session_id": session.session_id,
-                "project": project,
-                "branch": info["branch"],
-                "cwd": info["cwd"],
-            }, f)
+            json.dump(
+                {
+                    "session_id": session.session_id,
+                    "project": project,
+                    "branch": info["branch"],
+                    "cwd": info["cwd"],
+                },
+                f,
+            )
 
         # Build and output context injection
         context = build_context_block(store, project)
@@ -217,13 +218,15 @@ def main():
             est_tokens = len(context) // 4
             store.set(
                 f"economics:injection:{session.session_id}",
-                json.dumps({
-                    "session_id": session.session_id,
-                    "project": project,
-                    "injected_tokens": est_tokens,
-                    "injected_chars": len(context),
-                    "timestamp": session.started_at,
-                }),
+                json.dumps(
+                    {
+                        "session_id": session.session_id,
+                        "project": project,
+                        "injected_tokens": est_tokens,
+                        "injected_chars": len(context),
+                        "timestamp": session.started_at,
+                    }
+                ),
             )
 
     except Exception as exc:

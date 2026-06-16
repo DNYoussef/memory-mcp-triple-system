@@ -18,6 +18,7 @@ try:
     from .network_builder import NetworkBuilder
     from .probabilistic_query_engine import ProbabilisticQueryEngine
     from .bayesian_graph_sync import BayesianGraphSync
+
     BAYESIAN_AVAILABLE = True
     BAYESIAN_BACKEND = "pgmpy"
 except ImportError:
@@ -25,6 +26,7 @@ except ImportError:
         # Lightweight pure-Python Bayesian — no torch dependency
         from .lightweight_network_builder import LightweightNetworkBuilder as NetworkBuilder  # type: ignore[assignment]
         from .lightweight_query_engine import LightweightQueryEngine as ProbabilisticQueryEngine  # type: ignore[assignment]
+
         BayesianGraphSync = None  # type: ignore[assignment,misc]
         BAYESIAN_AVAILABLE = True
         BAYESIAN_BACKEND = "lightweight"
@@ -36,4 +38,10 @@ except ImportError:
         BAYESIAN_AVAILABLE = False
         BAYESIAN_BACKEND = "none"
 
-__all__ = ["NetworkBuilder", "ProbabilisticQueryEngine", "BayesianGraphSync", "BAYESIAN_AVAILABLE", "BAYESIAN_BACKEND"]
+__all__ = [
+    "NetworkBuilder",
+    "ProbabilisticQueryEngine",
+    "BayesianGraphSync",
+    "BAYESIAN_AVAILABLE",
+    "BAYESIAN_BACKEND",
+]

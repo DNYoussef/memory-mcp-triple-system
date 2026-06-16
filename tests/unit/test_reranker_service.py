@@ -45,9 +45,7 @@ class TestRerankerServiceInitialization:
         """Test custom model name overrides model_size."""
         custom_model = "custom/my-reranker-model"
         service = RerankerService(
-            model_name=custom_model,
-            model_size="small",
-            enabled=False
+            model_name=custom_model, model_size="small", enabled=False
         )
         assert service.model_name == custom_model
 
@@ -103,12 +101,12 @@ class TestRerankerServiceRerank:
             {"id": "doc-3", "text": "Third document about neural networks"},
         ]
 
-    def test_rerank_returns_sorted_documents(self, service_with_mock_model, sample_documents):
+    def test_rerank_returns_sorted_documents(
+        self, service_with_mock_model, sample_documents
+    ):
         """Test that rerank returns documents sorted by score."""
         reranked, stats = service_with_mock_model.rerank(
-            query="machine learning",
-            documents=sample_documents,
-            top_k=3
+            query="machine learning", documents=sample_documents, top_k=3
         )
 
         # Doc 3 has highest score (3.0), then Doc 1 (2.5), then Doc 2 (1.0)
@@ -120,9 +118,7 @@ class TestRerankerServiceRerank:
     def test_rerank_adds_rerank_scores(self, service_with_mock_model, sample_documents):
         """Test that rerank adds rerank_score to documents."""
         reranked, stats = service_with_mock_model.rerank(
-            query="test query",
-            documents=sample_documents,
-            top_k=3
+            query="test query", documents=sample_documents, top_k=3
         )
 
         for doc in reranked:
@@ -136,9 +132,7 @@ class TestRerankerServiceRerank:
     def test_rerank_respects_top_k(self, service_with_mock_model, sample_documents):
         """Test that rerank returns at most top_k documents."""
         reranked, stats = service_with_mock_model.rerank(
-            query="test",
-            documents=sample_documents,
-            top_k=2
+            query="test", documents=sample_documents, top_k=2
         )
 
         assert len(reranked) == 2
@@ -146,9 +140,7 @@ class TestRerankerServiceRerank:
     def test_rerank_returns_stats(self, service_with_mock_model, sample_documents):
         """Test that rerank returns statistics."""
         reranked, stats = service_with_mock_model.rerank(
-            query="test",
-            documents=sample_documents,
-            top_k=3
+            query="test", documents=sample_documents, top_k=3
         )
 
         assert "rerank_enabled" in stats
@@ -164,9 +156,7 @@ class TestRerankerServiceRerank:
         service = RerankerService(enabled=False)
 
         reranked, stats = service.rerank(
-            query="test",
-            documents=sample_documents,
-            top_k=3
+            query="test", documents=sample_documents, top_k=3
         )
 
         assert len(reranked) == 3
@@ -177,9 +167,7 @@ class TestRerankerServiceRerank:
     def test_rerank_empty_documents(self, service_with_mock_model):
         """Test rerank with empty document list."""
         reranked, stats = service_with_mock_model.rerank(
-            query="test",
-            documents=[],
-            top_k=5
+            query="test", documents=[], top_k=5
         )
 
         assert len(reranked) == 0
@@ -189,11 +177,11 @@ class TestRerankerServiceRerank:
         """Test rerank when model property returns None."""
         service = RerankerService(enabled=True)
         # Override the model property to return None
-        with patch.object(RerankerService, 'model', new_callable=lambda: property(lambda self: None)):
+        with patch.object(
+            RerankerService, "model", new_callable=lambda: property(lambda self: None)
+        ):
             reranked, stats = service.rerank(
-                query="test",
-                documents=sample_documents,
-                top_k=3
+                query="test", documents=sample_documents, top_k=3
             )
 
             # Should return original documents when model is None
@@ -208,9 +196,7 @@ class TestRerankerServiceRerank:
         service_with_mock_model._model.predict.return_value = [1.5]
 
         reranked, stats = service_with_mock_model.rerank(
-            query="test",
-            documents=docs,
-            top_k=1
+            query="test", documents=docs, top_k=1
         )
 
         assert len(reranked) == 1
@@ -236,9 +222,7 @@ class TestRerankerServiceMergeScores:
     def test_merge_scores_calculates_final_score(self, service, documents_with_scores):
         """Test final score calculation."""
         merged = service.merge_scores(
-            documents=documents_with_scores,
-            hybrid_weight=0.5,
-            rerank_weight=0.5
+            documents=documents_with_scores, hybrid_weight=0.5, rerank_weight=0.5
         )
 
         for doc in merged:
@@ -249,9 +233,7 @@ class TestRerankerServiceMergeScores:
     def test_merge_scores_sorts_by_final_score(self, service, documents_with_scores):
         """Test documents are sorted by final score."""
         merged = service.merge_scores(
-            documents=documents_with_scores,
-            hybrid_weight=0.5,
-            rerank_weight=0.5
+            documents=documents_with_scores, hybrid_weight=0.5, rerank_weight=0.5
         )
 
         # Verify descending order
@@ -428,7 +410,7 @@ class TestRerankerServiceModelLoading:
     def test_model_loads_on_access(self):
         """Test model loads when model property is accessed."""
         # Patch at the point of import inside _load_model
-        with patch.object(RerankerService, '_load_model') as mock_load:
+        with patch.object(RerankerService, "_load_model") as mock_load:
             mock_load.return_value = Mock()
 
             service = RerankerService(enabled=True)
@@ -438,7 +420,7 @@ class TestRerankerServiceModelLoading:
 
     def test_model_load_failure_disables_service(self):
         """Test that model load failure disables the service."""
-        with patch.object(RerankerService, '_load_model') as mock_load:
+        with patch.object(RerankerService, "_load_model") as mock_load:
             mock_load.side_effect = Exception("Model load failed")
 
             service = RerankerService(enabled=True)

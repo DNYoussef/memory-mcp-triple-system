@@ -28,16 +28,12 @@ def mock_vault(tmp_path):
 @pytest.fixture
 def client(mock_vault):
     """Obsidian MCP client instance."""
-    return ObsidianMCPClient(
-        vault_path=str(mock_vault)
-    )
+    return ObsidianMCPClient(vault_path=str(mock_vault))
 
 
 def test_client_initialization(mock_vault):
     """Test client initializes correctly."""
-    client = ObsidianMCPClient(
-        vault_path=str(mock_vault)
-    )
+    client = ObsidianMCPClient(vault_path=str(mock_vault))
 
     assert client.vault_path == mock_vault
 
@@ -79,12 +75,12 @@ def test_export_to_vault(client, mock_vault):
     chunks = [
         {
             "text": "Memory 1 content",
-            "metadata": {"source": "vector", "created_at": "2025-10-18"}
+            "metadata": {"source": "vector", "created_at": "2025-10-18"},
         },
         {
             "text": "Memory 2 content",
-            "metadata": {"source": "graph", "created_at": "2025-10-18"}
-        }
+            "metadata": {"source": "graph", "created_at": "2025-10-18"},
+        },
     ]
 
     result = client.export_to_vault(chunks, "exported.md")

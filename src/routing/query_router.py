@@ -15,6 +15,7 @@ from loguru import logger
 
 class StorageTier(Enum):
     """Storage tier identifiers (5-tier architecture)."""
+
     KV = "kv"
     RELATIONAL = "relational"
     VECTOR = "vector"
@@ -25,6 +26,7 @@ class StorageTier(Enum):
 
 class QueryMode(Enum):
     """Query modes from mode detection."""
+
     EXECUTION = "execution"
     PLANNING = "planning"
     BRAINSTORMING = "brainstorming"
@@ -60,7 +62,7 @@ class QueryRouter:
         self,
         query: str,
         mode: QueryMode = QueryMode.EXECUTION,
-        user_context: Optional[Dict[str, Any]] = None
+        user_context: Optional[Dict[str, Any]] = None,
     ) -> List[StorageTier]:
         """
         Route query to appropriate storage tier(s).
@@ -92,13 +94,17 @@ class QueryRouter:
         for pattern, tiers in self.patterns.items():
             if re.search(pattern, query_lower):
                 matched_tiers = tiers
-                logger.debug(f"Matched pattern '{pattern}' → {[t.value for t in tiers]}")
+                logger.debug(
+                    f"Matched pattern '{pattern}' → {[t.value for t in tiers]}"
+                )
                 break
 
         # ISS-029 FIX: Use keyword fallback instead of hardcoded default
         if not matched_tiers:
             matched_tiers = self._keyword_fallback(query_lower)
-            logger.debug(f"No pattern match, using keyword fallback: {[t.value for t in matched_tiers]}")
+            logger.debug(
+                f"No pattern match, using keyword fallback: {[t.value for t in matched_tiers]}"
+            )
 
         # Apply mode-based optimization
         if self.should_skip_bayesian(mode):
@@ -109,9 +115,7 @@ class QueryRouter:
         return matched_tiers
 
     def should_skip_bayesian(
-        self,
-        mode: QueryMode,
-        query_complexity: Optional[float] = None
+        self, mode: QueryMode, query_complexity: Optional[float] = None
     ) -> bool:
         """
         Decide whether to skip Bayesian network query.
@@ -150,30 +154,44 @@ class QueryRouter:
             r"my\s+(coding|style|preference|setting|config)": [StorageTier.KV],
             r"(get|fetch|retrieve)\s+my\s+": [StorageTier.KV],
             r"(remember|recall)\s+my\s+": [StorageTier.KV],
-
             # Relational: Entity queries, structured data
-            r"what\s+(client|project|task|file|user|document)\s+": [StorageTier.RELATIONAL],
-            r"(list|show|find|search)\s+all\s+": [StorageTier.RELATIONAL, StorageTier.VECTOR],
+            r"what\s+(client|project|task|file|user|document)\s+": [
+                StorageTier.RELATIONAL
+            ],
+            r"(list|show|find|search)\s+all\s+": [
+                StorageTier.RELATIONAL,
+                StorageTier.VECTOR,
+            ],
             r"(how\s+many|count)\s+": [StorageTier.RELATIONAL],
-
             # Event Log: Temporal, historical queries
-            r"what\s+happened\s+(on|at|during|in|since|before|after)": [StorageTier.EVENT_LOG],
-            r"(when|timeline|history|recent|latest)\s+": [StorageTier.EVENT_LOG, StorageTier.GRAPH],
+            r"what\s+happened\s+(on|at|during|in|since|before|after)": [
+                StorageTier.EVENT_LOG
+            ],
+            r"(when|timeline|history|recent|latest)\s+": [
+                StorageTier.EVENT_LOG,
+                StorageTier.GRAPH,
+            ],
             r"(yesterday|today|last\s+(week|month|year))": [StorageTier.EVENT_LOG],
-
             # Graph: Multi-hop, relationship queries
             r"what\s+led\s+to": [StorageTier.GRAPH],
             r"(why|how)\s+did": [StorageTier.GRAPH, StorageTier.EVENT_LOG],
             r"(relationship|connection|link)\s+(between|with)": [StorageTier.GRAPH],
-            r"(related|connected|associated)\s+to": [StorageTier.GRAPH, StorageTier.VECTOR],
+            r"(related|connected|associated)\s+to": [
+                StorageTier.GRAPH,
+                StorageTier.VECTOR,
+            ],
             r"(trace|follow|path)\s+": [StorageTier.GRAPH],
-
             # Bayesian: Probabilistic, uncertainty queries
             r"p\s*\(.*\|.*\)": [StorageTier.BAYESIAN],
-            r"(probability|likely|chance|likelihood)\s+": [StorageTier.BAYESIAN, StorageTier.GRAPH],
+            r"(probability|likely|chance|likelihood)\s+": [
+                StorageTier.BAYESIAN,
+                StorageTier.GRAPH,
+            ],
             r"(uncertain|confident|sure)\s+": [StorageTier.BAYESIAN],
-            r"(predict|forecast|estimate)\s+": [StorageTier.BAYESIAN, StorageTier.VECTOR],
-
+            r"(predict|forecast|estimate)\s+": [
+                StorageTier.BAYESIAN,
+                StorageTier.VECTOR,
+            ],
             # Vector: Semantic search, conceptual queries
             r"what\s+about": [StorageTier.VECTOR, StorageTier.GRAPH],
             r"(explain|describe|tell\s+me\s+about|elaborate)": [StorageTier.VECTOR],
@@ -207,10 +225,7 @@ class QueryRouter:
             return [t for t, s in scores.items() if s == max_score]
         return [StorageTier.VECTOR, StorageTier.GRAPH]
 
-    def validate_routing_accuracy(
-        self,
-        test_queries: List[Dict[str, Any]]
-    ) -> float:
+    def validate_routing_accuracy(self, test_queries: List[Dict[str, Any]]) -> float:
         """
         Validate routing accuracy against labeled test queries.
 

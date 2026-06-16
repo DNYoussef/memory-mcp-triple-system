@@ -24,6 +24,7 @@ from loguru import logger
 
 class TrajectoryEventType(Enum):
     """Types of trajectory events."""
+
     QUERY_START = "query_start"
     QUERY_END = "query_end"
     SEARCH = "search"
@@ -45,6 +46,7 @@ class TrajectoryEvent:
         tokens: Tokens used if applicable
         timestamp: ISO8601 timestamp
     """
+
     event_type: TrajectoryEventType
     depth: int
     query: Optional[str] = None
@@ -75,6 +77,7 @@ class TrajectoryEvent:
 @dataclass
 class TrajectoryStats:
     """Aggregated statistics for a trajectory."""
+
     total_events: int = 0
     max_depth: int = 0
     total_tokens: int = 0
@@ -98,7 +101,7 @@ class RLMLogger:
         self,
         output_dir: Optional[str] = None,
         session_id: Optional[str] = None,
-        enable_visualizer: bool = True
+        enable_visualizer: bool = True,
     ):
         """
         Initialize RLM logger.
@@ -145,7 +148,7 @@ class RLMLogger:
             TrajectoryEventType.QUERY_START,
             depth=0,
             query=query,
-            data={"trace_id": self._current_trace_id}
+            data={"trace_id": self._current_trace_id},
         )
 
         return self._current_trace_id
@@ -163,8 +166,11 @@ class RLMLogger:
         self.log_event(
             TrajectoryEventType.QUERY_END,
             depth=0,
-            data={"result_type": type(result).__name__, "result_count": len(result) if hasattr(result, "__len__") else 1},
-            tokens=tokens
+            data={
+                "result_type": type(result).__name__,
+                "result_count": len(result) if hasattr(result, "__len__") else 1,
+            },
+            tokens=tokens,
         )
         self._current_trace_id = None
 
@@ -174,7 +180,7 @@ class RLMLogger:
         depth: int,
         query: Optional[str] = None,
         data: Optional[Dict[str, Any]] = None,
-        tokens: int = 0
+        tokens: int = 0,
     ) -> TrajectoryEvent:
         """
         Log a trajectory event.
@@ -198,7 +204,7 @@ class RLMLogger:
             data=data,
             tokens=tokens,
             session_id=self.session_id,
-            trace_id=self._current_trace_id
+            trace_id=self._current_trace_id,
         )
 
         self._events.append(event)
@@ -217,24 +223,16 @@ class RLMLogger:
             TrajectoryEventType.SEARCH,
             depth=depth,
             query=query,
-            data={"result_count": result_count}
+            data={"result_count": result_count},
         )
 
     def log_recurse(self, query: str, depth: int) -> None:
         """Log a recursion."""
-        self.log_event(
-            TrajectoryEventType.RECURSE,
-            depth=depth,
-            query=query
-        )
+        self.log_event(TrajectoryEventType.RECURSE, depth=depth, query=query)
 
     def log_error(self, error: str, depth: int) -> None:
         """Log an error."""
-        self.log_event(
-            TrajectoryEventType.ERROR,
-            depth=depth,
-            data={"error": error}
-        )
+        self.log_event(TrajectoryEventType.ERROR, depth=depth, data={"error": error})
 
     def log_cost(self, tokens: int, cost_usd: float, depth: int) -> None:
         """Log cost information."""
@@ -242,7 +240,7 @@ class RLMLogger:
             TrajectoryEventType.COST,
             depth=depth,
             tokens=tokens,
-            data={"cost_usd": cost_usd}
+            data={"cost_usd": cost_usd},
         )
 
     def _write_event(self, event: TrajectoryEvent) -> None:
@@ -309,7 +307,9 @@ class RLMLogger:
             "log_path": str(self._log_path),
             "events": [e.to_dict() for e in self._events],
             "stats": asdict(self.get_stats()),
-            "visualizer_url": self.get_visualizer_url() if self.enable_visualizer else None
+            "visualizer_url": self.get_visualizer_url()
+            if self.enable_visualizer
+            else None,
         }
 
     def close(self) -> None:

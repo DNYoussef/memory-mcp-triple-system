@@ -48,6 +48,7 @@ class TestDedupPerformance:
         candidates = self._make_candidates(50)
         # Mock embedding pipeline for batch encode
         import numpy as np
+
         processor.embedding_pipeline.encode = MagicMock(
             return_value=np.random.rand(50, 384).tolist()
         )
@@ -61,6 +62,7 @@ class TestDedupPerformance:
         """All unique items survive dedup."""
         candidates = self._make_candidates(10)
         import numpy as np
+
         # Use identity-like embeddings so no two are similar
         embeddings = np.eye(10, 384).tolist()
         processor.embedding_pipeline.encode = MagicMock(return_value=embeddings)
@@ -71,6 +73,7 @@ class TestDedupPerformance:
         """Near-identical items get deduplicated."""
         candidates = self._make_candidates(5)
         import numpy as np
+
         # Make all embeddings nearly identical
         base = np.random.rand(384)
         embeddings = [base.tolist()] * 5
@@ -105,9 +108,7 @@ class TestHybridScoring:
 
     def test_custom_weights(self):
         """Custom weights are respected."""
-        p = NexusProcessor(
-            weights={"vector": 0.6, "hipporag": 0.3, "bayesian": 0.1}
-        )
+        p = NexusProcessor(weights={"vector": 0.6, "hipporag": 0.3, "bayesian": 0.1})
         score = p._calculate_hybrid_score(
             vector_score=1.0, graph_score=0.0, bayesian_score=0.0
         )

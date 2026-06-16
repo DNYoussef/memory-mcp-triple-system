@@ -29,9 +29,7 @@ from src.services.session_summarizer import SessionSummarizer
 
 
 # Default paths
-DEFAULT_DB = os.path.join(
-    str(Path.home()), ".claude", "memory-mcp-data", "agent_kv.db"
-)
+DEFAULT_DB = os.path.join(str(Path.home()), ".claude", "memory-mcp-data", "agent_kv.db")
 SESSION_FILE = os.path.join(
     str(Path.home()), ".claude", "memory-mcp-data", "current_session.json"
 )
@@ -83,12 +81,14 @@ def main():
             est_tokens = len(summary_text) // 4
             store.set(
                 f"economics:summary:{session_id}",
-                json.dumps({
-                    "session_id": session_id,
-                    "summary_tokens": est_tokens,
-                    "observation_count": summary.observation_count,
-                    "duration_seconds": summary.duration_seconds,
-                }),
+                json.dumps(
+                    {
+                        "session_id": session_id,
+                        "summary_tokens": est_tokens,
+                        "observation_count": summary.observation_count,
+                        "duration_seconds": summary.duration_seconds,
+                    }
+                ),
             )
 
         # Clean up session file

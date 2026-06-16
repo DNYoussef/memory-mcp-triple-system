@@ -52,13 +52,13 @@ class GraphPersistence:
                 return True
             try:
                 if file_path is None:
-                    file_path = self.data_dir / 'graph.json'
+                    file_path = self.data_dir / "graph.json"
                 else:
                     file_path = Path(file_path)
 
                 data = nx.node_link_data(self.graph)
 
-                with open(file_path, 'w') as f:
+                with open(file_path, "w") as f:
                     json.dump(data, f, indent=2)
 
                 self._dirty = False
@@ -74,7 +74,7 @@ class GraphPersistence:
         with self._lock:
             try:
                 if file_path is None:
-                    file_path = self.data_dir / 'graph.json'
+                    file_path = self.data_dir / "graph.json"
                 else:
                     file_path = Path(file_path)
 
@@ -82,7 +82,7 @@ class GraphPersistence:
                     logger.warning(f"File not found: {file_path}")
                     return None
 
-                with open(file_path, 'r') as f:
+                with open(file_path, "r") as f:
                     data = json.load(f)
 
                 loaded_graph = nx.node_link_graph(data, directed=True)

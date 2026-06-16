@@ -37,8 +37,8 @@ class CostAnalyzerConfig:
     """Configuration for cost analyzer."""
 
     default_period_days: int = 7
-    cost_warning_threshold: float = 10.0    # USD per week
-    token_warning_threshold: int = 1000000   # 1M tokens
+    cost_warning_threshold: float = 10.0  # USD per week
+    token_warning_threshold: int = 1000000  # 1M tokens
 
 
 class CostTokenAnalyzer:
@@ -163,8 +163,14 @@ class CostTokenAnalyzer:
         prev_tokens = sum(r["input_tokens"] + r["output_tokens"] for r in prev_records)
         prev_cost = self._calculate_cost(prev_records)
 
-        token_change = ((total_tokens - prev_tokens) / prev_tokens * 100) if prev_tokens > 0 else 0.0
-        cost_change = ((total_cost - prev_cost) / prev_cost * 100) if prev_cost > 0 else 0.0
+        token_change = (
+            ((total_tokens - prev_tokens) / prev_tokens * 100)
+            if prev_tokens > 0
+            else 0.0
+        )
+        cost_change = (
+            ((total_cost - prev_cost) / prev_cost * 100) if prev_cost > 0 else 0.0
+        )
 
         return CostAnalysis(
             period_start=start_date.isoformat(),
@@ -224,7 +230,9 @@ class CostTokenAnalyzer:
         filtered = []
 
         for record in self._usage_records:
-            rec_time = datetime.fromisoformat(record["timestamp"].replace("Z", "+00:00"))
+            rec_time = datetime.fromisoformat(
+                record["timestamp"].replace("Z", "+00:00")
+            )
             if start_date <= rec_time <= end_date:
                 filtered.append(record)
 

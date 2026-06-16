@@ -13,7 +13,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 def test_current_docs_match_code():
     result = subprocess.run(
         [sys.executable, os.path.join(ROOT, "scripts", "check_docs.py")],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
         env={**os.environ, "PYTHONPATH": ROOT},
     )
     assert result.returncode == 0, f"doc drift:\n{result.stdout}\n{result.stderr}"

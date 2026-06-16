@@ -59,9 +59,7 @@ class LightweightQueryEngine:
 
         try:
             infer = LightweightVariableElimination(net)
-            return self.execute_with_timeout(
-                infer.query, valid_query, valid_evidence
-            )
+            return self.execute_with_timeout(infer.query, valid_query, valid_evidence)
         except Exception as e:
             logger.error(f"Conditional query failed: {e}")
             return {}

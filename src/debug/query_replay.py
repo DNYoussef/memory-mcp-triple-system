@@ -46,7 +46,7 @@ class QueryReplay:
         nexus_processor: Optional[Any] = None,
         kv_store: Optional[Any] = None,
         vector_indexer: Optional[Any] = None,
-        allow_mock: bool = False
+        allow_mock: bool = False,
     ):
         """
         Initialize query replay engine.
@@ -60,8 +60,7 @@ class QueryReplay:
         """
         self.repository = QueryTraceRepository(db_path)
         self.context_reconstructor = ContextReconstructor(
-            kv_store=kv_store,
-            vector_indexer=vector_indexer
+            kv_store=kv_store, vector_indexer=vector_indexer
         )
         self.comparator = TraceComparator()
         self._nexus_processor = nexus_processor
@@ -75,9 +74,7 @@ class QueryReplay:
         logger.info("QueryReplay wired to NexusProcessor")
 
     def set_stores(
-        self,
-        kv_store: Optional[Any] = None,
-        vector_indexer: Optional[Any] = None
+        self, kv_store: Optional[Any] = None, vector_indexer: Optional[Any] = None
     ) -> None:
         """Configure stores for context reconstruction."""
         self.context_reconstructor.set_stores(kv_store, vector_indexer)
@@ -100,8 +97,7 @@ class QueryReplay:
 
         # 2. Reconstruct context
         context = self.context_reconstructor.reconstruct(
-            timestamp=original.timestamp,
-            user_context=original.user_context
+            timestamp=original.timestamp, user_context=original.user_context
         )
 
         # 3. Re-run query
@@ -113,17 +109,12 @@ class QueryReplay:
         logger.info(f"Replay complete for {query_id}")
         return new_trace, diff
 
-    def _execute_replay(
-        self,
-        query: str,
-        context: Dict[str, Any]
-    ) -> QueryTrace:
+    def _execute_replay(self, query: str, context: Dict[str, Any]) -> QueryTrace:
         """Execute query replay with context."""
         start_time = time.time()
 
         new_trace = QueryTrace.create(
-            query=query,
-            user_context=context.get("user_context", {})
+            query=query, user_context=context.get("user_context", {})
         )
 
         if self._nexus_processor is not None:
@@ -131,25 +122,21 @@ class QueryReplay:
         elif self._allow_mock:
             self._execute_mock_replay(new_trace, query)
         else:
-            raise RuntimeError("QueryReplay requires NexusProcessor unless allow_mock is True")
+            raise RuntimeError(
+                "QueryReplay requires NexusProcessor unless allow_mock is True"
+            )
 
         new_trace.total_latency_ms = int((time.time() - start_time) * 1000)
         return new_trace
 
     def _execute_real_replay(
-        self,
-        trace: QueryTrace,
-        query: str,
-        context: Dict[str, Any]
+        self, trace: QueryTrace, query: str, context: Dict[str, Any]
     ) -> None:
         """Execute replay using real NexusProcessor."""
         try:
             mode = context.get("user_context", {}).get("mode", "execution")
             result = self._nexus_processor.process(
-                query=query,
-                mode=mode,
-                top_k=50,
-                token_budget=10000
+                query=query, mode=mode, top_k=50, token_budget=10000
             )
             trace.mode_detected = mode
             trace.stores_queried = ["vector", "graph", "bayesian"]
@@ -165,11 +152,7 @@ class QueryReplay:
                 logger.error(f"Real replay failed: {e}")
                 raise
 
-    def _execute_mock_replay(
-        self,
-        trace: QueryTrace,
-        query: str
-    ) -> None:
+    def _execute_mock_replay(self, trace: QueryTrace, query: str) -> None:
         """Execute mock replay for testing."""
         trace.mode_detected = "execution"
         trace.mode_confidence = 0.95

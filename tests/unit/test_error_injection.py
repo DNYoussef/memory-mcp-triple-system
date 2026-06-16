@@ -91,7 +91,7 @@ class TestEventLogNarrowedExceptions:
         """OSError/IOError in event_log re-raises (P1-4 fix)."""
         log = EventLog(db_path=str(tmp_path / "test.db"))
 
-        with patch.object(log, 'log_event') as mock_log:
+        with patch.object(log, "log_event") as mock_log:
             # Simulate the narrowed exception path
             mock_log.side_effect = OSError("Disk full")
             with pytest.raises(OSError, match="Disk full"):
@@ -102,10 +102,7 @@ class TestEventLogNarrowedExceptions:
         log = EventLog(db_path=str(tmp_path / "test.db"))
 
         # Force a generic error by using invalid data type
-        result = log.log_event(
-            event_type=EventType.CHUNK_ADDED,
-            data={"key": "value"}
-        )
+        result = log.log_event(event_type=EventType.CHUNK_ADDED, data={"key": "value"})
         assert result is True  # Normal case succeeds
 
 

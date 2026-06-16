@@ -21,16 +21,19 @@ class TestHybridScoreBoundaries:
     def processor(self):
         return NexusProcessor()
 
-    @pytest.mark.parametrize("v,g,b", [
-        (0.0, 0.0, 0.0),
-        (1.0, 1.0, 1.0),
-        (1.0, 0.0, 0.0),
-        (0.0, 1.0, 0.0),
-        (0.0, 0.0, 1.0),
-        (0.5, 0.5, 0.5),
-        (0.999, 0.999, 0.999),
-        (0.001, 0.001, 0.001),
-    ])
+    @pytest.mark.parametrize(
+        "v,g,b",
+        [
+            (0.0, 0.0, 0.0),
+            (1.0, 1.0, 1.0),
+            (1.0, 0.0, 0.0),
+            (0.0, 1.0, 0.0),
+            (0.0, 0.0, 1.0),
+            (0.5, 0.5, 0.5),
+            (0.999, 0.999, 0.999),
+            (0.001, 0.001, 0.001),
+        ],
+    )
     def test_score_in_valid_range(self, processor, v, g, b):
         """Score is always in [0, 1] for valid inputs."""
         score = processor._calculate_hybrid_score(
@@ -46,27 +49,42 @@ class TestHybridScoreBoundaries:
 
     def test_score_monotonic_in_vector(self, processor):
         """Increasing vector score increases hybrid score."""
-        s1 = processor._calculate_hybrid_score(vector_score=0.3, graph_score=0.5, bayesian_score=0.5)
-        s2 = processor._calculate_hybrid_score(vector_score=0.7, graph_score=0.5, bayesian_score=0.5)
+        s1 = processor._calculate_hybrid_score(
+            vector_score=0.3, graph_score=0.5, bayesian_score=0.5
+        )
+        s2 = processor._calculate_hybrid_score(
+            vector_score=0.7, graph_score=0.5, bayesian_score=0.5
+        )
         assert s2 > s1
 
     def test_score_monotonic_in_graph(self, processor):
         """Increasing graph score increases hybrid score."""
-        s1 = processor._calculate_hybrid_score(vector_score=0.5, graph_score=0.2, bayesian_score=0.5)
-        s2 = processor._calculate_hybrid_score(vector_score=0.5, graph_score=0.8, bayesian_score=0.5)
+        s1 = processor._calculate_hybrid_score(
+            vector_score=0.5, graph_score=0.2, bayesian_score=0.5
+        )
+        s2 = processor._calculate_hybrid_score(
+            vector_score=0.5, graph_score=0.8, bayesian_score=0.5
+        )
         assert s2 > s1
 
     def test_score_monotonic_in_bayesian(self, processor):
         """Increasing bayesian score increases hybrid score."""
-        s1 = processor._calculate_hybrid_score(vector_score=0.5, graph_score=0.5, bayesian_score=0.1)
-        s2 = processor._calculate_hybrid_score(vector_score=0.5, graph_score=0.5, bayesian_score=0.9)
+        s1 = processor._calculate_hybrid_score(
+            vector_score=0.5, graph_score=0.5, bayesian_score=0.1
+        )
+        s2 = processor._calculate_hybrid_score(
+            vector_score=0.5, graph_score=0.5, bayesian_score=0.9
+        )
         assert s2 > s1
 
-    @pytest.mark.parametrize("weights", [
-        {"vector": 0.5, "hipporag": 0.3, "bayesian": 0.2},
-        {"vector": 0.33, "hipporag": 0.33, "bayesian": 0.34},
-        {"vector": 0.8, "hipporag": 0.1, "bayesian": 0.1},
-    ])
+    @pytest.mark.parametrize(
+        "weights",
+        [
+            {"vector": 0.5, "hipporag": 0.3, "bayesian": 0.2},
+            {"vector": 0.33, "hipporag": 0.33, "bayesian": 0.34},
+            {"vector": 0.8, "hipporag": 0.1, "bayesian": 0.1},
+        ],
+    )
     def test_custom_weights_produce_bounded_scores(self, weights):
         """Any valid weight configuration produces scores in [0, 1]."""
         proc = NexusProcessor(weights=weights)
@@ -96,9 +114,9 @@ class TestEdgeConfidenceClamping:
         graph.update_edge_from_bayesian("A", "B", bayesian_posterior=posterior)
         edge_data = graph.graph.get_edge_data("A", "B")
         confidence = edge_data.get("confidence", 0.5)
-        assert 0.1 <= confidence <= 0.95, (
-            f"Confidence {confidence} out of clamped range for posterior={posterior}"
-        )
+        assert (
+            0.1 <= confidence <= 0.95
+        ), f"Confidence {confidence} out of clamped range for posterior={posterior}"
 
     def test_extreme_low_posterior_clamps(self, graph):
         """Posterior=0.0 clamps to >= 0.1."""
@@ -127,7 +145,9 @@ class TestDecayMonotonicity:
             d2 = d1 + 1
             decay1 = math.exp(-d1 / 30)
             decay2 = math.exp(-d2 / 30)
-            assert decay2 < decay1, f"Decay not decreasing: day {d1}={decay1}, day {d2}={decay2}"
+            assert (
+                decay2 < decay1
+            ), f"Decay not decreasing: day {d1}={decay1}, day {d2}={decay2}"
 
     def test_decay_at_zero_is_one(self):
         """At day 0, decay score = 1.0."""

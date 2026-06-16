@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 class InjectionType(Enum):
     """Types of prompt injection."""
+
     JAILBREAK = "jailbreak"
     ROLE_MANIPULATION = "role_manipulation"
     INSTRUCTION_OVERRIDE = "instruction_override"
@@ -38,10 +39,11 @@ class InjectionType(Enum):
 
 class RiskLevel(Enum):
     """Risk levels for prompt issues."""
+
     L4_CRITICAL = 4  # Direct injection/jailbreak
-    L3_HIGH = 3      # Policy changes
-    L2_MEDIUM = 2    # Suspicious patterns
-    L1_LOW = 1       # Potential issues
+    L3_HIGH = 3  # Policy changes
+    L2_MEDIUM = 2  # Suspicious patterns
+    L1_LOW = 1  # Potential issues
 
 
 @dataclass
@@ -60,6 +62,7 @@ class PromptViolation:
         content: Violating content
         recommendation: How to fix
     """
+
     violation_id: str
     file_path: str
     line_number: int
@@ -96,6 +99,7 @@ class PromptScanResult:
         passed: Whether scan passed
         scan_time: When scan ran
     """
+
     file_path: str
     violations: List[PromptViolation]
     risk_score: float
@@ -129,49 +133,64 @@ class PromptGuard:
 
     # L4 CRITICAL: Direct jailbreak patterns
     L4_JAILBREAK_PATTERNS = [
-        (r'(?i)ignore\s+(all\s+)?(previous|prior|above)\s+(instructions|rules)', "ignore_instructions"),
-        (r'(?i)forget\s+(everything|all|your)\s+(you|training|instructions)', "forget_training"),
-        (r'(?i)you\s+are\s+(now|no\s+longer)\s+(a|an|the)', "role_override"),
-        (r'(?i)disregard\s+(all|any|your)\s+(safety|guidelines|rules)', "disregard_safety"),
-        (r'(?i)act\s+as\s+(if|though)\s+you\s+(have|had)\s+no', "act_without_limits"),
-        (r'(?i)pretend\s+(you\s+)?(are|have)\s+no\s+(restrictions|limits)', "pretend_no_limits"),
-        (r'(?i)bypass\s+(the\s+)?(safety|content|ethical)', "bypass_safety"),
-        (r'(?i)override\s+(your|the|all)\s+(programming|training)', "override_training"),
-        (r'(?i)dan\s*mode|developer\s*mode|god\s*mode', "special_mode"),
-        (r'(?i)jailbreak|do\s+anything\s+now', "jailbreak_keyword"),
+        (
+            r"(?i)ignore\s+(all\s+)?(previous|prior|above)\s+(instructions|rules)",
+            "ignore_instructions",
+        ),
+        (
+            r"(?i)forget\s+(everything|all|your)\s+(you|training|instructions)",
+            "forget_training",
+        ),
+        (r"(?i)you\s+are\s+(now|no\s+longer)\s+(a|an|the)", "role_override"),
+        (
+            r"(?i)disregard\s+(all|any|your)\s+(safety|guidelines|rules)",
+            "disregard_safety",
+        ),
+        (r"(?i)act\s+as\s+(if|though)\s+you\s+(have|had)\s+no", "act_without_limits"),
+        (
+            r"(?i)pretend\s+(you\s+)?(are|have)\s+no\s+(restrictions|limits)",
+            "pretend_no_limits",
+        ),
+        (r"(?i)bypass\s+(the\s+)?(safety|content|ethical)", "bypass_safety"),
+        (
+            r"(?i)override\s+(your|the|all)\s+(programming|training)",
+            "override_training",
+        ),
+        (r"(?i)dan\s*mode|developer\s*mode|god\s*mode", "special_mode"),
+        (r"(?i)jailbreak|do\s+anything\s+now", "jailbreak_keyword"),
     ]
 
     # L4 CRITICAL: Privilege escalation
     L4_ESCALATION_PATTERNS = [
-        (r'(?i)grant\s+(yourself|me)\s+(admin|root|sudo)', "grant_privileges"),
-        (r'(?i)execute\s+(as\s+)?(root|admin|system)', "execute_elevated"),
-        (r'(?i)rm\s+-rf|del\s+/s|format\s+c:', "destructive_command"),
-        (r'(?i)sudo\s+|runas\s+/user:', "elevated_execution"),
+        (r"(?i)grant\s+(yourself|me)\s+(admin|root|sudo)", "grant_privileges"),
+        (r"(?i)execute\s+(as\s+)?(root|admin|system)", "execute_elevated"),
+        (r"(?i)rm\s+-rf|del\s+/s|format\s+c:", "destructive_command"),
+        (r"(?i)sudo\s+|runas\s+/user:", "elevated_execution"),
     ]
 
     # L3 HIGH: Policy bypass patterns
     L3_POLICY_PATTERNS = [
-        (r'(?i)skip\s+(the\s+)?(verification|validation|check)', "skip_verification"),
-        (r'(?i)disable\s+(the\s+)?(guard|filter|safety)', "disable_guard"),
-        (r'(?i)turn\s+off\s+(the\s+)?(protection|safety)', "turn_off_safety"),
-        (r'(?i)remove\s+(the\s+)?(restriction|limit)', "remove_restriction"),
-        (r'(?i)without\s+(any\s+)?(checking|validation)', "without_checking"),
+        (r"(?i)skip\s+(the\s+)?(verification|validation|check)", "skip_verification"),
+        (r"(?i)disable\s+(the\s+)?(guard|filter|safety)", "disable_guard"),
+        (r"(?i)turn\s+off\s+(the\s+)?(protection|safety)", "turn_off_safety"),
+        (r"(?i)remove\s+(the\s+)?(restriction|limit)", "remove_restriction"),
+        (r"(?i)without\s+(any\s+)?(checking|validation)", "without_checking"),
     ]
 
     # L3 HIGH: Data exfiltration patterns
     L3_EXFIL_PATTERNS = [
-        (r'(?i)send\s+(all\s+)?(data|files|info)\s+to', "send_data_to"),
-        (r'(?i)upload\s+(to|your)\s+(server|endpoint)', "upload_to_server"),
-        (r'(?i)leak\s+(the\s+)?(secret|password|key)', "leak_secret"),
-        (r'(?i)extract\s+(and\s+)?(send|transmit)', "extract_and_send"),
+        (r"(?i)send\s+(all\s+)?(data|files|info)\s+to", "send_data_to"),
+        (r"(?i)upload\s+(to|your)\s+(server|endpoint)", "upload_to_server"),
+        (r"(?i)leak\s+(the\s+)?(secret|password|key)", "leak_secret"),
+        (r"(?i)extract\s+(and\s+)?(send|transmit)", "extract_and_send"),
     ]
 
     # L2 MEDIUM: Suspicious patterns
     L2_SUSPICIOUS_PATTERNS = [
-        (r'(?i)system\s*:\s*you\s+are', "system_role_injection"),
-        (r'(?i)\[system\]|\[admin\]|\[root\]', "role_tag_injection"),
-        (r'(?i)base64\s+decode|eval\(|exec\(', "code_execution_hint"),
-        (r'(?i)hidden\s+instruction|secret\s+command', "hidden_instruction"),
+        (r"(?i)system\s*:\s*you\s+are", "system_role_injection"),
+        (r"(?i)\[system\]|\[admin\]|\[root\]", "role_tag_injection"),
+        (r"(?i)base64\s+decode|eval\(|exec\(", "code_execution_hint"),
+        (r"(?i)hidden\s+instruction|secret\s+command", "hidden_instruction"),
     ]
 
     def __init__(self):
@@ -212,45 +231,70 @@ class PromptGuard:
             for pattern, name in self.L4_JAILBREAK_PATTERNS:
                 if re.search(pattern, line):
                     self._add_violation(
-                        violations, file_path, line_num, line,
-                        RiskLevel.L4_CRITICAL, InjectionType.JAILBREAK,
-                        name, "Remove jailbreak attempt"
+                        violations,
+                        file_path,
+                        line_num,
+                        line,
+                        RiskLevel.L4_CRITICAL,
+                        InjectionType.JAILBREAK,
+                        name,
+                        "Remove jailbreak attempt",
                     )
 
             # Check L4 escalation patterns
             for pattern, name in self.L4_ESCALATION_PATTERNS:
                 if re.search(pattern, line):
                     self._add_violation(
-                        violations, file_path, line_num, line,
-                        RiskLevel.L4_CRITICAL, InjectionType.PRIVILEGE_ESCALATION,
-                        name, "Remove privilege escalation"
+                        violations,
+                        file_path,
+                        line_num,
+                        line,
+                        RiskLevel.L4_CRITICAL,
+                        InjectionType.PRIVILEGE_ESCALATION,
+                        name,
+                        "Remove privilege escalation",
                     )
 
             # Check L3 policy patterns
             for pattern, name in self.L3_POLICY_PATTERNS:
                 if re.search(pattern, line):
                     self._add_violation(
-                        violations, file_path, line_num, line,
-                        RiskLevel.L3_HIGH, InjectionType.POLICY_BYPASS,
-                        name, "Review policy bypass attempt"
+                        violations,
+                        file_path,
+                        line_num,
+                        line,
+                        RiskLevel.L3_HIGH,
+                        InjectionType.POLICY_BYPASS,
+                        name,
+                        "Review policy bypass attempt",
                     )
 
             # Check L3 exfil patterns
             for pattern, name in self.L3_EXFIL_PATTERNS:
                 if re.search(pattern, line):
                     self._add_violation(
-                        violations, file_path, line_num, line,
-                        RiskLevel.L3_HIGH, InjectionType.DATA_EXFILTRATION,
-                        name, "Remove data exfiltration"
+                        violations,
+                        file_path,
+                        line_num,
+                        line,
+                        RiskLevel.L3_HIGH,
+                        InjectionType.DATA_EXFILTRATION,
+                        name,
+                        "Remove data exfiltration",
                     )
 
             # Check L2 suspicious patterns
             for pattern, name in self.L2_SUSPICIOUS_PATTERNS:
                 if re.search(pattern, line):
                     self._add_violation(
-                        violations, file_path, line_num, line,
-                        RiskLevel.L2_MEDIUM, InjectionType.INSTRUCTION_OVERRIDE,
-                        name, "Review suspicious pattern"
+                        violations,
+                        file_path,
+                        line_num,
+                        line,
+                        RiskLevel.L2_MEDIUM,
+                        InjectionType.INSTRUCTION_OVERRIDE,
+                        name,
+                        "Review suspicious pattern",
                     )
 
         risk_score = self._calculate_risk_score(violations)
@@ -270,7 +314,7 @@ class PromptGuard:
         risk_level: RiskLevel,
         injection_type: InjectionType,
         pattern_name: str,
-        recommendation: str
+        recommendation: str,
     ) -> None:
         """
         Add a violation to the list.
@@ -278,21 +322,20 @@ class PromptGuard:
         NASA Rule 10: 15 LOC (<=60)
         """
         self._violation_count += 1
-        violations.append(PromptViolation(
-            violation_id=f"PV-{self._violation_count:06d}",
-            file_path=file_path,
-            line_number=line_num,
-            risk_level=risk_level,
-            injection_type=injection_type,
-            matched_pattern=pattern_name,
-            content=line.strip()[:100],
-            recommendation=recommendation,
-        ))
+        violations.append(
+            PromptViolation(
+                violation_id=f"PV-{self._violation_count:06d}",
+                file_path=file_path,
+                line_number=line_num,
+                risk_level=risk_level,
+                injection_type=injection_type,
+                matched_pattern=pattern_name,
+                content=line.strip()[:100],
+                recommendation=recommendation,
+            )
+        )
 
-    def _calculate_risk_score(
-        self,
-        violations: List[PromptViolation]
-    ) -> float:
+    def _calculate_risk_score(self, violations: List[PromptViolation]) -> float:
         """
         Calculate overall risk score.
 
@@ -312,9 +355,7 @@ class PromptGuard:
         return min(1.0, total_weight)
 
     def scan_directory(
-        self,
-        directory: str,
-        recursive: bool = True
+        self, directory: str, recursive: bool = True
     ) -> List[PromptScanResult]:
         """
         GS-010: Scan directory for prompt files.
@@ -343,8 +384,8 @@ class PromptGuard:
 
             # Check if it's a prompt file
             is_prompt_file = (
-                file_path.name in self.PROMPT_FILES or
-                file_path.suffix.lower() in self.PROMPT_EXTENSIONS
+                file_path.name in self.PROMPT_FILES
+                or file_path.suffix.lower() in self.PROMPT_EXTENSIONS
             )
 
             if is_prompt_file:
@@ -371,19 +412,31 @@ class PromptGuard:
         for line_num, line in enumerate(lines, 1):
             # Check all patterns
             all_patterns = (
-                [(p, n, RiskLevel.L4_CRITICAL, InjectionType.JAILBREAK)
-                 for p, n in self.L4_JAILBREAK_PATTERNS] +
-                [(p, n, RiskLevel.L4_CRITICAL, InjectionType.PRIVILEGE_ESCALATION)
-                 for p, n in self.L4_ESCALATION_PATTERNS] +
-                [(p, n, RiskLevel.L3_HIGH, InjectionType.POLICY_BYPASS)
-                 for p, n in self.L3_POLICY_PATTERNS]
+                [
+                    (p, n, RiskLevel.L4_CRITICAL, InjectionType.JAILBREAK)
+                    for p, n in self.L4_JAILBREAK_PATTERNS
+                ]
+                + [
+                    (p, n, RiskLevel.L4_CRITICAL, InjectionType.PRIVILEGE_ESCALATION)
+                    for p, n in self.L4_ESCALATION_PATTERNS
+                ]
+                + [
+                    (p, n, RiskLevel.L3_HIGH, InjectionType.POLICY_BYPASS)
+                    for p, n in self.L3_POLICY_PATTERNS
+                ]
             )
 
             for pattern, name, risk, inj_type in all_patterns:
                 if re.search(pattern, line):
                     self._add_violation(
-                        violations, "<content>", line_num, line,
-                        risk, inj_type, name, "Remove injection attempt"
+                        violations,
+                        "<content>",
+                        line_num,
+                        line,
+                        risk,
+                        inj_type,
+                        name,
+                        "Remove injection attempt",
                     )
 
         risk_score = self._calculate_risk_score(violations)
@@ -391,7 +444,9 @@ class PromptGuard:
             "valid": risk_score < 0.3,
             "risk_score": risk_score,
             "violations": [v.to_dict() for v in violations],
-            "l4_count": sum(1 for v in violations if v.risk_level == RiskLevel.L4_CRITICAL),
+            "l4_count": sum(
+                1 for v in violations if v.risk_level == RiskLevel.L4_CRITICAL
+            ),
             "l3_count": sum(1 for v in violations if v.risk_level == RiskLevel.L3_HIGH),
         }
 
@@ -437,8 +492,12 @@ if __name__ == "__main__":
             if result.violations:
                 status = "FAIL" if not result.passed else "WARN"
                 print(f"[{status}] {result.file_path}")
-                print(f"     Risk: {result.risk_score:.0%} | Violations: {len(result.violations)}")
+                print(
+                    f"     Risk: {result.risk_score:.0%} | Violations: {len(result.violations)}"
+                )
                 for v in result.violations[:3]:
-                    print(f"     - [{v.risk_level.name}] {v.injection_type.value}: {v.matched_pattern}")
+                    print(
+                        f"     - [{v.risk_level.name}] {v.injection_type.value}: {v.matched_pattern}"
+                    )
 
         print(f"{'='*60}")

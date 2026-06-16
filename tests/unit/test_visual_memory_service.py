@@ -46,27 +46,20 @@ class TestVisualMemoryServiceInitialization:
     def test_initialization_enabled(self, mock_embedder, mock_indexer):
         """Test service initializes enabled."""
         service = VisualMemoryService(
-            embedder=mock_embedder,
-            indexer=mock_indexer,
-            enabled=True
+            embedder=mock_embedder, indexer=mock_indexer, enabled=True
         )
         assert service.enabled == True
 
     def test_initialization_disabled(self, mock_embedder, mock_indexer):
         """Test service initializes disabled."""
         service = VisualMemoryService(
-            embedder=mock_embedder,
-            indexer=mock_indexer,
-            enabled=False
+            embedder=mock_embedder, indexer=mock_indexer, enabled=False
         )
         assert service.enabled == False
 
     def test_visual_types_constant(self, mock_embedder, mock_indexer):
         """Test VISUAL_TYPES constant."""
-        service = VisualMemoryService(
-            embedder=mock_embedder,
-            indexer=mock_indexer
-        )
+        service = VisualMemoryService(embedder=mock_embedder, indexer=mock_indexer)
         assert "screenshot" in service.VISUAL_TYPES
         assert "diagram" in service.VISUAL_TYPES
         assert "photo" in service.VISUAL_TYPES
@@ -85,11 +78,7 @@ class TestVisualMemoryServiceIngestion:
         indexer = Mock()
         indexer.add_visual.return_value = "generated-doc-id"
 
-        return VisualMemoryService(
-            embedder=embedder,
-            indexer=indexer,
-            enabled=True
-        )
+        return VisualMemoryService(embedder=embedder, indexer=indexer, enabled=True)
 
     @pytest.fixture
     def temp_image(self):
@@ -106,9 +95,7 @@ class TestVisualMemoryServiceIngestion:
     def test_ingest_screenshot_success(self, service, temp_image):
         """Test successful screenshot ingestion."""
         result = service.ingest_screenshot(
-            image_path=temp_image,
-            title="Test Screenshot",
-            context="A test screenshot"
+            image_path=temp_image, title="Test Screenshot", context="A test screenshot"
         )
 
         assert result["success"] == True
@@ -118,9 +105,7 @@ class TestVisualMemoryServiceIngestion:
     def test_ingest_diagram_success(self, service, temp_image):
         """Test successful diagram ingestion."""
         result = service.ingest_diagram(
-            image_path=temp_image,
-            title="Test Diagram",
-            context="Architecture diagram"
+            image_path=temp_image, title="Test Diagram", context="Architecture diagram"
         )
 
         assert result["success"] == True
@@ -129,9 +114,7 @@ class TestVisualMemoryServiceIngestion:
     def test_ingest_visual_generic(self, service, temp_image):
         """Test generic visual ingestion."""
         result = service.ingest_visual(
-            image_path=temp_image,
-            visual_type="chart",
-            title="Test Chart"
+            image_path=temp_image, visual_type="chart", title="Test Chart"
         )
 
         assert result["success"] == True
@@ -140,8 +123,7 @@ class TestVisualMemoryServiceIngestion:
     def test_ingest_file_not_found(self, service):
         """Test ingestion with nonexistent file."""
         result = service.ingest_screenshot(
-            image_path="/nonexistent/path/image.png",
-            title="Test"
+            image_path="/nonexistent/path/image.png", title="Test"
         )
 
         assert result["success"] == False
@@ -149,11 +131,7 @@ class TestVisualMemoryServiceIngestion:
 
     def test_ingest_disabled_service(self, temp_image):
         """Test ingestion when service disabled."""
-        service = VisualMemoryService(
-            embedder=Mock(),
-            indexer=Mock(),
-            enabled=False
-        )
+        service = VisualMemoryService(embedder=Mock(), indexer=Mock(), enabled=False)
 
         result = service.ingest_screenshot(image_path=temp_image)
 
@@ -163,9 +141,7 @@ class TestVisualMemoryServiceIngestion:
     def test_ingest_uses_multimodal_with_context(self, service, temp_image):
         """Test that context triggers multimodal embedding."""
         service.ingest_screenshot(
-            image_path=temp_image,
-            title="Test",
-            context="With context"
+            image_path=temp_image, title="Test", context="With context"
         )
 
         service.embedder.embed_multimodal.assert_called_once()
@@ -173,11 +149,7 @@ class TestVisualMemoryServiceIngestion:
 
     def test_ingest_uses_image_without_context(self, service, temp_image):
         """Test that no context uses image-only embedding."""
-        service.ingest_screenshot(
-            image_path=temp_image,
-            title="Test",
-            context=""
-        )
+        service.ingest_screenshot(image_path=temp_image, title="Test", context="")
 
         service.embedder.embed_image.assert_called_once()
 
@@ -190,8 +162,7 @@ class TestVisualMemoryServiceIngestion:
     def test_ingest_invalid_visual_type_falls_back(self, service, temp_image):
         """Test invalid visual type falls back to 'other'."""
         result = service.ingest_visual(
-            image_path=temp_image,
-            visual_type="invalid_type"
+            image_path=temp_image, visual_type="invalid_type"
         )
 
         assert result["success"] == True
@@ -210,11 +181,7 @@ class TestVisualMemoryServiceMetadata:
         indexer = Mock()
         indexer.add_visual.return_value = "doc-id"
 
-        return VisualMemoryService(
-            embedder=embedder,
-            indexer=indexer,
-            enabled=True
-        )
+        return VisualMemoryService(embedder=embedder, indexer=indexer, enabled=True)
 
     @pytest.fixture
     def temp_image(self):
@@ -233,10 +200,14 @@ class TestVisualMemoryServiceMetadata:
         service.ingest_screenshot(image_path=temp_image, title="Test")
 
         call_args = service.indexer.add_visual.call_args
-        metadata = call_args.kwargs.get('metadata', call_args[1] if len(call_args) > 1 else {})
+        metadata = call_args.kwargs.get(
+            "metadata", call_args[1] if len(call_args) > 1 else {}
+        )
 
         # Check for WHO (agent)
-        assert "agent.name" in metadata or any("agent" in str(k) for k in metadata.keys())
+        assert "agent.name" in metadata or any(
+            "agent" in str(k) for k in metadata.keys()
+        )
         # Check for WHEN (created_at)
         assert "created_at" in metadata
         # Check for PROJECT
@@ -247,13 +218,11 @@ class TestVisualMemoryServiceMetadata:
     def test_metadata_preserves_custom_values(self, service, temp_image):
         """Test custom metadata is preserved."""
         service.ingest_screenshot(
-            image_path=temp_image,
-            title="Test",
-            metadata={"custom_key": "custom_value"}
+            image_path=temp_image, title="Test", metadata={"custom_key": "custom_value"}
         )
 
         call_args = service.indexer.add_visual.call_args
-        metadata = call_args.kwargs.get('metadata', {})
+        metadata = call_args.kwargs.get("metadata", {})
 
         assert "custom_key" in metadata
         assert metadata["custom_key"] == "custom_value"
@@ -263,7 +232,7 @@ class TestVisualMemoryServiceMetadata:
         service.ingest_screenshot(image_path=temp_image)
 
         call_args = service.indexer.add_visual.call_args
-        metadata = call_args.kwargs.get('metadata', {})
+        metadata = call_args.kwargs.get("metadata", {})
 
         assert "visual_type" in metadata
         assert metadata["visual_type"] == "screenshot"
@@ -284,11 +253,7 @@ class TestVisualMemoryServiceSearch:
             {"id": "doc-2", "score": 0.8, "metadata": {"visual_type": "diagram"}},
         ]
 
-        return VisualMemoryService(
-            embedder=embedder,
-            indexer=indexer,
-            enabled=True
-        )
+        return VisualMemoryService(embedder=embedder, indexer=indexer, enabled=True)
 
     def test_search_visual_returns_results(self, service):
         """Test search returns results."""
@@ -302,22 +267,18 @@ class TestVisualMemoryServiceSearch:
 
         service.indexer.search.assert_called_once()
         call_args = service.indexer.search.call_args
-        assert call_args.kwargs.get('top_k') == 5
+        assert call_args.kwargs.get("top_k") == 5
 
     def test_search_visual_with_type_filter(self, service):
         """Test search with visual type filter."""
         service.search_visual(query="test", visual_type="screenshot")
 
         call_args = service.indexer.search.call_args
-        assert call_args.kwargs.get('where') == {"visual_type": "screenshot"}
+        assert call_args.kwargs.get("where") == {"visual_type": "screenshot"}
 
     def test_search_visual_disabled_returns_empty(self):
         """Test disabled service returns empty list."""
-        service = VisualMemoryService(
-            embedder=Mock(),
-            indexer=Mock(),
-            enabled=False
-        )
+        service = VisualMemoryService(embedder=Mock(), indexer=Mock(), enabled=False)
 
         results = service.search_visual(query="test")
 
@@ -328,11 +289,7 @@ class TestVisualMemoryServiceSearch:
         embedder = Mock()
         embedder.embed_text.return_value = [0.0] * 384  # Zero embedding
 
-        service = VisualMemoryService(
-            embedder=embedder,
-            indexer=Mock(),
-            enabled=True
-        )
+        service = VisualMemoryService(embedder=embedder, indexer=Mock(), enabled=True)
 
         results = service.search_visual(query="test")
 
@@ -354,11 +311,7 @@ class TestVisualMemoryServiceHelpers:
         indexer.get_by_id.return_value = {"id": "doc-1", "metadata": {}}
         indexer.delete.return_value = True
 
-        return VisualMemoryService(
-            embedder=embedder,
-            indexer=indexer,
-            enabled=True
-        )
+        return VisualMemoryService(embedder=embedder, indexer=indexer, enabled=True)
 
     def test_get_visual(self, service):
         """Test get_visual delegates to indexer."""

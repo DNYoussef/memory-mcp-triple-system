@@ -28,6 +28,7 @@ from loguru import logger
 
 class ContentType(Enum):
     """Content types with promotion bonuses."""
+
     EXPERTISE = "expertise"  # 1.0 bonus
     DECISION = "decision"  # 0.9 bonus
     PATTERN = "pattern"  # 0.8 bonus
@@ -52,6 +53,7 @@ CONTENT_TYPE_BONUS: Dict[ContentType, float] = {
 @dataclass
 class PromotionCriteria:
     """Configuration for promotion decision."""
+
     min_score: float = 0.5  # Minimum score to promote
     access_weight: float = 0.25  # Weight for access frequency
     reference_weight: float = 0.25  # Weight for reference count
@@ -63,6 +65,7 @@ class PromotionCriteria:
 @dataclass
 class PromotionCandidate:
     """A memory candidate for promotion evaluation."""
+
     memory_id: str
     text: str
     metadata: Dict[str, Any]
@@ -77,6 +80,7 @@ class PromotionCandidate:
 @dataclass
 class PromotionResult:
     """Result of a promotion evaluation."""
+
     memory_id: str
     should_promote: bool
     total_score: float
@@ -97,10 +101,10 @@ class PromotionResult:
                 "access": round(self.access_score, 3),
                 "reference": round(self.reference_score, 3),
                 "content": round(self.content_score, 3),
-                "importance": round(self.importance_score, 3)
+                "importance": round(self.importance_score, 3),
             },
             "reason": self.reason,
-            "evaluated_at": self.evaluated_at
+            "evaluated_at": self.evaluated_at,
         }
 
 
@@ -153,10 +157,10 @@ class MemoryPromoter:
 
         # Calculate weighted total
         total_score = (
-            access_score * self.criteria.access_weight +
-            reference_score * self.criteria.reference_weight +
-            content_score * self.criteria.content_weight +
-            importance_score * self.criteria.importance_weight
+            access_score * self.criteria.access_weight
+            + reference_score * self.criteria.reference_weight
+            + content_score * self.criteria.content_weight
+            + importance_score * self.criteria.importance_weight
         )
 
         # Make decision
@@ -168,7 +172,9 @@ class MemoryPromoter:
                 access_score, reference_score, content_score, importance_score
             )
         else:
-            reason = f"Score {total_score:.2f} below threshold {self.criteria.min_score}"
+            reason = (
+                f"Score {total_score:.2f} below threshold {self.criteria.min_score}"
+            )
 
         result = PromotionResult(
             memory_id=candidate.memory_id,
@@ -178,7 +184,7 @@ class MemoryPromoter:
             reference_score=reference_score,
             content_score=content_score,
             importance_score=importance_score,
-            reason=reason
+            reason=reason,
         )
 
         # Track history
@@ -205,6 +211,7 @@ class MemoryPromoter:
         NASA Rule 10: 12 LOC (<=60)
         """
         import math
+
         if access_count <= 0:
             return 0.0
         # Log scale: 10 accesses = 0.5, 100 = 1.0
@@ -241,7 +248,7 @@ class MemoryPromoter:
         access_score: float,
         reference_score: float,
         content_score: float,
-        importance_score: float
+        importance_score: float,
     ) -> str:
         """
         Generate promotion reason based on top contributing factors.
@@ -252,7 +259,7 @@ class MemoryPromoter:
             ("High access frequency", access_score),
             ("Many references", reference_score),
             ("Valuable content type", content_score),
-            ("User marked important", importance_score)
+            ("User marked important", importance_score),
         ]
 
         # Sort by score
@@ -266,8 +273,7 @@ class MemoryPromoter:
         return "Cumulative score meets threshold"
 
     def evaluate_batch(
-        self,
-        candidates: List[PromotionCandidate]
+        self, candidates: List[PromotionCandidate]
     ) -> List[PromotionResult]:
         """
         Evaluate multiple candidates for promotion.
@@ -286,7 +292,9 @@ class MemoryPromoter:
             results.append(result)
 
         promoted = sum(1 for r in results if r.should_promote)
-        logger.info(f"Batch evaluation: {promoted}/{len(candidates)} candidates promoted")
+        logger.info(
+            f"Batch evaluation: {promoted}/{len(candidates)} candidates promoted"
+        )
 
         return results
 
@@ -315,6 +323,6 @@ class MemoryPromoter:
                 "access_weight": self.criteria.access_weight,
                 "reference_weight": self.criteria.reference_weight,
                 "content_weight": self.criteria.content_weight,
-                "importance_weight": self.criteria.importance_weight
-            }
+                "importance_weight": self.criteria.importance_weight,
+            },
         }

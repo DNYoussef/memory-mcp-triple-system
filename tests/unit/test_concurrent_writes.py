@@ -117,7 +117,9 @@ class TestGraphServiceConcurrency:
         def add_nodes(thread_id):
             try:
                 for i in range(50):
-                    graph.add_chunk_node(f"t{thread_id}_chunk_{i}", {"text": f"content {i}"})
+                    graph.add_chunk_node(
+                        f"t{thread_id}_chunk_{i}", {"text": f"content {i}"}
+                    )
             except Exception as e:
                 errors.append(e)
 
@@ -158,6 +160,7 @@ class TestGraphServiceConcurrency:
 
     def test_dirty_flag_under_concurrency(self, graph):
         """Dirty flag is set correctly under concurrent mutations."""
+
         def mutate(thread_id):
             for i in range(20):
                 graph.add_chunk_node(f"mt{thread_id}_{i}")

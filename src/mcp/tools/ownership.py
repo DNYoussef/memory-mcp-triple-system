@@ -331,7 +331,18 @@ def register_ownership_tools(server: Any, registry: OwnershipRegistry) -> None:
                 },
                 "component_type": {
                     "type": "string",
-                    "enum": ["skill", "agent", "command", "hook", "playbook", "service", "schema", "config", "script", "documentation"],
+                    "enum": [
+                        "skill",
+                        "agent",
+                        "command",
+                        "hook",
+                        "playbook",
+                        "service",
+                        "schema",
+                        "config",
+                        "script",
+                        "documentation",
+                    ],
                     "description": "Type of component",
                 },
                 "canonical_path": {
@@ -353,7 +364,12 @@ def register_ownership_tools(server: Any, registry: OwnershipRegistry) -> None:
                     "description": "Paths where copies are allowed",
                 },
             },
-            "required": ["component_id", "component_type", "canonical_path", "owner_project"],
+            "required": [
+                "component_id",
+                "component_type",
+                "canonical_path",
+                "owner_project",
+            ],
         },
     )
 
@@ -367,7 +383,18 @@ def register_ownership_tools(server: Any, registry: OwnershipRegistry) -> None:
             "properties": {
                 "component_type": {
                     "type": "string",
-                    "enum": ["skill", "agent", "command", "hook", "playbook", "service", "schema", "config", "script", "documentation"],
+                    "enum": [
+                        "skill",
+                        "agent",
+                        "command",
+                        "hook",
+                        "playbook",
+                        "service",
+                        "schema",
+                        "config",
+                        "script",
+                        "documentation",
+                    ],
                     "description": "Filter by component type",
                 },
                 "owner_project": {

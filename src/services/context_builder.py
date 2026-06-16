@@ -75,9 +75,7 @@ class ContextBuilder:
         )
         return header + "\n\n" + "\n\n".join(sections) + footer
 
-    def _build_session_summary(
-        self, tracker: TokenTracker, project: str
-    ) -> str:
+    def _build_session_summary(self, tracker: TokenTracker, project: str) -> str:
         """Build last session summary section."""
         last = self.kv_store.get_last_session(project=project)
         if not last or not last.get("summary"):
@@ -88,9 +86,7 @@ class ContextBuilder:
             return f"## Previous Session\n{summary}"
         return ""
 
-    def _build_observations(
-        self, tracker: TokenTracker, project: str
-    ) -> str:
+    def _build_observations(self, tracker: TokenTracker, project: str) -> str:
         """Build recent observations section."""
         obs_list = self.kv_store.get_observations(project=project, limit=15)
         if not obs_list:
@@ -109,9 +105,7 @@ class ContextBuilder:
             return f"## Recent Activity ({len(obs_list)} observations)\n{truncated}"
         return ""
 
-    def _build_prior_sessions(
-        self, tracker: TokenTracker, project: str
-    ) -> str:
+    def _build_prior_sessions(self, tracker: TokenTracker, project: str) -> str:
         """Build prior sessions list section."""
         sessions = self.kv_store.get_recent_sessions(project=project, limit=3)
         if len(sessions) <= 1:

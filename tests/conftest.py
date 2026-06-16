@@ -31,5 +31,5 @@ def sample_texts():
     return [
         "This is the first test sentence.",
         "Here is another sentence for testing.",
-        "A third sentence to complete the set."
+        "A third sentence to complete the set.",
     ]

@@ -21,6 +21,7 @@ from loguru import logger
 
 class EventType(Enum):
     """Event types for memory system."""
+
     CHUNK_ADDED = "chunk_added"
     CHUNK_UPDATED = "chunk_updated"
     CHUNK_DELETED = "chunk_deleted"
@@ -72,7 +73,7 @@ class EventLog:
         self,
         event_type: EventType,
         data: Dict[str, Any],
-        timestamp: Optional[datetime] = None
+        timestamp: Optional[datetime] = None,
     ) -> bool:
         """
         Log event to database.
@@ -96,15 +97,13 @@ class EventLog:
             conn = self._get_connection()
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO event_log (event_id, event_type, timestamp, data)
                 VALUES (?, ?, ?, ?)
-            """, (
-                event_id,
-                event_type.value,
-                timestamp.isoformat(),
-                json.dumps(data)
-            ))
+            """,
+                (event_id, event_type.value, timestamp.isoformat(), json.dumps(data)),
+            )
 
             conn.commit()
 
@@ -122,7 +121,7 @@ class EventLog:
         self,
         start_time: datetime,
         end_time: datetime,
-        event_types: Optional[List[EventType]] = None
+        event_types: Optional[List[EventType]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Query events by time range.
@@ -144,24 +143,25 @@ class EventLog:
             cursor = conn.cursor()
 
             # Build and execute query
-            query, params = self._build_timerange_query(start_time, end_time, event_types)
+            query, params = self._build_timerange_query(
+                start_time, end_time, event_types
+            )
             cursor.execute(query, params)
             rows = cursor.fetchall()
 
             # Convert to list of dicts
             events = self._convert_rows_to_events(rows)
 
-            logger.info(f"Retrieved {len(events)} events from {start_time} to {end_time}")
+            logger.info(
+                f"Retrieved {len(events)} events from {start_time} to {end_time}"
+            )
             return events
 
         except Exception as e:
             logger.error(f"Failed to query events: {e}")
             return []
 
-    def cleanup_old_events(
-        self,
-        retention_days: int = 30
-    ) -> int:
+    def cleanup_old_events(self, retention_days: int = 30) -> int:
         """
         Delete events older than retention period.
 
@@ -179,10 +179,13 @@ class EventLog:
             conn = self._get_connection()
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 DELETE FROM event_log
                 WHERE timestamp < ?
-            """, (cutoff.isoformat(),))
+            """,
+                (cutoff.isoformat(),),
+            )
 
             deleted = cursor.rowcount
             conn.commit()
@@ -195,9 +198,7 @@ class EventLog:
             return 0
 
     def get_event_stats(
-        self,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None
+        self, start_time: Optional[datetime] = None, end_time: Optional[datetime] = None
     ) -> Dict[str, int]:
         """
         Get event count statistics by type.
@@ -255,7 +256,7 @@ class EventLog:
         self,
         start_time: datetime,
         end_time: datetime,
-        event_types: Optional[List[EventType]]
+        event_types: Optional[List[EventType]],
     ) -> tuple[str, List[Any]]:
         """
         Build SQL query for timerange with optional type filtering.
@@ -263,17 +264,16 @@ class EventLog:
         NASA Rule 10: 23 LOC (≤60) ✅
         """
         if event_types:
-            type_params = ','.join(['?'] * len(event_types))
+            type_params = ",".join(["?"] * len(event_types))
             query = f"""
                 SELECT * FROM event_log
                 WHERE timestamp BETWEEN ? AND ?
                 AND event_type IN ({type_params})
                 ORDER BY timestamp ASC
             """
-            params = [
-                start_time.isoformat(),
-                end_time.isoformat()
-            ] + [et.value for et in event_types]
+            params = [start_time.isoformat(), end_time.isoformat()] + [
+                et.value for et in event_types
+            ]
         else:
             query = """
                 SELECT * FROM event_log
@@ -292,12 +292,14 @@ class EventLog:
         """
         events = []
         for row in rows:
-            events.append({
-                "event_id": row["event_id"],
-                "event_type": row["event_type"],
-                "timestamp": datetime.fromisoformat(row["timestamp"]),
-                "data": json.loads(row["data"])
-            })
+            events.append(
+                {
+                    "event_id": row["event_id"],
+                    "event_type": row["event_type"],
+                    "timestamp": datetime.fromisoformat(row["timestamp"]),
+                    "data": json.loads(row["data"]),
+                }
+            )
         return events
 
     def _init_schema(self) -> None:
@@ -312,25 +314,31 @@ class EventLog:
             conn = self._get_connection()
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS event_log (
                     event_id TEXT PRIMARY KEY,
                     event_type TEXT NOT NULL,
                     timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     data TEXT NOT NULL
                 )
-            """)
+            """
+            )
 
             # Create indexes for fast temporal queries
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_event_timestamp
                 ON event_log(timestamp)
-            """)
+            """
+            )
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE INDEX IF NOT EXISTS idx_event_type_timestamp
                 ON event_log(event_type, timestamp)
-            """)
+            """
+            )
 
             conn.commit()
 

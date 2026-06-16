@@ -22,7 +22,9 @@ class RLMNexusAdapter:
         config: Optional[RLMConfig] = None,
         environment: Optional[RLMMemoryEnvironment] = None,
     ) -> None:
-        self._env = environment or RLMMemoryEnvironment(config=config, data_dir=data_dir)
+        self._env = environment or RLMMemoryEnvironment(
+            config=config, data_dir=data_dir
+        )
         self._loaded = False
 
     def explore(

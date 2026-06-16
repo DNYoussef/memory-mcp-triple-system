@@ -26,14 +26,14 @@ class TestB31SimilarityScores:
         persist_dir.mkdir()
 
         config = {
-            'embeddings': {'model': 'all-MiniLM-L6-v2'},
-            'storage': {
-                'vector_db': {
-                    'persist_directory': str(persist_dir),
-                    'collection_name': 'test_b31'
+            "embeddings": {"model": "all-MiniLM-L6-v2"},
+            "storage": {
+                "vector_db": {
+                    "persist_directory": str(persist_dir),
+                    "collection_name": "test_b31",
                 }
             },
-            'chunking': {'min_chunk_size': 50, 'max_chunk_size': 200}
+            "chunking": {"min_chunk_size": 50, "max_chunk_size": 200},
         }
 
         tool = VectorSearchTool(config)
@@ -43,12 +43,12 @@ class TestB31SimilarityScores:
             "Machine learning algorithms for data science",
             "Cooking recipes for pasta dishes",
             "Quantum physics and string theory",
-            "Python programming best practices"
+            "Python programming best practices",
         ]
 
         # Use index_chunks API with proper chunk format
         chunks = [
-            {'text': text, 'file_path': 'test.md', 'chunk_index': i}
+            {"text": text, "file_path": "test.md", "chunk_index": i}
             for i, text in enumerate(docs)
         ]
         embeddings = [tool.embedder.encode_single(text).tolist() for text in docs]
@@ -59,7 +59,7 @@ class TestB31SimilarityScores:
 
         # All scores must be in [0, 1]
         for result in results:
-            score = result['score']
+            score = result["score"]
             assert 0.0 <= score <= 1.0, f"Score {score} out of range"
             assert isinstance(score, float), "Score must be float"
 
@@ -72,7 +72,7 @@ class TestB32CosineSimilarity:
         from src.nexus.processor import NexusProcessor
         from src.indexing.embedding_pipeline import EmbeddingPipeline
 
-        embedder = EmbeddingPipeline(model_name='all-MiniLM-L6-v2')
+        embedder = EmbeddingPipeline(model_name="all-MiniLM-L6-v2")
         processor = NexusProcessor(embedding_pipeline=embedder)
 
         # Similar texts should have high similarity
@@ -117,8 +117,10 @@ class TestB33EntityExtraction:
         entity = processor._extract_query_entity(query)
 
         # Should extract a multi-word entity
-        assert " " in entity or entity in ["John Smith", "New York City"], \
-            f"Expected multi-word entity, got '{entity}'"
+        assert " " in entity or entity in [
+            "John Smith",
+            "New York City",
+        ], f"Expected multi-word entity, got '{entity}'"
 
     def test_extracts_single_capitalized_word(self):
         """Verify single capitalized words work."""
@@ -158,6 +160,7 @@ class TestVersionUpdated:
     def test_version_is_1_4_0(self):
         """Verify version is 1.4.0 for Phase 5."""
         from src import __version__
+
         assert __version__ == "1.4.0", f"Expected 1.4.0, got {__version__}"
 
 

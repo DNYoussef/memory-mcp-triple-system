@@ -18,6 +18,7 @@ def test_unparseable_archived_date_does_not_age_into_rehydration():
     assert ts == math.inf, f"expected far-future, got {ts!r}"
     # far-future is never < a real cutoff, so it won't be auto-rehydrated
     import time
+
     cutoff = time.time()
     assert not (float(ts) < cutoff)
 
@@ -31,4 +32,5 @@ def test_valid_archived_date_still_parses():
 
 if __name__ == "__main__":
     import pytest
+
     raise SystemExit(pytest.main([__file__, "-v"]))

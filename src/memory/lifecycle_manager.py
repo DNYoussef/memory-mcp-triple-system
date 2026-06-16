@@ -73,10 +73,10 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
 
         # Stage configuration
         self.stages = {
-            'active': 1.0,
-            'demoted': 0.5,
-            'archived': 0.1,
-            'rehydratable': 0.01
+            "active": 1.0,
+            "demoted": 0.5,
+            "archived": 0.1,
+            "rehydratable": 0.01,
         }
 
         # Thresholds (days)
@@ -108,11 +108,7 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
     # This reduces lifecycle_manager.py from ~614 LOC to ~280 LOC (54% reduction)
 
     @guarded_mutation
-    def rekindle_archived(
-        self,
-        query_embedding: List[float],
-        chunk_id: str
-    ) -> bool:
+    def rekindle_archived(self, query_embedding: List[float], chunk_id: str) -> bool:
         """
         Rekindle archived chunk (rehydrate full text).
 
@@ -143,7 +139,9 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
             return False
 
         # Re-index and promote
-        self._reindex_and_promote(chunk_id, full_text, file_path, query_embedding, metadata_str)
+        self._reindex_and_promote(
+            chunk_id, full_text, file_path, query_embedding, metadata_str
+        )
 
         # Clean up KV store
         self._cleanup_archived_keys(chunk_id)
@@ -153,9 +151,8 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
 
     def _get_archived_data(self, chunk_id: str) -> tuple[Optional[str], Optional[str]]:
         """Retrieve summary and metadata from KV store."""
-        summary = (
-            self.kv_store.get(f"archived:{chunk_id}") or
-            self.kv_store.get(f"rehydratable:{chunk_id}")
+        summary = self.kv_store.get(f"archived:{chunk_id}") or self.kv_store.get(
+            f"rehydratable:{chunk_id}"
         )
 
         if not summary:
@@ -165,10 +162,9 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
         # No silent /default/path.md fabrication (E8): if metadata is genuinely
         # missing, return None so _extract_file_path fails honestly rather than
         # rehydrating from a bogus default path.
-        metadata_str = (
-            self.kv_store.get(f"archived:{chunk_id}:metadata") or
-            self.kv_store.get(f"rehydratable:{chunk_id}:metadata")
-        )
+        metadata_str = self.kv_store.get(
+            f"archived:{chunk_id}:metadata"
+        ) or self.kv_store.get(f"rehydratable:{chunk_id}:metadata")
 
         return summary, metadata_str
 
@@ -194,7 +190,11 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
         # strings for a file_path, but fail honestly on a miss.
         if metadata_str and "file_path" in metadata_str:
             try:
-                candidate = metadata_str.split("file_path", 1)[1].split(",", 1)[0].strip(": '\"")
+                candidate = (
+                    metadata_str.split("file_path", 1)[1]
+                    .split(",", 1)[0]
+                    .strip(": '\"")
+                )
                 if candidate:
                     return candidate
             except (IndexError, AttributeError):
@@ -206,7 +206,7 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
     def _read_full_text(self, file_path: str) -> Optional[str]:
         """Read full text from file."""
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 return f.read()
         except FileNotFoundError:
             logger.error(f"File not found: {file_path}")
@@ -221,41 +221,42 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
         full_text: str,
         file_path: str,
         query_embedding: List[float],
-        metadata_str: Optional[str] = None
+        metadata_str: Optional[str] = None,
     ):
         """Re-index chunk and promote to active."""
         now = datetime.utcnow()
         metadata = self._metadata_from_string(metadata_str or "")
-        metadata.update({
-            'stage': 'active',
-            'score_multiplier': 1.0,
-            'last_accessed': now.isoformat(),
-            'last_accessed_ts': now.timestamp(),
-            'rekindled_at': now.isoformat(),
-            'rekindled_at_ts': now.timestamp(),
-        })
+        metadata.update(
+            {
+                "stage": "active",
+                "score_multiplier": 1.0,
+                "last_accessed": now.isoformat(),
+                "last_accessed_ts": now.timestamp(),
+                "rekindled_at": now.isoformat(),
+                "rekindled_at_ts": now.timestamp(),
+            }
+        )
 
         embedding = self._embed_text(full_text, fallback_embedding=query_embedding)
 
         self.vector_indexer.index_chunks(
-            chunks=[{
-                'id': chunk_id,
-                'text': full_text,
-                'file_path': file_path,
-                'chunk_index': 0,
-                'metadata': metadata,
-            }],
-            embeddings=[embedding]
+            chunks=[
+                {
+                    "id": chunk_id,
+                    "text": full_text,
+                    "file_path": file_path,
+                    "chunk_index": 0,
+                    "metadata": metadata,
+                }
+            ],
+            embeddings=[embedding],
         )
 
-        self.vector_indexer.collection.update(
-            ids=[chunk_id],
-            metadatas=[metadata]
-        )
+        self.vector_indexer.collection.update(ids=[chunk_id], metadatas=[metadata])
 
     def _cleanup_archived_keys(self, chunk_id: str):
         """Clean up KV store keys."""
-        for prefix in ['archived', 'rehydratable']:
+        for prefix in ["archived", "rehydratable"]:
             self.kv_store.delete(f"{prefix}:{chunk_id}")
             self.kv_store.delete(f"{prefix}:{chunk_id}:metadata")
 
@@ -275,9 +276,7 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
                 return {}
 
     def _embed_text(
-        self,
-        text: str,
-        fallback_embedding: Optional[List[float]] = None
+        self, text: str, fallback_embedding: Optional[List[float]] = None
     ) -> Optional[List[float]]:
         """Embed document text, falling back only when no embedder is available."""
         if self.embedding_pipeline is not None:
@@ -321,43 +320,45 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
             }
         """
         stats = {
-            'active': 0,
-            'demoted': 0,
-            'archived': 0,
-            'rehydratable': 0,
-            'total': 0
+            "active": 0,
+            "demoted": 0,
+            "archived": 0,
+            "rehydratable": 0,
+            "total": 0,
         }
 
         # Count active and demoted (in vector store)
         try:
-            for stage in ['active', 'demoted']:
-                chunks = self.vector_indexer.collection.get(
-                    where={"stage": stage}
-                )
-                stats[stage] = len(chunks.get('ids', []))
+            for stage in ["active", "demoted"]:
+                chunks = self.vector_indexer.collection.get(where={"stage": stage})
+                stats[stage] = len(chunks.get("ids", []))
         except Exception as e:
             logger.error(f"Failed to query vector store: {e}")
 
         # Count archived and rehydratable (in KV store)
         # KVStore exposes list_keys(prefix), not keys()
         archived_keys = [
-            key for key in self.kv_store.list_keys("archived:")
+            key
+            for key in self.kv_store.list_keys("archived:")
             if key.startswith("archived:") and ":metadata" not in key
         ]
-        stats['archived'] = len(archived_keys)
+        stats["archived"] = len(archived_keys)
 
         rehydratable_keys = [
-            key for key in self.kv_store.list_keys("rehydratable:")
+            key
+            for key in self.kv_store.list_keys("rehydratable:")
             if key.startswith("rehydratable:") and ":metadata" not in key
         ]
-        stats['rehydratable'] = len(rehydratable_keys)
+        stats["rehydratable"] = len(rehydratable_keys)
 
-        stats['total'] = sum([
-            stats['active'],
-            stats['demoted'],
-            stats['archived'],
-            stats['rehydratable']
-        ])
+        stats["total"] = sum(
+            [
+                stats["active"],
+                stats["demoted"],
+                stats["archived"],
+                stats["rehydratable"],
+            ]
+        )
 
         logger.info(f"Stage stats: {stats}")
         return stats
@@ -387,7 +388,8 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
 
         # Split into sentences
         import re
-        sentences = re.split(r'(?<=[.!?])\s+', full_text.strip())
+
+        sentences = re.split(r"(?<=[.!?])\s+", full_text.strip())
         if not sentences:
             return self._truncate_with_entities(full_text, max_len=SUMMARY_MAX_LEN)
 
@@ -419,7 +421,7 @@ class MemoryLifecycleManager(StageTransitionsMixin, ConsolidationMixin):
         if len(text) <= max_len:
             return text
         # Find last space before max_len to avoid cutting words
-        truncate_at = text.rfind(' ', 0, max_len - 3)
+        truncate_at = text.rfind(" ", 0, max_len - 3)
         if truncate_at == -1:
             truncate_at = max_len - 3
         return text[:truncate_at] + "..."

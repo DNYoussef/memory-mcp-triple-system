@@ -31,9 +31,7 @@ class SessionSummarizer:
         """
         # Get session metadata
         session = self.kv_store.get_session(session_id)
-        observations = self.kv_store.get_observations(
-            session_id=session_id, limit=500
-        )
+        observations = self.kv_store.get_observations(session_id=session_id, limit=500)
 
         summary = SessionSummary(session_id=session_id)
         summary.observation_count = len(observations)
@@ -43,6 +41,7 @@ class SessionSummarizer:
             ended = session.get("ended_at", "")
             if started and ended:
                 from datetime import datetime
+
                 try:
                     t0 = datetime.fromisoformat(started)
                     t1 = datetime.fromisoformat(ended)
@@ -59,9 +58,7 @@ class SessionSummarizer:
 
         return summary
 
-    def _extract_investigated(
-        self, observations: List[Dict[str, Any]]
-    ) -> List[str]:
+    def _extract_investigated(self, observations: List[Dict[str, Any]]) -> List[str]:
         """Extract what was investigated (files read, searches done)."""
         items = []
         seen = set()
@@ -76,9 +73,7 @@ class SessionSummarizer:
                     items.append(key)
         return items[:10]
 
-    def _extract_learned(
-        self, observations: List[Dict[str, Any]]
-    ) -> List[str]:
+    def _extract_learned(self, observations: List[Dict[str, Any]]) -> List[str]:
         """Extract discoveries and errors (things we learned)."""
         items = []
         for obs in observations:
@@ -88,9 +83,7 @@ class SessionSummarizer:
                 items.append(content)
         return items[:5]
 
-    def _extract_completed(
-        self, observations: List[Dict[str, Any]]
-    ) -> List[str]:
+    def _extract_completed(self, observations: List[Dict[str, Any]]) -> List[str]:
         """Extract what was completed (writes, edits, commands)."""
         items = []
         seen = set()
@@ -105,9 +98,7 @@ class SessionSummarizer:
                     items.append(key)
         return items[:10]
 
-    def _infer_request(
-        self, observations: List[Dict[str, Any]]
-    ) -> str:
+    def _infer_request(self, observations: List[Dict[str, Any]]) -> str:
         """Infer what was requested from the first few observations."""
         if not observations:
             return ""
@@ -122,9 +113,7 @@ class SessionSummarizer:
             return f"{first.get('tool_name', '')}: {first.get('content', '')[:150]}"
         return ""
 
-    def _infer_next_steps(
-        self, observations: List[Dict[str, Any]]
-    ) -> List[str]:
+    def _infer_next_steps(self, observations: List[Dict[str, Any]]) -> List[str]:
         """Infer next steps from the last few observations.
 
         Heuristic: if last observations are errors or investigations

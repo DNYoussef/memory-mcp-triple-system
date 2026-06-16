@@ -297,7 +297,12 @@ class ProactiveContextInjector:
         # Average confidence/score from chunks
         scores = []
         for chunk in chunks:
-            score = chunk.get("score") or chunk.get("confidence") or chunk.get("relevance") or 0.5
+            score = (
+                chunk.get("score")
+                or chunk.get("confidence")
+                or chunk.get("relevance")
+                or 0.5
+            )
             scores.append(score)
         chunk_relevance = sum(scores) / len(scores) if scores else 0.0
 

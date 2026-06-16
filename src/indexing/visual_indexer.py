@@ -25,7 +25,7 @@ class VisualMemoryIndexer:
     def __init__(
         self,
         persist_directory: str = "./chroma_visual",
-        collection_name: Optional[str] = None
+        collection_name: Optional[str] = None,
     ):
         """
         Initialize visual memory indexer.
@@ -44,8 +44,7 @@ class VisualMemoryIndexer:
 
         self._client = chromadb.PersistentClient(path=persist_directory)
         self._collection = self._client.get_or_create_collection(
-            name=self.collection_name,
-            metadata={"hnsw:space": "cosine"}
+            name=self.collection_name, metadata={"hnsw:space": "cosine"}
         )
 
         logger.info(
@@ -58,7 +57,7 @@ class VisualMemoryIndexer:
         doc_id: str,
         embedding: List[float],
         metadata: Dict[str, Any],
-        document: str = ""
+        document: str = "",
     ) -> str:
         """
         Add a visual memory to the index.
@@ -79,7 +78,7 @@ class VisualMemoryIndexer:
             ids=[doc_id],
             embeddings=[embedding],
             metadatas=[clean_metadata],
-            documents=[document]
+            documents=[document],
         )
 
         logger.debug(f"Added visual memory: {doc_id}")
@@ -107,7 +106,7 @@ class VisualMemoryIndexer:
         query_embedding: List[float],
         top_k: int = 10,
         where: Optional[Dict] = None,
-        include: Optional[List[str]] = None
+        include: Optional[List[str]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Search visual memories by embedding similarity.
@@ -128,7 +127,7 @@ class VisualMemoryIndexer:
                 query_embeddings=[query_embedding],
                 n_results=top_k,
                 where=where,
-                include=include
+                include=include,
             )
         except Exception as e:
             logger.error(f"Visual search failed: {e}")
@@ -137,9 +136,7 @@ class VisualMemoryIndexer:
         return self._format_results(results, include)
 
     def _format_results(
-        self,
-        results: Dict,
-        include: List[str]
+        self, results: Dict, include: List[str]
     ) -> List[Dict[str, Any]]:
         """Format ChromaDB results into standard dict format."""
         formatted = []
@@ -150,7 +147,9 @@ class VisualMemoryIndexer:
         for i in range(len(results["ids"][0])):
             item = {
                 "id": results["ids"][0][i],
-                "score": 1.0 - results["distances"][0][i] if "distances" in include else 0.0
+                "score": 1.0 - results["distances"][0][i]
+                if "distances" in include
+                else 0.0,
             }
 
             if "documents" in include and results.get("documents"):
@@ -167,8 +166,7 @@ class VisualMemoryIndexer:
         """Get a visual memory by ID."""
         try:
             result = self._collection.get(
-                ids=[doc_id],
-                include=["documents", "metadatas", "embeddings"]
+                ids=[doc_id], include=["documents", "metadatas", "embeddings"]
             )
             # Check if we got results (handle both list and numpy array)
             ids = result.get("ids", [])
@@ -180,8 +178,12 @@ class VisualMemoryIndexer:
                 return {
                     "id": ids[0],
                     "text": docs[0] if docs is not None and len(docs) > 0 else "",
-                    "metadata": metas[0] if metas is not None and len(metas) > 0 else {},
-                    "embedding": list(embs[0]) if embs is not None and len(embs) > 0 else []
+                    "metadata": metas[0]
+                    if metas is not None and len(metas) > 0
+                    else {},
+                    "embedding": list(embs[0])
+                    if embs is not None and len(embs) > 0
+                    else [],
                 }
         except Exception as e:
             logger.error(f"Get by ID failed: {e}")
@@ -197,18 +199,11 @@ class VisualMemoryIndexer:
             logger.error(f"Delete failed: {e}")
             return False
 
-    def update_metadata(
-        self,
-        doc_id: str,
-        metadata: Dict[str, Any]
-    ) -> bool:
+    def update_metadata(self, doc_id: str, metadata: Dict[str, Any]) -> bool:
         """Update metadata for a visual memory."""
         try:
             clean_metadata = self._clean_metadata(metadata)
-            self._collection.update(
-                ids=[doc_id],
-                metadatas=[clean_metadata]
-            )
+            self._collection.update(ids=[doc_id], metadatas=[clean_metadata])
             return True
         except Exception as e:
             logger.error(f"Metadata update failed: {e}")
@@ -223,5 +218,5 @@ class VisualMemoryIndexer:
         return {
             "collection_name": self.collection_name,
             "persist_directory": self.persist_directory,
-            "count": self.count()
+            "count": self.count(),
         }

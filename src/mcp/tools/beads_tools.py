@@ -413,8 +413,12 @@ class BeadsTools:
         task_node = f"beads:{task_id}"
         memory_node = f"memory:{memory_key}"
         if hasattr(self.graph_service, "add_entity_node"):
-            self.graph_service.add_entity_node(task_node, "beads_task", {"task_id": task_id})
-            self.graph_service.add_entity_node(memory_node, "memory_entity", {"memory_key": memory_key})
+            self.graph_service.add_entity_node(
+                task_node, "beads_task", {"task_id": task_id}
+            )
+            self.graph_service.add_entity_node(
+                memory_node, "memory_entity", {"memory_key": memory_key}
+            )
 
         linked = self.graph_service.add_relationship(
             task_node,
@@ -431,7 +435,11 @@ class BeadsTools:
         return {
             "success": True,
             "link": link_data,
-            "graph_edge": {"source": task_node, "target": memory_node, "type": relationship},
+            "graph_edge": {
+                "source": task_node,
+                "target": memory_node,
+                "type": relationship,
+            },
             "message": f"Linked memory {memory_key} to task {task_id}",
         }
 
@@ -474,7 +482,9 @@ class BeadsTools:
         """
         # Regex to match task line format
         # Example: ○ life-os-dashboard-3yi [● P0] [task] [labels] - Title
-        pattern = r"^[○●✓] (\S+)\s+\[(● \w+)\]\s+\[(\w+)\](?:\s+\[([^\]]+)\])?\s*-\s*(.+)$"
+        pattern = (
+            r"^[○●✓] (\S+)\s+\[(● \w+)\]\s+\[(\w+)\](?:\s+\[([^\]]+)\])?\s*-\s*(.+)$"
+        )
         match = re.match(pattern, line)
 
         if match:
@@ -625,6 +635,7 @@ class BeadsTools:
     def _get_timestamp(self) -> str:
         """Get current ISO timestamp."""
         from datetime import datetime, timezone
+
         return datetime.now(timezone.utc).isoformat()
 
 
@@ -673,7 +684,11 @@ BEADS_TOOL_DEFINITIONS = [
             "properties": {
                 "title": {"type": "string", "description": "Task title"},
                 "description": {"type": "string"},
-                "priority": {"type": "string", "enum": ["P0", "P1", "P2", "P3"], "default": "P2"},
+                "priority": {
+                    "type": "string",
+                    "enum": ["P0", "P1", "P2", "P3"],
+                    "default": "P2",
+                },
                 "task_type": {"type": "string", "default": "task"},
                 "assignee": {"type": "string"},
                 "labels": {"type": "array", "items": {"type": "string"}},
@@ -721,7 +736,10 @@ BEADS_TOOL_DEFINITIONS = [
             "type": "object",
             "properties": {
                 "task_id": {"type": "string", "description": "Beads task ID"},
-                "memory_key": {"type": "string", "description": "Memory MCP key/entity ID"},
+                "memory_key": {
+                    "type": "string",
+                    "description": "Memory MCP key/entity ID",
+                },
                 "relationship": {"type": "string", "default": "related_to"},
             },
             "required": ["task_id", "memory_key"],

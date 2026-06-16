@@ -103,8 +103,8 @@ class TestAutoCapturePipeline:
         assert summary.observation_count == 4
         assert summary.session_id == session.session_id
         assert len(summary.investigated) > 0  # Read is investigative
-        assert len(summary.completed) > 0     # Edit is completion
-        assert len(summary.learned) > 0       # Error is a learning
+        assert len(summary.completed) > 0  # Edit is completion
+        assert len(summary.learned) > 0  # Error is a learning
 
         # Store summary
         summarizer.store_summary(summary)
@@ -219,11 +219,13 @@ class TestAutoCapturePipeline:
         store.create_session(session.to_dict())
 
         # Insert obs with specific timestamps
-        for i, ts in enumerate([
-            "2026-02-03T10:00:00Z",
-            "2026-02-04T10:00:00Z",
-            "2026-02-05T10:00:00Z",
-        ]):
+        for i, ts in enumerate(
+            [
+                "2026-02-03T10:00:00Z",
+                "2026-02-04T10:00:00Z",
+                "2026-02-05T10:00:00Z",
+            ]
+        ):
             obs = {
                 "observation_id": f"obs-{i}",
                 "session_id": session.session_id,

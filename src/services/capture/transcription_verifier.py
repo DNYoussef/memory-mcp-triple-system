@@ -64,9 +64,7 @@ class TranscriptionConfig:
     def __post_init__(self):
         if not self.output_path:
             self.output_path = os.path.join(
-                os.path.expanduser("~"),
-                "Documents",
-                "Transcriptions"
+                os.path.expanduser("~"), "Documents", "Transcriptions"
             )
 
         if self.supported_types is None:
@@ -106,8 +104,12 @@ class TranscriptionVerifier:
         self,
         railway_service: RailwayBufferService,
         config: Optional[TranscriptionConfig] = None,
-        on_transcription_complete: Optional[Callable[[EphemeralBuffer, TranscriptionResult], Awaitable[None]]] = None,
-        on_transcription_error: Optional[Callable[[EphemeralBuffer, str], Awaitable[None]]] = None,
+        on_transcription_complete: Optional[
+            Callable[[EphemeralBuffer, TranscriptionResult], Awaitable[None]]
+        ] = None,
+        on_transcription_error: Optional[
+            Callable[[EphemeralBuffer, str], Awaitable[None]]
+        ] = None,
     ):
         """Initialize transcription verifier.
 
@@ -174,7 +176,8 @@ class TranscriptionVerifier:
         """
         try:
             process = await asyncio.create_subprocess_exec(
-                "whisper", "--help",
+                "whisper",
+                "--help",
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -262,7 +265,9 @@ class TranscriptionVerifier:
         try:
             # Mark buffer as transcribing
             buffer.mark_transcribing()
-            await self.railway.update_buffer_status(buffer_id, BufferStatus.TRANSCRIBING)
+            await self.railway.update_buffer_status(
+                buffer_id, BufferStatus.TRANSCRIBING
+            )
 
             # Run transcription
             result = await self._run_transcription(job)
@@ -274,7 +279,9 @@ class TranscriptionVerifier:
 
                 # Update buffer
                 buffer.mark_transcribed(result)
-                await self.railway.update_buffer_status(buffer_id, BufferStatus.TRANSCRIBED)
+                await self.railway.update_buffer_status(
+                    buffer_id, BufferStatus.TRANSCRIBED
+                )
 
                 job.status = "completed"
                 job.result = result
@@ -322,15 +329,19 @@ class TranscriptionVerifier:
         """
         date_str = buffer.created_at.strftime("%Y-%m-%d")
         base_name = Path(buffer.metadata.original_filename).stem
-        ext = ".json" if self.config.output_format == "json" else f".{self.config.output_format}"
-
-        return os.path.join(
-            self.config.output_path,
-            date_str,
-            f"{base_name}_transcript{ext}"
+        ext = (
+            ".json"
+            if self.config.output_format == "json"
+            else f".{self.config.output_format}"
         )
 
-    async def _run_transcription(self, job: TranscriptionJob) -> Optional[TranscriptionResult]:
+        return os.path.join(
+            self.config.output_path, date_str, f"{base_name}_transcript{ext}"
+        )
+
+    async def _run_transcription(
+        self, job: TranscriptionJob
+    ) -> Optional[TranscriptionResult]:
         """Run the actual transcription process.
 
         Args:
@@ -346,9 +357,13 @@ class TranscriptionVerifier:
         elif self.config.service == "assembly-ai":
             return await self._run_assemblyai(job)
         else:
-            raise RuntimeError(f"Unsupported transcription service: {self.config.service}")
+            raise RuntimeError(
+                f"Unsupported transcription service: {self.config.service}"
+            )
 
-    async def _run_whisper(self, job: TranscriptionJob) -> Optional[TranscriptionResult]:
+    async def _run_whisper(
+        self, job: TranscriptionJob
+    ) -> Optional[TranscriptionResult]:
         """Run Whisper transcription.
 
         Args:
@@ -364,11 +379,16 @@ class TranscriptionVerifier:
         cmd = [
             "whisper",
             job.input_path,
-            "--model", self.config.whisper_model,
-            "--language", self.config.whisper_language,
-            "--task", self.config.whisper_task,
-            "--output_format", self.config.output_format,
-            "--output_dir", os.path.dirname(job.output_path),
+            "--model",
+            self.config.whisper_model,
+            "--language",
+            self.config.whisper_language,
+            "--task",
+            self.config.whisper_task,
+            "--output_format",
+            self.config.output_format,
+            "--output_dir",
+            os.path.dirname(job.output_path),
         ]
 
         try:
@@ -397,7 +417,9 @@ class TranscriptionVerifier:
             logger.error("Whisper not found; transcription unavailable")
             raise RuntimeError("Whisper transcription backend is not installed")
 
-    async def _parse_whisper_output(self, job: TranscriptionJob) -> Optional[TranscriptionResult]:
+    async def _parse_whisper_output(
+        self, job: TranscriptionJob
+    ) -> Optional[TranscriptionResult]:
         """Parse Whisper output file.
 
         Args:
@@ -428,10 +450,7 @@ class TranscriptionVerifier:
                 # Calculate average confidence from segments
                 segments = data.get("segments", [])
                 if segments:
-                    confidences = [
-                        s.get("avg_logprob", -0.5)
-                        for s in segments
-                    ]
+                    confidences = [s.get("avg_logprob", -0.5) for s in segments]
                     # Convert log prob to confidence (rough approximation)
                     avg_logprob = sum(confidences) / len(confidences)
                     confidence = min(1.0, max(0.0, 1.0 + avg_logprob))
@@ -458,7 +477,9 @@ class TranscriptionVerifier:
             checksum=checksum,
         )
 
-    async def _run_podbrain(self, job: TranscriptionJob) -> Optional[TranscriptionResult]:
+    async def _run_podbrain(
+        self, job: TranscriptionJob
+    ) -> Optional[TranscriptionResult]:
         """Run PodBrain transcription.
 
         Args:
@@ -472,7 +493,9 @@ class TranscriptionVerifier:
             "no synthetic transcript is returned"
         )
 
-    async def _run_assemblyai(self, job: TranscriptionJob) -> Optional[TranscriptionResult]:
+    async def _run_assemblyai(
+        self, job: TranscriptionJob
+    ) -> Optional[TranscriptionResult]:
         """Run AssemblyAI transcription.
 
         Args:
@@ -579,18 +602,13 @@ class TranscriptionVerifier:
         """
         completed = len([j for j in self._completed_jobs if j.status == "completed"])
         failed = len([j for j in self._completed_jobs if j.status == "failed"])
-        total_words = sum(
-            j.result.word_count
-            for j in self._completed_jobs
-            if j.result
-        )
+        total_words = sum(j.result.word_count for j in self._completed_jobs if j.result)
         avg_confidence = 0.0
         if completed > 0:
-            avg_confidence = sum(
-                j.result.confidence_score
-                for j in self._completed_jobs
-                if j.result
-            ) / completed
+            avg_confidence = (
+                sum(j.result.confidence_score for j in self._completed_jobs if j.result)
+                / completed
+            )
 
         return {
             "running": self._running,

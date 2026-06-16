@@ -59,15 +59,14 @@ class ErrorStatisticsService:
 
         # Total queries
         cursor.execute(
-            "SELECT COUNT(*) FROM query_traces WHERE timestamp >= ?",
-            (cutoff_str,)
+            "SELECT COUNT(*) FROM query_traces WHERE timestamp >= ?", (cutoff_str,)
         )
         total_queries = cursor.fetchone()[0]
 
         # Failed queries
         cursor.execute(
             "SELECT COUNT(*) FROM query_traces WHERE timestamp >= ? AND error IS NOT NULL",
-            (cutoff_str,)
+            (cutoff_str,),
         )
         failed_queries = cursor.fetchone()[0]
 
@@ -75,7 +74,7 @@ class ErrorStatisticsService:
         cursor.execute(
             "SELECT error_type, COUNT(*) FROM query_traces "
             "WHERE timestamp >= ? AND error_type IS NOT NULL GROUP BY error_type",
-            (cutoff_str,)
+            (cutoff_str,),
         )
         error_breakdown = dict(cursor.fetchall())
 
@@ -85,15 +84,15 @@ class ErrorStatisticsService:
             "failure_breakdown": {
                 "context_bugs": error_breakdown.get("context_bug", 0),
                 "model_bugs": error_breakdown.get("model_bug", 0),
-                "system_errors": error_breakdown.get("system_error", 0)
+                "system_errors": error_breakdown.get("system_error", 0),
             },
             "context_bug_breakdown": {
                 "wrong_store_queried": 0,
                 "wrong_mode_detected": 0,
                 "wrong_lifecycle_filter": 0,
-                "retrieval_ranking_error": 0
+                "retrieval_ranking_error": 0,
             },
-            "days": days
+            "days": days,
         }
 
     def _empty_stats(self) -> Dict[str, Any]:
@@ -104,13 +103,13 @@ class ErrorStatisticsService:
             "failure_breakdown": {
                 "context_bugs": 0,
                 "model_bugs": 0,
-                "system_errors": 0
+                "system_errors": 0,
             },
             "context_bug_breakdown": {
                 "wrong_store_queried": 0,
                 "wrong_mode_detected": 0,
                 "wrong_lifecycle_filter": 0,
-                "retrieval_ranking_error": 0
+                "retrieval_ranking_error": 0,
             },
-            "days": 0
+            "days": 0,
         }

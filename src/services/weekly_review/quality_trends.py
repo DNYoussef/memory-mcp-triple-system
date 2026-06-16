@@ -89,10 +89,12 @@ class QualityTrendsAnalyzer:
         if metric_name not in self._data_points:
             self._data_points[metric_name] = []
 
-        self._data_points[metric_name].append({
-            "value": value,
-            "timestamp": (timestamp or datetime.now(timezone.utc)).isoformat(),
-        })
+        self._data_points[metric_name].append(
+            {
+                "value": value,
+                "timestamp": (timestamp or datetime.now(timezone.utc)).isoformat(),
+            }
+        )
 
     def analyze_trends(
         self,
@@ -138,7 +140,8 @@ class QualityTrendsAnalyzer:
         # Filter to period
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         period_data = [
-            d for d in data
+            d
+            for d in data
             if datetime.fromisoformat(d["timestamp"].replace("Z", "+00:00")) >= cutoff
         ]
 
@@ -227,9 +230,7 @@ class QualityTrendsAnalyzer:
         """Get analyzer statistics."""
         return {
             "metrics_tracked": len(self._data_points),
-            "data_points_per_metric": {
-                k: len(v) for k, v in self._data_points.items()
-            },
+            "data_points_per_metric": {k: len(v) for k, v in self._data_points.items()},
         }
 
     def clear(self) -> None:

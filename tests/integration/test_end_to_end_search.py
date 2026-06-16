@@ -40,7 +40,7 @@ First section content with meaningful text about vector search.
 Second section with different semantic content about embeddings.
 """
         file_path = tmp_path / "test_integration.md"
-        file_path.write_text(content, encoding='utf-8')
+        file_path.write_text(content, encoding="utf-8")
         return file_path
 
     @pytest.fixture
@@ -68,28 +68,27 @@ Second section with different semantic content about embeddings.
 
         # 1. Chunk the markdown file
         chunker = SemanticChunker(min_chunk_size=50, max_chunk_size=200)
-        with open(test_markdown_file, 'r', encoding='utf-8') as f:
+        with open(test_markdown_file, "r", encoding="utf-8") as f:
             content = f.read()
         chunks = chunker.chunk(content)
         assert len(chunks) >= 1, "Should produce at least 1 chunk"
 
         # 2. Generate embeddings
-        embedder = EmbeddingPipeline(model_name='all-MiniLM-L6-v2')
-        embeddings = embedder.encode_batch([c['text'] for c in chunks])
+        embedder = EmbeddingPipeline(model_name="all-MiniLM-L6-v2")
+        embeddings = embedder.encode_batch([c["text"] for c in chunks])
         assert len(embeddings) == len(chunks), "Should have embedding per chunk"
 
         # 3. Index in ChromaDB
         indexer = VectorIndexer(
-            persist_directory=chroma_persist_dir,
-            collection_name='test_e2e'
+            persist_directory=chroma_persist_dir, collection_name="test_e2e"
         )
 
         for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
             indexer.add_document(
                 doc_id=f"chunk_{i}",
-                text=chunk['text'],
+                text=chunk["text"],
                 embedding=embedding.tolist(),
-                metadata={'file': str(test_markdown_file), 'index': i}
+                metadata={"file": str(test_markdown_file), "index": i},
             )
 
         # 4. Search and retrieve
@@ -98,8 +97,8 @@ Second section with different semantic content about embeddings.
         results = indexer.search(query_embedding.tolist(), top_k=3)
 
         assert len(results) >= 1, "Should find at least 1 result"
-        assert 'text' in results[0], "Result should have text"
-        assert 'score' in results[0], "Result should have score"
+        assert "text" in results[0], "Result should have text"
+        assert "score" in results[0], "Result should have score"
 
     def test_mcp_server_vector_search_tool(self, chroma_persist_dir):
         """
@@ -110,27 +109,22 @@ Second section with different semantic content about embeddings.
         from src.mcp.tools.vector_search import VectorSearchTool
 
         config = {
-            'embeddings': {
-                'model': 'all-MiniLM-L6-v2'
-            },
-            'storage': {
-                'vector_db': {
-                    'persist_directory': chroma_persist_dir,
-                    'collection_name': 'test_mcp'
+            "embeddings": {"model": "all-MiniLM-L6-v2"},
+            "storage": {
+                "vector_db": {
+                    "persist_directory": chroma_persist_dir,
+                    "collection_name": "test_mcp",
                 }
             },
-            'chunking': {
-                'min_chunk_size': 50,
-                'max_chunk_size': 200
-            }
+            "chunking": {"min_chunk_size": 50, "max_chunk_size": 200},
         }
 
         tool = VectorSearchTool(config)
 
         # Check services are available
         services = tool.check_services()
-        assert services['chromadb'] == 'available', "ChromaDB should be available"
-        assert services['embeddings'] == 'available', "Embeddings should be available"
+        assert services["chromadb"] == "available", "ChromaDB should be available"
+        assert services["embeddings"] == "available", "Embeddings should be available"
 
         # Index a test document
         test_text = "Machine learning is a subset of artificial intelligence."
@@ -139,7 +133,7 @@ Second section with different semantic content about embeddings.
             doc_id="test_doc",
             text=test_text,
             embedding=embedding.tolist(),
-            metadata={'source': 'test'}
+            metadata={"source": "test"},
         )
 
         # Search
@@ -156,14 +150,14 @@ Second section with different semantic content about embeddings.
         from src.mcp.tools.vector_search import VectorSearchTool
 
         config = {
-            'embeddings': {'model': 'all-MiniLM-L6-v2'},
-            'storage': {
-                'vector_db': {
-                    'persist_directory': chroma_persist_dir,
-                    'collection_name': 'test_perf'
+            "embeddings": {"model": "all-MiniLM-L6-v2"},
+            "storage": {
+                "vector_db": {
+                    "persist_directory": chroma_persist_dir,
+                    "collection_name": "test_perf",
                 }
             },
-            'chunking': {'min_chunk_size': 50, 'max_chunk_size': 200}
+            "chunking": {"min_chunk_size": 50, "max_chunk_size": 200},
         }
 
         tool = VectorSearchTool(config)
@@ -173,8 +167,10 @@ Second section with different semantic content about embeddings.
             text = f"Document {i} about topic {i % 3}"
             emb = tool.embedder.encode_single(text)
             tool.indexer.add_document(
-                doc_id=f"doc_{i}", text=text,
-                embedding=emb.tolist(), metadata={'idx': i}
+                doc_id=f"doc_{i}",
+                text=text,
+                embedding=emb.tolist(),
+                metadata={"idx": i},
             )
 
         # Time the search
@@ -194,14 +190,14 @@ Second section with different semantic content about embeddings.
         from src.mcp.tools.vector_search import VectorSearchTool
 
         config = {
-            'embeddings': {'model': 'all-MiniLM-L6-v2'},
-            'storage': {
-                'vector_db': {
-                    'persist_directory': chroma_persist_dir,
-                    'collection_name': 'test_scores'
+            "embeddings": {"model": "all-MiniLM-L6-v2"},
+            "storage": {
+                "vector_db": {
+                    "persist_directory": chroma_persist_dir,
+                    "collection_name": "test_scores",
                 }
             },
-            'chunking': {'min_chunk_size': 50, 'max_chunk_size': 200}
+            "chunking": {"min_chunk_size": 50, "max_chunk_size": 200},
         }
 
         tool = VectorSearchTool(config)
@@ -211,21 +207,23 @@ Second section with different semantic content about embeddings.
             "Python programming language basics",
             "JavaScript web development tutorial",
             "Database design patterns SQL",
-            "Machine learning neural networks"
+            "Machine learning neural networks",
         ]
 
         for i, text in enumerate(docs):
             emb = tool.embedder.encode_single(text)
             tool.indexer.add_document(
-                doc_id=f"doc_{i}", text=text,
-                embedding=emb.tolist(), metadata={'idx': i}
+                doc_id=f"doc_{i}",
+                text=text,
+                embedding=emb.tolist(),
+                metadata={"idx": i},
             )
 
         # Search and verify scores
         results = tool.execute("programming tutorial", limit=4)
 
         for result in results:
-            score = result['score']
+            score = result["score"]
             assert 0.0 <= score <= 1.0, f"Score {score} not in [0, 1] range"
 
 

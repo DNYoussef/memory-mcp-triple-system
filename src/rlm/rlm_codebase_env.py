@@ -34,7 +34,9 @@ from .rlm_environment import RLMEnvironment, RLMConfig, ExecutionContext
 # GuardSpine Autonomous Business System -- all indexed codebases.
 # Rooted at the sibling-projects directory (env MEMORY_MCP_PROJECTS_ROOT, else
 # the parent of this repo) so no host-specific absolute paths are baked in.
-_PROJECTS_ROOT = os.getenv("MEMORY_MCP_PROJECTS_ROOT") or str(Path(__file__).resolve().parents[3])
+_PROJECTS_ROOT = os.getenv("MEMORY_MCP_PROJECTS_ROOT") or str(
+    Path(__file__).resolve().parents[3]
+)
 GUARDSPINE_PROJECTS = {
     # Core Product
     "guardspine": os.path.join(_PROJECTS_ROOT, "GuardSpine"),
@@ -69,9 +71,20 @@ LANGUAGE_EXTENSIONS = {
 
 # Directories to skip
 SKIP_DIRS = {
-    "node_modules", ".git", "__pycache__", ".venv", "venv",
-    "dist", "build", ".next", ".cache", "coverage", ".pytest_cache",
-    "chroma_data", ".beads", "logs",
+    "node_modules",
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "dist",
+    "build",
+    ".next",
+    ".cache",
+    "coverage",
+    ".pytest_cache",
+    "chroma_data",
+    ".beads",
+    "logs",
 }
 
 
@@ -79,8 +92,10 @@ SKIP_DIRS = {
 # RLM-012: Cross-Project Pattern Search Definitions
 # =============================================================================
 
+
 class PatternType(str, Enum):
     """Common implementation patterns to search across projects."""
+
     RETRY_LOGIC = "retry_logic"
     CIRCUIT_BREAKER = "circuit_breaker"
     EXPONENTIAL_BACKOFF = "exponential_backoff"
@@ -236,6 +251,7 @@ class PatternMatch:
         confidence: Match confidence (0.0-1.0)
         indicators_found: Additional indicators present
     """
+
     pattern_type: PatternType
     file_path: str
     project: str
@@ -269,6 +285,7 @@ class CodeFile:
         lines: Line count (lazy loaded)
         modified: Last modification time
     """
+
     path: str
     project: str
     language: str
@@ -311,6 +328,7 @@ class FileChunk:
         content: Chunk content
         char_offset: Character offset from file start
     """
+
     file_path: str
     chunk_index: int
     total_chunks: int
@@ -346,7 +364,7 @@ class RLMCodebaseEnvironment(RLMEnvironment):
     def __init__(
         self,
         config: Optional[RLMConfig] = None,
-        projects: Optional[Dict[str, str]] = None
+        projects: Optional[Dict[str, str]] = None,
     ):
         """
         Initialize codebase environment.
@@ -365,7 +383,9 @@ class RLMCodebaseEnvironment(RLMEnvironment):
         self._by_language: Dict[str, List[str]] = {}
         self._indexed = False
 
-        logger.info(f"RLMCodebaseEnvironment initialized: {len(self.projects)} projects")
+        logger.info(
+            f"RLMCodebaseEnvironment initialized: {len(self.projects)} projects"
+        )
 
     def load_data(self, source: str = "all") -> bool:
         """
@@ -391,7 +411,9 @@ class RLMCodebaseEnvironment(RLMEnvironment):
                     return False
 
             self._indexed = True
-            logger.info(f"Indexed {len(self._index)} files across {len(self._by_project)} projects")
+            logger.info(
+                f"Indexed {len(self._index)} files across {len(self._by_project)} projects"
+            )
             return True
 
         except Exception as e:
@@ -438,7 +460,7 @@ class RLMCodebaseEnvironment(RLMEnvironment):
                         project=project_name,
                         language=language,
                         size_bytes=stat.st_size,
-                        modified=datetime.fromtimestamp(stat.st_mtime).isoformat()
+                        modified=datetime.fromtimestamp(stat.st_mtime).isoformat(),
                     )
 
                     file_key = str(filepath)
@@ -465,10 +487,7 @@ class RLMCodebaseEnvironment(RLMEnvironment):
         return None
 
     def search(
-        self,
-        query: str,
-        limit: int = 10,
-        context: Optional[ExecutionContext] = None
+        self, query: str, limit: int = 10, context: Optional[ExecutionContext] = None
     ) -> List[Dict[str, Any]]:
         """
         Search codebase for files matching query.
@@ -513,9 +532,7 @@ class RLMCodebaseEnvironment(RLMEnvironment):
         return [f.to_dict() for _, f in results[:limit]]
 
     def get_chunk(
-        self,
-        chunk_id: str,
-        context: Optional[ExecutionContext] = None
+        self, chunk_id: str, context: Optional[ExecutionContext] = None
     ) -> Optional[Dict[str, Any]]:
         """
         Get file by path.
@@ -551,7 +568,7 @@ class RLMCodebaseEnvironment(RLMEnvironment):
         language: Optional[str] = None,
         project: Optional[str] = None,
         limit: int = 20,
-        use_regex: bool = False
+        use_regex: bool = False,
     ) -> List[Dict[str, Any]]:
         """
         Search file contents for a pattern.
@@ -569,6 +586,7 @@ class RLMCodebaseEnvironment(RLMEnvironment):
         NASA Rule 10: 55 LOC (<=60)
         """
         import re
+
         results = []
 
         # Compile regex or prepare simple pattern
@@ -586,7 +604,9 @@ class RLMCodebaseEnvironment(RLMEnvironment):
         if language and language in self._by_language:
             candidates = self._by_language[language]
         if project and project in self._by_project:
-            candidates = [c for c in candidates if c in self._by_project.get(project, [])]
+            candidates = [
+                c for c in candidates if c in self._by_project.get(project, [])
+            ]
 
         for file_key in candidates[:500]:  # Limit scan
             try:
@@ -603,13 +623,19 @@ class RLMCodebaseEnvironment(RLMEnvironment):
                     code_file = self._index[file_key]
                     # Find matching line
                     for i, line in enumerate(content.split("\n")):
-                        line_match = regex.search(line) if regex else pattern_lower in line.lower()
+                        line_match = (
+                            regex.search(line)
+                            if regex
+                            else pattern_lower in line.lower()
+                        )
                         if line_match:
-                            results.append({
-                                **code_file.to_dict(),
-                                "match_line": i + 1,
-                                "match_preview": line.strip()[:200]
-                            })
+                            results.append(
+                                {
+                                    **code_file.to_dict(),
+                                    "match_line": i + 1,
+                                    "match_preview": line.strip()[:200],
+                                }
+                            )
                             break
 
                     if len(results) >= limit:
@@ -643,7 +669,7 @@ class RLMCodebaseEnvironment(RLMEnvironment):
             "file_count": len(files),
             "total_size_bytes": total_size,
             "by_language": by_lang,
-            "path": self.projects.get(project)
+            "path": self.projects.get(project),
         }
 
     def list_projects(self) -> List[Dict[str, Any]]:
@@ -653,12 +679,16 @@ class RLMCodebaseEnvironment(RLMEnvironment):
     def get_stats(self) -> Dict[str, Any]:
         """Get environment statistics."""
         base_stats = super().get_stats()
-        base_stats.update({
-            "total_files": len(self._index),
-            "total_projects": len(self._by_project),
-            "by_language": {lang: len(files) for lang, files in self._by_language.items()},
-            "indexed": self._indexed
-        })
+        base_stats.update(
+            {
+                "total_files": len(self._index),
+                "total_projects": len(self._by_project),
+                "by_language": {
+                    lang: len(files) for lang, files in self._by_language.items()
+                },
+                "indexed": self._indexed,
+            }
+        )
         return base_stats
 
     def export_index(self, output_path: str) -> int:
@@ -687,10 +717,7 @@ class RLMCodebaseEnvironment(RLMEnvironment):
     # =========================================================================
 
     def load_file_content(
-        self,
-        file_path: str,
-        start_line: int = 1,
-        end_line: Optional[int] = None
+        self, file_path: str, start_line: int = 1, end_line: Optional[int] = None
     ) -> Optional[Dict[str, Any]]:
         """
         RLM-010: Lazy load file content on demand.
@@ -742,9 +769,7 @@ class RLMCodebaseEnvironment(RLMEnvironment):
             return None
 
     def get_file_chunks(
-        self,
-        file_path: str,
-        chunk_size: int = DEFAULT_CHUNK_SIZE
+        self, file_path: str, chunk_size: int = DEFAULT_CHUNK_SIZE
     ) -> List[Dict[str, Any]]:
         """
         RLM-010: Split file into chunks for large file processing.
@@ -832,10 +857,7 @@ class RLMCodebaseEnvironment(RLMEnvironment):
             return []
 
     def get_chunk_by_index(
-        self,
-        file_path: str,
-        chunk_index: int,
-        chunk_size: int = DEFAULT_CHUNK_SIZE
+        self, file_path: str, chunk_index: int, chunk_size: int = DEFAULT_CHUNK_SIZE
     ) -> Optional[Dict[str, Any]]:
         """
         RLM-010: Get a specific chunk by index.
@@ -865,10 +887,7 @@ class RLMCodebaseEnvironment(RLMEnvironment):
         return chunks[chunk_index]
 
     def load_lines_around(
-        self,
-        file_path: str,
-        target_line: int,
-        context_lines: int = 10
+        self, file_path: str, target_line: int, context_lines: int = 10
     ) -> Optional[Dict[str, Any]]:
         """
         RLM-010: Load context around a specific line.
@@ -905,7 +924,7 @@ class RLMCodebaseEnvironment(RLMEnvironment):
         pattern_type: PatternType,
         projects: Optional[List[str]] = None,
         languages: Optional[List[str]] = None,
-        limit: int = 20
+        limit: int = 20,
     ) -> List[Dict[str, Any]]:
         """
         RLM-012: Search for implementation patterns across projects.
@@ -962,8 +981,15 @@ class RLMCodebaseEnvironment(RLMEnvironment):
                     for regex in regexes:
                         if regex.search(line):
                             # Found match - calculate confidence
-                            indicator_hits = [ind for ind in indicators if ind in content_lower]
-                            conf = min(0.5 + len(keyword_hits) * 0.1 + len(indicator_hits) * 0.1, 1.0)
+                            indicator_hits = [
+                                ind for ind in indicators if ind in content_lower
+                            ]
+                            conf = min(
+                                0.5
+                                + len(keyword_hits) * 0.1
+                                + len(indicator_hits) * 0.1,
+                                1.0,
+                            )
 
                             match = PatternMatch(
                                 pattern_type=pattern_type,
@@ -994,7 +1020,7 @@ class RLMCodebaseEnvironment(RLMEnvironment):
         self,
         projects: Optional[List[str]] = None,
         languages: Optional[List[str]] = None,
-        limit_per_pattern: int = 5
+        limit_per_pattern: int = 5,
     ) -> Dict[str, List[Dict[str, Any]]]:
         """
         RLM-012: Find all pattern types across projects.
@@ -1019,7 +1045,7 @@ class RLMCodebaseEnvironment(RLMEnvironment):
                 pattern_type=pattern_type,
                 projects=projects,
                 languages=languages,
-                limit=limit_per_pattern
+                limit=limit_per_pattern,
             )
             if matches:
                 results[pattern_type.value] = matches
@@ -1028,9 +1054,7 @@ class RLMCodebaseEnvironment(RLMEnvironment):
         return results
 
     def find_similar_implementations(
-        self,
-        file_path: str,
-        context_lines: int = 30
+        self, file_path: str, context_lines: int = 30
     ) -> List[Dict[str, Any]]:
         """
         RLM-012: Find similar implementations to a given file.
@@ -1110,9 +1134,7 @@ class RLMCodebaseEnvironment(RLMEnvironment):
             summary[project_name] = {}
             for pattern_type in PatternType:
                 matches = self.search_patterns(
-                    pattern_type=pattern_type,
-                    projects=[project_name],
-                    limit=100
+                    pattern_type=pattern_type, projects=[project_name], limit=100
                 )
                 if matches:
                     summary[project_name][pattern_type.value] = len(matches)

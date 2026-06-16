@@ -33,7 +33,9 @@ def test_graph_service_node_aging_delegates_are_real(tmp_path):
 
 
 def test_detect_mode_uses_real_mode_detector_patterns():
-    result = handle_detect_mode({"query": "List all possible designs for a memory router"}, SimpleNamespace())
+    result = handle_detect_mode(
+        {"query": "List all possible designs for a memory router"}, SimpleNamespace()
+    )
     text = result["content"][0]["text"].lower()
 
     assert result["isError"] is False
@@ -43,10 +45,16 @@ def test_detect_mode_uses_real_mode_detector_patterns():
 def test_beads_handler_runs_inside_existing_event_loop():
     class Bridge:
         async def get_ready_tasks(self, limit, brief):
-            return [SimpleNamespace(id="mem-1", priority=2, title="Wire bridge", status="open")]
+            return [
+                SimpleNamespace(
+                    id="mem-1", priority=2, title="Wire bridge", status="open"
+                )
+            ]
 
     async def call_inside_loop():
-        return handle_beads_ready_tasks({"limit": 1}, SimpleNamespace(beads_bridge=Bridge()))
+        return handle_beads_ready_tasks(
+            {"limit": 1}, SimpleNamespace(beads_bridge=Bridge())
+        )
 
     result = asyncio.run(call_inside_loop())
 
@@ -61,7 +69,14 @@ def test_observation_timeline_uses_local_iso_cutoff_without_z_suffix():
     class Store:
         def get_observations(self, **kwargs):
             captured.update(kwargs)
-            return [{"created_at": "2026-06-03T12:00:00", "tool_name": "Read", "obs_type": "tool", "content": "ok"}]
+            return [
+                {
+                    "created_at": "2026-06-03T12:00:00",
+                    "tool_name": "Read",
+                    "obs_type": "tool",
+                    "content": "ok",
+                }
+            ]
 
     result = handle_observation_timeline(
         {"hours_back": 2, "detail": "compact"},
@@ -78,8 +93,12 @@ def test_bayesian_child_probability_depends_on_sampled_parent_state():
     graph = nx.DiGraph()
     graph.add_edge("parent", "child", weight=0.9, confidence=1.0)
 
-    active = builder._calculate_child_probability(graph, ["parent"], "child", {"parent": "true"})
-    inactive = builder._calculate_child_probability(graph, ["parent"], "child", {"parent": "false"})
+    active = builder._calculate_child_probability(
+        graph, ["parent"], "child", {"parent": "true"}
+    )
+    inactive = builder._calculate_child_probability(
+        graph, ["parent"], "child", {"parent": "false"}
+    )
 
     assert active > inactive
     assert active == pytest.approx(0.9)
@@ -109,10 +128,14 @@ def test_ppr_cache_invalidation_uses_structure_not_counts():
     harness = PPRHarness(graph)
     personalization = {"a": 1.0, "b": 0.0, "c": 0.0}
 
-    first = harness._execute_pagerank(personalization, alpha=0.85, max_iter=100, tol=1e-6)
+    first = harness._execute_pagerank(
+        personalization, alpha=0.85, max_iter=100, tol=1e-6
+    )
     graph.remove_edge("a", "b")
     graph.add_edge("a", "c")
-    second = harness._execute_pagerank(personalization, alpha=0.85, max_iter=100, tol=1e-6)
+    second = harness._execute_pagerank(
+        personalization, alpha=0.85, max_iter=100, tol=1e-6
+    )
 
     assert first != second
     assert second["c"] > first["c"]

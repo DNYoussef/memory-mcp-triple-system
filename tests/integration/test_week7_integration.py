@@ -35,11 +35,7 @@ def test_kv_store_with_json_preferences(tmp_path):
     store = KVStore(str(db_path))
 
     # Store user preferences as JSON
-    prefs = {
-        "coding_style": "functional",
-        "theme": "dark",
-        "notifications": True
-    }
+    prefs = {"coding_style": "functional", "theme": "dark", "notifications": True}
 
     store.set_json("user:preferences", prefs)
 
@@ -56,6 +52,7 @@ def test_query_logging_end_to_end(tmp_path):
 
     # Apply migration
     import sqlite3
+
     conn = sqlite3.connect(str(db_path))
     with open("migrations/007_query_traces_table.sql", "r") as f:
         conn.executescript(f.read())
@@ -63,8 +60,7 @@ def test_query_logging_end_to_end(tmp_path):
 
     # Create and log query trace
     trace = QueryTrace.create(
-        query="What is NASA Rule 10?",
-        user_context={"session_id": "test123"}
+        query="What is NASA Rule 10?", user_context={"session_id": "test123"}
     )
     trace.mode_detected = "execution"
     trace.stores_queried = ["vector", "relational"]

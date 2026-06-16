@@ -34,7 +34,7 @@ class Qwen3VLEmbedder:
         device: Optional[str] = None,
         use_mrl: bool = True,
         target_dim: int = 384,
-        enabled: bool = True
+        enabled: bool = True,
     ):
         """
         Initialize Qwen3-VL embedder.
@@ -65,6 +65,7 @@ class Qwen3VLEmbedder:
         if self._device is None:
             try:
                 import torch
+
                 self._device = "cuda" if torch.cuda.is_available() else "cpu"
             except ImportError:
                 self._device = "cpu"
@@ -94,15 +95,12 @@ class Qwen3VLEmbedder:
             start = time.time()
 
             self._processor = AutoProcessor.from_pretrained(
-                self.model_name,
-                trust_remote_code=True
+                self.model_name, trust_remote_code=True
             )
 
             dtype = torch.float16 if self.device == "cuda" else torch.float32
             self._model = AutoModel.from_pretrained(
-                self.model_name,
-                torch_dtype=dtype,
-                trust_remote_code=True
+                self.model_name, torch_dtype=dtype, trust_remote_code=True
             ).to(self.device)
 
             load_time = time.time() - start
@@ -133,10 +131,7 @@ class Qwen3VLEmbedder:
             from PIL import Image
 
             image = Image.open(image_path).convert("RGB")
-            inputs = self.processor(
-                images=image,
-                return_tensors="pt"
-            ).to(self.device)
+            inputs = self.processor(images=image, return_tensors="pt").to(self.device)
 
             with torch.no_grad():
                 outputs = self.model.get_image_features(**inputs)
@@ -165,10 +160,7 @@ class Qwen3VLEmbedder:
         try:
             import torch
 
-            inputs = self.processor(
-                text=text,
-                return_tensors="pt"
-            ).to(self.device)
+            inputs = self.processor(text=text, return_tensors="pt").to(self.device)
 
             with torch.no_grad():
                 outputs = self.model.get_text_features(**inputs)
@@ -200,16 +192,16 @@ class Qwen3VLEmbedder:
             from PIL import Image
 
             image = Image.open(image_path).convert("RGB")
-            inputs = self.processor(
-                images=image,
-                text=caption,
-                return_tensors="pt"
-            ).to(self.device)
+            inputs = self.processor(images=image, text=caption, return_tensors="pt").to(
+                self.device
+            )
 
             with torch.no_grad():
                 outputs = self.model(**inputs)
                 # Pool features from last hidden state
-                embedding = outputs.last_hidden_state.mean(dim=1)[0].cpu().numpy().tolist()
+                embedding = (
+                    outputs.last_hidden_state.mean(dim=1)[0].cpu().numpy().tolist()
+                )
 
             return self._apply_mrl(embedding)
 
@@ -220,7 +212,7 @@ class Qwen3VLEmbedder:
     def _apply_mrl(self, embedding: List[float]) -> List[float]:
         """Apply Matryoshka truncation if enabled."""
         if self.use_mrl and len(embedding) > self.target_dim:
-            return embedding[:self.target_dim]
+            return embedding[: self.target_dim]
         return embedding
 
     def is_available(self) -> bool:
@@ -236,5 +228,5 @@ class Qwen3VLEmbedder:
             "target_dim": self.target_dim,
             "use_mrl": self.use_mrl,
             "enabled": self.enabled,
-            "loaded": self._model is not None
+            "loaded": self._model is not None,
         }

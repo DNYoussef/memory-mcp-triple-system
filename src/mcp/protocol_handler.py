@@ -48,10 +48,12 @@ def handle_tools_call_method(params: Dict[str, Any]) -> Dict[str, Any]:
     global _nexus_tool
     if _nexus_tool is None:
         from .service_wiring import NexusSearchTool, load_config
+
         config = load_config()
         _nexus_tool = NexusSearchTool(config)
 
     from .request_router import handle_call_tool
+
     return handle_call_tool(tool_name, arguments, _nexus_tool)
 
 
@@ -60,11 +62,13 @@ def process_message(message: str) -> str:
     try:
         request = json.loads(message)
     except json.JSONDecodeError as e:
-        return json.dumps({
-            "jsonrpc": "2.0",
-            "error": {"code": -32700, "message": f"Parse error: {e}"},
-            "id": None,
-        })
+        return json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "error": {"code": -32700, "message": f"Parse error: {e}"},
+                "id": None,
+            }
+        )
 
     method = request.get("method", "")
     params = request.get("params", {})
@@ -80,22 +84,27 @@ def process_message(message: str) -> str:
     if handler is None:
         if req_id is None:
             return ""  # Notification — no response needed
-        return json.dumps({
-            "jsonrpc": "2.0",
-            "error": {"code": -32601, "message": f"Method not found: {method}"},
-            "id": req_id,
-        })
+        return json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "error": {"code": -32601, "message": f"Method not found: {method}"},
+                "id": req_id,
+            }
+        )
 
     try:
         result = handler(params)
         return json.dumps({"jsonrpc": "2.0", "result": result, "id": req_id})
     except Exception as e:
         logger.error(f"Handler error for {method}: {e}")
-        return json.dumps({
-            "jsonrpc": "2.0",
-            "error": {"code": -32603, "message": str(e)},
-            "id": req_id,
-        })
+        return json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "error": {"code": -32603, "message": str(e)},
+                "id": req_id,
+            }
+        )
+
 
 def _read_stdio_message() -> tuple[str, bool]:
     """Read either Content-Length framed MCP or newline-delimited JSON."""

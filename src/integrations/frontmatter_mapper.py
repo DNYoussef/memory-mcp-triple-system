@@ -21,6 +21,7 @@ class FileRelationships:
 
     Ported from indexer.ts FileRelationships interface.
     """
+
     file_path: str
     mtime: float = 0.0
     parents: List[str] = field(default_factory=list)
@@ -32,6 +33,7 @@ class FileRelationships:
 @dataclass
 class RelationshipMapping:
     """Configuration for mapping frontmatter property to graph edge."""
+
     frontmatter_prop: str  # e.g., "parents"
     edge_type: str  # Memory MCP edge type
     reverse_prop: str  # Reverse relationship property
@@ -76,7 +78,7 @@ class FrontmatterMapper:
         mappings: Optional[List[RelationshipMapping]] = None,
         parent_prop: str = "parents",
         children_prop: str = "children",
-        related_prop: str = "related"
+        related_prop: str = "related",
     ):
         """
         Initialize frontmatter mapper.
@@ -95,10 +97,7 @@ class FrontmatterMapper:
         logger.debug("FrontmatterMapper initialized")
 
     def extract_relationships(
-        self,
-        file_path: str,
-        frontmatter: Dict[str, Any],
-        mtime: float = 0.0
+        self, file_path: str, frontmatter: Dict[str, Any], mtime: float = 0.0
     ) -> FileRelationships:
         """
         Extract relationships from frontmatter.
@@ -114,9 +113,7 @@ class FrontmatterMapper:
             FileRelationships with parent/children/related lists
         """
         relationships = FileRelationships(
-            file_path=file_path,
-            mtime=mtime,
-            frontmatter=frontmatter
+            file_path=file_path, mtime=mtime, frontmatter=frontmatter
         )
 
         # Extract parents
@@ -144,9 +141,7 @@ class FrontmatterMapper:
         return relationships
 
     def relationships_to_edges(
-        self,
-        relationships: FileRelationships,
-        resolve_path: Optional[callable] = None
+        self, relationships: FileRelationships, resolve_path: Optional[callable] = None
     ) -> List[Dict[str, Any]]:
         """
         Convert FileRelationships to Memory MCP graph edges.
@@ -162,7 +157,9 @@ class FrontmatterMapper:
         source = relationships.file_path
 
         for mapping in self.mappings:
-            links = self._get_relationship_links(relationships, mapping.frontmatter_prop)
+            links = self._get_relationship_links(
+                relationships, mapping.frontmatter_prop
+            )
 
             for link in links:
                 target = link
@@ -171,23 +168,23 @@ class FrontmatterMapper:
                     if resolved:
                         target = resolved
 
-                edges.append({
-                    "source": source,
-                    "target": target,
-                    "type": mapping.edge_type,
-                    "metadata": {
-                        "from_frontmatter": True,
-                        "property": mapping.frontmatter_prop
+                edges.append(
+                    {
+                        "source": source,
+                        "target": target,
+                        "type": mapping.edge_type,
+                        "metadata": {
+                            "from_frontmatter": True,
+                            "property": mapping.frontmatter_prop,
+                        },
                     }
-                })
+                )
 
         logger.debug(f"Created {len(edges)} edges from {source}")
         return edges
 
     def edges_to_relationships(
-        self,
-        node_id: str,
-        edges: List[Dict[str, Any]]
+        self, node_id: str, edges: List[Dict[str, Any]]
     ) -> FileRelationships:
         """
         Convert Memory MCP graph edges to FileRelationships.
@@ -223,7 +220,7 @@ class FrontmatterMapper:
     def metadata_to_frontmatter(
         self,
         metadata: Dict[str, Any],
-        existing_frontmatter: Optional[Dict[str, Any]] = None
+        existing_frontmatter: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Convert Memory MCP metadata to Obsidian frontmatter.
@@ -273,7 +270,7 @@ class FrontmatterMapper:
     def frontmatter_to_metadata(
         self,
         frontmatter: Dict[str, Any],
-        existing_metadata: Optional[Dict[str, Any]] = None
+        existing_metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Convert Obsidian frontmatter to Memory MCP metadata.
@@ -309,9 +306,7 @@ class FrontmatterMapper:
         return metadata
 
     def compute_relationship_diff(
-        self,
-        old_relationships: FileRelationships,
-        new_relationships: FileRelationships
+        self, old_relationships: FileRelationships, new_relationships: FileRelationships
     ) -> Dict[str, Dict[str, List[str]]]:
         """
         Compute diff between old and new relationships.
@@ -331,7 +326,7 @@ class FrontmatterMapper:
 
             diff[rel_type] = {
                 "added": list(new_set - old_set),
-                "removed": list(old_set - new_set)
+                "removed": list(old_set - new_set),
             }
 
         return diff
@@ -355,16 +350,14 @@ class FrontmatterMapper:
             return str(link)
 
         # Match [[Name]] or [[Name|Alias]]
-        match = re.match(r'\[\[([^\]|]+)(?:\|[^\]]+)?\]\]', link.strip())
+        match = re.match(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]", link.strip())
         if match:
             return match.group(1)
 
         return link.strip()
 
     def _get_relationship_links(
-        self,
-        relationships: FileRelationships,
-        prop_name: str
+        self, relationships: FileRelationships, prop_name: str
     ) -> List[str]:
         """Get links for a specific relationship type."""
         if prop_name == self.parent_prop or prop_name == "parents":

@@ -33,6 +33,7 @@ class TestLazyEmbedderProxy:
 
     def test_deepcopy_does_not_recurse(self):
         import copy
+
         proxy = _LazyEmbedder(lambda: object())
         # copying must not re-enter __getattr__ into RecursionError
         copy.deepcopy(proxy)
@@ -60,4 +61,5 @@ class TestConstructionIsLazy:
 
 if __name__ == "__main__":
     import pytest
+
     raise SystemExit(pytest.main([__file__, "-v"]))

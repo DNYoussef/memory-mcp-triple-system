@@ -68,16 +68,25 @@ from typing import (
 # Optional async support
 try:
     import aiofiles
+
     ASYNC_AVAILABLE = True
 except ImportError:
     ASYNC_AVAILABLE = False
 
 # LEGO Import: Use shared types from library for common validation types
 try:
-    from library.common.types import SpecValidationResult as BaseSpecValidationResult, Violation, Severity
+    from library.common.types import (
+        SpecValidationResult as BaseSpecValidationResult,
+        Violation,
+        Severity,
+    )
 except ImportError:
     try:
-        from common.types import SpecValidationResult as BaseSpecValidationResult, Violation, Severity
+        from common.types import (
+            SpecValidationResult as BaseSpecValidationResult,
+            Violation,
+            Severity,
+        )
     except ImportError:
         # Fallback for standalone use - BaseSpecValidationResult not needed, using SpecValidationResult
         BaseSpecValidationResult = None  # type: ignore
@@ -88,6 +97,7 @@ except ImportError:
 # ============================================================================
 # Pre-compiled Regex Patterns (LOW-SPEC-01 fix)
 # ============================================================================
+
 
 def _compile_section_pattern(section: str) -> re.Pattern[str]:
     """Compile a regex pattern for matching markdown section headers."""
@@ -123,6 +133,7 @@ class Validatable(Protocol):
 # ============================================================================
 # Schema Configuration
 # ============================================================================
+
 
 @dataclass
 class ValidationSchema:
@@ -359,6 +370,7 @@ DEFAULT_SPEC_RECOMMENDED_SECTIONS: List[str] = [
 # fields. For simple validation needs, use library.common.types.SpecValidationResult.
 # ============================================================================
 
+
 @dataclass
 class SpecValidationResult:
     """
@@ -461,6 +473,7 @@ SpecSpecValidationResult = SpecValidationResult
 # Base Validator Interface
 # ============================================================================
 
+
 class BaseValidator(ABC):
     """
     Abstract base class for validators.
@@ -522,6 +535,7 @@ class BaseValidator(ABC):
 # ============================================================================
 # Individual Validators
 # ============================================================================
+
 
 class PrereqsValidator(BaseValidator):
     """
@@ -920,7 +934,8 @@ class SpecDocumentValidator(MarkdownDocumentValidator):
             filename="spec.md",
             checkpoint_name="spec_document",
             required_sections=required_sections or DEFAULT_SPEC_REQUIRED_SECTIONS,
-            recommended_sections=recommended_sections or DEFAULT_SPEC_RECOMMENDED_SECTIONS,
+            recommended_sections=recommended_sections
+            or DEFAULT_SPEC_RECOMMENDED_SECTIONS,
             min_length=500,
             not_found_fix="Run spec writing phase to generate spec.md",
         )
@@ -1105,6 +1120,7 @@ class ImplementationPlanValidator(BaseValidator):
 # Main Validator Class
 # ============================================================================
 
+
 class SpecValidator:
     """
     Orchestrates all validation checkpoints.
@@ -1151,7 +1167,9 @@ class SpecValidator:
         self._enable_cache = enable_cache
 
         # Cache storage: {cache_key: (mtime_dict, results)}
-        self._validation_cache: Dict[str, Tuple[Dict[str, float], List[SpecValidationResult]]] = {}
+        self._validation_cache: Dict[
+            str, Tuple[Dict[str, float], List[SpecValidationResult]]
+        ] = {}
 
         # Initialize core validators
         self._prereqs = PrereqsValidator(
@@ -1219,7 +1237,9 @@ class SpecValidator:
         """Clear all cached validation results."""
         self._validation_cache.clear()
 
-    def validate_all(self, use_cache: Optional[bool] = None) -> List[SpecValidationResult]:
+    def validate_all(
+        self, use_cache: Optional[bool] = None
+    ) -> List[SpecValidationResult]:
         """
         Run all validations.
 
@@ -1363,6 +1383,7 @@ class SpecValidator:
 # ============================================================================
 # Utility Functions
 # ============================================================================
+
 
 def validate_spec_directory(
     spec_dir: Union[str, Path],

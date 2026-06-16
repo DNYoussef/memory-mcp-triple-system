@@ -131,7 +131,9 @@ class UsageAggregator:
         retrieve_times = [o["duration_ms"] for o in retrieves if o["duration_ms"] > 0]
         search_times = [o["duration_ms"] for o in searches if o["duration_ms"] > 0]
 
-        avg_retrieval = sum(retrieve_times) / len(retrieve_times) if retrieve_times else 0.0
+        avg_retrieval = (
+            sum(retrieve_times) / len(retrieve_times) if retrieve_times else 0.0
+        )
         avg_search = sum(search_times) / len(search_times) if search_times else 0.0
 
         # Category distribution
@@ -178,15 +180,17 @@ class UsageAggregator:
 
             ops = self._filter_operations(day_start, day_end)
 
-            daily.append({
-                # Label by the day the window ends on (i=0 ends at now = today).
-                # day_start labeled every bucket one day early (H6).
-                "date": day_end.strftime("%Y-%m-%d"),
-                "stores": len([o for o in ops if o["type"] in ("store", "update")]),
-                "retrievals": len([o for o in ops if o["type"] == "retrieve"]),
-                "searches": len([o for o in ops if o["type"] == "search"]),
-                "total": len(ops),
-            })
+            daily.append(
+                {
+                    # Label by the day the window ends on (i=0 ends at now = today).
+                    # day_start labeled every bucket one day early (H6).
+                    "date": day_end.strftime("%Y-%m-%d"),
+                    "stores": len([o for o in ops if o["type"] in ("store", "update")]),
+                    "retrievals": len([o for o in ops if o["type"] == "retrieve"]),
+                    "searches": len([o for o in ops if o["type"] == "search"]),
+                    "total": len(ops),
+                }
+            )
 
         return list(reversed(daily))
 

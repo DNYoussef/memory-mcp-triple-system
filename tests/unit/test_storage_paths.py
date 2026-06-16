@@ -14,6 +14,7 @@ def test_data_dir_env_override():
     """MEMORY_MCP_DATA_DIR env var must override config."""
     os.environ["MEMORY_MCP_DATA_DIR"] = "/data"
     from src.mcp.http_server import _get_data_dir
+
     result = _get_data_dir({"storage": {"data_dir": "./data"}})
     assert result == "/data", f"Expected /data, got {result}"
 
@@ -23,6 +24,7 @@ def test_data_dir_fallback_is_absolute():
     env_backup = os.environ.pop("MEMORY_MCP_DATA_DIR", None)
     try:
         from src.mcp.http_server import _get_data_dir
+
         result = _get_data_dir({})  # Empty config
         assert result == "/data", f"Expected /data, got {result}"
     finally:

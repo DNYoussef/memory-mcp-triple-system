@@ -14,6 +14,7 @@ from loguru import logger
 
 class ErrorType(Enum):
     """Error classification categories."""
+
     CONTEXT_BUG = "context_bug"
     MODEL_BUG = "model_bug"
     SYSTEM_ERROR = "system_error"
@@ -21,6 +22,7 @@ class ErrorType(Enum):
 
 class ContextBugType(Enum):
     """Context bug subcategories."""
+
     WRONG_STORE_QUERIED = "wrong_store_queried"
     WRONG_MODE_DETECTED = "wrong_mode_detected"
     WRONG_LIFECYCLE_FILTER = "wrong_lifecycle_filter"
@@ -43,6 +45,7 @@ class ErrorClassifier:
             detection_rules: Rules for detecting error types
         """
         from .detection_rules import DetectionRules
+
         self.rules = detection_rules or DetectionRules()
 
     def classify(self, trace) -> ErrorType:

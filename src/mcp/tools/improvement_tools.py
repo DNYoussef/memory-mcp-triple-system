@@ -34,12 +34,25 @@ IMPROVEMENT_TOOLS = [
             "properties": {
                 "outcome_type": {
                     "type": "string",
-                    "enum": ["success", "failure", "partial", "escalated", "correction", "approval", "rejection"],
+                    "enum": [
+                        "success",
+                        "failure",
+                        "partial",
+                        "escalated",
+                        "correction",
+                        "approval",
+                        "rejection",
+                    ],
                     "description": "Type of outcome",
                 },
                 "source": {
                     "type": "string",
-                    "enum": ["confidence_scoring", "user_feedback", "quality_gate", "agent_execution"],
+                    "enum": [
+                        "confidence_scoring",
+                        "user_feedback",
+                        "quality_gate",
+                        "agent_execution",
+                    ],
                     "description": "Source of outcome",
                 },
                 "input_text": {

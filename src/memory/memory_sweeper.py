@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 class SweeperState(str, Enum):
     """Sweeper daemon states"""
+
     IDLE = "idle"
     RUNNING = "running"
     SWEEPING = "sweeping"
@@ -28,6 +29,7 @@ class SweeperState(str, Enum):
 
 class SweeperAction(str, Enum):
     """Actions the sweeper can take"""
+
     CONSOLIDATE = "consolidate"
     ARCHIVE = "archive"
     DELETE = "delete"
@@ -40,6 +42,7 @@ class SweeperAction(str, Enum):
 @dataclass
 class SweeperMetrics:
     """Metrics from sweeper operations"""
+
     total_runs: int = 0
     total_chunks_processed: int = 0
     total_bytes_freed: int = 0
@@ -60,13 +63,14 @@ class SweeperMetrics:
             "total_duplicates_merged": self.total_duplicates_merged,
             "last_run_at": self.last_run_at.isoformat() if self.last_run_at else None,
             "last_run_duration_ms": self.last_run_duration_ms,
-            "errors": self.errors
+            "errors": self.errors,
         }
 
 
 @dataclass
 class SweeperConfig:
     """Configuration for memory sweeper"""
+
     # Sweep intervals
     sweep_interval_seconds: int = 3600  # 1 hour default
     aggressive_sweep_interval: int = 300  # 5 min when memory pressure high
@@ -93,6 +97,7 @@ class SweeperConfig:
 @dataclass
 class SweepResult:
     """Result of a single sweep operation"""
+
     sweep_id: str
     started_at: datetime
     completed_at: datetime
@@ -111,7 +116,7 @@ class SweepResult:
             "actions_taken": self.actions_taken,
             "bytes_freed": self.bytes_freed,
             "chunks_processed": self.chunks_processed,
-            "errors": self.errors
+            "errors": self.errors,
         }
 
 
@@ -145,9 +150,7 @@ class MemorySweeper:
         self._max_history = 100
 
     def register_callback(
-        self,
-        action: SweeperAction,
-        callback: Callable[..., Awaitable[Any]]
+        self, action: SweeperAction, callback: Callable[..., Awaitable[Any]]
     ) -> None:
         """
         Register a callback for a sweeper action.
@@ -219,10 +222,7 @@ class MemorySweeper:
 
                 # Wait for interval or stop signal
                 try:
-                    await asyncio.wait_for(
-                        self._stop_event.wait(),
-                        timeout=interval
-                    )
+                    await asyncio.wait_for(self._stop_event.wait(), timeout=interval)
                     # If we get here, stop was requested
                     break
                 except asyncio.TimeoutError:
@@ -245,7 +245,9 @@ class MemorySweeper:
         pressure = await self._check_memory_pressure()
 
         if pressure > self.config.memory_pressure_threshold:
-            logger.info(f"Memory pressure high ({pressure:.2%}), using aggressive interval")
+            logger.info(
+                f"Memory pressure high ({pressure:.2%}), using aggressive interval"
+            )
             return self.config.aggressive_sweep_interval
 
         return self.config.sweep_interval_seconds
@@ -267,7 +269,9 @@ class MemorySweeper:
     async def _run_sweep(self, force: bool = False) -> SweepResult:
         """Execute a single sweep operation"""
         self._sweep_counter += 1
-        sweep_id = f"sweep-{self._sweep_counter}-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+        sweep_id = (
+            f"sweep-{self._sweep_counter}-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+        )
 
         self.state = SweeperState.SWEEPING
         started_at = datetime.utcnow()
@@ -276,7 +280,7 @@ class MemorySweeper:
             sweep_id=sweep_id,
             started_at=started_at,
             completed_at=started_at,
-            state=SweeperState.SWEEPING
+            state=SweeperState.SWEEPING,
         )
 
         try:
@@ -317,7 +321,7 @@ class MemorySweeper:
             # Store in history
             self._sweep_history.append(result)
             if len(self._sweep_history) > self._max_history:
-                self._sweep_history = self._sweep_history[-self._max_history:]
+                self._sweep_history = self._sweep_history[-self._max_history :]
 
             self.state = SweeperState.RUNNING if self._task else SweeperState.IDLE
 
@@ -338,7 +342,7 @@ class MemorySweeper:
             dedup_result = await callback(
                 similarity_threshold=self.config.similarity_threshold,
                 max_pairs=self.config.max_chunks_per_sweep,
-                dry_run=self.config.dry_run
+                dry_run=self.config.dry_run,
             )
 
             merged = dedup_result.get("merged", 0)
@@ -360,7 +364,7 @@ class MemorySweeper:
             archive_result = await callback(
                 age_days=self.config.chunk_age_days,
                 max_chunks=self.config.max_archives_per_sweep,
-                dry_run=self.config.dry_run
+                dry_run=self.config.dry_run,
             )
 
             archived = archive_result.get("archived", 0)
@@ -385,7 +389,7 @@ class MemorySweeper:
             delete_result = await callback(
                 min_confidence=self.config.min_confidence,
                 max_chunks=self.config.max_deletes_per_sweep,
-                dry_run=self.config.dry_run
+                dry_run=self.config.dry_run,
             )
 
             deleted = delete_result.get("deleted", 0)
@@ -425,9 +429,9 @@ class MemorySweeper:
             "config": {
                 "sweep_interval_seconds": self.config.sweep_interval_seconds,
                 "memory_pressure_threshold": self.config.memory_pressure_threshold,
-                "dry_run": self.config.dry_run
+                "dry_run": self.config.dry_run,
             },
-            "metrics": self.metrics.to_dict()
+            "metrics": self.metrics.to_dict(),
         }
 
     def get_history(self, limit: int = 10) -> List[Dict[str, Any]]:

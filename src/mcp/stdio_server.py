@@ -51,6 +51,7 @@ def __getattr__(name):
         return _lazy_map[name]()
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
+
 # Re-export from tool_registry
 from .tool_registry import (
     get_tool_definitions,
@@ -163,8 +164,9 @@ def handle_call_tool(tool_name, arguments, tool):
     except Exception as e:
         return {
             "isError": True,
-            "content": [{"type": "text", "text": f"Error: {str(e)}"}]
+            "content": [{"type": "text", "text": f"Error: {str(e)}"}],
         }
+
 
 # Expose all public names
 __all__ = [

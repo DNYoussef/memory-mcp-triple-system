@@ -17,9 +17,7 @@ class TestHotColdClassifier:
     @pytest.fixture
     def classifier(self):
         """Create HotColdClassifier instance."""
-        return HotColdClassifier(
-            active_days=7, demoted_days=30, access_threshold=3
-        )
+        return HotColdClassifier(active_days=7, demoted_days=30, access_threshold=3)
 
     def test_initialization(self, classifier):
         """Test HotColdClassifier initialization."""

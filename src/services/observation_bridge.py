@@ -172,6 +172,7 @@ class ObservationBridge:
             return
         try:
             from ..indexing.vector_indexer import CHROMADB_AVAILABLE
+
             if not CHROMADB_AVAILABLE:
                 return
             # Use add_document with observation ID
@@ -211,10 +212,6 @@ class ObservationBridge:
         """Get recent observations for context injection."""
         return self.kv_store.get_observations(project=project, limit=limit)
 
-    def get_session_observations(
-        self, session_id: str
-    ) -> List[Dict[str, Any]]:
+    def get_session_observations(self, session_id: str) -> List[Dict[str, Any]]:
         """Get all observations for a specific session."""
-        return self.kv_store.get_observations(
-            session_id=session_id, limit=500
-        )
+        return self.kv_store.get_observations(session_id=session_id, limit=500)

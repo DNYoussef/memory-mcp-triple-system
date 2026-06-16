@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 class GateStatus(Enum):
     """Status of a quality gate check."""
+
     PASSED = "passed"
     FAILED = "failed"
     WARNING = "warning"
@@ -36,6 +37,7 @@ class GateStatus(Enum):
 
 class GateType(Enum):
     """Types of quality gates."""
+
     MODE_DETECTION = "mode_detection"
     ENTITY_EXTRACTION = "entity_extraction"
     TAG_ASSIGNMENT = "tag_assignment"
@@ -200,10 +202,7 @@ class QualityGateAggregator:
                 ClassificationType.TAG_ASSIGNMENT: GateType.TAG_ASSIGNMENT,
                 ClassificationType.QUALITY_GATE: GateType.CONTENT_QUALITY,
             }
-            gate_type = type_mapping.get(
-                result.classification_type,
-                GateType.CUSTOM
-            )
+            gate_type = type_mapping.get(result.classification_type, GateType.CUSTOM)
 
         return self.add_confidence_score(
             gate_type=gate_type,
@@ -249,16 +248,16 @@ class QualityGateAggregator:
             # then returned its RAW score (scores[min_idx].score), discarding
             # the weighting entirely (H3). Return the weighted minimum itself,
             # clamped to [0, 1] since a weight > 1 can push it past 1.0.
-            weighted_scores = [
-                s.score * w for s, w in zip(scores, weights)
-            ]
+            weighted_scores = [s.score * w for s, w in zip(scores, weights)]
             overall_score = min(1.0, max(0.0, min(weighted_scores)))
         elif self.config.aggregation_method == "weighted_avg":
             # Weighted average
             total_weight = sum(weights)
-            overall_score = sum(
-                s.score * w for s, w in zip(scores, weights)
-            ) / total_weight if total_weight > 0 else 0.0
+            overall_score = (
+                sum(s.score * w for s, w in zip(scores, weights)) / total_weight
+                if total_weight > 0
+                else 0.0
+            )
         else:
             # Default: geometric mean
             overall_score = combine_confidences(
@@ -268,10 +267,7 @@ class QualityGateAggregator:
 
         # Determine pass/fail
         if self.config.require_all_pass:
-            passed = all(
-                check.status == GateStatus.PASSED
-                for check in self._checks
-            )
+            passed = all(check.status == GateStatus.PASSED for check in self._checks)
         else:
             passed = overall_score >= self.config.pass_threshold
 
@@ -311,13 +307,15 @@ class QualityGateAggregator:
 
         # Find failing checks
         failing_checks = [
-            check.to_dict() for check in self._checks
+            check.to_dict()
+            for check in self._checks
             if check.status == GateStatus.FAILED
         ]
 
         # Find warning checks
         warning_checks = [
-            check.to_dict() for check in self._checks
+            check.to_dict()
+            for check in self._checks
             if check.status == GateStatus.WARNING
         ]
 
@@ -326,9 +324,7 @@ class QualityGateAggregator:
             "overall_score": round(result.overall_score, 4),
             "threshold": self.config.pass_threshold,
             "total_checks": len(self._checks),
-            "status_counts": {
-                k.value: v for k, v in status_counts.items()
-            },
+            "status_counts": {k.value: v for k, v in status_counts.items()},
             "failing_checks": failing_checks,
             "warning_checks": warning_checks,
             "all_checks": [check.to_dict() for check in self._checks],
@@ -399,8 +395,7 @@ class QualityGateAggregator:
 
         # Count warnings
         warnings = sum(
-            1 for check in self._checks
-            if check.status == GateStatus.WARNING
+            1 for check in self._checks if check.status == GateStatus.WARNING
         )
         self._stats["warnings"] += warnings
 
@@ -410,7 +405,8 @@ class QualityGateAggregator:
             **self._stats,
             "pass_rate": (
                 self._stats["passed"] / self._stats["total_evaluations"]
-                if self._stats["total_evaluations"] > 0 else 0.0
+                if self._stats["total_evaluations"] > 0
+                else 0.0
             ),
         }
 
@@ -424,8 +420,7 @@ class QualityGateAggregator:
 
         # Check for specific failure patterns
         failing_checks = [
-            check for check in self._checks
-            if check.status == GateStatus.FAILED
+            check for check in self._checks if check.status == GateStatus.FAILED
         ]
 
         if not failing_checks:
@@ -444,6 +439,7 @@ class QualityGateAggregator:
 
 
 # Pre-configured gate templates
+
 
 def create_memory_quality_gate() -> QualityGateAggregator:
     """Create a quality gate for memory operations."""

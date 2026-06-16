@@ -30,6 +30,7 @@ from loguru import logger
 @dataclass
 class ArchiveEntry:
     """A single archived memory entry."""
+
     id: str
     text: str
     metadata: Dict[str, Any]
@@ -43,6 +44,7 @@ class ArchiveEntry:
 @dataclass
 class PromotionLog:
     """Log entry for memory promotion."""
+
     memory_id: str
     promoted_at: str
     source_tier: str
@@ -99,7 +101,13 @@ class SeedArchive:
 
         # Create index file if not exists
         if not self.index_path.exists():
-            self._write_index({"archives": [], "total_entries": 0, "created_at": datetime.utcnow().isoformat()})
+            self._write_index(
+                {
+                    "archives": [],
+                    "total_entries": 0,
+                    "created_at": datetime.utcnow().isoformat(),
+                }
+            )
 
         # Create promotion log if not exists
         if not self.promotion_log_path.exists():
@@ -150,7 +158,7 @@ class SeedArchive:
         importance: float,
         decay_score: float,
         source_tier: str,
-        reason: str = "High importance"
+        reason: str = "High importance",
     ) -> bool:
         """
         Promote a memory to the seed archive.
@@ -181,7 +189,7 @@ class SeedArchive:
                 decay_score=decay_score,
                 promoted_at=now.isoformat(),
                 source_tier=source_tier,
-                promotion_reason=reason
+                promotion_reason=reason,
             )
 
             # Write to weekly archive
@@ -196,7 +204,7 @@ class SeedArchive:
                 importance=importance,
                 decay_score=decay_score,
                 reason=reason,
-                archive_path=str(archive_path)
+                archive_path=str(archive_path),
             )
 
             # Update index
@@ -216,7 +224,7 @@ class SeedArchive:
         importance: float,
         decay_score: float,
         reason: str,
-        archive_path: str
+        archive_path: str,
     ) -> None:
         """
         Log a promotion event.
@@ -230,7 +238,7 @@ class SeedArchive:
             importance=importance,
             decay_score=decay_score,
             reason=reason,
-            archive_path=archive_path
+            archive_path=archive_path,
         )
 
         with open(self.promotion_log_path, "a", encoding="utf-8") as f:
@@ -277,7 +285,7 @@ class SeedArchive:
             "total_entries": index.get("total_entries", 0),
             "promotion_log_entries": log_count,
             "created_at": index.get("created_at"),
-            "updated_at": index.get("updated_at")
+            "updated_at": index.get("updated_at"),
         }
 
     def list_archives(self) -> List[str]:
@@ -293,9 +301,7 @@ class SeedArchive:
         return index.get("archives", [])
 
     def retrieve_from_archive(
-        self,
-        archive_path: str,
-        limit: int = 100
+        self, archive_path: str, limit: int = 100
     ) -> List[Dict[str, Any]]:
         """
         Retrieve entries from an archive file.
@@ -332,7 +338,7 @@ class SeedArchive:
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         tags: Optional[List[str]] = None,
-        limit: int = 20
+        limit: int = 20,
     ) -> List[Dict[str, Any]]:
         """
         SEED-004: Search archives by keyword, date range, and/or tags.

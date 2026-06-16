@@ -54,7 +54,9 @@ class TestModeDetection:
 
     def test_detect_planning_mode_compare(self, detector):
         """Test planning mode detection for 'Compare X' pattern."""
-        profile, confidence = detector.detect("Compare TypeScript and Python for this task")
+        profile, confidence = detector.detect(
+            "Compare TypeScript and Python for this task"
+        )
 
         assert profile == PLANNING
         assert confidence >= 0.7
@@ -168,7 +170,6 @@ class TestDetectionAccuracy:
             ("Find root cause", "execution"),
             ("What is causing slowness?", "execution"),
             ("Explain the failure", "execution"),
-
             # Planning queries (33)
             ("What should I do first?", "planning"),
             ("How can I improve this?", "planning"),
@@ -203,7 +204,6 @@ class TestDetectionAccuracy:
             ("How should I handle errors?", "planning"),
             ("What are the pros and cons?", "planning"),
             ("Which approach is more scalable?", "planning"),
-
             # Brainstorming queries (34)
             ("What if we used microservices?", "brainstorming"),
             ("Could we explore event sourcing?", "brainstorming"),
@@ -238,7 +238,7 @@ class TestDetectionAccuracy:
             ("Explore all variations", "brainstorming"),
             ("What are all the dependencies?", "brainstorming"),
             ("List all possible improvements", "brainstorming"),
-            ("Brainstorm monitoring strategies", "brainstorming")
+            ("Brainstorm monitoring strategies", "brainstorming"),
         ]
 
         correct = 0

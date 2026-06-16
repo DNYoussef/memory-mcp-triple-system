@@ -50,18 +50,18 @@ class EntityService:
 
     # Entity types we care about (from spaCy)
     ENTITY_TYPES = {
-        'PERSON',      # People, including fictional
-        'ORG',         # Organizations
-        'GPE',         # Geopolitical entities (countries, cities, states)
-        'DATE',        # Absolute or relative dates/periods
-        'TIME',        # Times smaller than a day
-        'MONEY',       # Monetary values
-        'PRODUCT',     # Objects, vehicles, foods, etc.
-        'EVENT',       # Named hurricanes, battles, wars, sports events
-        'LAW',         # Named documents made into laws
-        'NORP',        # Nationalities, religious/political groups
-        'FAC',         # Buildings, airports, highways, bridges
-        'LOC'          # Non-GPE locations, mountain ranges, bodies of water
+        "PERSON",  # People, including fictional
+        "ORG",  # Organizations
+        "GPE",  # Geopolitical entities (countries, cities, states)
+        "DATE",  # Absolute or relative dates/periods
+        "TIME",  # Times smaller than a day
+        "MONEY",  # Monetary values
+        "PRODUCT",  # Objects, vehicles, foods, etc.
+        "EVENT",  # Named hurricanes, battles, wars, sports events
+        "LAW",  # Named documents made into laws
+        "NORP",  # Nationalities, religious/political groups
+        "FAC",  # Buildings, airports, highways, bridges
+        "LOC",  # Non-GPE locations, mountain ranges, bodies of water
     }
 
     def __init__(self, model_name: str = "en_core_web_sm"):
@@ -95,12 +95,14 @@ class EntityService:
 
             entities = []
             for ent in doc.ents:
-                entities.append({
-                    'text': ent.text,
-                    'type': ent.label_,
-                    'start': ent.start_char,
-                    'end': ent.end_char
-                })
+                entities.append(
+                    {
+                        "text": ent.text,
+                        "type": ent.label_,
+                        "start": ent.start_char,
+                        "end": ent.end_char,
+                    }
+                )
 
             logger.debug(f"Extracted {len(entities)} entities from text")
             return entities
@@ -111,12 +113,12 @@ class EntityService:
 
     # Compiled regex patterns for fallback NER
     _DATE_RE = re.compile(
-        r'\b(?:January|February|March|April|May|June|July|August|'
-        r'September|October|November|December)\s+\d{1,2}(?:,?\s+\d{4})?\b'
+        r"\b(?:January|February|March|April|May|June|July|August|"
+        r"September|October|November|December)\s+\d{1,2}(?:,?\s+\d{4})?\b"
     )
-    _MULTI_PROPER_RE = re.compile(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b')
-    _SINGLE_PROPER_RE = re.compile(r'(?<=[a-z]\s)([A-Z][a-z]{2,})\b')
-    _ACRONYM_RE = re.compile(r'\b([A-Z]{2,})\b')
+    _MULTI_PROPER_RE = re.compile(r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b")
+    _SINGLE_PROPER_RE = re.compile(r"(?<=[a-z]\s)([A-Z][a-z]{2,})\b")
+    _ACRONYM_RE = re.compile(r"\b([A-Z]{2,})\b")
 
     def _regex_extract_entities(self, text: str) -> List[Dict[str, Any]]:
         """Regex fallback for entity extraction when spaCy is unavailable."""
@@ -124,49 +126,65 @@ class EntityService:
 
         # DATE patterns (month day, year)
         for m in self._DATE_RE.finditer(text):
-            entities.append({
-                'text': m.group(), 'type': 'DATE',
-                'start': m.start(), 'end': m.end(),
-            })
+            entities.append(
+                {
+                    "text": m.group(),
+                    "type": "DATE",
+                    "start": m.start(),
+                    "end": m.end(),
+                }
+            )
 
         # Multi-word proper nouns → PERSON heuristic
         for m in self._MULTI_PROPER_RE.finditer(text):
             if not self._overlaps_existing(entities, m.start(), m.end()):
-                entities.append({
-                    'text': m.group(), 'type': 'PERSON',
-                    'start': m.start(), 'end': m.end(),
-                })
+                entities.append(
+                    {
+                        "text": m.group(),
+                        "type": "PERSON",
+                        "start": m.start(),
+                        "end": m.end(),
+                    }
+                )
 
         # Single capitalized words mid-sentence → ORG heuristic
         for m in self._SINGLE_PROPER_RE.finditer(text):
             s, e = m.start(1), m.end(1)
             if not self._overlaps_existing(entities, s, e):
-                entities.append({
-                    'text': m.group(1), 'type': 'ORG',
-                    'start': s, 'end': e,
-                })
+                entities.append(
+                    {
+                        "text": m.group(1),
+                        "type": "ORG",
+                        "start": s,
+                        "end": e,
+                    }
+                )
 
         # All-caps acronyms (USA, NASA, IBM) → ORG heuristic
         for m in self._ACRONYM_RE.finditer(text):
             s, e = m.start(1), m.end(1)
             if not self._overlaps_existing(entities, s, e):
-                entities.append({
-                    'text': m.group(1), 'type': 'ORG',
-                    'start': s, 'end': e,
-                })
+                entities.append(
+                    {
+                        "text": m.group(1),
+                        "type": "ORG",
+                        "start": s,
+                        "end": e,
+                    }
+                )
 
-        return sorted(entities, key=lambda ent: ent['start'])
+        return sorted(entities, key=lambda ent: ent["start"])
 
     @staticmethod
     def _overlaps_existing(entities: List[Dict], start: int, end: int) -> bool:
         """Check if span overlaps any existing entity."""
-        return any(e['start'] <= start < e['end'] or e['start'] < end <= e['end']
-                    for e in entities)
+        return any(
+            e["start"] <= start < e["end"] or e["start"] < end <= e["end"]
+            for e in entities
+        )
 
     def extract_entities_by_type(
-        self,
-        text: str,
-        entity_types: List[str]
+        self, text: str, entity_types: List[str]
     ) -> List[Dict[str, Any]]:
         """
         Extract entities filtered by type.
@@ -181,19 +199,13 @@ class EntityService:
         all_entities = self.extract_entities(text)
 
         # Filter by requested types
-        filtered = [
-            ent for ent in all_entities
-            if ent['type'] in entity_types
-        ]
+        filtered = [ent for ent in all_entities if ent["type"] in entity_types]
 
         logger.debug(f"Filtered to {len(filtered)} entities of types {entity_types}")
         return filtered
 
     def add_entities_to_graph(
-        self,
-        chunk_id: str,
-        text: str,
-        graph_service: GraphService
+        self, chunk_id: str, text: str, graph_service: GraphService
     ) -> Dict[str, Any]:
         """
         Extract entities and add to graph.
@@ -209,9 +221,7 @@ class EntityService:
         try:
             entities = self.extract_entities(text)
 
-            entities_added = self._create_entity_nodes(
-                entities, graph_service
-            )
+            entities_added = self._create_entity_nodes(entities, graph_service)
             relationships_created = self._create_mention_relationships(
                 chunk_id, entities, graph_service
             )
@@ -222,23 +232,17 @@ class EntityService:
             )
 
             return {
-                'entities_added': entities_added,
-                'relationships_created': relationships_created,
-                'entity_types': list(set(e['type'] for e in entities))
+                "entities_added": entities_added,
+                "relationships_created": relationships_created,
+                "entity_types": list(set(e["type"] for e in entities)),
             }
 
         except Exception as e:
             logger.error(f"Failed to add entities to graph: {e}")
-            return {
-                'entities_added': 0,
-                'relationships_created': 0,
-                'entity_types': []
-            }
+            return {"entities_added": 0, "relationships_created": 0, "entity_types": []}
 
     def _create_entity_nodes(
-        self,
-        entities: List[Dict[str, Any]],
-        graph_service: GraphService
+        self, entities: List[Dict[str, Any]], graph_service: GraphService
     ) -> int:
         """
         Create entity nodes in graph.
@@ -253,16 +257,12 @@ class EntityService:
         entities_added = 0
 
         for ent in entities:
-            entity_id = self._normalize_entity_text(ent['text'])
+            entity_id = self._normalize_entity_text(ent["text"])
 
             success = graph_service.add_entity_node(
                 entity_id,
-                ent['type'],
-                {
-                    'text': ent['text'],
-                    'start': ent['start'],
-                    'end': ent['end']
-                }
+                ent["type"],
+                {"text": ent["text"], "start": ent["start"], "end": ent["end"]},
             )
 
             if success:
@@ -271,10 +271,7 @@ class EntityService:
         return entities_added
 
     def _create_mention_relationships(
-        self,
-        chunk_id: str,
-        entities: List[Dict[str, Any]],
-        graph_service: GraphService
+        self, chunk_id: str, entities: List[Dict[str, Any]], graph_service: GraphService
     ) -> int:
         """
         Create mention relationships between chunk and entities.
@@ -290,7 +287,7 @@ class EntityService:
         relationships_created = 0
 
         for ent in entities:
-            entity_id = self._normalize_entity_text(ent['text'])
+            entity_id = self._normalize_entity_text(ent["text"])
 
             # FIX: Correct parameter order (source, relationship_type, target, metadata)
             success = graph_service.add_relationship(
@@ -298,10 +295,10 @@ class EntityService:
                 GraphService.EDGE_MENTIONS,
                 entity_id,
                 {
-                    'entity_type': ent['type'],
-                    'position': ent['start'],
-                    'confidence': 0.8  # Explicit confidence for Bayesian filtering
-                }
+                    "entity_type": ent["type"],
+                    "position": ent["start"],
+                    "confidence": 0.8,  # Explicit confidence for Bayesian filtering
+                },
             )
 
             if success:
@@ -324,14 +321,13 @@ class EntityService:
         # Count by type
         stats: Dict[str, int] = {}
         for ent in entities:
-            entity_type = ent['type']
+            entity_type = ent["type"]
             stats[entity_type] = stats.get(entity_type, 0) + 1
 
         return stats
 
     def deduplicate_entities(
-        self,
-        entities: List[Dict[str, Any]]
+        self, entities: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """
         Remove duplicate entities (same text and type).
@@ -346,7 +342,7 @@ class EntityService:
         deduplicated = []
 
         for ent in entities:
-            key = (self._normalize_entity_text(ent['text']), ent['type'])
+            key = (self._normalize_entity_text(ent["text"]), ent["type"])
 
             if key not in seen:
                 seen.add(key)
@@ -355,10 +351,7 @@ class EntityService:
         logger.debug(f"Deduplicated {len(entities)} entities to {len(deduplicated)}")
         return deduplicated
 
-    def batch_extract_entities(
-        self,
-        texts: List[str]
-    ) -> List[List[Dict[str, Any]]]:
+    def batch_extract_entities(self, texts: List[str]) -> List[List[Dict[str, Any]]]:
         """
         Extract entities from multiple texts (batch processing).
 
@@ -381,12 +374,14 @@ class EntityService:
             for doc in docs:
                 entities = []
                 for ent in doc.ents:
-                    entities.append({
-                        'text': ent.text,
-                        'type': ent.label_,
-                        'start': ent.start_char,
-                        'end': ent.end_char
-                    })
+                    entities.append(
+                        {
+                            "text": ent.text,
+                            "type": ent.label_,
+                            "start": ent.start_char,
+                            "end": ent.end_char,
+                        }
+                    )
                 results.append(entities)
 
             logger.debug(f"Batch extracted entities from {len(texts)} texts")
@@ -406,7 +401,7 @@ class EntityService:
         Returns:
             Normalized text (lowercase, no spaces)
         """
-        return text.lower().replace(' ', '_').replace('.', '')
+        return text.lower().replace(" ", "_").replace(".", "")
 
 
 class EntityConsolidator:
@@ -435,12 +430,11 @@ class EntityConsolidator:
         NASA Rule 10: 6 LOC (≤60) ✅
         """
         self.similarity_threshold = similarity_threshold
-        logger.info(f"EntityConsolidator initialized with threshold={similarity_threshold}")
+        logger.info(
+            f"EntityConsolidator initialized with threshold={similarity_threshold}"
+        )
 
-    def find_duplicate_entities(
-        self,
-        graph: nx.DiGraph
-    ) -> List[Set[str]]:
+    def find_duplicate_entities(self, graph: nx.DiGraph) -> List[Set[str]]:
         """
         Find groups of duplicate entities using string similarity.
 
@@ -463,7 +457,8 @@ class EntityConsolidator:
         """
         # Get all entity nodes (filter by node type if available)
         entity_nodes = [
-            node for node in graph.nodes()
+            node
+            for node in graph.nodes()
             if isinstance(node, str)  # Entity IDs are strings
         ]
 
@@ -480,7 +475,7 @@ class EntityConsolidator:
             processed.add(entity1)
 
             # Find similar entities
-            for entity2 in entity_nodes[i + 1:]:
+            for entity2 in entity_nodes[i + 1 :]:
                 if entity2 in processed:
                     continue
 
@@ -501,7 +496,7 @@ class EntityConsolidator:
         self,
         graph: nx.DiGraph,
         entity_group: Set[str],
-        canonical_name: Optional[str] = None
+        canonical_name: Optional[str] = None,
     ) -> str:
         """
         Merge duplicate entities into single canonical entity.
@@ -560,10 +555,7 @@ class EntityConsolidator:
         logger.info(f"Merged {len(entity_group)} entities into '{canonical_name}'")
         return canonical_name
 
-    def consolidate_all(
-        self,
-        graph: nx.DiGraph
-    ) -> Dict[str, Any]:
+    def consolidate_all(self, graph: nx.DiGraph) -> Dict[str, Any]:
         """
         Run full consolidation pipeline on graph.
 
@@ -610,7 +602,7 @@ class EntityConsolidator:
             "groups_found": len(duplicate_groups),
             "entities_merged": total_entities_merged,
             "canonical_entities": canonical_entities,
-            "consolidation_rate": consolidation_rate
+            "consolidation_rate": consolidation_rate,
         }
 
     def _calculate_similarity(self, entity1: str, entity2: str) -> float:
@@ -629,8 +621,8 @@ class EntityConsolidator:
         NASA Rule 10: 13 LOC (≤60) ✅
         """
         # Normalize for comparison
-        norm1 = entity1.lower().replace('_', ' ').strip()
-        norm2 = entity2.lower().replace('_', ' ').strip()
+        norm1 = entity1.lower().replace("_", " ").strip()
+        norm2 = entity2.lower().replace("_", " ").strip()
 
         # Calculate similarity
         similarity = SequenceMatcher(None, norm1, norm2).ratio()
@@ -638,9 +630,7 @@ class EntityConsolidator:
         return similarity
 
     def _select_canonical_entity(
-        self,
-        graph: nx.DiGraph,
-        entity_group: Set[str]
+        self, graph: nx.DiGraph, entity_group: Set[str]
     ) -> str:
         """
         Select canonical entity from group (most frequent variant).
@@ -672,9 +662,7 @@ class EntityConsolidator:
         return canonical
 
     def _merge_attributes(
-        self,
-        graph: nx.DiGraph,
-        entity_group: Set[str]
+        self, graph: nx.DiGraph, entity_group: Set[str]
     ) -> Dict[str, Any]:
         """
         Merge node attributes from all entities in group.

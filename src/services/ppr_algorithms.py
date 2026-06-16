@@ -19,10 +19,7 @@ class PPRAlgorithmsMixin:
     """
 
     def _ppr_fallback(
-        self,
-        query_nodes: List[str],
-        personalization: Dict[str, float],
-        alpha: float
+        self, query_nodes: List[str], personalization: Dict[str, float], alpha: float
     ) -> Dict[str, float]:
         """
         Fallback PPR with relaxed tolerance, then degree centrality.
@@ -42,20 +39,18 @@ class PPRAlgorithmsMixin:
                 alpha=alpha,
                 personalization=personalization,
                 max_iter=200,  # More iterations
-                tol=1e-4       # Relaxed tolerance
+                tol=1e-4,  # Relaxed tolerance
             )
-            logger.info(f"PPR converged with relaxed tolerance: {len(ppr_scores)} scores")
+            logger.info(
+                f"PPR converged with relaxed tolerance: {len(ppr_scores)} scores"
+            )
             return ppr_scores
         except nx.PowerIterationFailedConvergence:
             logger.warning("PPR still failed, using degree centrality fallback")
             return self._degree_centrality_fallback(query_nodes)
 
     def _execute_pagerank(
-        self,
-        personalization: Dict[str, float],
-        alpha: float,
-        max_iter: int,
-        tol: float
+        self, personalization: Dict[str, float], alpha: float, max_iter: int, tol: float
     ) -> Dict[str, float]:
         """
         Execute NetworkX pagerank with provided personalization.
@@ -74,7 +69,9 @@ class PPRAlgorithmsMixin:
         """
         cache_key = (
             frozenset(personalization.items()),
-            alpha, max_iter, tol,
+            alpha,
+            max_iter,
+            tol,
             self._graph_structure_signature(),
         )
         cache = getattr(self, "_ppr_cache", None)
@@ -91,14 +88,18 @@ class PPRAlgorithmsMixin:
     def _graph_structure_signature(self) -> tuple:
         """Hash-equivalent structural signature for cache invalidation."""
         nodes = tuple(sorted(str(node) for node in self.graph.nodes))
-        edges = tuple(sorted(
-            (
-                str(source),
-                str(target),
-                tuple(sorted((str(key), repr(value)) for key, value in data.items()))
+        edges = tuple(
+            sorted(
+                (
+                    str(source),
+                    str(target),
+                    tuple(
+                        sorted((str(key), repr(value)) for key, value in data.items())
+                    ),
+                )
+                for source, target, data in self.graph.edges(data=True)
             )
-            for source, target, data in self.graph.edges(data=True)
-        ))
+        )
         return nodes, edges
 
     def _calculate_pagerank(self, cache_key: tuple) -> Dict[str, float]:
@@ -109,13 +110,10 @@ class PPRAlgorithmsMixin:
             alpha=alpha,
             personalization=dict(personalization_items),
             max_iter=max_iter,
-            tol=tol
+            tol=tol,
         )
 
-    def _degree_centrality_fallback(
-        self,
-        query_nodes: List[str]
-    ) -> Dict[str, float]:
+    def _degree_centrality_fallback(self, query_nodes: List[str]) -> Dict[str, float]:
         """
         Fallback to degree centrality when PPR fails.
 
@@ -172,10 +170,7 @@ class PPRAlgorithmsMixin:
         logger.debug(f"Validated {len(valid_nodes)}/{len(nodes)} nodes")
         return valid_nodes
 
-    def _create_personalization_vector(
-        self,
-        nodes: List[str]
-    ) -> Dict[str, float]:
+    def _create_personalization_vector(self, nodes: List[str]) -> Dict[str, float]:
         """
         Create uniform personalization vector over query nodes.
 

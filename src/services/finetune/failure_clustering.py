@@ -157,7 +157,19 @@ class FailureClusteringService:
         words = re.findall(r"\b\w+\b", text.lower())
 
         # Filter short words and stopwords
-        stopwords = {"the", "a", "an", "is", "are", "was", "were", "to", "of", "and", "in"}
+        stopwords = {
+            "the",
+            "a",
+            "an",
+            "is",
+            "are",
+            "was",
+            "were",
+            "to",
+            "of",
+            "and",
+            "in",
+        }
         return [w for w in words if len(w) > 2 and w not in stopwords]
 
     def _jaccard_similarity(self, set1: Set[str], set2: Set[str]) -> float:

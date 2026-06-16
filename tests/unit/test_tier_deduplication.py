@@ -23,8 +23,13 @@ from src.memory.tier_deduplication import (
 )
 
 
-def _chunk(chunk_id, content_hash, byte_size=100, tier=MemoryTier.SHORT_TERM,
-           created_at=datetime(2024, 1, 1)):
+def _chunk(
+    chunk_id,
+    content_hash,
+    byte_size=100,
+    tier=MemoryTier.SHORT_TERM,
+    created_at=datetime(2024, 1, 1),
+):
     """Build a ChunkReference with no embedding (exercises the hash path; the
     embedding path skips None embeddings)."""
     return ChunkReference(
@@ -74,7 +79,9 @@ class TestRunDeduplicationAccounting:
         # The candidate IS found...
         assert result.duplicates_found == 1
         # ...but nothing was actually merged or freed.
-        assert result.duplicates_merged == 0, "candidates must not be reported as merged"
+        assert (
+            result.duplicates_merged == 0
+        ), "candidates must not be reported as merged"
         assert result.bytes_freed == 0, "no merge executed -> no bytes actually freed"
         # The potential is preserved honestly (the duplicate's byte_size).
         assert result.bytes_reclaimable == 500
@@ -117,14 +124,26 @@ class TestRunDeduplicationAccounting:
         this test pins.)"""
         emb = np.array([1.0, 0.0, 0.0])
         newer = ChunkReference(
-            chunk_id="newer", tier=MemoryTier.SHORT_TERM, content_hash="same",
-            embedding=emb, confidence=0.9, created_at=datetime(2024, 6, 1),
-            last_accessed=datetime(2024, 6, 1), access_count=1, byte_size=222,
+            chunk_id="newer",
+            tier=MemoryTier.SHORT_TERM,
+            content_hash="same",
+            embedding=emb,
+            confidence=0.9,
+            created_at=datetime(2024, 6, 1),
+            last_accessed=datetime(2024, 6, 1),
+            access_count=1,
+            byte_size=222,
         )
         older = ChunkReference(
-            chunk_id="older", tier=MemoryTier.SHORT_TERM, content_hash="same",
-            embedding=emb, confidence=0.9, created_at=datetime(2024, 1, 1),
-            last_accessed=datetime(2024, 1, 1), access_count=1, byte_size=111,
+            chunk_id="older",
+            tier=MemoryTier.SHORT_TERM,
+            content_hash="same",
+            embedding=emb,
+            confidence=0.9,
+            created_at=datetime(2024, 1, 1),
+            last_accessed=datetime(2024, 1, 1),
+            access_count=1,
+            byte_size=111,
         )
         dedup = TierDeduplicator()
         # Both phases now select older=primary; the hash and embedding phases
@@ -148,19 +167,37 @@ class TestRunDeduplicationAccounting:
         are computed from result.pairs so they hold whichever chunk is primary."""
         emb = np.array([1.0, 0.0, 0.0])
         newest = ChunkReference(
-            chunk_id="newest", tier=MemoryTier.SHORT_TERM, content_hash="same",
-            embedding=emb, confidence=0.9, created_at=datetime(2024, 6, 1),
-            last_accessed=datetime(2024, 6, 1), access_count=1, byte_size=500,
+            chunk_id="newest",
+            tier=MemoryTier.SHORT_TERM,
+            content_hash="same",
+            embedding=emb,
+            confidence=0.9,
+            created_at=datetime(2024, 6, 1),
+            last_accessed=datetime(2024, 6, 1),
+            access_count=1,
+            byte_size=500,
         )
         middle = ChunkReference(
-            chunk_id="middle", tier=MemoryTier.SHORT_TERM, content_hash="same",
-            embedding=emb, confidence=0.9, created_at=datetime(2024, 3, 1),
-            last_accessed=datetime(2024, 3, 1), access_count=1, byte_size=222,
+            chunk_id="middle",
+            tier=MemoryTier.SHORT_TERM,
+            content_hash="same",
+            embedding=emb,
+            confidence=0.9,
+            created_at=datetime(2024, 3, 1),
+            last_accessed=datetime(2024, 3, 1),
+            access_count=1,
+            byte_size=222,
         )
         oldest = ChunkReference(
-            chunk_id="oldest", tier=MemoryTier.SHORT_TERM, content_hash="same",
-            embedding=emb, confidence=0.9, created_at=datetime(2024, 1, 1),
-            last_accessed=datetime(2024, 1, 1), access_count=1, byte_size=111,
+            chunk_id="oldest",
+            tier=MemoryTier.SHORT_TERM,
+            content_hash="same",
+            embedding=emb,
+            confidence=0.9,
+            created_at=datetime(2024, 1, 1),
+            last_accessed=datetime(2024, 1, 1),
+            access_count=1,
+            byte_size=111,
         )
         dedup = TierDeduplicator()
         result = dedup.run_deduplication([newest, middle, oldest], dry_run=False)
@@ -172,9 +209,9 @@ class TestRunDeduplicationAccounting:
         )
         naive_per_pair_bytes = sum(p.duplicate.byte_size for p in result.pairs)
         assert result.bytes_reclaimable == unique_duplicate_bytes
-        assert result.bytes_reclaimable < naive_per_pair_bytes, (
-            "a duplicate target shared by multiple pairs was counted more than once"
-        )
+        assert (
+            result.bytes_reclaimable < naive_per_pair_bytes
+        ), "a duplicate target shared by multiple pairs was counted more than once"
         # Still no real merge happened.
         assert result.duplicates_merged == 0
         assert result.bytes_freed == 0
@@ -198,22 +235,30 @@ class TestHashTiebreakerRecency:
             pairs = dedup.find_duplicates_by_hash(order)
             ids = [c.chunk_id for c in order]
             assert len(pairs) == 1, f"input {ids}"
-            assert pairs[0].primary.chunk_id == "older", (
-                f"input {ids}: oldest must win as primary"
-            )
+            assert (
+                pairs[0].primary.chunk_id == "older"
+            ), f"input {ids}: oldest must win as primary"
             assert pairs[0].duplicate.chunk_id == "newer", f"input {ids}"
 
     def test_hash_tiebreaker_only_breaks_ties(self):
         """Recency must not override a higher tier: a higher-tier but newer
         chunk still beats a lower-tier older one."""
-        old_low = _chunk("old_low", "same", tier=MemoryTier.SHORT_TERM,
-                         created_at=datetime(2024, 1, 1))
-        new_high = _chunk("new_high", "same", tier=MemoryTier.LONG_TERM,
-                          created_at=datetime(2024, 6, 1))
+        old_low = _chunk(
+            "old_low",
+            "same",
+            tier=MemoryTier.SHORT_TERM,
+            created_at=datetime(2024, 1, 1),
+        )
+        new_high = _chunk(
+            "new_high",
+            "same",
+            tier=MemoryTier.LONG_TERM,
+            created_at=datetime(2024, 6, 1),
+        )
         dedup = TierDeduplicator()
 
         pairs = dedup.find_duplicates_by_hash([old_low, new_high])
         assert len(pairs) == 1
-        assert pairs[0].primary.chunk_id == "new_high", (
-            "higher tier must win over recency"
-        )
+        assert (
+            pairs[0].primary.chunk_id == "new_high"
+        ), "higher tier must win over recency"

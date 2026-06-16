@@ -48,34 +48,30 @@ class ConsolidationMixin:
         try:
             active_chunks = self.vector_indexer.collection.get(
                 where={"stage": "active"},
-                include=['documents', 'embeddings', 'metadatas']
+                include=["documents", "embeddings", "metadatas"],
             )
         except Exception as e:
             logger.error(f"Failed to query active chunks: {e}")
             return None
 
-        chunk_ids = active_chunks.get('ids', [])
+        chunk_ids = active_chunks.get("ids", [])
         if len(chunk_ids) < 2:
             logger.info("Not enough chunks to consolidate")
             return None
 
-        embeddings = active_chunks.get('embeddings')
+        embeddings = active_chunks.get("embeddings")
         if embeddings is None or len(embeddings) == 0:
             logger.warning("No embeddings available for consolidation")
             return None
 
         return active_chunks
 
-    def _find_and_merge_similar(
-        self,
-        active_chunks: Dict,
-        threshold: float
-    ) -> int:
+    def _find_and_merge_similar(self, active_chunks: Dict, threshold: float) -> int:
         """Find and merge similar chunk pairs."""
-        chunk_ids = active_chunks['ids']
-        documents = active_chunks['documents']
-        embeddings = active_chunks['embeddings']
-        metadatas = active_chunks['metadatas']
+        chunk_ids = active_chunks["ids"]
+        documents = active_chunks["documents"]
+        embeddings = active_chunks["embeddings"]
+        metadatas = active_chunks["metadatas"]
 
         consolidated_count = 0
         processed = set()
@@ -97,10 +93,13 @@ class ConsolidationMixin:
 
                 if similarity >= threshold:
                     self._merge_chunk_pair(
-                        chunk_ids[i], chunk_ids[j],
-                        documents[i], documents[j],
-                        metadatas[i], metadatas[j],
-                        similarity
+                        chunk_ids[i],
+                        chunk_ids[j],
+                        documents[i],
+                        documents[j],
+                        metadatas[i],
+                        metadatas[j],
+                        similarity,
                     )
                     processed.add(chunk_ids[j])
                     consolidated_count += 1
@@ -115,7 +114,7 @@ class ConsolidationMixin:
         doc2: str,
         meta1: Dict,
         meta2: Dict,
-        similarity: float
+        similarity: float,
     ):
         """Merge two similar chunks."""
         merged_text, merged_metadata = self._merge_chunks(doc1, doc2, meta1, meta2)
@@ -151,9 +150,7 @@ class ConsolidationMixin:
         return En @ En.T
 
     def _calculate_similarity(
-        self,
-        embedding1: List[float],
-        embedding2: List[float]
+        self, embedding1: List[float], embedding2: List[float]
     ) -> float:
         """
         Calculate cosine similarity between two embeddings.
@@ -182,7 +179,7 @@ class ConsolidationMixin:
         text1: str,
         text2: str,
         metadata1: Dict[str, Any],
-        metadata2: Dict[str, Any]
+        metadata2: Dict[str, Any],
     ) -> tuple:
         """
         Merge two chunks into one.
@@ -203,22 +200,22 @@ class ConsolidationMixin:
         merged_metadata = metadata1.copy()
 
         # Merge tags
-        tags1 = set(metadata1.get('tags', []))
-        tags2 = set(metadata2.get('tags', []))
-        merged_metadata['tags'] = list(tags1 | tags2)
+        tags1 = set(metadata1.get("tags", []))
+        tags2 = set(metadata2.get("tags", []))
+        merged_metadata["tags"] = list(tags1 | tags2)
 
         # Take max score
-        score1 = metadata1.get('score', 0)
-        score2 = metadata2.get('score', 0)
-        merged_metadata['score'] = max(score1, score2)
+        score1 = metadata1.get("score", 0)
+        score2 = metadata2.get("score", 0)
+        merged_metadata["score"] = max(score1, score2)
 
         # Take newer timestamp
-        ts1 = metadata1.get('last_accessed', '')
-        ts2 = metadata2.get('last_accessed', '')
-        merged_metadata['last_accessed'] = max(ts1, ts2)
+        ts1 = metadata1.get("last_accessed", "")
+        ts2 = metadata2.get("last_accessed", "")
+        merged_metadata["last_accessed"] = max(ts1, ts2)
 
         # Add consolidation marker
-        merged_metadata['consolidated'] = True
-        merged_metadata['consolidated_at'] = datetime.utcnow().isoformat()
+        merged_metadata["consolidated"] = True
+        merged_metadata["consolidated_at"] = datetime.utcnow().isoformat()
 
         return merged_text, merged_metadata

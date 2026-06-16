@@ -16,6 +16,7 @@ from src.mcp.request_router import _format_result_full, handle_bayesian_inferenc
 
 # ---- G10 ----
 
+
 def test_format_result_full_tolerates_missing_keys():
     """A result missing score/file_path must format without KeyError."""
     out = _format_result_full(1, {"text": "hello world"})  # no score, no file_path
@@ -26,13 +27,16 @@ def test_format_result_full_tolerates_missing_keys():
 
 def test_format_result_full_full_result_unchanged():
     """A complete result still formats with its values."""
-    out = _format_result_full(2, {"text": "t", "score": 0.5, "file_path": "/a.md", "tier": "vector"})
+    out = _format_result_full(
+        2, {"text": "t", "score": 0.5, "file_path": "/a.md", "tier": "vector"}
+    )
     assert "Score: 0.5000" in out["text"]
     assert "/a.md" in out["text"]
     assert "Tier: vector" in out["text"]
 
 
 # ---- G9 ----
+
 
 def _tool_with_engine():
     tool = MagicMock()
@@ -53,14 +57,21 @@ def test_bayesian_inference_resolves_multiword_entity_to_single_token_node():
     net = MagicMock()
     net.nodes.return_value = ["wilhelmina", "guardspine"]
     tool._build_bayesian_network.return_value = net
-    tool.nexus_processor.probabilistic_query_engine.query_conditional.return_value = {"p": 0.7}
+    tool.nexus_processor.probabilistic_query_engine.query_conditional.return_value = {
+        "p": 0.7
+    }
 
-    result = handle_bayesian_inference({"query": "tell me about Wilhelmina Ashgrove"}, tool)
+    result = handle_bayesian_inference(
+        {"query": "tell me about Wilhelmina Ashgrove"}, tool
+    )
 
     assert result["isError"] is False
     assert "is not a node" not in result["content"][0]["text"]
     # resolved to the single-token node
-    _, kwargs = tool.nexus_processor.probabilistic_query_engine.query_conditional.call_args
+    (
+        _,
+        kwargs,
+    ) = tool.nexus_processor.probabilistic_query_engine.query_conditional.call_args
     assert kwargs["query_vars"] == ["wilhelmina"]
 
 
@@ -79,12 +90,17 @@ def test_bayesian_inference_per_word_skips_stopwords():
     net = MagicMock()
     net.nodes.return_value = ["the", "report"]  # both present
     tool._build_bayesian_network.return_value = net
-    tool.nexus_processor.probabilistic_query_engine.query_conditional.return_value = {"p": 0.5}
+    tool.nexus_processor.probabilistic_query_engine.query_conditional.return_value = {
+        "p": 0.5
+    }
 
     handle_bayesian_inference({"query": "show me the report"}, tool)
 
     # "the" is a stopword and skipped; "report" (>3 chars) is the match
-    _, kwargs = tool.nexus_processor.probabilistic_query_engine.query_conditional.call_args
+    (
+        _,
+        kwargs,
+    ) = tool.nexus_processor.probabilistic_query_engine.query_conditional.call_args
     assert kwargs["query_vars"] == ["report"]
 
 
@@ -104,7 +120,9 @@ def test_bayesian_inference_returns_error_not_raises_on_exception():
 def test_bayesian_inference_handles_none_result_clearly():
     """A None result (no network / timeout) returns a clear message, not 'null'."""
     tool = _tool_with_engine()
-    tool.nexus_processor.probabilistic_query_engine.query_conditional.return_value = None
+    tool.nexus_processor.probabilistic_query_engine.query_conditional.return_value = (
+        None
+    )
 
     result = handle_bayesian_inference({"query": "x"}, tool)
 

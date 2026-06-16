@@ -33,7 +33,9 @@ class LightweightCPD:
         self.variable = variable
         self.variable_card = variable_card
         self.values = values  # rows = states of variable, cols = combos of evidence
-        self.state_names = state_names or {variable: [str(i) for i in range(variable_card)]}
+        self.state_names = state_names or {
+            variable: [str(i) for i in range(variable_card)]
+        }
         self.evidence = evidence or []
         self.evidence_card = evidence_card or []
 
@@ -120,7 +122,9 @@ class LightweightVariableElimination:
 
         # Enumerate over query variables, marginalize over hidden
         result: Dict[str, float] = {}
-        query_combos = list(product(*[state_spaces.get(v, ["0", "1"]) for v in variables]))
+        query_combos = list(
+            product(*[state_spaces.get(v, ["0", "1"]) for v in variables])
+        )
 
         for combo in query_combos:
             assignment = dict(zip(variables, combo))
@@ -184,7 +188,9 @@ class LightweightVariableElimination:
             prob *= p
         return prob
 
-    def _lookup_cpd(self, cpd: LightweightCPD, node: str, assignment: Dict[str, str]) -> float:
+    def _lookup_cpd(
+        self, cpd: LightweightCPD, node: str, assignment: Dict[str, str]
+    ) -> float:
         """Look up P(node=state | parents=parent_states) from CPD table."""
         node_state = assignment.get(node, "0")
         states = cpd.state_names.get(node, ["0", "1"])

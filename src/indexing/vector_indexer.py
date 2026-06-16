@@ -38,10 +38,12 @@ def resolve_persist_dir(
         return os.path.join(data_dir, "chroma")
     return default
 
+
 # ChromaDB is optional -- vector tier degrades gracefully when unavailable
 try:
     import chromadb
     import chromadb.errors
+
     CHROMADB_AVAILABLE = True
     _CHROMA_NOT_FOUND = chromadb.errors.NotFoundError
 except ImportError:
@@ -53,7 +55,7 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
     retry_if_exception_type,
-    before_sleep_log
+    before_sleep_log,
 )
 
 
@@ -65,7 +67,7 @@ def db_retry(func):
         wait=wait_exponential(multiplier=0.1, max=2),
         retry=retry_if_exception_type((sqlite3.OperationalError, Exception)),
         before_sleep=before_sleep_log(logger, "WARNING"),
-        reraise=True
+        reraise=True,
     )(func)
 
 
@@ -79,7 +81,7 @@ class VectorIndexer:
     def get_instance(
         cls,
         persist_directory: Optional[str] = None,
-        collection_name: str = "memory_chunks"
+        collection_name: str = "memory_chunks",
     ) -> "VectorIndexer":
         """Return a shared VectorIndexer instance for given configuration."""
         persist_directory = resolve_persist_dir(persist_directory)
@@ -89,14 +91,14 @@ class VectorIndexer:
                 if key not in cls._instances:
                     cls._instances[key] = cls(
                         persist_directory=persist_directory,
-                        collection_name=collection_name
+                        collection_name=collection_name,
                     )
         return cls._instances[key]
 
     def __init__(
         self,
         persist_directory: Optional[str] = None,
-        collection_name: str = "memory_chunks"
+        collection_name: str = "memory_chunks",
     ):
         """
         Initialize vector indexer with ChromaDB.
@@ -156,11 +158,11 @@ class VectorIndexer:
             self.collection = self.client.create_collection(
                 name=self.collection_name,
                 metadata={
-                    "hnsw:space": "cosine",           # Cosine similarity
-                    "hnsw:construction_ef": 100,      # Build-time accuracy
-                    "hnsw:search_ef": 100,            # Query-time accuracy
-                    "hnsw:M": 16                      # Max connections per node
-                }
+                    "hnsw:space": "cosine",  # Cosine similarity
+                    "hnsw:construction_ef": 100,  # Build-time accuracy
+                    "hnsw:search_ef": 100,  # Query-time accuracy
+                    "hnsw:M": 16,  # Max connections per node
+                },
             )
             logger.info(f"Created collection '{self.collection_name}'")
 
@@ -183,6 +185,7 @@ class VectorIndexer:
                 return
 
             from datetime import datetime
+
             now_ts = datetime.utcnow().timestamp()
             now_iso = datetime.utcnow().isoformat()
             repaired = 0
@@ -195,7 +198,10 @@ class VectorIndexer:
 
                 if "last_accessed_ts" not in updated_meta:
                     # Use last_accessed ISO string if available, else now
-                    if "last_accessed" in updated_meta and updated_meta["last_accessed"]:
+                    if (
+                        "last_accessed" in updated_meta
+                        and updated_meta["last_accessed"]
+                    ):
                         try:
                             updated_meta["last_accessed_ts"] = datetime.fromisoformat(
                                 str(updated_meta["last_accessed"])
@@ -232,17 +238,19 @@ class VectorIndexer:
                     repaired += 1
 
             if repaired > 0:
-                logger.info(f"Backfilled _ts metadata on {repaired}/{len(ids)} legacy chunks")
+                logger.info(
+                    f"Backfilled _ts metadata on {repaired}/{len(ids)} legacy chunks"
+                )
             else:
-                logger.info(f"All {len(ids)} chunks have _ts metadata (no backfill needed)")
+                logger.info(
+                    f"All {len(ids)} chunks have _ts metadata (no backfill needed)"
+                )
         except Exception as e:
             logger.error(f"Legacy metadata backfill failed: {e}")
 
     @db_retry
     def index_chunks(
-        self,
-        chunks: List[Dict[str, Any]],
-        embeddings: List[List[float]]
+        self, chunks: List[Dict[str, Any]], embeddings: List[List[float]]
     ) -> None:
         """
         Index chunks with embeddings. Retries on database lock.
@@ -261,23 +269,17 @@ class VectorIndexer:
         # Prepare data for ChromaDB batch add. Prefer caller-provided IDs so
         # vector, graph, lifecycle, and event-log tiers can address one row.
         ids = [str(chunk.get("id") or uuid.uuid4()) for chunk in chunks]
-        documents = [chunk['text'] for chunk in chunks]
-        metadatas = [
-            self._prepare_chunk_metadata(chunk)
-            for chunk in chunks
-        ]
+        documents = [chunk["text"] for chunk in chunks]
+        metadatas = [self._prepare_chunk_metadata(chunk) for chunk in chunks]
 
         # Add to ChromaDB collection with performance tracking
         start = time.perf_counter()
         self.collection.add(
-            ids=ids,
-            embeddings=embeddings,
-            documents=documents,
-            metadatas=metadatas
+            ids=ids, embeddings=embeddings, documents=documents, metadatas=metadatas
         )
         elapsed_ms = (time.perf_counter() - start) * 1000
 
-        logger.info(f"Indexed {len(chunks)} chunks in {elapsed_ms:.2f}ms")      
+        logger.info(f"Indexed {len(chunks)} chunks in {elapsed_ms:.2f}ms")
 
     @staticmethod
     def sanitize_metadata(metadata: Optional[Dict[str, Any]]) -> Dict[str, Any]:
@@ -308,7 +310,7 @@ class VectorIndexer:
         doc_id: str,
         text: str,
         embedding: List[float],
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """
         Add a single document with a known ID.
@@ -333,23 +335,24 @@ class VectorIndexer:
 
         # Ensure timestamp fields for lifecycle queries
         from datetime import datetime
+
         now = datetime.utcnow()
         enriched_metadata = self.sanitize_metadata(metadata)
-        if 'last_accessed_ts' not in enriched_metadata:
-            enriched_metadata['last_accessed_ts'] = now.timestamp()
-            enriched_metadata['last_accessed'] = now.isoformat()
-        if 'created_at_ts' not in enriched_metadata:
-            enriched_metadata['created_at_ts'] = now.timestamp()
-            enriched_metadata['created_at'] = now.isoformat()
-        if 'stage' not in enriched_metadata:
-            enriched_metadata['stage'] = 'active'
+        if "last_accessed_ts" not in enriched_metadata:
+            enriched_metadata["last_accessed_ts"] = now.timestamp()
+            enriched_metadata["last_accessed"] = now.isoformat()
+        if "created_at_ts" not in enriched_metadata:
+            enriched_metadata["created_at_ts"] = now.timestamp()
+            enriched_metadata["created_at"] = now.isoformat()
+        if "stage" not in enriched_metadata:
+            enriched_metadata["stage"] = "active"
 
         try:
             self.collection.add(
                 ids=[doc_id],
                 documents=[text],
                 embeddings=[embedding],
-                metadatas=[enriched_metadata]
+                metadatas=[enriched_metadata],
             )
             return True
         except Exception as e:
@@ -363,7 +366,7 @@ class VectorIndexer:
         text: str,
         embedding: List[float],
         source: str,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """
         VEC-005: Add a fact document with truth layer metadata.
@@ -395,19 +398,21 @@ class VectorIndexer:
             return False
 
         # VEC-005: Build truth layer metadata
-        fact_metadata = self.sanitize_metadata({
-            "is_fact": True,
-            "source": source,
-            "promoted_at": datetime.utcnow().isoformat(),
-            **(metadata or {})
-        })
+        fact_metadata = self.sanitize_metadata(
+            {
+                "is_fact": True,
+                "source": source,
+                "promoted_at": datetime.utcnow().isoformat(),
+                **(metadata or {}),
+            }
+        )
 
         try:
             self.collection.add(
                 ids=[doc_id],
                 documents=[text],
                 embeddings=[embedding],
-                metadatas=[fact_metadata]
+                metadatas=[fact_metadata],
             )
             logger.debug(f"Added fact {doc_id} from source={source}")
             return True
@@ -416,10 +421,7 @@ class VectorIndexer:
             return False
 
     @db_retry
-    def add_documents(
-        self,
-        docs: List[Dict[str, Any]]
-    ) -> bool:
+    def add_documents(self, docs: List[Dict[str, Any]]) -> bool:
         """
         Add multiple documents with explicit IDs.
 
@@ -442,6 +444,7 @@ class VectorIndexer:
         metadatas = []
 
         from datetime import datetime
+
         now = datetime.utcnow()
 
         for doc in docs:
@@ -456,22 +459,19 @@ class VectorIndexer:
 
             # Ensure timestamp fields for lifecycle queries
             meta = self.sanitize_metadata(doc.get("metadata", {}))
-            if 'last_accessed_ts' not in meta:
-                meta['last_accessed_ts'] = now.timestamp()
-                meta['last_accessed'] = now.isoformat()
-            if 'created_at_ts' not in meta:
-                meta['created_at_ts'] = now.timestamp()
-                meta['created_at'] = now.isoformat()
-            if 'stage' not in meta:
-                meta['stage'] = 'active'
+            if "last_accessed_ts" not in meta:
+                meta["last_accessed_ts"] = now.timestamp()
+                meta["last_accessed"] = now.isoformat()
+            if "created_at_ts" not in meta:
+                meta["created_at_ts"] = now.timestamp()
+                meta["created_at"] = now.isoformat()
+            if "stage" not in meta:
+                meta["stage"] = "active"
             metadatas.append(meta)
 
         try:
             self.collection.add(
-                ids=ids,
-                documents=documents,
-                embeddings=embeddings,
-                metadatas=metadatas
+                ids=ids, documents=documents, embeddings=embeddings, metadatas=metadatas
             )
             return True
         except Exception as e:
@@ -512,7 +512,7 @@ class VectorIndexer:
         ids: List[str],
         embeddings: Optional[List[List[float]]] = None,
         metadatas: Optional[List[Dict[str, Any]]] = None,
-        documents: Optional[List[str]] = None
+        documents: Optional[List[str]] = None,
     ) -> bool:
         """
         Update existing chunks. Retries on database lock.
@@ -536,16 +536,15 @@ class VectorIndexer:
                 return True  # No-op is successful
 
             # Build update parameters
-            update_params = {'ids': ids}
+            update_params = {"ids": ids}
             if embeddings is not None:
-                update_params['embeddings'] = embeddings
+                update_params["embeddings"] = embeddings
             if metadatas is not None:
-                update_params['metadatas'] = [
-                    self.sanitize_metadata(metadata)
-                    for metadata in metadatas
+                update_params["metadatas"] = [
+                    self.sanitize_metadata(metadata) for metadata in metadatas
                 ]
             if documents is not None:
-                update_params['documents'] = documents
+                update_params["documents"] = documents
 
             self.collection.update(**update_params)
             logger.info(f"Updated {len(ids)} chunks in ChromaDB")
@@ -560,7 +559,7 @@ class VectorIndexer:
         self,
         query_embedding: List[float],
         top_k: int = 5,
-        where: Optional[Dict[str, Any]] = None
+        where: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Search for similar chunks. Retries on database lock.
@@ -580,24 +579,23 @@ class VectorIndexer:
             return []
 
         # Query ChromaDB with optional metadata filtering
-        query_params = {
-            'query_embeddings': [query_embedding],
-            'n_results': top_k
-        }
+        query_params = {"query_embeddings": [query_embedding], "n_results": top_k}
         if where is not None:
-            query_params['where'] = where
+            query_params["where"] = where
 
         results = self.collection.query(**query_params)
 
         # Format results
         formatted_results = []
-        for i in range(len(results['ids'][0])):
-            formatted_results.append({
-                'id': results['ids'][0][i],
-                'document': results['documents'][0][i],
-                'metadata': results['metadatas'][0][i],
-                'distance': results['distances'][0][i]
-            })
+        for i in range(len(results["ids"][0])):
+            formatted_results.append(
+                {
+                    "id": results["ids"][0][i],
+                    "document": results["documents"][0][i],
+                    "metadata": results["metadatas"][0][i],
+                    "distance": results["distances"][0][i],
+                }
+            )
 
         return formatted_results
 
@@ -606,7 +604,7 @@ class VectorIndexer:
         self,
         query_embedding: List[float],
         top_k: int = 5,
-        where: Optional[Dict[str, Any]] = None
+        where: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Search for similar documents and return normalized scores.
@@ -624,10 +622,12 @@ class VectorIndexer:
         for result in results:
             distance = result.get("distance", 0.0) or 0.0
             similarity = max(0.0, min(1.0, 1.0 - (distance / 2.0)))
-            formatted.append({
-                "id": result.get("id"),
-                "text": result.get("document", ""),
-                "metadata": result.get("metadata", {}),
-                "score": similarity
-            })
+            formatted.append(
+                {
+                    "id": result.get("id"),
+                    "text": result.get("document", ""),
+                    "metadata": result.get("metadata", {}),
+                    "score": similarity,
+                }
+            )
         return formatted

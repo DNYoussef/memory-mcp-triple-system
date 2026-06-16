@@ -28,8 +28,7 @@ class TestVectorIndexer:
     def indexer(self, temp_dir):
         """Create indexer instance with temporary ChromaDB directory."""
         indexer = VectorIndexer(
-            persist_directory=temp_dir,
-            collection_name="test_collection"
+            persist_directory=temp_dir, collection_name="test_collection"
         )
         yield indexer
         # Cleanup: delete test collection
@@ -59,74 +58,75 @@ class TestVectorIndexer:
 
         chunks = [
             {
-                'text': 'Test chunk 1',
-                'file_path': '/test/file.md',
-                'chunk_index': 0,
-                'metadata': {'title': 'Test'}
+                "text": "Test chunk 1",
+                "file_path": "/test/file.md",
+                "chunk_index": 0,
+                "metadata": {"title": "Test"},
             },
             {
-                'text': 'Test chunk 2',
-                'file_path': '/test/file.md',
-                'chunk_index': 1,
-                'metadata': {'title': 'Test'}
-            }
+                "text": "Test chunk 2",
+                "file_path": "/test/file.md",
+                "chunk_index": 1,
+                "metadata": {"title": "Test"},
+            },
         ]
 
-        embeddings = [
-            [0.1] * 384,  # Dummy embedding
-            [0.2] * 384   # Dummy embedding
-        ]
+        embeddings = [[0.1] * 384, [0.2] * 384]  # Dummy embedding  # Dummy embedding
 
         indexer.index_chunks(chunks, embeddings)
 
         # Verify indexed using ChromaDB API
         result = indexer.collection.get()
 
-        assert len(result['ids']) == 2
-        assert len(result['documents']) == 2
+        assert len(result["ids"]) == 2
+        assert len(result["documents"]) == 2
 
     def test_index_chunks_preserves_explicit_ids(self, indexer):
         """Explicit chunk IDs must be used as Chroma row IDs."""
-        chunks = [{
-            'id': 'stable-chunk-id',
-            'text': 'Test chunk',
-            'file_path': '/test/file.md',
-            'chunk_index': 0,
-            'metadata': {'title': 'Test'}
-        }]
+        chunks = [
+            {
+                "id": "stable-chunk-id",
+                "text": "Test chunk",
+                "file_path": "/test/file.md",
+                "chunk_index": 0,
+                "metadata": {"title": "Test"},
+            }
+        ]
 
         indexer.index_chunks(chunks, [[0.1] * 384])
 
-        result = indexer.collection.get(ids=['stable-chunk-id'])
-        assert result['ids'] == ['stable-chunk-id']
-        assert result['documents'][0] == 'Test chunk'
+        result = indexer.collection.get(ids=["stable-chunk-id"])
+        assert result["ids"] == ["stable-chunk-id"]
+        assert result["documents"][0] == "Test chunk"
 
     def test_index_chunks_sanitizes_nested_metadata(self, indexer):
         """Nested metadata must be converted before writing to Chroma."""
-        chunks = [{
-            'id': 'nested-metadata-id',
-            'text': 'Test chunk',
-            'file_path': '/test/file.md',
-            'chunk_index': 0,
-            'metadata': {
-                'agent': {'name': 'codex'},
-                'tags': ['a', 'b'],
-                'empty': None,
+        chunks = [
+            {
+                "id": "nested-metadata-id",
+                "text": "Test chunk",
+                "file_path": "/test/file.md",
+                "chunk_index": 0,
+                "metadata": {
+                    "agent": {"name": "codex"},
+                    "tags": ["a", "b"],
+                    "empty": None,
+                },
             }
-        }]
+        ]
 
         indexer.index_chunks(chunks, [[0.1] * 384])
 
-        metadata = indexer.collection.get(ids=['nested-metadata-id'])['metadatas'][0]
-        assert metadata['agent'] == '{"name": "codex"}'
-        assert metadata['tags'] == '["a", "b"]'
-        assert 'empty' not in metadata
+        metadata = indexer.collection.get(ids=["nested-metadata-id"])["metadatas"][0]
+        assert metadata["agent"] == '{"name": "codex"}'
+        assert metadata["tags"] == '["a", "b"]'
+        assert "empty" not in metadata
 
     def test_index_chunks_mismatched_lengths_raises(self, indexer):
         """Test that mismatched lengths raise error."""
         indexer.create_collection(vector_size=384)
 
-        chunks = [{'text': 'Test', 'file_path': '/test', 'chunk_index': 0}]
+        chunks = [{"text": "Test", "file_path": "/test", "chunk_index": 0}]
         embeddings = [[0.1] * 384, [0.2] * 384]  # 2 embeddings, 1 chunk
 
         with pytest.raises(AssertionError):
@@ -145,23 +145,15 @@ class TestVectorIndexer:
 
         # First, index some chunks
         chunks = [
-            {
-                'text': 'Test chunk 1',
-                'file_path': '/test/file.md',
-                'chunk_index': 0
-            },
-            {
-                'text': 'Test chunk 2',
-                'file_path': '/test/file.md',
-                'chunk_index': 1
-            }
+            {"text": "Test chunk 1", "file_path": "/test/file.md", "chunk_index": 0},
+            {"text": "Test chunk 2", "file_path": "/test/file.md", "chunk_index": 1},
         ]
         embeddings = [[0.1] * 384, [0.2] * 384]
         indexer.index_chunks(chunks, embeddings)
 
         # Get IDs of indexed chunks
         result = indexer.collection.get()
-        ids_to_delete = result['ids'][:1]  # Delete first chunk
+        ids_to_delete = result["ids"][:1]  # Delete first chunk
 
         # Delete chunks
         success = indexer.delete_chunks(ids_to_delete)
@@ -170,7 +162,7 @@ class TestVectorIndexer:
 
         # Verify deletion
         result_after = indexer.collection.get()
-        assert len(result_after['ids']) == 1
+        assert len(result_after["ids"]) == 1
 
     def test_delete_chunks_empty_list(self, indexer):
         """Test deletion with empty ID list (edge case)."""
@@ -186,7 +178,7 @@ class TestVectorIndexer:
         indexer.create_collection(vector_size=384)
 
         # Try to delete IDs that don't exist
-        nonexistent_ids = ['fake-id-1', 'fake-id-2']
+        nonexistent_ids = ["fake-id-1", "fake-id-2"]
         success = indexer.delete_chunks(nonexistent_ids)
 
         # ChromaDB may handle this gracefully or fail
@@ -198,54 +190,44 @@ class TestVectorIndexer:
         indexer.create_collection(vector_size=384)
 
         # Index a chunk
-        chunks = [{
-            'text': 'Test chunk',
-            'file_path': '/test/file.md',
-            'chunk_index': 0
-        }]
+        chunks = [
+            {"text": "Test chunk", "file_path": "/test/file.md", "chunk_index": 0}
+        ]
         embeddings = [[0.1] * 384]
         indexer.index_chunks(chunks, embeddings)
 
         # Get chunk ID
         result = indexer.collection.get()
-        chunk_id = result['ids'][0]
+        chunk_id = result["ids"][0]
 
         # Update metadata
-        new_metadata = {'title': 'Updated Title', 'author': 'Test Author'}
-        success = indexer.update_chunks(
-            ids=[chunk_id],
-            metadatas=[new_metadata]
-        )
+        new_metadata = {"title": "Updated Title", "author": "Test Author"}
+        success = indexer.update_chunks(ids=[chunk_id], metadatas=[new_metadata])
 
         assert success is True
 
         # Verify update
         updated_result = indexer.collection.get(ids=[chunk_id])
-        assert updated_result['metadatas'][0]['title'] == 'Updated Title'
+        assert updated_result["metadatas"][0]["title"] == "Updated Title"
 
     def test_update_chunks_embeddings(self, indexer):
         """Test updating embeddings only."""
         indexer.create_collection(vector_size=384)
 
         # Index a chunk
-        chunks = [{
-            'text': 'Test chunk',
-            'file_path': '/test/file.md',
-            'chunk_index': 0
-        }]
+        chunks = [
+            {"text": "Test chunk", "file_path": "/test/file.md", "chunk_index": 0}
+        ]
         embeddings = [[0.1] * 384]
         indexer.index_chunks(chunks, embeddings)
 
         # Get chunk ID
         result = indexer.collection.get()
-        chunk_id = result['ids'][0]
+        chunk_id = result["ids"][0]
 
         # Update embedding
         new_embedding = [[0.5] * 384]
-        success = indexer.update_chunks(
-            ids=[chunk_id],
-            embeddings=new_embedding
-        )
+        success = indexer.update_chunks(ids=[chunk_id], embeddings=new_embedding)
 
         assert success is True
 
@@ -254,62 +236,55 @@ class TestVectorIndexer:
         indexer.create_collection(vector_size=384)
 
         # Index a chunk
-        chunks = [{
-            'text': 'Test chunk',
-            'file_path': '/test/file.md',
-            'chunk_index': 0
-        }]
+        chunks = [
+            {"text": "Test chunk", "file_path": "/test/file.md", "chunk_index": 0}
+        ]
         embeddings = [[0.1] * 384]
         indexer.index_chunks(chunks, embeddings)
 
         # Get chunk ID
         result = indexer.collection.get()
-        chunk_id = result['ids'][0]
+        chunk_id = result["ids"][0]
 
         # Update document
-        new_document = ['Updated document text']
-        success = indexer.update_chunks(
-            ids=[chunk_id],
-            documents=new_document
-        )
+        new_document = ["Updated document text"]
+        success = indexer.update_chunks(ids=[chunk_id], documents=new_document)
 
         assert success is True
 
         # Verify update
         updated_result = indexer.collection.get(ids=[chunk_id])
-        assert updated_result['documents'][0] == 'Updated document text'
+        assert updated_result["documents"][0] == "Updated document text"
 
     def test_update_chunks_all_fields(self, indexer):
         """Test updating all fields (embeddings, metadata, documents)."""
         indexer.create_collection(vector_size=384)
 
         # Index a chunk
-        chunks = [{
-            'text': 'Test chunk',
-            'file_path': '/test/file.md',
-            'chunk_index': 0
-        }]
+        chunks = [
+            {"text": "Test chunk", "file_path": "/test/file.md", "chunk_index": 0}
+        ]
         embeddings = [[0.1] * 384]
         indexer.index_chunks(chunks, embeddings)
 
         # Get chunk ID
         result = indexer.collection.get()
-        chunk_id = result['ids'][0]
+        chunk_id = result["ids"][0]
 
         # Update all fields
         success = indexer.update_chunks(
             ids=[chunk_id],
             embeddings=[[0.9] * 384],
-            metadatas=[{'title': 'All Updated'}],
-            documents=['Completely new text']
+            metadatas=[{"title": "All Updated"}],
+            documents=["Completely new text"],
         )
 
         assert success is True
 
         # Verify all updates
         updated_result = indexer.collection.get(ids=[chunk_id])
-        assert updated_result['documents'][0] == 'Completely new text'
-        assert updated_result['metadatas'][0]['title'] == 'All Updated'
+        assert updated_result["documents"][0] == "Completely new text"
+        assert updated_result["metadatas"][0]["title"] == "All Updated"
 
     def test_update_chunks_empty_list(self, indexer):
         """Test update with empty ID list (edge case)."""
@@ -325,10 +300,9 @@ class TestVectorIndexer:
         indexer.create_collection(vector_size=384)
 
         # Try to update IDs that don't exist
-        nonexistent_ids = ['fake-id-1']
+        nonexistent_ids = ["fake-id-1"]
         success = indexer.update_chunks(
-            ids=nonexistent_ids,
-            metadatas=[{'title': 'New'}]
+            ids=nonexistent_ids, metadatas=[{"title": "New"}]
         )
 
         # ChromaDB may handle this gracefully or fail

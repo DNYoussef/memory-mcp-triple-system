@@ -37,6 +37,7 @@ class MemoryChunk:
         metadata: Additional metadata
         score: Relevance score (0-1)
     """
+
     id: str
     content: str
     namespace: str
@@ -69,6 +70,7 @@ class RecursiveQueryResult:
         intermediate_counts: Results at each depth
         total_queries: Total queries executed
     """
+
     results: List[Dict[str, Any]]
     depth: int
     path: List[str] = field(default_factory=list)
@@ -98,9 +100,7 @@ class RLMMemoryEnvironment(RLMEnvironment):
     """
 
     def __init__(
-        self,
-        config: Optional[RLMConfig] = None,
-        data_dir: Optional[str] = None
+        self, config: Optional[RLMConfig] = None, data_dir: Optional[str] = None
     ):
         """
         Initialize Memory MCP environment.
@@ -113,7 +113,11 @@ class RLMMemoryEnvironment(RLMEnvironment):
         """
         super().__init__(config)
 
-        self.data_dir = Path(data_dir or os.getenv("MEMORY_MCP_DATA_DIR") or (Path.home() / ".claude" / "memory-mcp-data"))
+        self.data_dir = Path(
+            data_dir
+            or os.getenv("MEMORY_MCP_DATA_DIR")
+            or (Path.home() / ".claude" / "memory-mcp-data")
+        )
         self._kv_data: Dict[str, Any] = {}
         self._graph_data: Dict[str, Any] = {}
         self._vector_metadata: List[Dict[str, Any]] = []
@@ -144,7 +148,9 @@ class RLMMemoryEnvironment(RLMEnvironment):
                 self._load_vector_metadata()
 
             self._loaded = True
-            logger.info(f"Loaded Memory MCP data: kv={len(self._kv_data)}, graph_nodes={len(self._graph_data.get('nodes', []))}")
+            logger.info(
+                f"Loaded Memory MCP data: kv={len(self._kv_data)}, graph_nodes={len(self._graph_data.get('nodes', []))}"
+            )
             return True
 
         except Exception as e:
@@ -164,6 +170,7 @@ class RLMMemoryEnvironment(RLMEnvironment):
 
         try:
             import sqlite3
+
             conn = sqlite3.connect(str(kv_path))
             cursor = conn.cursor()
             cursor.execute("SELECT key, value FROM kv_store LIMIT 10000")
@@ -208,10 +215,7 @@ class RLMMemoryEnvironment(RLMEnvironment):
             logger.warning(f"ChromaDB not found: {chroma_path}")
 
     def search(
-        self,
-        query: str,
-        limit: int = 10,
-        context: Optional[ExecutionContext] = None
+        self, query: str, limit: int = 10, context: Optional[ExecutionContext] = None
     ) -> List[Dict[str, Any]]:
         """
         Search Memory MCP for relevant items.
@@ -233,31 +237,35 @@ class RLMMemoryEnvironment(RLMEnvironment):
         query_lower = query.lower()
 
         # Search KV store by namespace/content
-        for key, value in list(self._kv_data.items())[:limit * 2]:
+        for key, value in list(self._kv_data.items())[: limit * 2]:
             if query_lower in key.lower():
                 content = json.dumps(value) if isinstance(value, dict) else str(value)
-                results.append(MemoryChunk(
-                    id=key,
-                    content=content[:500],
-                    namespace=key.split(":")[0] if ":" in key else "default",
-                    source="kv",
-                    score=0.8
-                ))
+                results.append(
+                    MemoryChunk(
+                        id=key,
+                        content=content[:500],
+                        namespace=key.split(":")[0] if ":" in key else "default",
+                        source="kv",
+                        score=0.8,
+                    )
+                )
             if len(results) >= limit:
                 break
 
         # Search graph nodes
-        for node in self._graph_data.get("nodes", [])[:limit * 2]:
+        for node in self._graph_data.get("nodes", [])[: limit * 2]:
             node_text = str(node.get("label", "") or node.get("id", ""))
             if query_lower in node_text.lower():
-                results.append(MemoryChunk(
-                    id=str(node.get("id")),
-                    content=node_text,
-                    namespace="graph",
-                    source="graph",
-                    metadata=node,
-                    score=0.7
-                ))
+                results.append(
+                    MemoryChunk(
+                        id=str(node.get("id")),
+                        content=node_text,
+                        namespace="graph",
+                        source="graph",
+                        metadata=node,
+                        score=0.7,
+                    )
+                )
             if len(results) >= limit:
                 break
 
@@ -268,9 +276,7 @@ class RLMMemoryEnvironment(RLMEnvironment):
         return [r.to_dict() for r in results[:limit]]
 
     def get_chunk(
-        self,
-        chunk_id: str,
-        context: Optional[ExecutionContext] = None
+        self, chunk_id: str, context: Optional[ExecutionContext] = None
     ) -> Optional[Dict[str, Any]]:
         """
         Retrieve a specific chunk by ID.
@@ -291,7 +297,7 @@ class RLMMemoryEnvironment(RLMEnvironment):
                 id=chunk_id,
                 content=json.dumps(value) if isinstance(value, dict) else str(value),
                 namespace=chunk_id.split(":")[0] if ":" in chunk_id else "default",
-                source="kv"
+                source="kv",
             ).to_dict()
 
         # Try graph
@@ -302,15 +308,13 @@ class RLMMemoryEnvironment(RLMEnvironment):
                     content=str(node.get("label", "")),
                     namespace="graph",
                     source="graph",
-                    metadata=node
+                    metadata=node,
                 ).to_dict()
 
         return None
 
     def search_by_namespace(
-        self,
-        namespace: str,
-        limit: int = 50
+        self, namespace: str, limit: int = 50
     ) -> List[Dict[str, Any]]:
         """
         Search by namespace prefix.
@@ -329,23 +333,21 @@ class RLMMemoryEnvironment(RLMEnvironment):
         for key, value in self._kv_data.items():
             if key.startswith(namespace):
                 content = json.dumps(value) if isinstance(value, dict) else str(value)
-                results.append(MemoryChunk(
-                    id=key,
-                    content=content[:500],
-                    namespace=namespace.rstrip(":"),
-                    source="kv",
-                    score=1.0
-                ).to_dict())
+                results.append(
+                    MemoryChunk(
+                        id=key,
+                        content=content[:500],
+                        namespace=namespace.rstrip(":"),
+                        source="kv",
+                        score=1.0,
+                    ).to_dict()
+                )
                 if len(results) >= limit:
                     break
 
         return results
 
-    def get_graph_neighbors(
-        self,
-        node_id: str,
-        depth: int = 1
-    ) -> List[Dict[str, Any]]:
+    def get_graph_neighbors(self, node_id: str, depth: int = 1) -> List[Dict[str, Any]]:
         """
         Get graph neighbors of a node.
 
@@ -405,8 +407,10 @@ class RLMMemoryEnvironment(RLMEnvironment):
                     "type": "kv",
                     "id": key,
                     "namespace": key.split(":")[0] if ":" in key else "default",
-                    "content": json.dumps(value) if isinstance(value, dict) else str(value),
-                    "metadata": {"key": key}
+                    "content": json.dumps(value)
+                    if isinstance(value, dict)
+                    else str(value),
+                    "metadata": {"key": key},
                 }
                 f.write(json.dumps(record) + "\n")
                 count += 1
@@ -418,7 +422,7 @@ class RLMMemoryEnvironment(RLMEnvironment):
                     "id": str(node.get("id")),
                     "namespace": "graph",
                     "content": str(node.get("label", "")),
-                    "metadata": node
+                    "metadata": node,
                 }
                 f.write(json.dumps(record) + "\n")
                 count += 1
@@ -431,7 +435,7 @@ class RLMMemoryEnvironment(RLMEnvironment):
         queries: List[Union[str, Callable[[List[Dict]], str]]],
         initial_results: Optional[List[Dict[str, Any]]] = None,
         limit_per_depth: int = 20,
-        context: Optional[ExecutionContext] = None
+        context: Optional[ExecutionContext] = None,
     ) -> RecursiveQueryResult:
         """
         RLM-007: Execute recursive queries with refinement at each depth.
@@ -481,7 +485,9 @@ class RLMMemoryEnvironment(RLMEnvironment):
 
             total_queries += 1
             intermediate_counts.append(len(results))
-            logger.debug(f"Depth {depth}: query='{query[:50]}...', results={len(results)}")
+            logger.debug(
+                f"Depth {depth}: query='{query[:50]}...', results={len(results)}"
+            )
 
             if not results:
                 logger.debug(f"No results at depth {depth}, stopping")
@@ -492,14 +498,11 @@ class RLMMemoryEnvironment(RLMEnvironment):
             depth=len(path),
             path=path,
             intermediate_counts=intermediate_counts,
-            total_queries=total_queries
+            total_queries=total_queries,
         )
 
     def _filter_results(
-        self,
-        results: List[Dict[str, Any]],
-        query: str,
-        limit: int
+        self, results: List[Dict[str, Any]], query: str, limit: int
     ) -> List[Dict[str, Any]]:
         """
         Filter results by query string.
@@ -525,9 +528,11 @@ class RLMMemoryEnvironment(RLMEnvironment):
             namespace = result.get("namespace", "")
 
             # Match against content, id, or namespace
-            if (query_lower in content.lower() or
-                query_lower in item_id.lower() or
-                query_lower in namespace.lower()):
+            if (
+                query_lower in content.lower()
+                or query_lower in item_id.lower()
+                or query_lower in namespace.lower()
+            ):
                 filtered.append(result)
                 if len(filtered) >= limit:
                     break
@@ -537,10 +542,12 @@ class RLMMemoryEnvironment(RLMEnvironment):
     def get_stats(self) -> Dict[str, Any]:
         """Get environment statistics."""
         base_stats = super().get_stats()
-        base_stats.update({
-            "kv_count": len(self._kv_data),
-            "graph_nodes": len(self._graph_data.get("nodes", [])),
-            "graph_edges": len(self._graph_data.get("edges", [])),
-            "loaded": self._loaded
-        })
+        base_stats.update(
+            {
+                "kv_count": len(self._kv_data),
+                "graph_nodes": len(self._graph_data.get("nodes", [])),
+                "graph_edges": len(self._graph_data.get("edges", [])),
+                "loaded": self._loaded,
+            }
+        )
         return base_stats

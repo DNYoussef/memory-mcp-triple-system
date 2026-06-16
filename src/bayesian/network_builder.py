@@ -48,7 +48,7 @@ class NetworkBuilder:
         min_edge_confidence: float = 0.3,
         cache_ttl_hours: int = 1,
         config_path: str = "config/memory-mcp.yaml",
-        max_parents: int = MAX_PARENTS
+        max_parents: int = MAX_PARENTS,
     ):
         """
         Initialize Network Builder.
@@ -93,18 +93,18 @@ class NetworkBuilder:
         try:
             path = Path(config_path)
             if path.exists():
-                with open(path, 'r', encoding='utf-8') as f:
+                with open(path, "r", encoding="utf-8") as f:
                     config = yaml.safe_load(f)
-                    return config.get('performance', {}).get('max_bayesian_graph_nodes', 1000)
+                    return config.get("performance", {}).get(
+                        "max_bayesian_graph_nodes", 1000
+                    )
         except Exception as e:
             logger.warning(f"Failed to load config from {config_path}: {e}")
 
         return 1000  # Default fallback
 
     def build_network(
-        self,
-        graph: nx.DiGraph,
-        use_cache: bool = True
+        self, graph: nx.DiGraph, use_cache: bool = True
     ) -> Optional[BayesianNetwork]:
         """
         Convert knowledge graph to Bayesian network.
@@ -154,13 +154,13 @@ class NetworkBuilder:
         # Cache network
         self.cache_network(bn, cache_key)
 
-        logger.info(f"Built Bayesian network: {len(bn.nodes())} nodes, {len(bn.edges())} edges")
+        logger.info(
+            f"Built Bayesian network: {len(bn.nodes())} nodes, {len(bn.edges())} edges"
+        )
         return bn
 
     def _extract_node_states(
-        self,
-        network: BayesianNetwork,
-        graph: nx.DiGraph
+        self, network: BayesianNetwork, graph: nx.DiGraph
     ) -> Dict[str, List[str]]:
         """Extract possible states for each node from graph attributes."""
         node_states = {}
@@ -177,7 +177,7 @@ class NetworkBuilder:
         network: BayesianNetwork,
         graph: nx.DiGraph,
         node_states: Dict[str, List[str]],
-        num_samples: int = 200
+        num_samples: int = 200,
     ) -> List[Dict[str, str]]:
         """
         REM-002 FIX: Generate training data using edge weights and graph structure.
@@ -205,7 +205,9 @@ class NetworkBuilder:
                     p_true = self._calculate_root_probability(graph, node)
                 else:
                     # Child node: edge-weight-based probability
-                    p_true = self._calculate_child_probability(graph, parents, node, row)
+                    p_true = self._calculate_child_probability(
+                        graph, parents, node, row
+                    )
 
                 # Sample state based on probability
                 row[node] = self._sample_state(states, p_true)
@@ -220,11 +222,7 @@ class NetworkBuilder:
         return min(0.8, 0.3 + (degree / 20))
 
     def _calculate_child_probability(
-        self,
-        graph: nx.DiGraph,
-        parents: List[str],
-        node: str,
-        row: Dict[str, str]
+        self, graph: nx.DiGraph, parents: List[str], node: str, row: Dict[str, str]
     ) -> float:
         """Calculate child probability from edge weights and sampled parent states."""
         total_weight = 0.0
@@ -235,7 +233,11 @@ class NetworkBuilder:
                 weight *= edge_data.get("confidence", DEFAULT_EDGE_CONFIDENCE)
                 weight = min(1.0, max(0.0, weight))
                 parent_active = str(row.get(parent, "false")).lower() in {
-                    "true", "yes", "active", "hot", "1"
+                    "true",
+                    "yes",
+                    "active",
+                    "hot",
+                    "1",
                 }
                 total_weight += weight if parent_active else (1.0 - weight)
 
@@ -254,9 +256,7 @@ class NetworkBuilder:
             return np.random.choice(states, p=probs)
 
     def estimate_cpds(
-        self,
-        network: BayesianNetwork,
-        graph: nx.DiGraph
+        self, network: BayesianNetwork, graph: nx.DiGraph
     ) -> BayesianNetwork:
         """
         Estimate CPDs using graph structure and edge weights.
@@ -329,16 +329,14 @@ class NetworkBuilder:
 
         # Check node count
         if len(network.nodes()) > self.max_nodes:
-            logger.error(f"Network has {len(network.nodes())} nodes (max {self.max_nodes})")
+            logger.error(
+                f"Network has {len(network.nodes())} nodes (max {self.max_nodes})"
+            )
             return False
 
         return True
 
-    def prune_nodes(
-        self,
-        graph: nx.DiGraph,
-        max_nodes: int
-    ) -> nx.DiGraph:
+    def prune_nodes(self, graph: nx.DiGraph, max_nodes: int) -> nx.DiGraph:
         """
         Prune graph to max node count.
 
@@ -392,8 +390,7 @@ class NetworkBuilder:
         # MEM-006: Proactive cleanup - remove expired entries
         now = datetime.now()
         expired_keys = [
-            k for k, v in self.cache.items()
-            if v.get("expires_at", now) < now
+            k for k, v in self.cache.items() if v.get("expires_at", now) < now
         ]
         for k in expired_keys:
             del self.cache[k]
@@ -401,8 +398,7 @@ class NetworkBuilder:
         # MEM-006: Enforce max cache size - evict oldest entries
         while len(self.cache) >= self.max_cache_size:
             oldest_key = min(
-                self.cache.keys(),
-                key=lambda k: self.cache[k].get("created_at", now)
+                self.cache.keys(), key=lambda k: self.cache[k].get("created_at", now)
             )
             del self.cache[oldest_key]
             logger.debug(f"Evicted cache entry {oldest_key[:8]} (max size reached)")
@@ -410,9 +406,11 @@ class NetworkBuilder:
         self.cache[cache_key] = {
             "network": network,
             "expires_at": now + self.cache_ttl,
-            "created_at": now
+            "created_at": now,
         }
-        logger.debug(f"Cached network {cache_key[:8]}, TTL={self.cache_ttl}, cache_size={len(self.cache)}")
+        logger.debug(
+            f"Cached network {cache_key[:8]}, TTL={self.cache_ttl}, cache_size={len(self.cache)}"
+        )
 
     def _bounded_edges(self, graph: nx.DiGraph) -> List[tuple]:
         """Edge list with node in-degree capped to MAX_PARENTS.
@@ -459,18 +457,27 @@ class NetworkBuilder:
         # Hash everything build_network reads from the graph, so any mutation
         # that changes the net misses the cache: structure + edge confidence
         # (cap + CPDs) + edge weight (CPDs) + node frequency (pruning) + states.
-        nodes_str = str(sorted(
-            (n,
-             round(float(graph.nodes[n].get("frequency", 0)), 4),
-             tuple(graph.nodes[n].get("states", ())))
-            for n in graph.nodes()
-        ))
-        edges_str = str(sorted(
-            (u, v,
-             round(float(d.get("confidence", DEFAULT_EDGE_CONFIDENCE)), 4),
-             round(float(d.get("weight", 1.0)), 4))
-            for u, v, d in graph.edges(data=True)
-        ))
+        nodes_str = str(
+            sorted(
+                (
+                    n,
+                    round(float(graph.nodes[n].get("frequency", 0)), 4),
+                    tuple(graph.nodes[n].get("states", ())),
+                )
+                for n in graph.nodes()
+            )
+        )
+        edges_str = str(
+            sorted(
+                (
+                    u,
+                    v,
+                    round(float(d.get("confidence", DEFAULT_EDGE_CONFIDENCE)), 4),
+                    round(float(d.get("weight", 1.0)), 4),
+                )
+                for u, v, d in graph.edges(data=True)
+            )
+        )
 
         cache_key = hashlib.md5((nodes_str + edges_str).encode()).hexdigest()
         return cache_key

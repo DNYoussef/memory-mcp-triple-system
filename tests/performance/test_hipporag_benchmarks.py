@@ -31,11 +31,7 @@ class TestScalabilityBenchmarks:
         """Create entity service."""
         return EntityService()
 
-    def _create_test_graph(
-        self,
-        graph_service: GraphService,
-        num_nodes: int
-    ) -> None:
+    def _create_test_graph(self, graph_service: GraphService, num_nodes: int) -> None:
         """
         Create test graph with specified size.
 
@@ -46,32 +42,29 @@ class TestScalabilityBenchmarks:
         # Create entity nodes
         for i in range(num_nodes // 2):
             graph_service.add_entity_node(
-                entity_id=f'entity_{i}',
-                entity_type='PERSON',
-                metadata={'text': f'Entity {i}'}
+                entity_id=f"entity_{i}",
+                entity_type="PERSON",
+                metadata={"text": f"Entity {i}"},
             )
 
         # Create chunk nodes
         for i in range(num_nodes // 2):
-            chunk_id = f'chunk_{i}'
+            chunk_id = f"chunk_{i}"
             graph_service.add_chunk_node(
-                chunk_id=chunk_id,
-                metadata={'text': f'Chunk {i} content'}
+                chunk_id=chunk_id, metadata={"text": f"Chunk {i} content"}
             )
 
             # Connect to entities (mentions)
             for j in range(min(3, num_nodes // 2)):
                 graph_service.add_relationship(
                     source=chunk_id,
-                    target=f'entity_{j}',
-                    relationship_type='mentions',
-                    metadata={}
+                    target=f"entity_{j}",
+                    relationship_type="mentions",
+                    metadata={},
                 )
 
     def test_small_graph_100_nodes(
-        self,
-        graph_service: GraphService,
-        entity_service: EntityService
+        self, graph_service: GraphService, entity_service: EntityService
     ):
         """
         Benchmark with 100 nodes (small graph).
@@ -90,9 +83,7 @@ class TestScalabilityBenchmarks:
         print(f"100 nodes: {duration_ms:.2f}ms")
 
     def test_medium_graph_1000_nodes(
-        self,
-        graph_service: GraphService,
-        entity_service: EntityService
+        self, graph_service: GraphService, entity_service: EntityService
     ):
         """
         Benchmark with 1,000 nodes (medium graph).
@@ -111,9 +102,7 @@ class TestScalabilityBenchmarks:
         print(f"1,000 nodes: {duration_ms:.2f}ms")
 
     def test_large_graph_10000_nodes(
-        self,
-        graph_service: GraphService,
-        entity_service: EntityService
+        self, graph_service: GraphService, entity_service: EntityService
     ):
         """
         Benchmark with 10,000 nodes (large graph).
@@ -133,9 +122,7 @@ class TestScalabilityBenchmarks:
 
     @pytest.mark.slow
     def test_stress_test_50000_nodes(
-        self,
-        graph_service: GraphService,
-        entity_service: EntityService
+        self, graph_service: GraphService, entity_service: EntityService
     ):
         """
         Stress test with 50,000 nodes.
@@ -169,6 +156,7 @@ class TestAlgorithmComplexity:
         Test with graphs of varying edge counts.
         """
         from src.services.graph_query_engine import GraphQueryEngine
+
         engine = GraphQueryEngine(graph_service)
 
         # Create graphs with different edge counts
@@ -179,26 +167,21 @@ class TestAlgorithmComplexity:
             # Create graph
             for i in range(edge_count):
                 graph_service.add_entity_node(
-                    entity_id=f'node_{i}',
-                    entity_type='PERSON',
-                    metadata={}
+                    entity_id=f"node_{i}", entity_type="PERSON", metadata={}
                 )
 
             for i in range(edge_count):
                 target = (i + 1) % edge_count
                 graph_service.add_relationship(
-                    source=f'node_{i}',
-                    target=f'node_{target}',
-                    relationship_type='related_to',
-                    metadata={}
+                    source=f"node_{i}",
+                    target=f"node_{target}",
+                    relationship_type="related_to",
+                    metadata={},
                 )
 
             # Benchmark PPR
             start = time.perf_counter()
-            engine.personalized_pagerank(
-                query_nodes=['node_0'],
-                max_iter=10
-            )
+            engine.personalized_pagerank(query_nodes=["node_0"], max_iter=10)
             duration = time.perf_counter() - start
             timings.append(duration)
 
@@ -210,10 +193,7 @@ class TestAlgorithmComplexity:
         print(f"PPR complexity: {edge_ratio}x edges → {ratio:.1f}x time")
         assert ratio < edge_ratio * 2  # Allow 2x overhead
 
-    def test_bfs_multi_hop_complexity(
-        self,
-        graph_service: GraphService
-    ):
+    def test_bfs_multi_hop_complexity(self, graph_service: GraphService):
         """
         Validate BFS complexity: O(V + E).
 
@@ -224,31 +204,26 @@ class TestAlgorithmComplexity:
         # Create chain graph (V nodes, V-1 edges)
         for i in range(100):
             graph_service.add_entity_node(
-                entity_id=f'node_{i}',
-                entity_type='PERSON',
-                metadata={}
+                entity_id=f"node_{i}", entity_type="PERSON", metadata={}
             )
 
         for i in range(99):
             graph_service.add_relationship(
-                source=f'node_{i}',
-                target=f'node_{i+1}',
-                relationship_type='related_to',
-                metadata={}
+                source=f"node_{i}",
+                target=f"node_{i+1}",
+                relationship_type="related_to",
+                metadata={},
             )
 
         engine = GraphQueryEngine(graph_service)
 
         # Benchmark multi-hop search
         start = time.perf_counter()
-        result = engine.multi_hop_search(
-            start_nodes=['node_0'],
-            max_hops=10
-        )
+        result = engine.multi_hop_search(start_nodes=["node_0"], max_hops=10)
         duration_ms = (time.perf_counter() - start) * 1000
 
         # Should find 11 entities (0-10)
-        assert len(result['entities']) == 11
+        assert len(result["entities"]) == 11
         assert duration_ms < 100  # BFS should be fast
         print(f"BFS (100 nodes): {duration_ms:.2f}ms")
 
@@ -265,32 +240,26 @@ class TestBottleneckAnalysis:
         # Create test graph
         for i in range(100):
             graph_service.add_entity_node(
-                entity_id=f'entity_{i}',
-                entity_type='PERSON',
-                metadata={}
+                entity_id=f"entity_{i}", entity_type="PERSON", metadata={}
             )
 
         for i in range(100):
-            chunk_id = f'chunk_{i}'
+            chunk_id = f"chunk_{i}"
             graph_service.add_chunk_node(
-                chunk_id=chunk_id,
-                metadata={'text': f'Chunk {i}'}
+                chunk_id=chunk_id, metadata={"text": f"Chunk {i}"}
             )
 
             for j in range(3):
                 graph_service.add_relationship(
                     source=chunk_id,
-                    target=f'entity_{j}',
-                    relationship_type='mentions',
-                    metadata={}
+                    target=f"entity_{j}",
+                    relationship_type="mentions",
+                    metadata={},
                 )
 
         return HippoRagService(graph_service, entity_service)
 
-    def test_profile_retrieval_hotspots(
-        self,
-        hippo_service: HippoRagService
-    ):
+    def test_profile_retrieval_hotspots(self, hippo_service: HippoRagService):
         """
         Profile retrieval to identify hot paths.
 
@@ -308,7 +277,7 @@ class TestBottleneckAnalysis:
         # Analyze stats
         stream = io.StringIO()
         stats = pstats.Stats(profiler, stream=stream)
-        stats.sort_stats('cumtime')
+        stats.sort_stats("cumtime")
         stats.print_stats(10)
 
         output = stream.getvalue()
@@ -316,7 +285,7 @@ class TestBottleneckAnalysis:
         print(output)
 
         # Verify profiling worked
-        assert 'retrieve' in output or 'personalized_pagerank' in output
+        assert "retrieve" in output or "personalized_pagerank" in output
 
     def test_profile_ppr_execution(self, hippo_service: HippoRagService):
         """
@@ -331,8 +300,7 @@ class TestBottleneckAnalysis:
         engine = hippo_service.graph_query_engine
         for _ in range(5):
             engine.personalized_pagerank(
-                query_nodes=['entity_0', 'entity_1'],
-                alpha=0.85
+                query_nodes=["entity_0", "entity_1"], alpha=0.85
             )
 
         profiler.disable()
@@ -340,14 +308,14 @@ class TestBottleneckAnalysis:
         # Analyze
         stream = io.StringIO()
         stats = pstats.Stats(profiler, stream=stream)
-        stats.sort_stats('cumtime')
+        stats.sort_stats("cumtime")
         stats.print_stats(10)
 
         output = stream.getvalue()
         print("\n=== PPR Hotspots ===")
         print(output)
 
-        assert 'pagerank' in output
+        assert "pagerank" in output
 
 
 class TestMemoryUsage:
@@ -364,9 +332,7 @@ class TestMemoryUsage:
         return EntityService()
 
     def test_memory_scaling_with_graph_size(
-        self,
-        graph_service: GraphService,
-        entity_service: EntityService
+        self, graph_service: GraphService, entity_service: EntityService
     ):
         """
         Test memory usage scales linearly with graph size.
@@ -378,9 +344,7 @@ class TestMemoryUsage:
         # Create small graph
         for i in range(100):
             graph_service.add_entity_node(
-                entity_id=f'node_{i}',
-                entity_type='PERSON',
-                metadata={}
+                entity_id=f"node_{i}", entity_type="PERSON", metadata={}
             )
 
         # Measure graph size
@@ -389,9 +353,7 @@ class TestMemoryUsage:
         # Create larger graph (10x)
         for i in range(100, 1000):
             graph_service.add_entity_node(
-                entity_id=f'node_{i}',
-                entity_type='PERSON',
-                metadata={}
+                entity_id=f"node_{i}", entity_type="PERSON", metadata={}
             )
 
         large_graph_size = sys.getsizeof(graph_service.get_graph())
@@ -419,28 +381,22 @@ class TestQueryThroughput:
         # Create test graph
         for i in range(200):
             graph_service.add_entity_node(
-                entity_id=f'entity_{i}',
-                entity_type='PERSON',
-                metadata={}
+                entity_id=f"entity_{i}", entity_type="PERSON", metadata={}
             )
-            chunk_id = f'chunk_{i}'
+            chunk_id = f"chunk_{i}"
             graph_service.add_chunk_node(
-                chunk_id=chunk_id,
-                metadata={'text': f'Chunk {i}'}
+                chunk_id=chunk_id, metadata={"text": f"Chunk {i}"}
             )
             graph_service.add_relationship(
                 source=chunk_id,
-                target=f'entity_{i}',
-                relationship_type='mentions',
-                metadata={}
+                target=f"entity_{i}",
+                relationship_type="mentions",
+                metadata={},
             )
 
         return HippoRagService(graph_service, entity_service)
 
-    def test_throughput_sequential_queries(
-        self,
-        hippo_service: HippoRagService
-    ):
+    def test_throughput_sequential_queries(self, hippo_service: HippoRagService):
         """
         Test throughput for sequential queries.
 

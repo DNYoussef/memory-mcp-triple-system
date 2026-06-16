@@ -125,7 +125,9 @@ class WeeklyReviewCoordinator:
             )
 
         # Calculate health score
-        health_score = self._calculate_health_score(usage, quality_trends, cost_analysis)
+        health_score = self._calculate_health_score(
+            usage, quality_trends, cost_analysis
+        )
 
         # Generate summary
         executive_summary = self._generate_summary(
@@ -134,7 +136,9 @@ class WeeklyReviewCoordinator:
 
         # Identify highlights and concerns
         highlights = self._identify_highlights(usage, quality_trends, cost_analysis)
-        concerns = self._identify_concerns(usage, quality_trends, cost_analysis, suggestions)
+        concerns = self._identify_concerns(
+            usage, quality_trends, cost_analysis, suggestions
+        )
 
         # Create review
         review = WeeklyReview(
@@ -153,7 +157,9 @@ class WeeklyReviewCoordinator:
 
         self._reviews.append(review)
 
-        logger.info(f"Generated review {review.review_id} with health score {health_score:.0f}")
+        logger.info(
+            f"Generated review {review.review_id} with health score {health_score:.0f}"
+        )
 
         return review
 
@@ -180,18 +186,24 @@ class WeeklyReviewCoordinator:
         conf_trend = trend_map.get("confidence_avg")
         if conf_trend:
             score = min(100, conf_trend.current_value * 100)
-            scores.append(("confidence_avg", score, weights.get("confidence_avg", 0.25)))
+            scores.append(
+                ("confidence_avg", score, weights.get("confidence_avg", 0.25))
+            )
 
         # Escalation rate (inverse - lower is better)
         esc_trend = trend_map.get("escalation_rate")
         if esc_trend:
             score = max(0, 100 - (esc_trend.current_value * 200))
-            scores.append(("escalation_rate", score, weights.get("escalation_rate", 0.2)))
+            scores.append(
+                ("escalation_rate", score, weights.get("escalation_rate", 0.2))
+            )
 
         # Cache hit rate
         if usage.cache_hit_rate > 0:
             score = min(100, usage.cache_hit_rate * 100)
-            scores.append(("cache_hit_rate", score, weights.get("cache_hit_rate", 0.15)))
+            scores.append(
+                ("cache_hit_rate", score, weights.get("cache_hit_rate", 0.15))
+            )
 
         # Cost efficiency (inverse of cost change)
         if cost.cost_change_percent != 0:
@@ -199,7 +211,9 @@ class WeeklyReviewCoordinator:
                 score = min(100, 70 + abs(cost.cost_change_percent))
             else:
                 score = max(0, 70 - cost.cost_change_percent)
-            scores.append(("cost_efficiency", score, weights.get("cost_efficiency", 0.1)))
+            scores.append(
+                ("cost_efficiency", score, weights.get("cost_efficiency", 0.1))
+            )
 
         # Calculate weighted average
         if not scores:
@@ -222,17 +236,23 @@ class WeeklyReviewCoordinator:
 
         # Usage summary
         total_ops = usage.total_stores + usage.total_retrievals + usage.total_searches
-        parts.append(f"This week saw {total_ops:,} memory operations with {usage.memories_created:,} new memories created.")
+        parts.append(
+            f"This week saw {total_ops:,} memory operations with {usage.memories_created:,} new memories created."
+        )
 
         # Quality summary
         declining = [t for t in trends if t.direction == TrendDirection.DECLINING]
         improving = [t for t in trends if t.direction == TrendDirection.IMPROVING]
 
         if improving:
-            parts.append(f"Quality improved in {len(improving)} metric(s): {', '.join(t.metric_name for t in improving)}.")
+            parts.append(
+                f"Quality improved in {len(improving)} metric(s): {', '.join(t.metric_name for t in improving)}."
+            )
 
         if declining:
-            parts.append(f"Quality declined in {len(declining)} metric(s): {', '.join(t.metric_name for t in declining)}.")
+            parts.append(
+                f"Quality declined in {len(declining)} metric(s): {', '.join(t.metric_name for t in declining)}."
+            )
 
         # Cost summary
         if cost.estimated_cost > 0:
@@ -246,7 +266,9 @@ class WeeklyReviewCoordinator:
         # Suggestions summary
         critical = [s for s in suggestions if s.priority.value <= 2]
         if critical:
-            parts.append(f"There are {len(critical)} high-priority improvement(s) recommended.")
+            parts.append(
+                f"There are {len(critical)} high-priority improvement(s) recommended."
+            )
 
         return " ".join(parts)
 
@@ -262,7 +284,9 @@ class WeeklyReviewCoordinator:
         # Improving trends
         for trend in trends:
             if trend.direction == TrendDirection.IMPROVING:
-                highlights.append(f"{trend.metric_name} improved by {abs(trend.change_percent):.1f}%")
+                highlights.append(
+                    f"{trend.metric_name} improved by {abs(trend.change_percent):.1f}%"
+                )
 
         # Good cache performance
         if usage.cache_hit_rate >= 0.8:
@@ -274,7 +298,9 @@ class WeeklyReviewCoordinator:
 
         # High memory activity
         if usage.memories_created > 100:
-            highlights.append(f"Active memory growth: {usage.memories_created} new memories")
+            highlights.append(
+                f"Active memory growth: {usage.memories_created} new memories"
+            )
 
         return highlights[:5]
 
@@ -291,9 +317,16 @@ class WeeklyReviewCoordinator:
         # Critical quality issues
         for trend in trends:
             if trend.is_critical:
-                concerns.append(f"Critical: {trend.metric_name} at {trend.current_value:.2f}")
-            elif trend.direction == TrendDirection.DECLINING and trend.change_percent < -10:
-                concerns.append(f"{trend.metric_name} declining ({trend.change_percent:.1f}%)")
+                concerns.append(
+                    f"Critical: {trend.metric_name} at {trend.current_value:.2f}"
+                )
+            elif (
+                trend.direction == TrendDirection.DECLINING
+                and trend.change_percent < -10
+            ):
+                concerns.append(
+                    f"{trend.metric_name} declining ({trend.change_percent:.1f}%)"
+                )
 
         # Low cache performance
         if usage.cache_hit_rate < 0.5:
@@ -301,7 +334,9 @@ class WeeklyReviewCoordinator:
 
         # Cost increase
         if cost.cost_change_percent > 25:
-            concerns.append(f"Significant cost increase: +{cost.cost_change_percent:.1f}%")
+            concerns.append(
+                f"Significant cost increase: +{cost.cost_change_percent:.1f}%"
+            )
 
         # Critical suggestions
         critical_suggestions = [s for s in suggestions if s.priority.value == 1]

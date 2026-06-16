@@ -20,6 +20,7 @@ from loguru import logger
 @dataclass
 class ConstellationNode:
     """A constellation in the recursive graph structure (ported from graph-builder.ts)."""
+
     center: str  # Node ID of constellation center
     orbitals: List[str] = field(default_factory=list)  # Node IDs of orbital nodes
     level: int = 0  # Depth in hierarchy (0 = root)
@@ -28,6 +29,7 @@ class ConstellationNode:
 @dataclass
 class ConstellationGraphData:
     """Complete constellation graph data (ported from graph-builder.ts)."""
+
     constellations: List[ConstellationNode] = field(default_factory=list)
     all_node_ids: Set[str] = field(default_factory=set)
     edges: List[Dict[str, Any]] = field(default_factory=list)
@@ -35,18 +37,18 @@ class ConstellationGraphData:
 
 # Memory layer colors (24h/7d/30d retention)
 LAYER_COLORS = {
-    "short": "#4CAF50",   # Green - recent (24h)
+    "short": "#4CAF50",  # Green - recent (24h)
     "medium": "#FF9800",  # Orange - mid-term (7d)
-    "long": "#9E9E9E",    # Gray - long-term (30d+)
-    "default": "#2196F3"  # Blue - unknown
+    "long": "#9E9E9E",  # Gray - long-term (30d+)
+    "default": "#2196F3",  # Blue - unknown
 }
 
 # Node type colors
 TYPE_COLORS = {
-    "chunk": "#2196F3",    # Blue
-    "entity": "#9C27B0",   # Purple
+    "chunk": "#2196F3",  # Blue
+    "entity": "#9C27B0",  # Purple
     "concept": "#00BCD4",  # Cyan
-    "default": "#607D8B"   # Blue-gray
+    "default": "#607D8B",  # Blue-gray
 }
 
 
@@ -79,7 +81,9 @@ class CytoscapeExporter:
         """
         self.graph = graph
         self.max_depth = max_depth
-        logger.debug(f"CytoscapeExporter initialized with {graph.number_of_nodes()} nodes")
+        logger.debug(
+            f"CytoscapeExporter initialized with {graph.number_of_nodes()} nodes"
+        )
 
     def export_elements(self) -> Dict[str, Any]:
         """
@@ -124,7 +128,9 @@ class CytoscapeExporter:
         for _ in range(depth):
             next_frontier = set()
             for node in frontier:
-                neighbors = set(self.graph.predecessors(node)) | set(self.graph.successors(node))
+                neighbors = set(self.graph.predecessors(node)) | set(
+                    self.graph.successors(node)
+                )
                 next_frontier.update(neighbors - included)
             included.update(next_frontier)
             frontier = next_frontier
@@ -166,9 +172,7 @@ class CytoscapeExporter:
             # Create constellation if there are orbitals or this is root
             if orbitals or level == 0:
                 constellation = ConstellationNode(
-                    center=center_id,
-                    orbitals=orbitals,
-                    level=level
+                    center=center_id, orbitals=orbitals, level=level
                 )
                 result.constellations.append(constellation)
 
@@ -182,7 +186,9 @@ class CytoscapeExporter:
                     result.all_node_ids.add(orbital_id)
                     queue.append((orbital_id, level + 1))
 
-        logger.debug(f"Built {len(result.constellations)} constellations from {source_id}")
+        logger.debug(
+            f"Built {len(result.constellations)} constellations from {source_id}"
+        )
         return result
 
     def export_constellations(self, source_id: str) -> Dict[str, Any]:
@@ -204,7 +210,7 @@ class CytoscapeExporter:
         data: Dict[str, Any],
         level: int = 0,
         is_source: bool = False,
-        constellation_index: Optional[int] = None
+        constellation_index: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Create Cytoscape node element with Memory MCP enhancements.
@@ -232,7 +238,11 @@ class CytoscapeExporter:
         node_size = self._calculate_node_size(ppr_score)
 
         # Extract WHO/PROJECT for filtering
-        who = metadata.get("WHO", {}).get("name") if isinstance(metadata.get("WHO"), dict) else metadata.get("WHO")
+        who = (
+            metadata.get("WHO", {}).get("name")
+            if isinstance(metadata.get("WHO"), dict)
+            else metadata.get("WHO")
+        )
         project = metadata.get("PROJECT", "")
 
         element = {
@@ -257,10 +267,7 @@ class CytoscapeExporter:
         return element
 
     def _create_edge_element(
-        self,
-        source: str,
-        target: str,
-        data: Dict[str, Any]
+        self, source: str, target: str, data: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         Create Cytoscape edge element.
@@ -289,10 +296,10 @@ class CytoscapeExporter:
         """Get display label for node, truncated to reasonable length."""
         # Try various label sources
         label = (
-            metadata.get("title") or
-            metadata.get("name") or
-            data.get("text", "")[:50] or
-            str(node_id)
+            metadata.get("title")
+            or metadata.get("name")
+            or data.get("text", "")[:50]
+            or str(node_id)
         )
         # Truncate long labels
         if len(label) > 50:
@@ -309,11 +316,11 @@ class CytoscapeExporter:
         # Check memory layer based on decay score
         decay_score = metadata.get("decay_score", 1.0)
         if decay_score > 0.8:
-            return LAYER_COLORS["short"]   # Recent (24h)
+            return LAYER_COLORS["short"]  # Recent (24h)
         elif decay_score > 0.5:
             return LAYER_COLORS["medium"]  # Mid-term (7d)
         elif decay_score > 0:
-            return LAYER_COLORS["long"]    # Long-term (30d+)
+            return LAYER_COLORS["long"]  # Long-term (30d+)
 
         return LAYER_COLORS["default"]
 
@@ -326,9 +333,7 @@ class CytoscapeExporter:
         return size
 
     def _export_node_set(
-        self,
-        node_ids: Set[str],
-        center_id: Optional[str] = None
+        self, node_ids: Set[str], center_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """Export a specific set of nodes and their connecting edges."""
         nodes = []
@@ -336,7 +341,7 @@ class CytoscapeExporter:
 
         for node_id in node_ids:
             data = self.graph.nodes.get(node_id, {})
-            is_source = (node_id == center_id)
+            is_source = node_id == center_id
             node_element = self._create_node_element(node_id, data, is_source=is_source)
             nodes.append(node_element)
 
@@ -348,9 +353,7 @@ class CytoscapeExporter:
         return {"nodes": nodes, "edges": edges}
 
     def _convert_constellations_to_cytoscape(
-        self,
-        constellation_data: ConstellationGraphData,
-        source_id: str
+        self, constellation_data: ConstellationGraphData, source_id: str
     ) -> Dict[str, Any]:
         """Convert constellation data to Cytoscape format with metadata."""
         nodes = []
@@ -365,13 +368,13 @@ class CytoscapeExporter:
             # Add center node if not already added
             if constellation.center not in processed_nodes:
                 data = self.graph.nodes.get(constellation.center, {})
-                is_source = (constellation.center == source_id)
+                is_source = constellation.center == source_id
                 node = self._create_node_element(
                     constellation.center,
                     data,
                     level=constellation.level,
                     is_source=is_source,
-                    constellation_index=idx
+                    constellation_index=idx,
                 )
                 node["data"]["isConstellationCenter"] = True
                 node["data"]["orbitalCount"] = len(constellation.orbitals)
@@ -387,7 +390,7 @@ class CytoscapeExporter:
                         orbital_id,
                         data,
                         level=constellation.level + 1,
-                        constellation_index=idx
+                        constellation_index=idx,
                     )
                     node["data"]["isConstellationCenter"] = is_also_center
                     node["data"]["centerPath"] = constellation.center

@@ -7,7 +7,7 @@ from .activity_monitor import (
     ActivityLevel,
     ActivityEvent,
     ActivityWindow,
-    get_activity_monitor
+    get_activity_monitor,
 )
 from .consolidation_scheduler import (
     ConsolidationScheduler,
@@ -15,7 +15,7 @@ from .consolidation_scheduler import (
     TaskResult,
     TaskPriority,
     TaskType,
-    get_consolidation_scheduler
+    get_consolidation_scheduler,
 )
 from .sleep_cycle import (
     SleepCycleManager,
@@ -23,7 +23,7 @@ from .sleep_cycle import (
     SleepState,
     SleepMetrics,
     WakeReason,
-    get_sleep_cycle_manager
+    get_sleep_cycle_manager,
 )
 
 __all__ = [

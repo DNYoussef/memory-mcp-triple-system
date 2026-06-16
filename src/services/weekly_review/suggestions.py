@@ -134,20 +134,26 @@ class SuggestionsGenerator:
         # Check cache hit rate
         if usage.cache_hit_rate < 0.6:
             template = SUGGESTION_TEMPLATES["low_cache_hit"]
-            priority = SuggestionPriority.HIGH if usage.cache_hit_rate < 0.4 else SuggestionPriority.MEDIUM
+            priority = (
+                SuggestionPriority.HIGH
+                if usage.cache_hit_rate < 0.4
+                else SuggestionPriority.MEDIUM
+            )
 
-            suggestions.append(ImprovementSuggestion(
-                priority=priority,
-                title=template["title"],
-                description=template["description"],
-                rationale=f"Current cache hit rate is {usage.cache_hit_rate:.1%}",
-                action_type=template["action_type"],
-                specific_action=template["specific_action"],
-                expected_benefit=template["expected_benefit"],
-                estimated_effort=template["estimated_effort"],
-                source_metric="cache_hit_rate",
-                source_value=usage.cache_hit_rate,
-            ))
+            suggestions.append(
+                ImprovementSuggestion(
+                    priority=priority,
+                    title=template["title"],
+                    description=template["description"],
+                    rationale=f"Current cache hit rate is {usage.cache_hit_rate:.1%}",
+                    action_type=template["action_type"],
+                    specific_action=template["specific_action"],
+                    expected_benefit=template["expected_benefit"],
+                    estimated_effort=template["estimated_effort"],
+                    source_metric="cache_hit_rate",
+                    source_value=usage.cache_hit_rate,
+                )
+            )
 
         # Check memory utilization
         total_ops = usage.total_stores + usage.total_retrievals + usage.total_searches
@@ -155,18 +161,20 @@ class SuggestionsGenerator:
             retrieval_ratio = usage.total_retrievals / total_ops
             if retrieval_ratio < 0.3:
                 template = SUGGESTION_TEMPLATES["low_memory_utilization"]
-                suggestions.append(ImprovementSuggestion(
-                    priority=SuggestionPriority.LOW,
-                    title=template["title"],
-                    description=template["description"],
-                    rationale=f"Retrieval ratio is only {retrieval_ratio:.1%}",
-                    action_type=template["action_type"],
-                    specific_action=template["specific_action"],
-                    expected_benefit=template["expected_benefit"],
-                    estimated_effort=template["estimated_effort"],
-                    source_metric="retrieval_ratio",
-                    source_value=retrieval_ratio,
-                ))
+                suggestions.append(
+                    ImprovementSuggestion(
+                        priority=SuggestionPriority.LOW,
+                        title=template["title"],
+                        description=template["description"],
+                        rationale=f"Retrieval ratio is only {retrieval_ratio:.1%}",
+                        action_type=template["action_type"],
+                        specific_action=template["specific_action"],
+                        expected_benefit=template["expected_benefit"],
+                        estimated_effort=template["estimated_effort"],
+                        source_metric="retrieval_ratio",
+                        source_value=retrieval_ratio,
+                    )
+                )
 
         return suggestions
 
@@ -182,50 +190,56 @@ class SuggestionsGenerator:
             if trend.is_critical:
                 if trend.metric_name == "escalation_rate":
                     template = SUGGESTION_TEMPLATES["high_escalation"]
-                    suggestions.append(ImprovementSuggestion(
-                        priority=SuggestionPriority.CRITICAL,
-                        title=template["title"],
-                        description=template["description"],
-                        rationale=f"Escalation rate is at critical level: {trend.current_value:.1%}",
-                        action_type=template["action_type"],
-                        specific_action=template["specific_action"],
-                        expected_benefit=template["expected_benefit"],
-                        estimated_effort=template["estimated_effort"],
-                        source_metric=trend.metric_name,
-                        source_value=trend.current_value,
-                    ))
+                    suggestions.append(
+                        ImprovementSuggestion(
+                            priority=SuggestionPriority.CRITICAL,
+                            title=template["title"],
+                            description=template["description"],
+                            rationale=f"Escalation rate is at critical level: {trend.current_value:.1%}",
+                            action_type=template["action_type"],
+                            specific_action=template["specific_action"],
+                            expected_benefit=template["expected_benefit"],
+                            estimated_effort=template["estimated_effort"],
+                            source_metric=trend.metric_name,
+                            source_value=trend.current_value,
+                        )
+                    )
 
                 elif trend.metric_name == "correction_rate":
                     template = SUGGESTION_TEMPLATES["high_correction_rate"]
-                    suggestions.append(ImprovementSuggestion(
-                        priority=SuggestionPriority.HIGH,
-                        title=template["title"],
-                        description=template["description"],
-                        rationale=f"Correction rate is high: {trend.current_value:.1%}",
-                        action_type=template["action_type"],
-                        specific_action=template["specific_action"],
-                        expected_benefit=template["expected_benefit"],
-                        estimated_effort=template["estimated_effort"],
-                        source_metric=trend.metric_name,
-                        source_value=trend.current_value,
-                    ))
+                    suggestions.append(
+                        ImprovementSuggestion(
+                            priority=SuggestionPriority.HIGH,
+                            title=template["title"],
+                            description=template["description"],
+                            rationale=f"Correction rate is high: {trend.current_value:.1%}",
+                            action_type=template["action_type"],
+                            specific_action=template["specific_action"],
+                            expected_benefit=template["expected_benefit"],
+                            estimated_effort=template["estimated_effort"],
+                            source_metric=trend.metric_name,
+                            source_value=trend.current_value,
+                        )
+                    )
 
             # Check declining trends
             elif trend.direction == TrendDirection.DECLINING:
                 if trend.metric_name == "confidence_avg":
                     template = SUGGESTION_TEMPLATES["declining_confidence"]
-                    suggestions.append(ImprovementSuggestion(
-                        priority=SuggestionPriority.MEDIUM,
-                        title=template["title"],
-                        description=template["description"],
-                        rationale=f"Confidence dropped {abs(trend.change_percent):.1f}% this week",
-                        action_type=template["action_type"],
-                        specific_action=template["specific_action"],
-                        expected_benefit=template["expected_benefit"],
-                        estimated_effort=template["estimated_effort"],
-                        source_metric=trend.metric_name,
-                        source_value=trend.current_value,
-                    ))
+                    suggestions.append(
+                        ImprovementSuggestion(
+                            priority=SuggestionPriority.MEDIUM,
+                            title=template["title"],
+                            description=template["description"],
+                            rationale=f"Confidence dropped {abs(trend.change_percent):.1f}% this week",
+                            action_type=template["action_type"],
+                            specific_action=template["specific_action"],
+                            expected_benefit=template["expected_benefit"],
+                            estimated_effort=template["estimated_effort"],
+                            source_metric=trend.metric_name,
+                            source_value=trend.current_value,
+                        )
+                    )
 
         return suggestions
 
@@ -236,35 +250,43 @@ class SuggestionsGenerator:
         # High cost increase
         if cost.cost_change_percent > 25:
             template = SUGGESTION_TEMPLATES["high_cost"]
-            priority = SuggestionPriority.HIGH if cost.cost_change_percent > 50 else SuggestionPriority.MEDIUM
+            priority = (
+                SuggestionPriority.HIGH
+                if cost.cost_change_percent > 50
+                else SuggestionPriority.MEDIUM
+            )
 
-            suggestions.append(ImprovementSuggestion(
-                priority=priority,
-                title=template["title"],
-                description=template["description"],
-                rationale=f"Costs increased {cost.cost_change_percent:.1f}% from previous period",
-                action_type=template["action_type"],
-                specific_action=template["specific_action"],
-                expected_benefit=template["expected_benefit"],
-                estimated_effort=template["estimated_effort"],
-                source_metric="cost_change",
-                source_value=cost.cost_change_percent,
-            ))
+            suggestions.append(
+                ImprovementSuggestion(
+                    priority=priority,
+                    title=template["title"],
+                    description=template["description"],
+                    rationale=f"Costs increased {cost.cost_change_percent:.1f}% from previous period",
+                    action_type=template["action_type"],
+                    specific_action=template["specific_action"],
+                    expected_benefit=template["expected_benefit"],
+                    estimated_effort=template["estimated_effort"],
+                    source_metric="cost_change",
+                    source_value=cost.cost_change_percent,
+                )
+            )
 
         # High absolute cost
         if cost.estimated_cost > 20.0:
-            suggestions.append(ImprovementSuggestion(
-                priority=SuggestionPriority.MEDIUM,
-                title="Review high-cost operations",
-                description="Weekly costs are significant.",
-                rationale=f"Estimated weekly cost: ${cost.estimated_cost:.2f}",
-                action_type="process_change",
-                specific_action="Audit top token consumers and optimize or batch operations.",
-                expected_benefit="Cost reduction of 10-30%",
-                estimated_effort="medium",
-                source_metric="estimated_cost",
-                source_value=cost.estimated_cost,
-            ))
+            suggestions.append(
+                ImprovementSuggestion(
+                    priority=SuggestionPriority.MEDIUM,
+                    title="Review high-cost operations",
+                    description="Weekly costs are significant.",
+                    rationale=f"Estimated weekly cost: ${cost.estimated_cost:.2f}",
+                    action_type="process_change",
+                    specific_action="Audit top token consumers and optimize or batch operations.",
+                    expected_benefit="Cost reduction of 10-30%",
+                    estimated_effort="medium",
+                    source_metric="estimated_cost",
+                    source_value=cost.estimated_cost,
+                )
+            )
 
         return suggestions
 

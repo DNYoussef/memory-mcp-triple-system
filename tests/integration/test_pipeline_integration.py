@@ -30,15 +30,24 @@ class TestStoreSearchRoundTrip:
     def stored_docs(self):
         """Simulate stored documents returned by vector tier."""
         return [
-            {"document": "Memory MCP uses ChromaDB for vector storage",
-             "distance": 0.1, "metadata": {"file_path": "/docs/arch.md"},
-             "id": "doc-1"},
-            {"document": "HippoRAG provides multi-hop graph reasoning",
-             "distance": 0.2, "metadata": {"file_path": "/docs/hippo.md"},
-             "id": "doc-2"},
-            {"document": "Bayesian inference complements vector search",
-             "distance": 0.3, "metadata": {"file_path": "/docs/bayes.md"},
-             "id": "doc-3"},
+            {
+                "document": "Memory MCP uses ChromaDB for vector storage",
+                "distance": 0.1,
+                "metadata": {"file_path": "/docs/arch.md"},
+                "id": "doc-1",
+            },
+            {
+                "document": "HippoRAG provides multi-hop graph reasoning",
+                "distance": 0.2,
+                "metadata": {"file_path": "/docs/hippo.md"},
+                "id": "doc-2",
+            },
+            {
+                "document": "Bayesian inference complements vector search",
+                "distance": 0.3,
+                "metadata": {"file_path": "/docs/bayes.md"},
+                "id": "doc-3",
+            },
         ]
 
     @pytest.fixture
@@ -108,22 +117,27 @@ class TestMultiTierQuery:
         """Processor with results from all 3 tiers."""
         vector = Mock()
         vector.search_similar.return_value = [
-            {"document": "Vector result A", "distance": 0.15,
-             "metadata": {}, "id": "v-1"},
+            {
+                "document": "Vector result A",
+                "distance": 0.15,
+                "metadata": {},
+                "id": "v-1",
+            },
         ]
 
         graph = Mock()
         graph.retrieve_multi_hop.return_value = [
-            {"text": "Graph result B", "ppr_score": 0.85,
-             "metadata": {"entities": ["NexusProcessor"]},
-             "chunk_id": "g-1"},
+            {
+                "text": "Graph result B",
+                "ppr_score": 0.85,
+                "metadata": {"entities": ["NexusProcessor"]},
+                "chunk_id": "g-1",
+            },
         ]
 
         bayesian = Mock()
         bayesian.query_conditional.return_value = {
-            "results": {
-                "relevance": {0: 0.2, 1: 0.8, "entropy": 0.72}
-            }
+            "results": {"relevance": {0: 0.2, 1: 0.8, "entropy": 0.72}}
         }
 
         return NexusProcessor(
@@ -149,9 +163,7 @@ class TestMultiTierQuery:
 
     def test_results_from_multiple_tiers(self, multi_tier_processor):
         """Core results should contain data from vector and graph tiers."""
-        result = multi_tier_processor.process(
-            "multi-tier test", mode="execution"
-        )
+        result = multi_tier_processor.process("multi-tier test", mode="execution")
 
         assert len(result["core"]) >= 1
         all_text = " ".join(c.get("text", "") for c in result["core"])
@@ -178,8 +190,7 @@ class TestMultiTierQuery:
         """Pipeline should handle one empty tier gracefully."""
         vector = Mock()
         vector.search_similar.return_value = [
-            {"document": "Only vector", "distance": 0.1,
-             "metadata": {}, "id": "v-1"},
+            {"document": "Only vector", "distance": 0.1, "metadata": {}, "id": "v-1"},
         ]
 
         graph = Mock()

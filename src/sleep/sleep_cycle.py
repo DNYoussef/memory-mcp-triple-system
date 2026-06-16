@@ -18,29 +18,32 @@ logger = logging.getLogger(__name__)
 
 class SleepState(str, Enum):
     """System sleep states"""
-    AWAKE = "awake"             # Normal operation
-    DROWSY = "drowsy"           # Preparing for sleep
-    LIGHT_SLEEP = "light_sleep" # Light maintenance
-    DEEP_SLEEP = "deep_sleep"   # Heavy maintenance
-    WAKING = "waking"           # Transitioning to awake
+
+    AWAKE = "awake"  # Normal operation
+    DROWSY = "drowsy"  # Preparing for sleep
+    LIGHT_SLEEP = "light_sleep"  # Light maintenance
+    DEEP_SLEEP = "deep_sleep"  # Heavy maintenance
+    WAKING = "waking"  # Transitioning to awake
 
 
 class WakeReason(str, Enum):
     """Reasons for waking from sleep"""
-    SCHEDULED = "scheduled"           # Scheduled wake time
-    ACTIVITY_DETECTED = "activity"    # User/system activity
-    URGENT_TASK = "urgent_task"       # Urgent task needs execution
-    EXTERNAL_TRIGGER = "external"     # Manual wake trigger
-    HEALTH_CHECK = "health_check"     # Health check required
-    ERROR = "error"                   # Error during sleep
+
+    SCHEDULED = "scheduled"  # Scheduled wake time
+    ACTIVITY_DETECTED = "activity"  # User/system activity
+    URGENT_TASK = "urgent_task"  # Urgent task needs execution
+    EXTERNAL_TRIGGER = "external"  # Manual wake trigger
+    HEALTH_CHECK = "health_check"  # Health check required
+    ERROR = "error"  # Error during sleep
 
 
 @dataclass
 class SleepCycleConfig:
     """Configuration for sleep cycle behavior"""
+
     # Time-based settings (24-hour format)
-    preferred_sleep_start: time = time(2, 0)   # 2 AM
-    preferred_sleep_end: time = time(6, 0)     # 6 AM
+    preferred_sleep_start: time = time(2, 0)  # 2 AM
+    preferred_sleep_end: time = time(6, 0)  # 6 AM
 
     # Duration settings
     min_sleep_duration_minutes: int = 30
@@ -61,6 +64,7 @@ class SleepCycleConfig:
 @dataclass
 class SleepMetrics:
     """Metrics from sleep cycles"""
+
     total_sleep_cycles: int = 0
     total_sleep_duration_seconds: float = 0.0
     avg_sleep_duration_seconds: float = 0.0
@@ -74,14 +78,24 @@ class SleepMetrics:
     def to_dict(self) -> Dict[str, Any]:
         return {
             "total_sleep_cycles": self.total_sleep_cycles,
-            "total_sleep_duration_hours": round(self.total_sleep_duration_seconds / 3600, 2),
-            "avg_sleep_duration_minutes": round(self.avg_sleep_duration_seconds / 60, 2),
+            "total_sleep_duration_hours": round(
+                self.total_sleep_duration_seconds / 3600, 2
+            ),
+            "avg_sleep_duration_minutes": round(
+                self.avg_sleep_duration_seconds / 60, 2
+            ),
             "consolidations_performed": self.consolidations_performed,
             "cleanups_performed": self.cleanups_performed,
             "early_wakes": self.early_wakes,
-            "last_sleep_start": self.last_sleep_start.isoformat() if self.last_sleep_start else None,
-            "last_wake_time": self.last_wake_time.isoformat() if self.last_wake_time else None,
-            "last_wake_reason": self.last_wake_reason.value if self.last_wake_reason else None
+            "last_sleep_start": self.last_sleep_start.isoformat()
+            if self.last_sleep_start
+            else None,
+            "last_wake_time": self.last_wake_time.isoformat()
+            if self.last_wake_time
+            else None,
+            "last_wake_reason": self.last_wake_reason.value
+            if self.last_wake_reason
+            else None,
         }
 
 
@@ -108,7 +122,7 @@ class SleepCycleManager:
         self,
         config: Optional[SleepCycleConfig] = None,
         activity_monitor: Optional[Any] = None,
-        scheduler: Optional[Any] = None
+        scheduler: Optional[Any] = None,
     ):
         self.config = config or SleepCycleConfig()
         self._activity_monitor = activity_monitor
@@ -128,7 +142,9 @@ class SleepCycleManager:
         # Callbacks for state transitions
         self._on_sleep_callbacks: List[Callable[..., Awaitable[None]]] = []
         self._on_wake_callbacks: List[Callable[..., Awaitable[None]]] = []
-        self._maintenance_callbacks: Dict[str, Callable[..., Awaitable[Dict[str, Any]]]] = {}
+        self._maintenance_callbacks: Dict[
+            str, Callable[..., Awaitable[Dict[str, Any]]]
+        ] = {}
 
     async def start(self) -> None:
         """Start the sleep cycle manager"""
@@ -153,24 +169,16 @@ class SleepCycleManager:
 
         logger.info("Sleep cycle manager stopped")
 
-    def register_on_sleep(
-        self,
-        callback: Callable[..., Awaitable[None]]
-    ) -> None:
+    def register_on_sleep(self, callback: Callable[..., Awaitable[None]]) -> None:
         """Register callback for when system enters sleep"""
         self._on_sleep_callbacks.append(callback)
 
-    def register_on_wake(
-        self,
-        callback: Callable[..., Awaitable[None]]
-    ) -> None:
+    def register_on_wake(self, callback: Callable[..., Awaitable[None]]) -> None:
         """Register callback for when system wakes"""
         self._on_wake_callbacks.append(callback)
 
     def register_maintenance(
-        self,
-        name: str,
-        callback: Callable[..., Awaitable[Dict[str, Any]]]
+        self, name: str, callback: Callable[..., Awaitable[Dict[str, Any]]]
     ) -> None:
         """Register a maintenance task to run during sleep"""
         self._maintenance_callbacks[name] = callback
@@ -184,7 +192,9 @@ class SleepCycleManager:
         await self._enter_sleep(duration)
         return True
 
-    async def trigger_wake(self, reason: WakeReason = WakeReason.EXTERNAL_TRIGGER) -> bool:
+    async def trigger_wake(
+        self, reason: WakeReason = WakeReason.EXTERNAL_TRIGGER
+    ) -> bool:
         """Manually trigger wake"""
         if self._state == SleepState.AWAKE:
             return False
@@ -276,7 +286,9 @@ class SleepCycleManager:
             self._state = SleepState.LIGHT_SLEEP
             self._state_changed_at = datetime.utcnow()
             self._sleep_start = datetime.utcnow()
-            self._scheduled_wake = self._sleep_start + timedelta(minutes=duration_minutes)
+            self._scheduled_wake = self._sleep_start + timedelta(
+                minutes=duration_minutes
+            )
             self._wake_event.clear()
 
         logger.info(f"Entering sleep (duration={duration_minutes}min)")
@@ -313,6 +325,7 @@ class SleepCycleManager:
             # Still in drowsy, check if should cancel
             if self._activity_monitor:
                 from .activity_monitor import ActivityLevel
+
                 level = self._activity_monitor.get_current_level()
                 if level not in [ActivityLevel.IDLE, ActivityLevel.LOW]:
                     await self._cancel_sleep()
@@ -327,6 +340,7 @@ class SleepCycleManager:
         """Check if conditions require waking"""
         if self._activity_monitor:
             from .activity_monitor import ActivityLevel
+
             level = self._activity_monitor.get_current_level()
             return level in [ActivityLevel.HIGH, ActivityLevel.PEAK]
         return False
@@ -386,8 +400,8 @@ class SleepCycleManager:
             self._metrics.total_sleep_duration_seconds += duration
             self._metrics.total_sleep_cycles += 1
             self._metrics.avg_sleep_duration_seconds = (
-                self._metrics.total_sleep_duration_seconds /
-                self._metrics.total_sleep_cycles
+                self._metrics.total_sleep_duration_seconds
+                / self._metrics.total_sleep_cycles
             )
 
             # Track early wakes
@@ -419,10 +433,7 @@ class SleepCycleManager:
 
     def is_sleeping(self) -> bool:
         """Check if system is in any sleep state"""
-        return self._state in [
-            SleepState.LIGHT_SLEEP,
-            SleepState.DEEP_SLEEP
-        ]
+        return self._state in [SleepState.LIGHT_SLEEP, SleepState.DEEP_SLEEP]
 
     def get_metrics(self) -> Dict[str, Any]:
         """Get sleep cycle metrics"""
@@ -431,10 +442,9 @@ class SleepCycleManager:
             "state_changed_at": self._state_changed_at.isoformat(),
             "is_sleeping": self.is_sleeping(),
             "scheduled_wake": (
-                self._scheduled_wake.isoformat()
-                if self._scheduled_wake else None
+                self._scheduled_wake.isoformat() if self._scheduled_wake else None
             ),
-            "metrics": self._metrics.to_dict()
+            "metrics": self._metrics.to_dict(),
         }
 
 
@@ -445,14 +455,12 @@ _sleep_cycle_manager: Optional[SleepCycleManager] = None
 def get_sleep_cycle_manager(
     config: Optional[SleepCycleConfig] = None,
     activity_monitor: Optional[Any] = None,
-    scheduler: Optional[Any] = None
+    scheduler: Optional[Any] = None,
 ) -> SleepCycleManager:
     """Get singleton sleep cycle manager"""
     global _sleep_cycle_manager
     if _sleep_cycle_manager is None:
         _sleep_cycle_manager = SleepCycleManager(
-            config=config,
-            activity_monitor=activity_monitor,
-            scheduler=scheduler
+            config=config, activity_monitor=activity_monitor, scheduler=scheduler
         )
     return _sleep_cycle_manager

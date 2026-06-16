@@ -13,7 +13,11 @@ from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
 from src.services.trigger_watchers.file_watcher import FileWatcher, WatchConfig
-from src.services.trigger_watchers.git_watcher import GitWatcher, GitWatchConfig, GitRepoState
+from src.services.trigger_watchers.git_watcher import (
+    GitWatcher,
+    GitWatchConfig,
+    GitRepoState,
+)
 from src.services.trigger_watchers.time_scheduler import (
     TimeScheduler,
     ScheduledTrigger,
@@ -43,11 +47,13 @@ from src.integrations.proactive_schema import ContextPriority
 def mock_injector():
     """Create mock ProactiveContextInjector."""
     injector = MagicMock()
-    injector.handle_trigger = AsyncMock(return_value=MagicMock(
-        chunks=[{"id": "1", "text": "test"}],
-        relevance_score=0.8,
-        token_count=100,
-    ))
+    injector.handle_trigger = AsyncMock(
+        return_value=MagicMock(
+            chunks=[{"id": "1", "text": "test"}],
+            relevance_score=0.8,
+            token_count=100,
+        )
+    )
     injector.get_stats = MagicMock(return_value=MagicMock(to_dict=lambda: {}))
     return injector
 
@@ -149,10 +155,13 @@ class TestFileWatcher:
         item = await asyncio.wait_for(watcher._event_queue.get(), timeout=1.0)
         assert item == ("/x/a.py", "modified")
 
-    def test_add_watch_path_reuses_single_handler(self, mock_injector, temp_dir, monkeypatch):
+    def test_add_watch_path_reuses_single_handler(
+        self, mock_injector, temp_dir, monkeypatch
+    ):
         """G5: add_watch_path reuses the shared handler and does not re-schedule
         an already-watched path (no duplicate handler / double-fire)."""
         import src.services.trigger_watchers.file_watcher as fw
+
         monkeypatch.setattr(fw, "WATCHDOG_AVAILABLE", True)
 
         watcher = FileWatcher(mock_injector)
@@ -162,7 +171,9 @@ class TestFileWatcher:
         watcher._handler = shared
 
         assert watcher.add_watch_path(temp_dir) is True
-        watcher._observer.schedule.assert_called_once_with(shared, temp_dir, recursive=True)
+        watcher._observer.schedule.assert_called_once_with(
+            shared, temp_dir, recursive=True
+        )
 
         # Re-adding the same path must not register another watch.
         watcher._observer.schedule.reset_mock()
@@ -358,7 +369,9 @@ class TestTimeScheduler:
             pass
 
     @pytest.mark.asyncio
-    async def test_check_schedules_bad_schedule_does_not_block_good(self, mock_injector):
+    async def test_check_schedules_bad_schedule_does_not_block_good(
+        self, mock_injector
+    ):
         """G6 contract: a bad schedule earlier in the snapshot must NOT prevent a
         later good schedule from being evaluated each cycle (per-schedule guard)."""
         bad = MagicMock()
@@ -369,7 +382,9 @@ class TestTimeScheduler:
         good.matches_now.return_value = False  # evaluated, but does not trigger
 
         # bad is inserted first, so it is iterated before good.
-        scheduler = TimeScheduler(mock_injector, schedules=[bad, good], check_interval=0.01)
+        scheduler = TimeScheduler(
+            mock_injector, schedules=[bad, good], check_interval=0.01
+        )
         scheduler._running = True
         task = asyncio.create_task(scheduler._check_schedules())
 
@@ -378,7 +393,9 @@ class TestTimeScheduler:
         # Both are evaluated every cycle - the bad one is skipped, not fatal.
         assert not task.done()
         assert bad.matches_now.call_count >= 2
-        assert good.matches_now.call_count >= 2  # the good schedule after bad still runs
+        assert (
+            good.matches_now.call_count >= 2
+        )  # the good schedule after bad still runs
 
         scheduler._running = False
         task.cancel()
@@ -464,7 +481,9 @@ class TestActivityDetector:
         assert len(detector._activities) == 0
 
     @pytest.mark.asyncio
-    async def test_trigger_pattern_records_cooldown_on_injector_failure(self, mock_injector):
+    async def test_trigger_pattern_records_cooldown_on_injector_failure(
+        self, mock_injector
+    ):
         """MECE G7: a failing injection must still record a cooldown.
 
         Previously the cooldown was added only after a successful
@@ -540,10 +559,18 @@ class TestPatternMatchers:
         matcher = ProjectFocusPatternMatcher(focus_threshold=0.7)
 
         activities = [
-            ActivityEvent(ActivityType.FILE_ACCESS, datetime.utcnow(), project="project-a"),
-            ActivityEvent(ActivityType.FILE_ACCESS, datetime.utcnow(), project="project-a"),
-            ActivityEvent(ActivityType.FILE_ACCESS, datetime.utcnow(), project="project-a"),
-            ActivityEvent(ActivityType.FILE_ACCESS, datetime.utcnow(), project="project-b"),
+            ActivityEvent(
+                ActivityType.FILE_ACCESS, datetime.utcnow(), project="project-a"
+            ),
+            ActivityEvent(
+                ActivityType.FILE_ACCESS, datetime.utcnow(), project="project-a"
+            ),
+            ActivityEvent(
+                ActivityType.FILE_ACCESS, datetime.utcnow(), project="project-a"
+            ),
+            ActivityEvent(
+                ActivityType.FILE_ACCESS, datetime.utcnow(), project="project-b"
+            ),
         ]
 
         patterns = matcher.match(activities, window_minutes=30)

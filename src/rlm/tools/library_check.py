@@ -45,6 +45,7 @@ class LibraryCheckResult:
         time_saved_hours: Estimated hours saved by reuse
         search_stats: Statistics about the search
     """
+
     query: str
     pattern_matches: List[Dict[str, Any]] = field(default_factory=list)
     similar_files: List[Dict[str, Any]] = field(default_factory=list)
@@ -122,7 +123,7 @@ class RLMLibraryCheck:
         self,
         query: str,
         context: Optional[str] = None,
-        languages: Optional[List[str]] = None
+        languages: Optional[List[str]] = None,
     ) -> LibraryCheckResult:
         """
         RLM-013: Perform library check for a coding task.
@@ -157,26 +158,24 @@ class RLMLibraryCheck:
         # Step 2: Search for pattern implementations
         for pattern_type in detected_patterns[:5]:  # Limit to 5 patterns
             matches = env.search_patterns(
-                pattern_type=pattern_type,
-                languages=languages,
-                limit=5
+                pattern_type=pattern_type, languages=languages, limit=5
             )
             result.pattern_matches.extend(matches)
 
         # Step 3: Content search for query terms
         content_matches = env.search_content(
-            pattern=query,
-            language=languages[0] if languages else None,
-            limit=10
+            pattern=query, language=languages[0] if languages else None, limit=10
         )
 
         for match in content_matches:
-            result.similar_files.append({
-                "file_path": match.get("path", match.get("file_path")),
-                "project": match.get("project"),
-                "match_line": match.get("match_line"),
-                "match_preview": match.get("match_preview", "")[:100],
-            })
+            result.similar_files.append(
+                {
+                    "file_path": match.get("path", match.get("file_path")),
+                    "project": match.get("project"),
+                    "match_line": match.get("match_line"),
+                    "match_preview": match.get("match_preview", "")[:100],
+                }
+            )
 
         # Step 4: Calculate recommendation
         result = self._calculate_recommendation(result)
@@ -197,8 +196,7 @@ class RLMLibraryCheck:
         return result
 
     def _calculate_recommendation(
-        self,
-        result: LibraryCheckResult
+        self, result: LibraryCheckResult
     ) -> LibraryCheckResult:
         """
         Calculate recommendation based on matches.
@@ -245,9 +243,7 @@ class RLMLibraryCheck:
         return result
 
     def check_file(
-        self,
-        file_path: str,
-        languages: Optional[List[str]] = None
+        self, file_path: str, languages: Optional[List[str]] = None
     ) -> LibraryCheckResult:
         """
         RLM-013: Check for similar implementations to a file.
@@ -270,12 +266,14 @@ class RLMLibraryCheck:
         similar = env.find_similar_implementations(file_path)
 
         for sim in similar:
-            result.similar_files.append({
-                "file_path": sim["file_path"],
-                "project": sim["project"],
-                "shared_patterns": sim["shared_patterns"],
-                "same_project": sim.get("same_project", False),
-            })
+            result.similar_files.append(
+                {
+                    "file_path": sim["file_path"],
+                    "project": sim["project"],
+                    "shared_patterns": sim["shared_patterns"],
+                    "same_project": sim.get("same_project", False),
+                }
+            )
 
         result = self._calculate_recommendation(result)
 
@@ -286,11 +284,7 @@ class RLMLibraryCheck:
 
         return result
 
-    def quick_search(
-        self,
-        keyword: str,
-        limit: int = 10
-    ) -> List[Dict[str, Any]]:
+    def quick_search(self, keyword: str, limit: int = 10) -> List[Dict[str, Any]]:
         """
         RLM-013: Quick keyword search across codebase.
 
@@ -307,17 +301,17 @@ class RLMLibraryCheck:
         """
         env = self._ensure_env()
 
-        matches = env.search_content(
-            pattern=keyword,
-            limit=limit
-        )
+        matches = env.search_content(pattern=keyword, limit=limit)
 
-        return [{
-            "file_path": m.get("path", m.get("file_path")),
-            "project": m.get("project"),
-            "line": m.get("match_line"),
-            "preview": m.get("match_preview", "")[:100],
-        } for m in matches]
+        return [
+            {
+                "file_path": m.get("path", m.get("file_path")),
+                "project": m.get("project"),
+                "line": m.get("match_line"),
+                "preview": m.get("match_preview", "")[:100],
+            }
+            for m in matches
+        ]
 
     def get_stats(self) -> Dict[str, Any]:
         """Get tool statistics."""
@@ -357,7 +351,9 @@ def format_advisory(result: LibraryCheckResult) -> str:
         lines.append("PATTERN MATCHES:")
         for match in result.pattern_matches[:5]:
             lines.append(f"  - [{match['pattern_type']}] {match['file_path']}")
-            lines.append(f"    Line {match['line_number']}: {match['match_preview'][:60]}...")
+            lines.append(
+                f"    Line {match['line_number']}: {match['match_preview'][:60]}..."
+            )
         lines.append("")
 
     if result.similar_files:
@@ -368,19 +364,21 @@ def format_advisory(result: LibraryCheckResult) -> str:
                 lines.append(f"    Preview: {sim['match_preview'][:60]}...")
         lines.append("")
 
-    lines.extend([
-        "-" * 60,
-        "DECISION MATRIX:",
-        "| REUSE (>90%)    | Copy existing code       | 8+ hours saved |",
-        "| ADAPT (70-90%)  | Modify existing          | 5 hours saved  |",
-        "| FOLLOW (50-70%) | Use as reference         | 3 hours saved  |",
-        "| EXTRACT (30-50%)| Extract reusable parts   | 1.5 hours saved|",
-        "| BUILD_NEW (<30%)| Implement from scratch   | Proceed        |",
-        "-" * 60,
-        "",
-        f"Search Stats: {result.search_stats}",
-        "=" * 60,
-    ])
+    lines.extend(
+        [
+            "-" * 60,
+            "DECISION MATRIX:",
+            "| REUSE (>90%)    | Copy existing code       | 8+ hours saved |",
+            "| ADAPT (70-90%)  | Modify existing          | 5 hours saved  |",
+            "| FOLLOW (50-70%) | Use as reference         | 3 hours saved  |",
+            "| EXTRACT (30-50%)| Extract reusable parts   | 1.5 hours saved|",
+            "| BUILD_NEW (<30%)| Implement from scratch   | Proceed        |",
+            "-" * 60,
+            "",
+            f"Search Stats: {result.search_stats}",
+            "=" * 60,
+        ]
+    )
 
     return "\n".join(lines)
 
@@ -398,12 +396,12 @@ if __name__ == "__main__":
 
     checker = RLMLibraryCheck()
     result = checker.check(
-        query=args.query,
-        languages=[args.lang] if args.lang else None
+        query=args.query, languages=[args.lang] if args.lang else None
     )
 
     if args.json:
         import json
+
         print(json.dumps(result.to_dict(), indent=2))
     else:
         print(format_advisory(result))

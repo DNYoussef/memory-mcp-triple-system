@@ -42,6 +42,7 @@ class Finding:
         project: Project context
         metadata: Additional metadata
     """
+
     finding_id: str
     agent: str
     severity: str
@@ -77,6 +78,7 @@ class Fix:
         timestamp: When applied
         verified: Whether fix was verified
     """
+
     fix_id: str
     finding_id: str
     content: str
@@ -108,6 +110,7 @@ class PatternMatch:
         similarity: Cosine similarity score (0.0-1.0)
         match_type: findings, fixes, or graph
     """
+
     finding: Finding
     fix: Optional[Fix]
     similarity: float
@@ -134,8 +137,12 @@ class RLMClient:
     """
 
     # Memory MCP paths (env-first, portable fallbacks; no hardcoded host paths)
-    MEMORY_MCP_DATA_PATH = os.getenv("MEMORY_MCP_DATA_DIR") or str(Path.home() / ".claude" / "memory-mcp-data")
-    MEMORY_MCP_PROJECT_PATH = os.getenv("MEMORY_MCP_PROJECT_DIR") or str(Path(__file__).resolve().parents[2])
+    MEMORY_MCP_DATA_PATH = os.getenv("MEMORY_MCP_DATA_DIR") or str(
+        Path.home() / ".claude" / "memory-mcp-data"
+    )
+    MEMORY_MCP_PROJECT_PATH = os.getenv("MEMORY_MCP_PROJECT_DIR") or str(
+        Path(__file__).resolve().parents[2]
+    )
 
     # Namespace prefixes
     FINDINGS_NAMESPACE = "findings"
@@ -174,9 +181,7 @@ class RLMClient:
                 sys.path.insert(0, self.MEMORY_MCP_PROJECT_PATH)
                 from src.services.graph_service import GraphService
 
-                self._graph_service = GraphService(
-                    data_dir=self.MEMORY_MCP_DATA_PATH
-                )
+                self._graph_service = GraphService(data_dir=self.MEMORY_MCP_DATA_PATH)
                 self._graph_service.load_graph()
                 logger.info("Graph service loaded")
 
@@ -186,11 +191,7 @@ class RLMClient:
 
         return self._graph_service
 
-    def _cosine_similarity(
-        self,
-        text1: str,
-        text2: str
-    ) -> float:
+    def _cosine_similarity(self, text1: str, text2: str) -> float:
         """
         Calculate cosine similarity between two texts.
 
@@ -229,7 +230,7 @@ class RLMClient:
         error_description: str,
         severity_filter: Optional[str] = None,
         days: int = 30,
-        limit: int = 10
+        limit: int = 10,
     ) -> List[PatternMatch]:
         """
         GS-017: Query for similar findings/issues.
@@ -286,7 +287,9 @@ class RLMClient:
                 if similarity >= 0.3:  # Minimum threshold
                     finding = Finding(
                         finding_id=key,
-                        agent=value.get("WHO", "").split(":")[-1] if value.get("WHO") else "unknown",
+                        agent=value.get("WHO", "").split(":")[-1]
+                        if value.get("WHO")
+                        else "unknown",
                         severity=sev,
                         content=content,
                         timestamp=timestamp_str,
@@ -297,12 +300,14 @@ class RLMClient:
                     # Try to find associated fix
                     fix = self._find_fix_for_finding(key)
 
-                    results.append(PatternMatch(
-                        finding=finding,
-                        fix=fix,
-                        similarity=similarity,
-                        match_type="findings",
-                    ))
+                    results.append(
+                        PatternMatch(
+                            finding=finding,
+                            fix=fix,
+                            similarity=similarity,
+                            match_type="findings",
+                        )
+                    )
 
             except Exception:
                 continue
@@ -311,10 +316,7 @@ class RLMClient:
         results.sort(key=lambda x: x.similarity, reverse=True)
         return results[:limit]
 
-    def _find_fix_for_finding(
-        self,
-        finding_id: str
-    ) -> Optional[Fix]:
+    def _find_fix_for_finding(self, finding_id: str) -> Optional[Fix]:
         """
         Find a fix associated with a finding.
 
@@ -354,10 +356,7 @@ class RLMClient:
         return None
 
     def query_fixes_by_pattern(
-        self,
-        error_pattern: str,
-        min_confidence: float = 0.5,
-        limit: int = 10
+        self, error_pattern: str, min_confidence: float = 0.5, limit: int = 10
     ) -> List[Fix]:
         """
         GS-017: Query successful fixes by error pattern.
@@ -400,18 +399,20 @@ class RLMClient:
                 # Match against error pattern
                 similarity = max(
                     self._cosine_similarity(error_pattern, fix_content),
-                    self._cosine_similarity(error_pattern, error_context)
+                    self._cosine_similarity(error_pattern, error_context),
                 )
 
                 if similarity >= 0.3:
-                    results.append(Fix(
-                        fix_id=key,
-                        finding_id=value.get("finding_id", ""),
-                        content=fix_content,
-                        confidence=conf,
-                        timestamp=value.get("WHEN", ""),
-                        verified=value.get("verified", False),
-                    ))
+                    results.append(
+                        Fix(
+                            fix_id=key,
+                            finding_id=value.get("finding_id", ""),
+                            content=fix_content,
+                            confidence=conf,
+                            timestamp=value.get("WHEN", ""),
+                            verified=value.get("verified", False),
+                        )
+                    )
 
             except Exception:
                 continue
@@ -421,9 +422,7 @@ class RLMClient:
         return results[:limit]
 
     def traverse_error_fix_paths(
-        self,
-        error_type: str,
-        max_hops: int = 3
+        self, error_type: str, max_hops: int = 3
     ) -> List[Dict[str, Any]]:
         """
         GS-017: Graph traversal for error->fix relationships.
@@ -477,13 +476,15 @@ class RLMClient:
 
                         # Found a fix node
                         if "fix" in neighbor_type.lower():
-                            paths.append({
-                                "error_node": start_node,
-                                "fix_node": neighbor,
-                                "path": new_path,
-                                "hops": depth + 1,
-                                "fix_label": neighbor_data.get("label", ""),
-                            })
+                            paths.append(
+                                {
+                                    "error_node": start_node,
+                                    "fix_node": neighbor,
+                                    "path": new_path,
+                                    "hops": depth + 1,
+                                    "fix_label": neighbor_data.get("label", ""),
+                                }
+                            )
                         else:
                             queue.append((neighbor, new_path, depth + 1))
 
@@ -516,9 +517,7 @@ if __name__ == "__main__":
 
     client = RLMClient()
     matches = client.query_similar_findings(
-        error_description=args.error,
-        severity_filter=args.severity,
-        days=args.days
+        error_description=args.error, severity_filter=args.severity, days=args.days
     )
 
     if args.json:

@@ -17,9 +17,19 @@ from pathlib import Path
 
 from src.services.proactive_context_injector import ProactiveContextInjector
 from src.services.trigger_watchers.file_watcher import FileWatcher, WatchConfig
-from src.services.trigger_watchers.time_scheduler import TimeScheduler, ScheduledTrigger, DayOfWeek
-from src.services.trigger_watchers.activity_detector import ActivityDetector, ActivityType
-from src.services.trigger_watchers.watcher_manager import WatcherManager, WatcherManagerConfig
+from src.services.trigger_watchers.time_scheduler import (
+    TimeScheduler,
+    ScheduledTrigger,
+    DayOfWeek,
+)
+from src.services.trigger_watchers.activity_detector import (
+    ActivityDetector,
+    ActivityType,
+)
+from src.services.trigger_watchers.watcher_manager import (
+    WatcherManager,
+    WatcherManagerConfig,
+)
 from src.integrations.proactive_schema import (
     TriggerEvent,
     TriggerType,

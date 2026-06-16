@@ -68,20 +68,20 @@ class TestQwen3VLEmbedderDevice:
 
     def test_device_auto_detect_cuda(self):
         """Test CUDA device detection."""
-        with patch('torch.cuda.is_available', return_value=True):
+        with patch("torch.cuda.is_available", return_value=True):
             embedder = Qwen3VLEmbedder(enabled=False)
             assert embedder.device == "cuda"
 
     def test_device_auto_detect_cpu(self):
         """Test CPU fallback when CUDA unavailable."""
-        with patch('torch.cuda.is_available', return_value=False):
+        with patch("torch.cuda.is_available", return_value=False):
             embedder = Qwen3VLEmbedder(enabled=False)
             embedder._device = None  # Reset to trigger auto-detect
             assert embedder.device == "cpu"
 
     def test_device_explicit_override(self):
         """Test explicit device overrides auto-detection."""
-        with patch('torch.cuda.is_available', return_value=True):
+        with patch("torch.cuda.is_available", return_value=True):
             embedder = Qwen3VLEmbedder(device="cpu", enabled=False)
             assert embedder.device == "cpu"
 
@@ -136,7 +136,7 @@ class TestQwen3VLEmbedderImageEmbedding:
         result = embedder.embed_image("nonexistent.png")
         assert len(result) == 384
 
-    @patch('PIL.Image.open')
+    @patch("PIL.Image.open")
     def test_embed_image_with_mock(self, mock_image_open, mock_embedder):
         """Test image embedding with mocked model."""
         import torch
@@ -146,7 +146,9 @@ class TestQwen3VLEmbedderImageEmbedding:
         mock_image.convert.return_value = mock_image
         mock_image_open.return_value = mock_image
 
-        mock_embedder._processor.return_value = {"pixel_values": torch.zeros(1, 3, 224, 224)}
+        mock_embedder._processor.return_value = {
+            "pixel_values": torch.zeros(1, 3, 224, 224)
+        }
         mock_embedder._model.get_image_features.return_value = [torch.rand(2048)]
 
         result = mock_embedder.embed_image("test.png")
@@ -241,7 +243,7 @@ class TestQwen3VLEmbedderModelLoading:
         embedder = Qwen3VLEmbedder(enabled=True)
         assert embedder._model is None
 
-    @patch.object(Qwen3VLEmbedder, '_load_model')
+    @patch.object(Qwen3VLEmbedder, "_load_model")
     def test_model_loads_on_access(self, mock_load):
         """Test model loads when model property is accessed."""
         mock_load.return_value = None
@@ -251,7 +253,7 @@ class TestQwen3VLEmbedderModelLoading:
 
         mock_load.assert_called_once()
 
-    @patch.object(Qwen3VLEmbedder, '_load_model')
+    @patch.object(Qwen3VLEmbedder, "_load_model")
     def test_model_load_failure_disables_service(self, mock_load):
         """Test that model load failure disables the service."""
         mock_load.side_effect = Exception("Model load failed")

@@ -21,11 +21,11 @@ import math
 class ConfidenceLevel(Enum):
     """Categorical confidence levels."""
 
-    VERY_HIGH = "very_high"    # >= 0.9
-    HIGH = "high"              # >= 0.8
-    MEDIUM = "medium"          # >= 0.6
-    LOW = "low"                # >= 0.4
-    VERY_LOW = "very_low"      # < 0.4
+    VERY_HIGH = "very_high"  # >= 0.9
+    HIGH = "high"  # >= 0.8
+    MEDIUM = "medium"  # >= 0.6
+    LOW = "low"  # >= 0.4
+    VERY_LOW = "very_low"  # < 0.4
 
     @classmethod
     def from_score(cls, score: float) -> "ConfidenceLevel":
@@ -435,13 +435,15 @@ class ConfidenceStats:
                 "failed": self.quality_gates_failed,
                 "pass_rate": (
                     round(self.quality_gates_passed / self.quality_gates_run, 4)
-                    if self.quality_gates_run > 0 else 0.0
+                    if self.quality_gates_run > 0
+                    else 0.0
                 ),
             },
         }
 
 
 # Helper functions for confidence calculation
+
 
 def combine_confidences(
     scores: List[float],

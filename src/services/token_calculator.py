@@ -130,9 +130,7 @@ class TokenTracker:
         self.sections[section] = self.sections.get(section, 0) + actual_tokens
         return truncated
 
-    def truncate_list(
-        self, section: str, items: List[str]
-    ) -> List[str]:
+    def truncate_list(self, section: str, items: List[str]) -> List[str]:
         """Add items from a list until budget exhausted.
 
         Args:

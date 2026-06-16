@@ -47,8 +47,13 @@ except ImportError:
     BeadsBridge = None  # type: ignore[assignment,misc]
 
     def resolve_beads_binary(explicit=None):  # type: ignore[misc]
-        return (explicit or os.environ.get("MEMORY_MCP_BEADS_CLI")
-                or os.environ.get("BEADS_BINARY") or "bd")
+        return (
+            explicit
+            or os.environ.get("MEMORY_MCP_BEADS_CLI")
+            or os.environ.get("BEADS_BINARY")
+            or "bd"
+        )
+
 
 # MEM-QWEN-002: Cross-encoder reranker (optional — not installed on Railway)
 try:
@@ -82,7 +87,11 @@ _connascence_bridge = None
 
 def _get_data_dir(config: Dict[str, Any]) -> Path:
     """Resolve data directory with environment taking precedence."""
-    value = os.getenv("MEMORY_MCP_DATA_DIR") or config.get("storage", {}).get("data_dir") or "/data"
+    value = (
+        os.getenv("MEMORY_MCP_DATA_DIR")
+        or config.get("storage", {}).get("data_dir")
+        or "/data"
+    )
     return Path(value)
 
 
@@ -196,14 +205,14 @@ class NexusSearchTool:
         self.lifecycle_manager = MemoryLifecycleManager(
             vector_indexer=self.vector_search_tool.indexer,
             kv_store=self.kv_store,
-            embedding_pipeline=_LazyEmbedder(lambda: self.vector_search_tool.embedder)
+            embedding_pipeline=_LazyEmbedder(lambda: self.vector_search_tool.embedder),
         )
 
         # C3.2: Obsidian client (lazy init)
         vault_path = (
-            os.environ.get('OBSIDIAN_VAULT_PATH') or
-            config.get('obsidian', {}).get('vault_path') or
-            config.get('storage', {}).get('obsidian_vault')
+            os.environ.get("OBSIDIAN_VAULT_PATH")
+            or config.get("obsidian", {}).get("vault_path")
+            or config.get("storage", {}).get("obsidian_vault")
         )
         self._obsidian_client: Optional[ObsidianMCPClient] = None
         self._vault_path = vault_path
@@ -218,18 +227,19 @@ class NexusSearchTool:
         self.graph_service = GraphService(data_dir=str(data_dir))
 
         # Load existing graph if present
-        graph_file = data_dir / 'graph.json'
+        graph_file = data_dir / "graph.json"
         if graph_file.exists():
             self.graph_service.load_graph(graph_file)
-            logger.info(f"Loaded existing graph: {self.graph_service.get_node_count()} nodes")
+            logger.info(
+                f"Loaded existing graph: {self.graph_service.get_node_count()} nodes"
+            )
 
         # Initialize entity service for NER extraction
         try:
             self.entity_service = EntityService()
             logger.info("EntityService initialized for graph population")
             self.hipporag_service = HippoRagService(
-                graph_service=self.graph_service,
-                entity_service=self.entity_service
+                graph_service=self.graph_service, entity_service=self.entity_service
             )
         except Exception as e:
             logger.warning(f"EntityService init failed (graph features disabled): {e}")
@@ -244,57 +254,59 @@ class NexusSearchTool:
         # MEM-QWEN-005: Visual Memory Sidecar (lazy init)
         self._visual_service: Optional[VisualMemoryService] = None
         self._unified_router: Optional[UnifiedSearchRouter] = None
-        self._visual_config = self.config.get('visual_memory', {})
+        self._visual_config = self.config.get("visual_memory", {})
 
     @property
     def visual_service(self) -> Optional[VisualMemoryService]:
         """MEM-QWEN-005: Lazy load VisualMemoryService."""
-        if self._visual_service is None and self._visual_config.get('enabled', False):
+        if self._visual_service is None and self._visual_config.get("enabled", False):
             self._init_visual_memory()
         return self._visual_service
 
     @property
     def unified_router(self) -> Optional[UnifiedSearchRouter]:
         """MEM-QWEN-005: Lazy load UnifiedSearchRouter."""
-        if self._unified_router is None and self._visual_config.get('enabled', False):
+        if self._unified_router is None and self._visual_config.get("enabled", False):
             self._init_visual_memory()
         return self._unified_router
 
     def _init_visual_memory(self) -> None:
         """MEM-QWEN-005: Initialize Visual Memory Sidecar."""
         try:
-            embedder_config = self._visual_config.get('embedder', {})
-            indexer_config = self._visual_config.get('indexer', {})
-            router_config = self._visual_config.get('router', {})
+            embedder_config = self._visual_config.get("embedder", {})
+            indexer_config = self._visual_config.get("indexer", {})
+            router_config = self._visual_config.get("router", {})
 
             # Initialize Qwen3-VL embedder
             self._qwen_embedder = Qwen3VLEmbedder(
-                model_name=embedder_config.get('model_name'),
-                device=embedder_config.get('device'),
-                use_mrl=embedder_config.get('use_mrl', True),
-                target_dim=embedder_config.get('target_dim', 384),
-                enabled=True
+                model_name=embedder_config.get("model_name"),
+                device=embedder_config.get("device"),
+                use_mrl=embedder_config.get("use_mrl", True),
+                target_dim=embedder_config.get("target_dim", 384),
+                enabled=True,
             )
 
             # Initialize visual memory indexer
             self._visual_indexer = VisualMemoryIndexer(
-                persist_directory=indexer_config.get('persist_directory', './chroma_visual'),
-                collection_name=indexer_config.get('collection_name', 'visual_memories')
+                persist_directory=indexer_config.get(
+                    "persist_directory", "./chroma_visual"
+                ),
+                collection_name=indexer_config.get(
+                    "collection_name", "visual_memories"
+                ),
             )
 
             # Initialize visual memory service
             self._visual_service = VisualMemoryService(
-                embedder=self._qwen_embedder,
-                indexer=self._visual_indexer,
-                enabled=True
+                embedder=self._qwen_embedder, indexer=self._visual_indexer, enabled=True
             )
 
             # Initialize unified search router
             self._unified_router = UnifiedSearchRouter(
                 nexus_processor=self.nexus_processor,
                 visual_memory_service=self._visual_service,
-                visual_weight=router_config.get('visual_weight', 0.3),
-                text_weight=router_config.get('text_weight', 0.7)
+                visual_weight=router_config.get("visual_weight", 0.3),
+                text_weight=router_config.get("text_weight", 0.7),
             )
 
             logger.info("Visual Memory Sidecar initialized successfully")
@@ -313,7 +325,7 @@ class NexusSearchTool:
                     vault_path=self._vault_path,
                     chunker=self.vector_search_tool.chunker,
                     embedder=self.vector_search_tool.embedder,
-                    indexer=self.vector_search_tool.indexer
+                    indexer=self.vector_search_tool.indexer,
                 )
                 logger.info(f"ObsidianClient initialized: {self._vault_path}")
             except Exception as e:
@@ -323,6 +335,7 @@ class NexusSearchTool:
     def log_event(self, event_type: str, data: Dict[str, Any]) -> None:
         """C3.3: Log event to event store."""
         from ..stores.event_log import EventType
+
         try:
             event_type_map = {
                 "vector_search": EventType.QUERY_EXECUTED,
@@ -332,7 +345,7 @@ class NexusSearchTool:
                 "chunk_deleted": EventType.CHUNK_DELETED,
                 "query_executed": EventType.QUERY_EXECUTED,
                 "entity_consolidated": EventType.ENTITY_CONSOLIDATED,
-                "lifecycle_transition": EventType.LIFECYCLE_TRANSITION
+                "lifecycle_transition": EventType.LIFECYCLE_TRANSITION,
             }
             enum_type = event_type_map.get(event_type, EventType.QUERY_EXECUTED)
             self.event_log.log_event(event_type=enum_type, data=data)
@@ -351,8 +364,7 @@ class NexusSearchTool:
     def create_query_trace(self, query: str, mode: str) -> QueryTrace:
         """C3.6: Create query trace for debugging."""
         trace = QueryTrace.create(
-            query=query,
-            user_context={"mode": mode, "source": "mcp_stdio"}
+            query=query, user_context={"mode": mode, "source": "mcp_stdio"}
         )
         trace.mode_detected = mode
         return trace
@@ -377,8 +389,7 @@ class NexusSearchTool:
             # exactly as it already does on timeout) and build it in the
             # background; set_network wires it in once ready.
             probabilistic_engine = ProbabilisticQueryEngine(
-                timeout_seconds=1.0,
-                network=None
+                timeout_seconds=1.0, network=None
             )
             self._start_bayesian_build(probabilistic_engine)
 
@@ -391,10 +402,12 @@ class NexusSearchTool:
                 probabilistic_query_engine=probabilistic_engine,
                 embedding_pipeline=self.vector_search_tool.embedder,
                 reranker=reranker,
-                rerank_enabled=reranker is not None
+                rerank_enabled=reranker is not None,
             )
             rerank_status = "enabled" if reranker else "disabled"
-            logger.info(f"NexusProcessor initialized with all 3 tiers + reranker ({rerank_status})")
+            logger.info(
+                f"NexusProcessor initialized with all 3 tiers + reranker ({rerank_status})"
+            )
             return processor
         except Exception as e:
             logger.warning(f"NexusProcessor init failed, using fallback: {e}")
@@ -404,10 +417,10 @@ class NexusSearchTool:
         """MEM-QWEN-002: Initialize cross-encoder reranker service."""
         try:
             # Get reranker config (defaults to small model for low latency)
-            rerank_config = self.config.get('reranker', {})
-            model_size = rerank_config.get('model_size', 'small')
-            model_name = rerank_config.get('model_name')
-            enabled = rerank_config.get('enabled', True)
+            rerank_config = self.config.get("reranker", {})
+            model_size = rerank_config.get("model_size", "small")
+            model_name = rerank_config.get("model_name")
+            enabled = rerank_config.get("enabled", True)
 
             if not enabled:
                 logger.info("Reranker disabled in config")
@@ -416,9 +429,9 @@ class NexusSearchTool:
             reranker = RerankerService(
                 model_name=model_name,
                 model_size=model_size,
-                max_length=rerank_config.get('max_length', 512),
-                batch_size=rerank_config.get('batch_size', 32),
-                enabled=True
+                max_length=rerank_config.get("max_length", 512),
+                batch_size=rerank_config.get("batch_size", 32),
+                enabled=True,
             )
             logger.info(f"RerankerService initialized: model_size={model_size}")
             return reranker
@@ -435,6 +448,7 @@ class NexusSearchTool:
         a query timeout - so the vector/HippoRAG tiers are never blocked on it.
         MEMORY_MCP_SYNC_BAYESIAN=1 forces a synchronous build (tests/determinism).
         """
+
         def _build():
             try:
                 net = self._build_bayesian_network(self.graph_service)
@@ -476,10 +490,7 @@ class NexusSearchTool:
             return None
 
     def execute(
-        self,
-        query: str,
-        limit: int = 5,
-        mode: str = "execution"
+        self, query: str, limit: int = 5, mode: str = "execution"
     ) -> List[Dict[str, Any]]:
         """Execute search through NexusProcessor or fallback."""
         if self.nexus_processor:
@@ -493,18 +504,10 @@ class NexusSearchTool:
         logger.info("Using fallback VectorSearchTool")
         return self.vector_search_tool.execute(query, limit)
 
-    def _execute_nexus(
-        self,
-        query: str,
-        mode: str,
-        limit: int
-    ) -> List[Dict[str, Any]]:
+    def _execute_nexus(self, query: str, mode: str, limit: int) -> List[Dict[str, Any]]:
         """Execute via NexusProcessor and format results."""
         nexus_result = self.nexus_processor.process(
-            query=query,
-            mode=mode,
-            top_k=50,
-            token_budget=10000
+            query=query, mode=mode, top_k=50, token_budget=10000
         )
 
         all_results = nexus_result["core"] + nexus_result["extended"]
@@ -512,14 +515,16 @@ class NexusSearchTool:
 
         formatted = []
         for result in limited_results:
-            formatted.append({
-                "text": result.get("text", ""),
-                "score": result.get("hybrid_score", result.get("score", 0.0)),
-                "file_path": result.get("metadata", {}).get("file_path", ""),
-                "chunk_index": result.get("metadata", {}).get("chunk_index", 0),
-                "tier": result.get("tier", "unknown"),
-                "metadata": result.get("metadata", {})
-            })
+            formatted.append(
+                {
+                    "text": result.get("text", ""),
+                    "score": result.get("hybrid_score", result.get("score", 0.0)),
+                    "file_path": result.get("metadata", {}).get("file_path", ""),
+                    "chunk_index": result.get("metadata", {}).get("chunk_index", 0),
+                    "tier": result.get("tier", "unknown"),
+                    "metadata": result.get("metadata", {}),
+                }
+            )
 
         return formatted
 
@@ -533,7 +538,7 @@ def load_config(config_path: Optional[Path] = None) -> Dict[str, Any]:
     if not config_path.exists():
         raise FileNotFoundError(f"Config not found: {config_path}")
 
-    with open(config_path, 'r', encoding='utf-8') as f:
+    with open(config_path, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
 
     return config
@@ -553,7 +558,7 @@ def apply_migrations(config: Dict[str, Any]) -> None:
         conn = sqlite3.connect(str(db_path))
         migration_file = migrations_dir / "007_query_traces_table.sql"
         if migration_file.exists():
-            with open(migration_file, 'r') as f:
+            with open(migration_file, "r") as f:
                 conn.executescript(f.read())
         conn.close()
     except Exception as e:

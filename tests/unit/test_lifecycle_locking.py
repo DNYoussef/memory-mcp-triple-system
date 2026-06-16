@@ -67,6 +67,7 @@ def _run_concurrently(*targets):
         def runner():
             barrier.wait()
             fn()
+
         return runner
 
     threads = [threading.Thread(target=wrap(t)) for t in targets]
@@ -106,6 +107,6 @@ class TestCrossSubsystemMutationLock:
             manager.archive_demoted_chunks,
         )
 
-        assert probe.max_concurrent == 1, (
-            "two concurrent archive sweeps interleaved; they must serialize"
-        )
+        assert (
+            probe.max_concurrent == 1
+        ), "two concurrent archive sweeps interleaved; they must serialize"

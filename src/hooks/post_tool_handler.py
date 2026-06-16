@@ -30,9 +30,7 @@ from src.services.observation_bridge import ObservationBridge
 
 
 # Default paths
-DEFAULT_DB = os.path.join(
-    str(Path.home()), ".claude", "memory-mcp-data", "agent_kv.db"
-)
+DEFAULT_DB = os.path.join(str(Path.home()), ".claude", "memory-mcp-data", "agent_kv.db")
 SESSION_FILE = os.path.join(
     str(Path.home()), ".claude", "memory-mcp-data", "current_session.json"
 )

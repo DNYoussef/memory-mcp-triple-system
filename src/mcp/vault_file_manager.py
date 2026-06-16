@@ -32,10 +32,7 @@ class VaultFileManager:
         if not self.vault_path.exists():
             logger.warning(f"Vault path does not exist: {vault_path}")
 
-    def discover_files(
-        self,
-        extensions: Optional[List[str]] = None
-    ) -> List[Path]:
+    def discover_files(self, extensions: Optional[List[str]] = None) -> List[Path]:
         """
         Discover files in vault matching extensions.
 
@@ -111,7 +108,7 @@ class VaultFileManager:
                 "modified_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
                 "size_bytes": stat.st_size,
                 "source": "obsidian_vault",
-                "vault_path": str(self.vault_path)
+                "vault_path": str(self.vault_path),
             }
         except Exception as e:
             logger.error(f"Failed to get metadata for {file_path}: {e}")
@@ -146,7 +143,7 @@ class VaultFileManager:
                 "total_files": len(files),
                 "total_size_bytes": total_size,
                 "file_types": file_types,
-                "last_modified": last_modified
+                "last_modified": last_modified,
             }
         except Exception as e:
             logger.error(f"Failed to get vault stats: {e}")
@@ -155,5 +152,5 @@ class VaultFileManager:
                 "total_size_bytes": 0,
                 "file_types": {},
                 "last_modified": None,
-                "error": str(e)
+                "error": str(e),
             }

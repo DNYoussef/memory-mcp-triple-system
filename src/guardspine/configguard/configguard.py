@@ -29,14 +29,16 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 class RiskLevel(Enum):
     """Risk levels for config changes."""
+
     L4_CRITICAL = 4  # Secrets, credentials
-    L3_HIGH = 3      # Routing, service configs
-    L2_MEDIUM = 2    # Feature flags
-    L1_LOW = 1       # Comments, formatting
+    L3_HIGH = 3  # Routing, service configs
+    L2_MEDIUM = 2  # Feature flags
+    L1_LOW = 1  # Comments, formatting
 
 
 class ConfigType(Enum):
     """Configuration file types."""
+
     YAML = "yaml"
     JSON = "json"
     TOML = "toml"
@@ -60,6 +62,7 @@ class ConfigViolation:
         content: Violating content (redacted)
         recommendation: How to fix
     """
+
     violation_id: str
     file_path: str
     line_number: int
@@ -95,6 +98,7 @@ class ConfigScanResult:
         passed: Whether scan passed
         scan_time: When scan ran
     """
+
     file_path: str
     config_type: ConfigType
     violations: List[ConfigViolation]
@@ -134,28 +138,28 @@ class ConfigGuard:
         (r'(?i)(secret[_-]?key|secretkey)\s*[=:]\s*["\']?[^\s"\']+', "secret_key"),
         (r'(?i)(token)\s*[=:]\s*["\']?[^\s"\']+', "token"),
         (r'(?i)(private[_-]?key)\s*[=:]\s*["\']?[^\s"\']+', "private_key"),
-        (r'(?i)(aws[_-]?access|aws[_-]?secret)', "aws_credential"),
-        (r'(?i)(database[_-]?url|db[_-]?url)\s*[=:]', "database_url"),
-        (r'(?i)(connection[_-]?string)\s*[=:]', "connection_string"),
-        (r'[A-Za-z0-9+/]{40,}={0,2}', "base64_secret"),
+        (r"(?i)(aws[_-]?access|aws[_-]?secret)", "aws_credential"),
+        (r"(?i)(database[_-]?url|db[_-]?url)\s*[=:]", "database_url"),
+        (r"(?i)(connection[_-]?string)\s*[=:]", "connection_string"),
+        (r"[A-Za-z0-9+/]{40,}={0,2}", "base64_secret"),
     ]
 
     # L3 HIGH patterns (routing, services)
     L3_PATTERNS = [
         (r'(?i)(host|hostname)\s*[=:]\s*["\']?[^\s"\']+', "host_config"),
-        (r'(?i)(port)\s*[=:]\s*\d+', "port_config"),
+        (r"(?i)(port)\s*[=:]\s*\d+", "port_config"),
         (r'(?i)(endpoint|url)\s*[=:]\s*["\']?https?:', "endpoint_config"),
-        (r'(?i)(redis|postgres|mysql|mongo)\s*[=:]', "database_config"),
-        (r'(?i)(cors|origin)\s*[=:]', "cors_config"),
-        (r'(?i)(ssl|tls|certificate)\s*[=:]', "ssl_config"),
+        (r"(?i)(redis|postgres|mysql|mongo)\s*[=:]", "database_config"),
+        (r"(?i)(cors|origin)\s*[=:]", "cors_config"),
+        (r"(?i)(ssl|tls|certificate)\s*[=:]", "ssl_config"),
     ]
 
     # L2 MEDIUM patterns (feature flags)
     L2_PATTERNS = [
-        (r'(?i)(enabled|disabled|feature)\s*[=:]\s*(true|false)', "feature_flag"),
-        (r'(?i)(debug|verbose)\s*[=:]\s*(true|false)', "debug_flag"),
-        (r'(?i)(timeout|interval)\s*[=:]\s*\d+', "timing_config"),
-        (r'(?i)(max|min|limit)\s*[=:]\s*\d+', "limit_config"),
+        (r"(?i)(enabled|disabled|feature)\s*[=:]\s*(true|false)", "feature_flag"),
+        (r"(?i)(debug|verbose)\s*[=:]\s*(true|false)", "debug_flag"),
+        (r"(?i)(timeout|interval)\s*[=:]\s*\d+", "timing_config"),
+        (r"(?i)(max|min|limit)\s*[=:]\s*\d+", "limit_config"),
     ]
 
     def __init__(self):
@@ -240,43 +244,49 @@ class ConfigGuard:
             for pattern, category in self.L4_PATTERNS:
                 if re.search(pattern, line):
                     self._violation_count += 1
-                    violations.append(ConfigViolation(
-                        violation_id=f"CV-{self._violation_count:06d}",
-                        file_path=file_path,
-                        line_number=line_num,
-                        risk_level=RiskLevel.L4_CRITICAL,
-                        category=category,
-                        content=self._redact_content(line.strip()),
-                        recommendation=f"Move {category} to secure vault/env",
-                    ))
+                    violations.append(
+                        ConfigViolation(
+                            violation_id=f"CV-{self._violation_count:06d}",
+                            file_path=file_path,
+                            line_number=line_num,
+                            risk_level=RiskLevel.L4_CRITICAL,
+                            category=category,
+                            content=self._redact_content(line.strip()),
+                            recommendation=f"Move {category} to secure vault/env",
+                        )
+                    )
 
             # Check L3 patterns
             for pattern, category in self.L3_PATTERNS:
                 if re.search(pattern, line):
                     self._violation_count += 1
-                    violations.append(ConfigViolation(
-                        violation_id=f"CV-{self._violation_count:06d}",
-                        file_path=file_path,
-                        line_number=line_num,
-                        risk_level=RiskLevel.L3_HIGH,
-                        category=category,
-                        content=self._redact_content(line.strip()),
-                        recommendation=f"Review {category} for security",
-                    ))
+                    violations.append(
+                        ConfigViolation(
+                            violation_id=f"CV-{self._violation_count:06d}",
+                            file_path=file_path,
+                            line_number=line_num,
+                            risk_level=RiskLevel.L3_HIGH,
+                            category=category,
+                            content=self._redact_content(line.strip()),
+                            recommendation=f"Review {category} for security",
+                        )
+                    )
 
             # Check L2 patterns (lower priority)
             for pattern, category in self.L2_PATTERNS:
                 if re.search(pattern, line):
                     self._violation_count += 1
-                    violations.append(ConfigViolation(
-                        violation_id=f"CV-{self._violation_count:06d}",
-                        file_path=file_path,
-                        line_number=line_num,
-                        risk_level=RiskLevel.L2_MEDIUM,
-                        category=category,
-                        content=self._redact_content(line.strip()),
-                        recommendation=f"Document {category} change",
-                    ))
+                    violations.append(
+                        ConfigViolation(
+                            violation_id=f"CV-{self._violation_count:06d}",
+                            file_path=file_path,
+                            line_number=line_num,
+                            risk_level=RiskLevel.L2_MEDIUM,
+                            category=category,
+                            content=self._redact_content(line.strip()),
+                            recommendation=f"Document {category} change",
+                        )
+                    )
 
         # Calculate risk score
         risk_score = self._calculate_risk_score(violations)
@@ -290,10 +300,7 @@ class ConfigGuard:
             passed=passed,
         )
 
-    def _calculate_risk_score(
-        self,
-        violations: List[ConfigViolation]
-    ) -> float:
+    def _calculate_risk_score(self, violations: List[ConfigViolation]) -> float:
         """
         Calculate overall risk score.
 
@@ -320,9 +327,7 @@ class ConfigGuard:
         return min(1.0, total_weight)
 
     def scan_directory(
-        self,
-        directory: str,
-        recursive: bool = True
+        self, directory: str, recursive: bool = True
     ) -> List[ConfigScanResult]:
         """
         GS-009: Scan directory for config files.
@@ -346,17 +351,17 @@ class ConfigGuard:
         pattern = "**/*" if recursive else "*"
 
         for file_path in dir_path.glob(pattern):
-            if file_path.is_file() and file_path.suffix.lower() in self.CONFIG_EXTENSIONS:
+            if (
+                file_path.is_file()
+                and file_path.suffix.lower() in self.CONFIG_EXTENSIONS
+            ):
                 result = self.scan_file(str(file_path))
                 results.append(result)
 
         return results
 
     def gate_change(
-        self,
-        file_path: str,
-        old_content: str,
-        new_content: str
+        self, file_path: str, old_content: str, new_content: str
     ) -> Dict[str, Any]:
         """
         GS-009: Gate a config file change.
@@ -402,8 +407,12 @@ class ConfigGuard:
                     pass
 
         # Determine gate action
-        l4_count = sum(1 for v in result.violations if v.risk_level == RiskLevel.L4_CRITICAL)
-        l3_count = sum(1 for v in result.violations if v.risk_level == RiskLevel.L3_HIGH)
+        l4_count = sum(
+            1 for v in result.violations if v.risk_level == RiskLevel.L4_CRITICAL
+        )
+        l3_count = sum(
+            1 for v in result.violations if v.risk_level == RiskLevel.L3_HIGH
+        )
 
         if l4_count > 0:
             action = "BLOCK"
@@ -470,7 +479,9 @@ if __name__ == "__main__":
         for result in results:
             status = "PASS" if result.passed else "FAIL"
             print(f"[{status}] {result.file_path}")
-            print(f"     Risk: {result.risk_score:.0%} | Violations: {len(result.violations)}")
+            print(
+                f"     Risk: {result.risk_score:.0%} | Violations: {len(result.violations)}"
+            )
             for v in result.violations[:3]:
                 print(f"     - [{v.risk_level.name}] {v.category}: {v.content}")
 

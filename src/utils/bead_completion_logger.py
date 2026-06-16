@@ -20,20 +20,20 @@ from loguru import logger
 
 # Bead label to WHY tag mapping
 LABEL_TO_WHY: Dict[str, str] = {
-    'bug': 'bugfix',
-    'bugfix': 'bugfix',
-    'fix': 'bugfix',
-    'feature': 'feature',
-    'enhancement': 'feature',
-    'refactor': 'refactor',
-    'refactoring': 'refactor',
-    'security': 'security',
-    'test': 'testing',
-    'testing': 'testing',
-    'docs': 'documentation',
-    'documentation': 'documentation',
-    'perf': 'performance',
-    'performance': 'performance',
+    "bug": "bugfix",
+    "bugfix": "bugfix",
+    "fix": "bugfix",
+    "feature": "feature",
+    "enhancement": "feature",
+    "refactor": "refactor",
+    "refactoring": "refactor",
+    "security": "security",
+    "test": "testing",
+    "testing": "testing",
+    "docs": "documentation",
+    "documentation": "documentation",
+    "perf": "performance",
+    "performance": "performance",
 }
 
 
@@ -58,18 +58,18 @@ def infer_why_from_bead(labels: List[str], title: str) -> str:
 
     # Infer from title keywords
     title_lower = title.lower()
-    if any(w in title_lower for w in ['fix', 'bug', 'error', 'issue']):
-        return 'bugfix'
-    if any(w in title_lower for w in ['add', 'implement', 'create', 'new']):
-        return 'feature'
-    if any(w in title_lower for w in ['refactor', 'clean', 'improve']):
-        return 'refactor'
-    if any(w in title_lower for w in ['test', 'spec']):
-        return 'testing'
-    if any(w in title_lower for w in ['doc', 'readme']):
-        return 'documentation'
+    if any(w in title_lower for w in ["fix", "bug", "error", "issue"]):
+        return "bugfix"
+    if any(w in title_lower for w in ["add", "implement", "create", "new"]):
+        return "feature"
+    if any(w in title_lower for w in ["refactor", "clean", "improve"]):
+        return "refactor"
+    if any(w in title_lower for w in ["test", "spec"]):
+        return "testing"
+    if any(w in title_lower for w in ["doc", "readme"]):
+        return "documentation"
 
-    return 'implementation'  # Default
+    return "implementation"  # Default
 
 
 def log_bead_completion(
@@ -83,7 +83,7 @@ def log_bead_completion(
     confidence: str = "HIGH",
     agent_name: str = "claude:opus-4.5",
     kv_store: Optional[Any] = None,
-    ttl_days: int = 180
+    ttl_days: int = 180,
 ) -> Dict[str, Any]:
     """
     Log bead completion to Memory MCP.
@@ -115,11 +115,9 @@ def log_bead_completion(
         "WHEN": datetime.now(timezone.utc).isoformat(),
         "PROJECT": project,
         "WHY": infer_why_from_bead(labels or [], title or ""),
-
         # BEAD REFERENCE
         "bead_id": bead_id,
         "bead_title": title or "",
-
         # FIX DETAILS
         "pattern": pattern,
         "files_changed": files_changed,
@@ -133,6 +131,7 @@ def log_bead_completion(
     if kv_store is None:
         try:
             from ..stores.kv_store import KVStore
+
             kv_db_path = Path.home() / ".claude" / "memory-mcp-data" / "agent_kv.db"
             kv_store = KVStore(str(kv_db_path))
             should_close = True
@@ -145,11 +144,7 @@ def log_bead_completion(
     try:
         # Convert days to seconds for KVStore TTL
         ttl_seconds = ttl_days * 24 * 60 * 60
-        kv_store.set(
-            key=key,
-            value=json.dumps(entry),
-            ttl=ttl_seconds
-        )
+        kv_store.set(key=key, value=json.dumps(entry), ttl=ttl_seconds)
         logger.info(f"Logged bead completion: {key}")
     except Exception as e:
         logger.error(f"Failed to log bead completion: {e}")
@@ -161,9 +156,7 @@ def log_bead_completion(
 
 
 def verify_bead_unblocked(
-    bead_id: str,
-    beads_cli: Optional[str] = None,
-    working_dir: Optional[str] = None
+    bead_id: str, beads_cli: Optional[str] = None, working_dir: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Verify bead has no open blockers before claiming.
@@ -185,11 +178,7 @@ def verify_bead_unblocked(
     beads_cli = beads_cli or resolve_beads_binary()
     working_dir = working_dir or os.getenv("MEMORY_MCP_BEADS_DIR") or os.getcwd()
 
-    result = {
-        "unblocked": True,
-        "blockers": [],
-        "bead_status": "unknown"
-    }
+    result = {"unblocked": True, "blockers": [], "bead_status": "unknown"}
 
     try:
         # Get bead details without interpolating bead_id into a shell string.
@@ -203,11 +192,7 @@ def verify_bead_unblocked(
             bead_id,
         ]
         output = subprocess.run(
-            cmd,
-            shell=False,
-            capture_output=True,
-            text=True,
-            timeout=30
+            cmd, shell=False, capture_output=True, text=True, timeout=30
         )
 
         if output.returncode != 0:
@@ -216,30 +201,34 @@ def verify_bead_unblocked(
             return result
 
         # Parse output for blockers
-        lines = output.stdout.split('\n')
+        lines = output.stdout.split("\n")
         in_depends = False
 
         for line in lines:
-            if 'DEPENDS ON' in line:
+            if "DEPENDS ON" in line:
                 in_depends = True
                 continue
-            if 'BLOCKS' in line:
+            if "BLOCKS" in line:
                 in_depends = False
                 continue
 
-            if in_depends and line.strip().startswith('->'):
+            if in_depends and line.strip().startswith("->"):
                 # Check if blocker is open (no checkmark)
-                if not line.strip().startswith('-> '):
+                if not line.strip().startswith("-> "):
                     # Has checkmark, blocker is closed
                     continue
                 # Extract blocker ID and status
                 blocker_line = line.strip()
-                if '' not in blocker_line:  # No checkmark = still open
+                if "" not in blocker_line:  # No checkmark = still open
                     result["blockers"].append(blocker_line)
                     result["unblocked"] = False
 
-        blockers_count = len(result['blockers'])
-        status_msg = 'unblocked' if result['unblocked'] else f'blocked by {blockers_count} issues'
+        blockers_count = len(result["blockers"])
+        status_msg = (
+            "unblocked"
+            if result["unblocked"]
+            else f"blocked by {blockers_count} issues"
+        )
         logger.info(f"Bead {bead_id}: {status_msg}")
 
     except subprocess.TimeoutExpired:
@@ -253,9 +242,7 @@ def verify_bead_unblocked(
 
 
 def get_parallel_test_command(
-    test_files: List[str],
-    project_root: str,
-    workers: str = "auto"
+    test_files: List[str], project_root: str, workers: str = "auto"
 ) -> str:
     """
     Generate parallel pytest command for faster test execution.
@@ -274,4 +261,6 @@ def get_parallel_test_command(
         return f"cd {project_root} && python -m pytest tests/ -n {workers}"
 
     test_paths = " ".join(test_files)
-    return f"cd {project_root} && python -m pytest {test_paths} -n {workers} -v --tb=short"
+    return (
+        f"cd {project_root} && python -m pytest {test_paths} -n {workers} -v --tb=short"
+    )

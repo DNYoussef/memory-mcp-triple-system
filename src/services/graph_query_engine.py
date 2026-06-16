@@ -28,6 +28,7 @@ class BFSContext:
     ISS-007 FIX: Reduces _explore_neighbors from 10 parameters to 6 (NASA compliant).
     Consolidates mutable BFS state into single parameter object.
     """
+
     queue: deque = field(default_factory=deque)
     visited: set = field(default_factory=set)
     distances: Dict[str, int] = field(default_factory=dict)
@@ -66,7 +67,7 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
         query_nodes: List[str],
         alpha: float = 0.85,
         max_iter: int = 100,
-        tol: float = 1e-6
+        tol: float = 1e-6,
     ) -> Dict[str, float]:
         """
         Run Personalized PageRank from query nodes with fallback.
@@ -93,10 +94,7 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
 
             # Run NetworkX PageRank
             ppr_scores = self._execute_pagerank(
-                personalization=personalization,
-                alpha=alpha,
-                max_iter=max_iter,
-                tol=tol
+                personalization=personalization, alpha=alpha, max_iter=max_iter, tol=tol
             )
 
             logger.info(f"PPR converged with {len(ppr_scores)} scores")
@@ -114,9 +112,7 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
     # This reduces graph_query_engine.py from ~573 LOC to ~460 LOC (20% reduction)
 
     def rank_chunks_by_ppr(
-        self,
-        ppr_scores: Dict[str, float],
-        top_k: int = 10
+        self, ppr_scores: Dict[str, float], top_k: int = 10
     ) -> List[Tuple[str, float]]:
         """
         Rank chunks by aggregated PPR scores.
@@ -141,7 +137,7 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
             node_data = self.graph.nodes[node_id]
 
             # Only process chunk nodes
-            if node_data.get('type') != 'chunk':
+            if node_data.get("type") != "chunk":
                 continue
 
             # Get entities mentioned in chunk
@@ -149,19 +145,14 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
 
             # Sum PPR scores for mentioned entities
             chunk_score = sum(
-                ppr_scores.get(entity, 0.0)
-                for entity in mentioned_entities
+                ppr_scores.get(entity, 0.0) for entity in mentioned_entities
             )
 
             if chunk_score > 0.0:
                 chunk_scores[node_id] = chunk_score
 
         # Sort by score descending
-        ranked_chunks = sorted(
-            chunk_scores.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )
+        ranked_chunks = sorted(chunk_scores.items(), key=lambda x: x[1], reverse=True)
 
         logger.info(f"Ranked {len(ranked_chunks)} chunks by PPR scores")
         return ranked_chunks[:top_k]
@@ -185,15 +176,13 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
             edge_data = self.graph.get_edge_data(chunk_id, successor)
 
             # Check if edge type is 'mentions'
-            if edge_data and edge_data.get('type') == 'mentions':
+            if edge_data and edge_data.get("type") == "mentions":
                 mentioned.append(successor)
 
         return mentioned
 
     def get_entity_neighbors(
-        self,
-        entity_id: str,
-        edge_type: Optional[str] = None
+        self, entity_id: str, edge_type: Optional[str] = None
     ) -> List[str]:
         """
         Get neighboring entities connected to entity.
@@ -216,7 +205,7 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
             edge_data = self.graph.get_edge_data(entity_id, successor)
 
             # Filter by edge type if specified
-            if edge_type is None or edge_data.get('type') == edge_type:
+            if edge_type is None or edge_data.get("type") == edge_type:
                 neighbors.append(successor)
 
         logger.debug(f"Found {len(neighbors)} neighbors for {entity_id}")
@@ -226,7 +215,7 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
         self,
         start_nodes: List[str],
         max_hops: int = 3,
-        edge_types: Optional[List[str]] = None
+        edge_types: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         Find entities reachable within max_hops using BFS.
@@ -263,19 +252,16 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
             )
 
             return {
-                'entities': list(ctx.entities),
-                'paths': ctx.paths,
-                'distances': ctx.distances
+                "entities": list(ctx.entities),
+                "paths": ctx.paths,
+                "distances": ctx.distances,
             }
 
         except Exception as e:
             logger.error(f"Multi-hop search failed: {e}")
-            return {'entities': [], 'paths': {}, 'distances': {}}
+            return {"entities": [], "paths": {}, "distances": {}}
 
-    def _init_bfs(
-        self,
-        start_nodes: List[str]
-    ) -> BFSContext:
+    def _init_bfs(self, start_nodes: List[str]) -> BFSContext:
         """
         Initialize BFS data structures.
 
@@ -307,7 +293,7 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
         distance: int,
         path: List[str],
         edge_types: Optional[List[str]],
-        ctx: BFSContext
+        ctx: BFSContext,
     ) -> None:
         """
         Explore neighbors during BFS traversal.
@@ -326,7 +312,7 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
             # Filter by edge type if specified
             if edge_types:
                 edge_data = self.graph.get_edge_data(current, neighbor)
-                if edge_data.get('type') not in edge_types:
+                if edge_data.get("type") not in edge_types:
                     continue
 
             # Skip if already visited
@@ -342,15 +328,13 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
 
             # Add entity nodes to results
             node_data = self.graph.nodes[neighbor]
-            if node_data.get('type') == 'entity':
+            if node_data.get("type") == "entity":
                 ctx.entities.add(neighbor)
 
             ctx.queue.append((neighbor, new_distance, new_path))
 
     def expand_with_synonyms(
-        self,
-        entity_nodes: List[str],
-        max_synonyms: int = 5
+        self, entity_nodes: List[str], max_synonyms: int = 5
     ) -> List[str]:
         """
         Expand entity list with synonyms from graph.
@@ -376,7 +360,7 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
                 synonym_count = 0
                 for neighbor in self.graph.successors(entity):
                     edge_data = self.graph.get_edge_data(entity, neighbor)
-                    if edge_data.get('type') == 'similar_to':
+                    if edge_data.get("type") == "similar_to":
                         expanded.add(neighbor)
                         synonym_count += 1
 
@@ -395,10 +379,7 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
             return entity_nodes
 
     def get_entity_neighborhood(
-        self,
-        entity_id: str,
-        hops: int = 1,
-        include_chunks: bool = True
+        self, entity_id: str, hops: int = 1, include_chunks: bool = True
     ) -> Dict[str, List[str]]:
         """
         Get N-hop neighborhood of entity.
@@ -414,15 +395,12 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
         try:
             if not self.graph.has_node(entity_id):
                 logger.warning(f"Entity not in graph: {entity_id}")
-                return {'entities': [], 'chunks': []}
+                return {"entities": [], "chunks": []}
 
             # Use multi_hop_search to find neighborhood
-            result = self.multi_hop_search(
-                start_nodes=[entity_id],
-                max_hops=hops
-            )
+            result = self.multi_hop_search(start_nodes=[entity_id], max_hops=hops)
 
-            entities = result['entities']
+            entities = result["entities"]
 
             # Get connected chunks if requested
             chunks = []
@@ -434,14 +412,11 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
                 f"{len(chunks)} chunks in {hops}-hop neighborhood"
             )
 
-            return {
-                'entities': entities,
-                'chunks': chunks
-            }
+            return {"entities": entities, "chunks": chunks}
 
         except Exception as e:
             logger.error(f"Get entity neighborhood failed: {e}")
-            return {'entities': [], 'chunks': []}
+            return {"entities": [], "chunks": []}
 
     def _get_connected_chunks(self, entity_nodes: List[str]) -> List[str]:
         """
@@ -465,17 +440,16 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
                 edge_data = self.graph.get_edge_data(predecessor, entity)
 
                 # Check if it's a chunk mentioning the entity
-                if (node_data.get('type') == 'chunk' and
-                        edge_data.get('type') == 'mentions'):
+                if (
+                    node_data.get("type") == "chunk"
+                    and edge_data.get("type") == "mentions"
+                ):
                     chunks.add(predecessor)
 
         return list(chunks)
 
     def retrieve_multi_hop(
-        self,
-        query: str,
-        max_hops: int = 3,
-        top_k: int = 5
+        self, query: str, max_hops: int = 3, top_k: int = 5
     ) -> List[Dict[str, Any]]:
         """
         Multi-hop retrieval combining entity extraction, PPR, and chunk ranking.
@@ -500,15 +474,13 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
 
             # 2. Expand via multi-hop search to find related entities
             expanded_result = self.multi_hop_search(
-                start_nodes=query_entities,
-                max_hops=max_hops
+                start_nodes=query_entities, max_hops=max_hops
             )
-            expanded_entities = expanded_result.get('entities', query_entities)
+            expanded_entities = expanded_result.get("entities", query_entities)
 
             # 3. Run PPR on expanded entity set
             ppr_scores = self.personalized_pagerank(
-                query_nodes=expanded_entities,
-                alpha=0.85
+                query_nodes=expanded_entities, alpha=0.85
             )
 
             if not ppr_scores:
@@ -521,13 +493,15 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
             # 5. Format results with text and metadata
             results = []
             for chunk_id, score in ranked_chunks:
-                results.append({
-                    "chunk_id": chunk_id,
-                    "text": self._get_chunk_text(chunk_id),
-                    "ppr_score": score,
-                    "score": score,
-                    "metadata": self._get_chunk_metadata(chunk_id)
-                })
+                results.append(
+                    {
+                        "chunk_id": chunk_id,
+                        "text": self._get_chunk_text(chunk_id),
+                        "ppr_score": score,
+                        "score": score,
+                        "metadata": self._get_chunk_metadata(chunk_id),
+                    }
+                )
 
             logger.info(f"retrieve_multi_hop returned {len(results)} results")
             return results
@@ -537,10 +511,7 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
             return []
 
     def query(
-        self,
-        query: str,
-        max_hops: int = 3,
-        top_k: int = 10
+        self, query: str, max_hops: int = 3, top_k: int = 10
     ) -> List[Dict[str, Any]]:
         """
         Execute graph query using multi-hop retrieval.
@@ -576,17 +547,17 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
             node_data = self.graph.nodes[node_id]
 
             # Only check entity nodes
-            if node_data.get('type') != 'entity':
+            if node_data.get("type") != "entity":
                 continue
 
             # MEM-002: Check both 'text' field and metadata for entity text
             # Entity text may be stored in node_data directly or in metadata
-            entity_text = node_data.get('text', '')
+            entity_text = node_data.get("text", "")
             if not entity_text:
                 # Check metadata field for entity text
-                metadata = node_data.get('metadata', {})
+                metadata = node_data.get("metadata", {})
                 if isinstance(metadata, dict):
-                    entity_text = metadata.get('text', metadata.get('name', node_id))
+                    entity_text = metadata.get("text", metadata.get("name", node_id))
                 else:
                     entity_text = node_id
             entity_text = entity_text.lower()
@@ -610,7 +581,7 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
             return ""
 
         node_data = self.graph.nodes[chunk_id]
-        return node_data.get('text', node_data.get('content', ''))
+        return node_data.get("text", node_data.get("content", ""))
 
     def _get_chunk_metadata(self, chunk_id: str) -> Dict[str, Any]:
         """
@@ -630,7 +601,7 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
         # Extract metadata fields (exclude text content)
         metadata = {}
         for key, value in node_data.items():
-            if key not in ('text', 'content'):
+            if key not in ("text", "content"):
                 metadata[key] = value
 
         return metadata

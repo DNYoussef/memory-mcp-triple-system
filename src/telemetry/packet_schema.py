@@ -35,6 +35,7 @@ import json
 
 class ActionType(Enum):
     """Standard action types for WHY field."""
+
     IMPLEMENTATION = "implementation"
     BUGFIX = "bugfix"
     REFACTOR = "refactor"
@@ -49,6 +50,7 @@ class ActionType(Enum):
 
 class TelemetryStatus(Enum):
     """Status values for telemetry packets."""
+
     SUCCESS = "success"
     FAILURE = "failure"
     PARTIAL = "partial"
@@ -98,6 +100,7 @@ class TelemetryPacket:
         """Generate packet ID if not provided."""
         if not self.packet_id:
             import hashlib
+
             hash_input = f"{self.who}:{self.when}:{self.project}"
             self.packet_id = f"TEL-{hashlib.md5(hash_input.encode()).hexdigest()[:12]}"
 
@@ -117,7 +120,7 @@ class TelemetryPacket:
             "TOKENS": self.tokens,
             "ERRORS": self.errors,
             "CONFIDENCE": self.confidence,
-            "CUSTOM": self.custom
+            "CUSTOM": self.custom,
         }
 
     def to_json(self) -> str:
@@ -244,7 +247,7 @@ class TelemetryPacketBuilder:
             tokens=self._tokens,
             errors=self._errors,
             confidence=self._confidence,
-            custom=self._custom
+            custom=self._custom,
         )
 
         # Validate
@@ -262,7 +265,7 @@ def create_packet(
     why: ActionType,
     duration_ms: int,
     status: TelemetryStatus,
-    **kwargs
+    **kwargs,
 ) -> TelemetryPacket:
     """
     Convenience function to create a telemetry packet.
@@ -290,7 +293,7 @@ def create_packet(
         tokens=kwargs.get("tokens", 0),
         errors=kwargs.get("errors", 0),
         confidence=kwargs.get("confidence", 1.0),
-        custom=kwargs.get("custom", {})
+        custom=kwargs.get("custom", {}),
     )
 
 
@@ -332,7 +335,7 @@ def parse_packet(data: Dict[str, Any]) -> Optional[TelemetryPacket]:
             errors=data.get("ERRORS", data.get("errors", 0)),
             confidence=data.get("CONFIDENCE", data.get("confidence", 1.0)),
             custom=data.get("CUSTOM", data.get("custom", {})),
-            packet_id=data.get("packet_id", "")
+            packet_id=data.get("packet_id", ""),
         )
 
         return packet

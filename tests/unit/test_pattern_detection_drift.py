@@ -43,10 +43,13 @@ class TestCategoryDriftBaseline:
         ]
         patterns = _svc()._detect_category_drift(outcomes)
         drift_cats = {
-            p.affected_category for p in patterns
+            p.affected_category
+            for p in patterns
             if p.pattern_type == PatternType.CATEGORY_DRIFT
         }
-        assert drift_cats == set(), f"fabricated drift from missing baseline: {drift_cats}"
+        assert (
+            drift_cats == set()
+        ), f"fabricated drift from missing baseline: {drift_cats}"
 
     def test_real_drift_in_both_halves_is_detected(self):
         """'A' present in both halves with a real rate change (1.0 -> 0.0) is
@@ -59,7 +62,8 @@ class TestCategoryDriftBaseline:
         ]
         patterns = _svc()._detect_category_drift(outcomes)
         drift = [
-            p for p in patterns
+            p
+            for p in patterns
             if p.pattern_type == PatternType.CATEGORY_DRIFT
             and p.affected_category == "A"
         ]

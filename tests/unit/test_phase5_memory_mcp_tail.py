@@ -100,7 +100,9 @@ def test_railway_download_url_is_signed_and_requires_token(tmp_path):
             BufferType.AUDIO_RECORDING,
         )
 
-        signed = await service.get_download_url(buffer.buffer_id, expires_in_seconds=120)
+        signed = await service.get_download_url(
+            buffer.buffer_id, expires_in_seconds=120
+        )
         parsed = urlparse(signed)
         query = parse_qs(parsed.query)
 

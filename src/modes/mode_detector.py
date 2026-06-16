@@ -10,17 +10,22 @@ from loguru import logger
 
 from .mode_profile import ModeProfile, EXECUTION, PLANNING, BRAINSTORMING
 
+
 # ISS-030 FIX: validate imports at module load time. Use explicit raises, not
 # asserts - assert statements are stripped under `python -OO`, which would
 # silently skip this validation. (F13)
 def _validate_mode_profiles() -> None:
     for profile, expected in (
-        (EXECUTION, "execution"), (PLANNING, "planning"), (BRAINSTORMING, "brainstorming"),
+        (EXECUTION, "execution"),
+        (PLANNING, "planning"),
+        (BRAINSTORMING, "brainstorming"),
     ):
         if not isinstance(profile, ModeProfile):
             raise TypeError(f"{expected} must be a ModeProfile, got {type(profile)}")
         if profile.name != expected:
-            raise ValueError(f"mode profile name must be {expected!r}, got {profile.name!r}")
+            raise ValueError(
+                f"mode profile name must be {expected!r}, got {profile.name!r}"
+            )
 
 
 _validate_mode_profiles()
@@ -50,7 +55,7 @@ class ModeDetector:
             r"\bfetch\b",
             r"\btell\s+me\b",
             r"\bexplain\b",
-            r"\bdescribe\b"
+            r"\bdescribe\b",
         ]
 
         # Planning patterns (conditional, comparative)
@@ -68,7 +73,7 @@ class ModeDetector:
             r"\bwhich\s+is\s+better\b",
             r"\bshould\s+i\b",
             r"\bwhen\s+should\b",
-            r"\bwhat\s+if\s+i\b"
+            r"\bwhat\s+if\s+i\b",
         ]
 
         # Brainstorming patterns (creative, exploratory)
@@ -82,7 +87,7 @@ class ModeDetector:
             r"\blist\s+all\b",
             r"\bbrainstorm\b",
             r"\bideas\s+for\b",
-            r"\bpossibilities\s+for\b"
+            r"\bpossibilities\s+for\b",
         ]
 
         logger.info("ModeDetector initialized")
@@ -111,9 +116,9 @@ class ModeDetector:
 
         # Score each mode
         scores = {
-            'execution': self._score_execution_patterns(query_lower),
-            'planning': self._score_planning_patterns(query_lower),
-            'brainstorming': self._score_brainstorming_patterns(query_lower)
+            "execution": self._score_execution_patterns(query_lower),
+            "planning": self._score_planning_patterns(query_lower),
+            "brainstorming": self._score_brainstorming_patterns(query_lower),
         }
 
         # Find mode with highest score
@@ -123,21 +128,19 @@ class ModeDetector:
         # Fallback to execution if confidence too low
         if confidence < 0.7:
             logger.debug(
-                f"Low confidence ({confidence:.2f}), "
-                f"falling back to execution mode"
+                f"Low confidence ({confidence:.2f}), " f"falling back to execution mode"
             )
             return EXECUTION, 0.5
 
         # Return detected mode
         profile = {
-            'execution': EXECUTION,
-            'planning': PLANNING,
-            'brainstorming': BRAINSTORMING
+            "execution": EXECUTION,
+            "planning": PLANNING,
+            "brainstorming": BRAINSTORMING,
         }[detected_mode]
 
         logger.debug(
-            f"Detected mode: {detected_mode} "
-            f"(confidence: {confidence:.2f})"
+            f"Detected mode: {detected_mode} " f"(confidence: {confidence:.2f})"
         )
 
         return profile, confidence

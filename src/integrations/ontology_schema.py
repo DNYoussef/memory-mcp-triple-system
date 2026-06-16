@@ -266,7 +266,9 @@ class ComponentOwnership:
     content_hash: str  # SHA-256 hash of canonical content
     version: str  # Semantic version
     owner_project: str  # Project that owns this component
-    allowed_copies: List[str] = field(default_factory=list)  # Paths allowed to have copies
+    allowed_copies: List[str] = field(
+        default_factory=list
+    )  # Paths allowed to have copies
     last_verified: Optional[datetime] = None
     metadata: Dict[str, any] = field(default_factory=dict)
 

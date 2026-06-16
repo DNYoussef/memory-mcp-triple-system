@@ -27,14 +27,14 @@ class TestNexusProcessor:
                 "document": "Test chunk 1",
                 "distance": 0.2,  # similarity = 0.8
                 "metadata": {"file_path": "/docs/test1.md"},
-                "id": "vec-1"
+                "id": "vec-1",
             },
             {
                 "document": "Test chunk 2",
                 "distance": 0.3,  # similarity = 0.7
                 "metadata": {"file_path": "/docs/test2.md"},
-                "id": "vec-2"
-            }
+                "id": "vec-2",
+            },
         ]
         return indexer
 
@@ -47,14 +47,14 @@ class TestNexusProcessor:
                 "text": "Graph chunk 1",
                 "ppr_score": 0.9,
                 "metadata": {"entities": ["entity1"]},
-                "chunk_id": "graph-1"
+                "chunk_id": "graph-1",
             },
             {
                 "text": "Graph chunk 2",
                 "ppr_score": 0.6,
                 "metadata": {"entities": ["entity2"]},
-                "chunk_id": "graph-2"
-            }
+                "chunk_id": "graph-2",
+            },
         ]
         return engine
 
@@ -63,13 +63,7 @@ class TestNexusProcessor:
         """Mock ProbabilisticQueryEngine."""
         engine = Mock()
         engine.query_conditional.return_value = {
-            "results": {
-                "var1": {
-                    0: 0.7,
-                    1: 0.3,
-                    "entropy": 0.88
-                }
-            }
+            "results": {"var1": {0: 0.7, 1: 0.3, "entropy": 0.88}}
         }
         return engine
 
@@ -89,25 +83,21 @@ class TestNexusProcessor:
         mock_vector_indexer,
         mock_graph_query_engine,
         mock_probabilistic_query_engine,
-        mock_embedding_pipeline
+        mock_embedding_pipeline,
     ):
         """Create NexusProcessor with mocked dependencies."""
         return NexusProcessor(
             vector_indexer=mock_vector_indexer,
             graph_query_engine=mock_graph_query_engine,
             probabilistic_query_engine=mock_probabilistic_query_engine,
-            embedding_pipeline=mock_embedding_pipeline
+            embedding_pipeline=mock_embedding_pipeline,
         )
 
     def test_initialization(self, processor):
         """Test processor initialization."""
         assert processor.confidence_threshold == 0.3
         assert processor.dedup_threshold == 0.95
-        assert processor.weights == {
-            "vector": 0.4,
-            "hipporag": 0.4,
-            "bayesian": 0.2
-        }
+        assert processor.weights == {"vector": 0.4, "hipporag": 0.4, "bayesian": 0.2}
 
     def test_recall_from_all_tiers(self, processor):
         """Test recall queries all 3 tiers."""
@@ -125,11 +115,20 @@ class TestNexusProcessor:
     def test_bayesian_var_state_rows_never_appear_in_results(self, processor):
         """D7: Bayesian VAR=state rows contribute signal through recall/fusion
         but must never surface as document results."""
-        real_doc = {"text": "Tesla makes electric cars", "score": 0.8,
-                    "tier": "vector", "id": "doc1", "metadata": {}}
-        bayes_row = {"text": "Tesla=true", "score": 0.9, "tier": "bayesian",
-                     "id": "bayesian_Tesla_true",
-                     "metadata": {"variable": "Tesla", "state": "true"}}
+        real_doc = {
+            "text": "Tesla makes electric cars",
+            "score": 0.8,
+            "tier": "vector",
+            "id": "doc1",
+            "metadata": {},
+        }
+        bayes_row = {
+            "text": "Tesla=true",
+            "score": 0.9,
+            "tier": "bayesian",
+            "id": "bayesian_Tesla_true",
+            "metadata": {"variable": "Tesla", "state": "true"},
+        }
 
         processor._query_vector_tier = lambda q, k: [dict(real_doc)]
         processor._query_hipporag_tier = lambda q, k: []
@@ -153,8 +152,13 @@ class TestNexusProcessor:
         'bayesian_' is NOT a pseudo-row (source_tiers == ['vector'], no
         variable/state metadata) and must reach the results - the structural
         predicate must not drop it on the id prefix alone."""
-        real_doc = {"text": "Bayesian methods explained", "score": 0.8,
-                    "tier": "vector", "id": "bayesian_real_doc", "metadata": {}}
+        real_doc = {
+            "text": "Bayesian methods explained",
+            "score": 0.8,
+            "tier": "vector",
+            "id": "bayesian_real_doc",
+            "metadata": {},
+        }
         processor._query_vector_tier = lambda q, k: [dict(real_doc)]
         processor._query_hipporag_tier = lambda q, k: []
         processor._query_bayesian_tier = lambda q, k: []
@@ -168,11 +172,20 @@ class TestNexusProcessor:
         """D7: pseudo-rows are not documents, so they must be removed AFTER rank
         and BEFORE rerank - otherwise they consume rerank slots and distort the
         reranker's stats/scoring. Assert the reranker never sees the pseudo-row."""
-        real_doc = {"text": "Tesla makes electric cars", "score": 0.8,
-                    "tier": "vector", "id": "doc1", "metadata": {}}
-        bayes_row = {"text": "Tesla=true", "score": 0.9, "tier": "bayesian",
-                     "id": "bayesian_Tesla_true",
-                     "metadata": {"variable": "Tesla", "state": "true"}}
+        real_doc = {
+            "text": "Tesla makes electric cars",
+            "score": 0.8,
+            "tier": "vector",
+            "id": "doc1",
+            "metadata": {},
+        }
+        bayes_row = {
+            "text": "Tesla=true",
+            "score": 0.9,
+            "tier": "bayesian",
+            "id": "bayesian_Tesla_true",
+            "metadata": {"variable": "Tesla", "state": "true"},
+        }
         processor._query_vector_tier = lambda q, k: [dict(real_doc)]
         processor._query_hipporag_tier = lambda q, k: []
         processor._query_bayesian_tier = lambda q, k: [dict(bayes_row)]
@@ -203,7 +216,7 @@ class TestNexusProcessor:
             {"text": "chunk1", "score": 0.5, "tier": "vector"},
             {"text": "chunk2", "score": 0.2, "tier": "vector"},  # Below threshold
             {"text": "chunk3", "score": 0.4, "tier": "hipporag"},
-            {"text": "chunk4", "score": 0.1, "tier": "hipporag"}  # Below threshold
+            {"text": "chunk4", "score": 0.1, "tier": "hipporag"},  # Below threshold
         ]
 
         filtered = processor.filter_by_confidence(candidates)
@@ -214,10 +227,17 @@ class TestNexusProcessor:
     def test_candidate_confidence_is_max_tier_evidence(self, processor):
         """Confidence = strongest single-tier signal, not the weighted hybrid."""
         # Strong vector evidence (0.576) but a deflated hybrid 'score' (0.23).
-        assert processor._candidate_confidence({
-            "score": 0.23, "vector_score": 0.576,
-            "graph_score": 0.0, "bayesian_score": 0.0,
-        }) == 0.576
+        assert (
+            processor._candidate_confidence(
+                {
+                    "score": 0.23,
+                    "vector_score": 0.576,
+                    "graph_score": 0.0,
+                    "bayesian_score": 0.0,
+                }
+            )
+            == 0.576
+        )
         # Raw candidate (no per-tier fields) falls back to 'score'.
         assert processor._candidate_confidence({"score": 0.42}) == 0.42
 
@@ -225,10 +245,22 @@ class TestNexusProcessor:
         """Regression: a vector-only candidate whose weighted-sum 'score' is below
         the threshold but whose per-tier evidence is strong must survive."""
         candidates = [
-            {"text": "vec-only", "score": 0.23, "vector_score": 0.576,
-             "graph_score": 0.0, "bayesian_score": 0.0, "tier": "hybrid"},
-            {"text": "weak", "score": 0.1, "vector_score": 0.1,
-             "graph_score": 0.0, "bayesian_score": 0.0, "tier": "hybrid"},
+            {
+                "text": "vec-only",
+                "score": 0.23,
+                "vector_score": 0.576,
+                "graph_score": 0.0,
+                "bayesian_score": 0.0,
+                "tier": "hybrid",
+            },
+            {
+                "text": "weak",
+                "score": 0.1,
+                "vector_score": 0.1,
+                "graph_score": 0.0,
+                "bayesian_score": 0.0,
+                "tier": "hybrid",
+            },
         ]
 
         texts = [c["text"] for c in processor.filter_by_confidence(candidates)]
@@ -240,8 +272,12 @@ class TestNexusProcessor:
         """Test deduplication removes similar chunks (cosine >0.95)."""
         candidates = [
             {"text": "this is a test", "score": 0.8, "tier": "vector"},
-            {"text": "this is a test", "score": 0.7, "tier": "hipporag"},  # Exact duplicate
-            {"text": "completely different content", "score": 0.6, "tier": "vector"}
+            {
+                "text": "this is a test",
+                "score": 0.7,
+                "tier": "hipporag",
+            },  # Exact duplicate
+            {"text": "completely different content", "score": 0.6, "tier": "vector"},
         ]
 
         deduplicated = processor.deduplicate(candidates)
@@ -256,13 +292,15 @@ class TestNexusProcessor:
         candidates = [
             {"text": "vector chunk", "score": 0.8, "tier": "vector"},
             {"text": "graph chunk", "score": 0.9, "tier": "hipporag"},
-            {"text": "bayesian chunk", "score": 0.5, "tier": "bayesian"}
+            {"text": "bayesian chunk", "score": 0.5, "tier": "bayesian"},
         ]
 
         ranked = processor.rank(candidates)
 
         # Verify hybrid scores calculated correctly
-        assert ranked[0]["hybrid_score"] == pytest.approx(1.0 * 0.4)  # HippoRAG normalized: 0.40
+        assert ranked[0]["hybrid_score"] == pytest.approx(
+            1.0 * 0.4
+        )  # HippoRAG normalized: 0.40
         assert ranked[1]["hybrid_score"] == pytest.approx(0.8 * 0.4)  # Vector: 0.32
         assert ranked[2]["hybrid_score"] == pytest.approx(0.5 * 0.2)  # Bayesian: 0.10
 
@@ -289,11 +327,12 @@ class TestNexusProcessor:
     def test_compress_execution_mode(self, processor):
         """Test compression in execution mode (5 core + 0 extended)."""
         ranked_results = [
-            {"text": f"chunk {i}", "score": 1.0 - i * 0.1}
-            for i in range(10)
+            {"text": f"chunk {i}", "score": 1.0 - i * 0.1} for i in range(10)
         ]
 
-        result = processor.compress(ranked_results, mode="execution", token_budget=10000)
+        result = processor.compress(
+            ranked_results, mode="execution", token_budget=10000
+        )
 
         assert len(result["core"]) == 5
         assert len(result["extended"]) == 0
@@ -302,8 +341,7 @@ class TestNexusProcessor:
     def test_compress_planning_mode(self, processor):
         """Test compression in planning mode (5 core + 15 extended)."""
         ranked_results = [
-            {"text": f"chunk {i}", "score": 1.0 - i * 0.05}
-            for i in range(30)
+            {"text": f"chunk {i}", "score": 1.0 - i * 0.05} for i in range(30)
         ]
 
         result = processor.compress(ranked_results, mode="planning", token_budget=10000)
@@ -315,11 +353,12 @@ class TestNexusProcessor:
     def test_compress_brainstorming_mode(self, processor):
         """Test compression in brainstorming mode (5 core + 25 extended)."""
         ranked_results = [
-            {"text": f"chunk {i}", "score": 1.0 - i * 0.03}
-            for i in range(40)
+            {"text": f"chunk {i}", "score": 1.0 - i * 0.03} for i in range(40)
         ]
 
-        result = processor.compress(ranked_results, mode="brainstorming", token_budget=10000)
+        result = processor.compress(
+            ranked_results, mode="brainstorming", token_budget=10000
+        )
 
         assert len(result["core"]) == 5
         assert len(result["extended"]) == 25
@@ -385,7 +424,9 @@ class TestNexusProcessor:
             for i in range(50)
         ]
 
-        result = processor.compress(ranked_results, mode="execution", token_budget=10000)
+        result = processor.compress(
+            ranked_results, mode="execution", token_budget=10000
+        )
 
         # Should calculate compression ratio
         assert "compression_ratio" in result
@@ -393,12 +434,11 @@ class TestNexusProcessor:
 
     def test_mode_invalid(self, processor):
         """Test default to execution mode for invalid mode."""
-        ranked_results = [
-            {"text": f"chunk {i}", "score": 1.0}
-            for i in range(10)
-        ]
+        ranked_results = [{"text": f"chunk {i}", "score": 1.0} for i in range(10)]
 
-        result = processor.compress(ranked_results, mode="invalid_mode", token_budget=10000)
+        result = processor.compress(
+            ranked_results, mode="invalid_mode", token_budget=10000
+        )
 
         # Should default to execution mode (5 core + 0 extended)
         assert len(result["core"]) == 5
@@ -407,9 +447,21 @@ class TestNexusProcessor:
     def test_duplicate_removal_threshold(self, processor):
         """Test cosine similarity threshold boundary (0.95)."""
         candidates = [
-            {"text": "the quick brown fox jumps over the lazy dog", "score": 0.8, "tier": "vector"},
-            {"text": "the quick brown fox jumps over", "score": 0.7, "tier": "hipporag"},  # Similar but <0.95
-            {"text": "completely unrelated sentence here now", "score": 0.6, "tier": "vector"}
+            {
+                "text": "the quick brown fox jumps over the lazy dog",
+                "score": 0.8,
+                "tier": "vector",
+            },
+            {
+                "text": "the quick brown fox jumps over",
+                "score": 0.7,
+                "tier": "hipporag",
+            },  # Similar but <0.95
+            {
+                "text": "completely unrelated sentence here now",
+                "score": 0.6,
+                "tier": "vector",
+            },
         ]
 
         deduplicated = processor.deduplicate(candidates)
@@ -473,7 +525,9 @@ class TestNexusProcessorRerank:
                 rerank = doc.get("rerank_score", 0.0)
                 doc["final_score"] = hybrid_weight * hybrid + rerank_weight * rerank
                 doc["score"] = doc["final_score"]
-            return sorted(documents, key=lambda x: x.get("final_score", 0), reverse=True)
+            return sorted(
+                documents, key=lambda x: x.get("final_score", 0), reverse=True
+            )
 
         reranker.rerank.side_effect = mock_rerank
         reranker.merge_scores.side_effect = mock_merge_scores
@@ -486,7 +540,7 @@ class TestNexusProcessorRerank:
         mock_graph_query_engine,
         mock_probabilistic_query_engine,
         mock_embedding_pipeline,
-        mock_reranker
+        mock_reranker,
     ):
         """Create NexusProcessor with reranker."""
         return NexusProcessor(
@@ -495,7 +549,7 @@ class TestNexusProcessorRerank:
             probabilistic_query_engine=mock_probabilistic_query_engine,
             embedding_pipeline=mock_embedding_pipeline,
             reranker=mock_reranker,
-            rerank_enabled=True
+            rerank_enabled=True,
         )
 
     @pytest.fixture
@@ -504,7 +558,7 @@ class TestNexusProcessorRerank:
         mock_vector_indexer,
         mock_graph_query_engine,
         mock_probabilistic_query_engine,
-        mock_embedding_pipeline
+        mock_embedding_pipeline,
     ):
         """Create NexusProcessor without reranker."""
         return NexusProcessor(
@@ -513,7 +567,7 @@ class TestNexusProcessorRerank:
             probabilistic_query_engine=mock_probabilistic_query_engine,
             embedding_pipeline=mock_embedding_pipeline,
             reranker=None,
-            rerank_enabled=False
+            rerank_enabled=False,
         )
 
     def test_initialization_with_reranker(self, processor_with_reranker, mock_reranker):
@@ -533,7 +587,7 @@ class TestNexusProcessorRerank:
         mock_graph_query_engine,
         mock_probabilistic_query_engine,
         mock_embedding_pipeline,
-        mock_reranker
+        mock_reranker,
     ):
         """Test custom rerank_top_k parameter."""
         processor = NexusProcessor(
@@ -542,7 +596,7 @@ class TestNexusProcessorRerank:
             probabilistic_query_engine=mock_probabilistic_query_engine,
             embedding_pipeline=mock_embedding_pipeline,
             reranker=mock_reranker,
-            rerank_top_k=50
+            rerank_top_k=50,
         )
         assert processor.rerank_top_k == 50
 
@@ -562,7 +616,9 @@ class TestNexusProcessorRerank:
         assert "core" in result
         assert "extended" in result
 
-    def test_rerank_step_called_after_rank(self, processor_with_reranker, mock_reranker):
+    def test_rerank_step_called_after_rank(
+        self, processor_with_reranker, mock_reranker
+    ):
         """Test rerank is called after rank step."""
         processor_with_reranker.process("test query")
 
@@ -579,7 +635,7 @@ class TestNexusProcessorRerank:
         mock_vector_indexer,
         mock_graph_query_engine,
         mock_probabilistic_query_engine,
-        mock_embedding_pipeline
+        mock_embedding_pipeline,
     ):
         """Test rerank_top_k limits documents sent to reranker."""
         # Create mock reranker that tracks input count
@@ -602,7 +658,7 @@ class TestNexusProcessorRerank:
             embedding_pipeline=mock_embedding_pipeline,
             reranker=reranker,
             rerank_enabled=True,
-            rerank_top_k=10
+            rerank_top_k=10,
         )
 
         processor.process("test query")
@@ -649,7 +705,7 @@ class TestNexusProcessorRerank:
         mock_graph_query_engine,
         mock_probabilistic_query_engine,
         mock_embedding_pipeline,
-        mock_reranker
+        mock_reranker,
     ):
         """Test reranker is skipped when rerank_enabled=False even with reranker present."""
         processor = NexusProcessor(
@@ -658,7 +714,7 @@ class TestNexusProcessorRerank:
             probabilistic_query_engine=mock_probabilistic_query_engine,
             embedding_pipeline=mock_embedding_pipeline,
             reranker=mock_reranker,
-            rerank_enabled=False  # Disabled despite having reranker
+            rerank_enabled=False,  # Disabled despite having reranker
         )
 
         processor.process("test query")
@@ -684,9 +740,9 @@ def test_nasa_rule_10_compliance():
             length = node.end_lineno - node.lineno + 1
 
             # Check NASA Rule 10 (≤60 LOC)
-            assert length <= 60, (
-                f"Method {node.name} has {length} LOC (violates NASA Rule 10: ≤60 LOC)"
-            )
+            assert (
+                length <= 60
+            ), f"Method {node.name} has {length} LOC (violates NASA Rule 10: ≤60 LOC)"
 
 
 class TestLostInMiddleMitigation:
@@ -696,9 +752,8 @@ class TestLostInMiddleMitigation:
     def processor(self):
         """Create a basic processor for testing mitigation."""
         from src.nexus.processing_utils import LostInMiddleMitigation
-        return NexusProcessor(
-            lost_in_middle_mitigation=LostInMiddleMitigation.EDGES
-        )
+
+        return NexusProcessor(lost_in_middle_mitigation=LostInMiddleMitigation.EDGES)
 
     @pytest.fixture
     def sample_results(self):
@@ -720,19 +775,20 @@ class TestLostInMiddleMitigation:
     def test_default_mitigation_is_edges(self):
         """Test default mitigation strategy is EDGES."""
         from src.nexus.processing_utils import LostInMiddleMitigation
+
         processor = NexusProcessor()
         assert processor.lost_in_middle_mitigation == LostInMiddleMitigation.EDGES
 
     def test_mitigation_none_preserves_order(self, sample_results):
         """Test NONE strategy preserves original order."""
         from src.nexus.processing_utils import LostInMiddleMitigation
+
         processor = NexusProcessor(
             lost_in_middle_mitigation=LostInMiddleMitigation.NONE
         )
 
         reordered = processor.apply_lost_in_middle_mitigation(
-            sample_results,
-            LostInMiddleMitigation.NONE
+            sample_results, LostInMiddleMitigation.NONE
         )
 
         # Order should be preserved
@@ -742,11 +798,11 @@ class TestLostInMiddleMitigation:
     def test_mitigation_edges_reordering(self, sample_results):
         """Test EDGES strategy places high relevance at edges."""
         from src.nexus.processing_utils import LostInMiddleMitigation
+
         processor = NexusProcessor()
 
         reordered = processor.apply_lost_in_middle_mitigation(
-            sample_results,
-            LostInMiddleMitigation.EDGES
+            sample_results, LostInMiddleMitigation.EDGES
         )
 
         # First item should be highest (r-0)
@@ -761,11 +817,11 @@ class TestLostInMiddleMitigation:
     def test_mitigation_interleave_reordering(self, sample_results):
         """Test INTERLEAVE strategy alternates high/medium relevance."""
         from src.nexus.processing_utils import LostInMiddleMitigation
+
         processor = NexusProcessor()
 
         reordered = processor.apply_lost_in_middle_mitigation(
-            sample_results,
-            LostInMiddleMitigation.INTERLEAVE
+            sample_results, LostInMiddleMitigation.INTERLEAVE
         )
 
         # First item should be from top half
@@ -781,11 +837,11 @@ class TestLostInMiddleMitigation:
     def test_mitigation_reverse_middle_reordering(self, sample_results):
         """Test REVERSE_MIDDLE strategy keeps edges, reverses middle."""
         from src.nexus.processing_utils import LostInMiddleMitigation
+
         processor = NexusProcessor()
 
         reordered = processor.apply_lost_in_middle_mitigation(
-            sample_results,
-            LostInMiddleMitigation.REVERSE_MIDDLE
+            sample_results, LostInMiddleMitigation.REVERSE_MIDDLE
         )
 
         # First stays first
@@ -801,12 +857,12 @@ class TestLostInMiddleMitigation:
     def test_mitigation_preserves_all_results(self, sample_results):
         """Test mitigation doesn't lose any results."""
         from src.nexus.processing_utils import LostInMiddleMitigation
+
         processor = NexusProcessor()
 
         for strategy in LostInMiddleMitigation:
             reordered = processor.apply_lost_in_middle_mitigation(
-                sample_results,
-                strategy
+                sample_results, strategy
             )
             assert len(reordered) == len(sample_results)
 
@@ -819,19 +875,18 @@ class TestLostInMiddleMitigation:
         from src.nexus.processing_utils import LostInMiddleMitigation
 
         reordered = processor.apply_lost_in_middle_mitigation(
-            [],
-            LostInMiddleMitigation.EDGES
+            [], LostInMiddleMitigation.EDGES
         )
         assert reordered == []
 
     def test_mitigation_single_result(self, processor):
         """Test mitigation handles single result."""
         from src.nexus.processing_utils import LostInMiddleMitigation
+
         single = [{"text": "Only one", "id": "r-0"}]
 
         reordered = processor.apply_lost_in_middle_mitigation(
-            single,
-            LostInMiddleMitigation.EDGES
+            single, LostInMiddleMitigation.EDGES
         )
         assert len(reordered) == 1
         assert reordered[0]["id"] == "r-0"
@@ -839,14 +894,11 @@ class TestLostInMiddleMitigation:
     def test_mitigation_two_results(self, processor):
         """Test mitigation handles two results."""
         from src.nexus.processing_utils import LostInMiddleMitigation
-        two = [
-            {"text": "First", "id": "r-0"},
-            {"text": "Second", "id": "r-1"}
-        ]
+
+        two = [{"text": "First", "id": "r-0"}, {"text": "Second", "id": "r-1"}]
 
         reordered = processor.apply_lost_in_middle_mitigation(
-            two,
-            LostInMiddleMitigation.EDGES
+            two, LostInMiddleMitigation.EDGES
         )
         assert len(reordered) == 2
 
@@ -895,7 +947,7 @@ class TestLostInMiddleMitigation:
             graph_query_engine=mock_graph,
             probabilistic_query_engine=mock_bayesian,
             lost_in_middle_mitigation=LostInMiddleMitigation.EDGES,
-            confidence_threshold=0.1  # Lower threshold to pass filter
+            confidence_threshold=0.1,  # Lower threshold to pass filter
         )
 
         result = processor.process("test query")
@@ -914,7 +966,5 @@ class TestLostInMiddleMitigation:
         from src.nexus.processing_utils import LostInMiddleMitigation
 
         for strategy in LostInMiddleMitigation:
-            processor = NexusProcessor(
-                lost_in_middle_mitigation=strategy
-            )
+            processor = NexusProcessor(lost_in_middle_mitigation=strategy)
             assert processor.lost_in_middle_mitigation == strategy

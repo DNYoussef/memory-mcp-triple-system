@@ -131,7 +131,9 @@ class ImprovementCoordinator:
             Cycle result
         """
         self._cycle_count += 1
-        cycle_id = f"cycle-{self._cycle_count}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        cycle_id = (
+            f"cycle-{self._cycle_count}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        )
         started_at = datetime.now(timezone.utc).isoformat()
 
         logger.info(f"Starting improvement cycle {cycle_id}")
@@ -159,7 +161,9 @@ class ImprovementCoordinator:
         # 3. Generate proposals
         proposals = []
         if patterns and self.config.auto_generate_proposals:
-            proposals = self.proposal_generator.generate_proposals_from_patterns(patterns)
+            proposals = self.proposal_generator.generate_proposals_from_patterns(
+                patterns
+            )
             logger.info(f"Generated {len(proposals)} proposals")
 
             # 4. Submit to approval gate

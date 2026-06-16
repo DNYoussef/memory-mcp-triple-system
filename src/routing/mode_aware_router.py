@@ -25,6 +25,7 @@ from loguru import logger
 
 class InteractionMode(Enum):
     """Interaction modes for routing decisions."""
+
     EXECUTION = "execution"
     PLANNING = "planning"
     BRAINSTORMING = "brainstorming"
@@ -33,6 +34,7 @@ class InteractionMode(Enum):
 @dataclass
 class RoutingWeight:
     """Weight configuration for a routing decision."""
+
     beads_weight: float  # Weight for Beads (tasks/structured data)
     memory_weight: float  # Weight for Memory MCP (semantic context)
     use_council: bool  # Whether to invoke LLM Council
@@ -41,19 +43,13 @@ class RoutingWeight:
 # Mode routing configurations
 MODE_WEIGHTS: Dict[InteractionMode, RoutingWeight] = {
     InteractionMode.EXECUTION: RoutingWeight(
-        beads_weight=0.80,
-        memory_weight=0.20,
-        use_council=False
+        beads_weight=0.80, memory_weight=0.20, use_council=False
     ),
     InteractionMode.PLANNING: RoutingWeight(
-        beads_weight=0.50,
-        memory_weight=0.50,
-        use_council=True
+        beads_weight=0.50, memory_weight=0.50, use_council=True
     ),
     InteractionMode.BRAINSTORMING: RoutingWeight(
-        beads_weight=0.20,
-        memory_weight=0.80,
-        use_council=False
+        beads_weight=0.20, memory_weight=0.80, use_council=False
     ),
 }
 
@@ -61,6 +57,7 @@ MODE_WEIGHTS: Dict[InteractionMode, RoutingWeight] = {
 @dataclass
 class RoutingDecision:
     """Result of a routing decision."""
+
     mode: InteractionMode
     beads_weight: float
     memory_weight: float
@@ -76,7 +73,7 @@ class RoutingDecision:
             "memory_weight": self.memory_weight,
             "use_council": self.use_council,
             "sources": self.sources,
-            "timestamp": self.timestamp
+            "timestamp": self.timestamp,
         }
 
 
@@ -100,7 +97,7 @@ class ModeAwareRouter:
         self,
         beads_client: Optional[Any] = None,
         memory_client: Optional[Any] = None,
-        council_client: Optional[Any] = None
+        council_client: Optional[Any] = None,
     ):
         """
         Initialize mode-aware router.
@@ -123,7 +120,7 @@ class ModeAwareRouter:
         self,
         query: str,
         mode: InteractionMode,
-        context: Optional[Dict[str, Any]] = None
+        context: Optional[Dict[str, Any]] = None,
     ) -> RoutingDecision:
         """
         Route a query based on interaction mode.
@@ -151,7 +148,7 @@ class ModeAwareRouter:
             memory_weight=weights.memory_weight,
             use_council=weights.use_council,
             sources=sources,
-            timestamp=datetime.utcnow().isoformat()
+            timestamp=datetime.utcnow().isoformat(),
         )
 
         # Track history
@@ -167,9 +164,7 @@ class ModeAwareRouter:
         return decision
 
     def _determine_sources(
-        self,
-        weights: RoutingWeight,
-        context: Optional[Dict[str, Any]] = None
+        self, weights: RoutingWeight, context: Optional[Dict[str, Any]] = None
     ) -> List[str]:
         """
         Determine which sources to query based on weights.
@@ -209,7 +204,7 @@ class ModeAwareRouter:
         decision: RoutingDecision,
         beads_results: Optional[List[Dict[str, Any]]] = None,
         memory_results: Optional[List[Dict[str, Any]]] = None,
-        council_results: Optional[Dict[str, Any]] = None
+        council_results: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Merge results from multiple sources using weighted scoring.
@@ -250,14 +245,16 @@ class ModeAwareRouter:
                 "_weight": 1.0,
                 "_score": council_results.get("confidence", 0.8),
                 "recommendation": council_results.get("recommendation"),
-                "consensus": council_results.get("consensus")
+                "consensus": council_results.get("consensus"),
             }
             merged.append(council_item)
 
         # Sort by weighted score
         merged.sort(key=lambda x: x.get("_score", 0), reverse=True)
 
-        logger.debug(f"Merged {len(merged)} results from {len(decision.sources)} sources")
+        logger.debug(
+            f"Merged {len(merged)} results from {len(decision.sources)} sources"
+        )
         return merged
 
     def get_routing_stats(self) -> Dict[str, Any]:
@@ -282,14 +279,13 @@ class ModeAwareRouter:
         return {
             "total_routes": len(self.routing_history),
             "by_mode": by_mode,
-            "last_route": self.routing_history[-1].to_dict() if self.routing_history else None
+            "last_route": self.routing_history[-1].to_dict()
+            if self.routing_history
+            else None,
         }
 
     def adjust_weights(
-        self,
-        mode: InteractionMode,
-        beads_weight: float,
-        memory_weight: float
+        self, mode: InteractionMode, beads_weight: float, memory_weight: float
     ) -> None:
         """
         Dynamically adjust weights for a mode (for A/B testing).
@@ -309,7 +305,7 @@ class ModeAwareRouter:
         MODE_WEIGHTS[mode] = RoutingWeight(
             beads_weight=max(0, min(1, beads_weight)),
             memory_weight=max(0, min(1, memory_weight)),
-            use_council=current.use_council
+            use_council=current.use_council,
         )
 
         logger.info(

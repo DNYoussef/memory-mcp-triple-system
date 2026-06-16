@@ -9,6 +9,7 @@ import types
 # spacy is an optional heavy dependency not installed in CI.
 if "spacy" not in sys.modules:
     import importlib.machinery
+
     _spacy = types.ModuleType("spacy")
     _spacy.load = lambda *a, **kw: None
     _spacy.__path__ = []

@@ -52,10 +52,12 @@ class TestGetCandidatesForCleanupNoneSeverity:
         min_severity (MEDIUM) it is excluded, while a real MEDIUM signal in the
         same report is still returned."""
         detector = DriftDetector()
-        report = _report([
-            _signal("none_chunk", DriftSeverity.NONE),
-            _signal("medium_chunk", DriftSeverity.MEDIUM),
-        ])
+        report = _report(
+            [
+                _signal("none_chunk", DriftSeverity.NONE),
+                _signal("medium_chunk", DriftSeverity.MEDIUM),
+            ]
+        )
 
         candidates = detector.get_candidates_for_cleanup(report)
 
@@ -65,10 +67,12 @@ class TestGetCandidatesForCleanupNoneSeverity:
     def test_min_severity_none_includes_everything(self):
         """min_severity=NONE must not raise and includes the lowest rung."""
         detector = DriftDetector()
-        report = _report([
-            _signal("none_chunk", DriftSeverity.NONE),
-            _signal("high_chunk", DriftSeverity.HIGH),
-        ])
+        report = _report(
+            [
+                _signal("none_chunk", DriftSeverity.NONE),
+                _signal("high_chunk", DriftSeverity.HIGH),
+            ]
+        )
 
         candidates = detector.get_candidates_for_cleanup(
             report, min_severity=DriftSeverity.NONE

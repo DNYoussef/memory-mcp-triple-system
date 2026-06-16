@@ -47,7 +47,9 @@ class TriggerEvent:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_file_open(cls, file_path: str, project: Optional[str] = None) -> "TriggerEvent":
+    def from_file_open(
+        cls, file_path: str, project: Optional[str] = None
+    ) -> "TriggerEvent":
         """Create trigger from file open event."""
         return cls(
             trigger_type=TriggerType.FILE_OPEN,
@@ -87,7 +89,9 @@ class TriggerEvent:
             detected_at=datetime.utcnow(),
             source_data={"pattern": pattern, "confidence": confidence},
             context_query=f"pattern:{pattern}",
-            priority=ContextPriority.MEDIUM if confidence > 0.7 else ContextPriority.LOW,
+            priority=ContextPriority.MEDIUM
+            if confidence > 0.7
+            else ContextPriority.LOW,
         )
 
 
@@ -128,7 +132,9 @@ class InjectionRule:
     min_relevance: float = 0.5  # Minimum relevance to inject
     max_tokens: int = 2000  # Max tokens to inject
     cooldown_seconds: int = 300  # Min time between injections
-    require_ontologies: Optional[List[str]] = None  # Only inject if these ontologies have results
+    require_ontologies: Optional[
+        List[str]
+    ] = None  # Only inject if these ontologies have results
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 

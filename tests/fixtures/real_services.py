@@ -24,24 +24,44 @@ from typing import Generator, List, Dict, Any
 SAMPLE_DOCUMENTS = [
     {
         "text": "NASA Rule 10 states that all functions must be 60 lines or less. This promotes readable and maintainable code.",
-        "metadata": {"file_path": "/docs/nasa_rules.md", "chunk_index": 0, "topic": "coding_standards"}
+        "metadata": {
+            "file_path": "/docs/nasa_rules.md",
+            "chunk_index": 0,
+            "topic": "coding_standards",
+        },
     },
     {
         "text": "Memory MCP Triple System uses a three-tier architecture: Vector, Graph, and Bayesian for intelligent retrieval.",
-        "metadata": {"file_path": "/docs/architecture.md", "chunk_index": 0, "topic": "architecture"}
+        "metadata": {
+            "file_path": "/docs/architecture.md",
+            "chunk_index": 0,
+            "topic": "architecture",
+        },
     },
     {
         "text": "ChromaDB is a vector database that enables semantic similarity search using embeddings.",
-        "metadata": {"file_path": "/docs/chromadb.md", "chunk_index": 0, "topic": "database"}
+        "metadata": {
+            "file_path": "/docs/chromadb.md",
+            "chunk_index": 0,
+            "topic": "database",
+        },
     },
     {
         "text": "HippoRAG combines hippocampal indexing theory with retrieval-augmented generation for better context.",
-        "metadata": {"file_path": "/docs/hipporag.md", "chunk_index": 0, "topic": "retrieval"}
+        "metadata": {
+            "file_path": "/docs/hipporag.md",
+            "chunk_index": 0,
+            "topic": "retrieval",
+        },
     },
     {
         "text": "Bayesian networks enable probabilistic reasoning over uncertain relationships in knowledge graphs.",
-        "metadata": {"file_path": "/docs/bayesian.md", "chunk_index": 0, "topic": "inference"}
-    }
+        "metadata": {
+            "file_path": "/docs/bayesian.md",
+            "chunk_index": 0,
+            "topic": "inference",
+        },
+    },
 ]
 
 
@@ -103,8 +123,7 @@ def real_vector_indexer(temp_data_dir: Path):
     persist_dir.mkdir(parents=True, exist_ok=True)
 
     indexer = VectorIndexer(
-        persist_directory=str(persist_dir),
-        collection_name="test_collection"
+        persist_directory=str(persist_dir), collection_name="test_collection"
     )
 
     yield indexer
@@ -157,12 +176,14 @@ def indexed_documents(real_vector_indexer, real_embedding_pipeline, sample_docum
     # Transform sample_documents to chunk format expected by index_chunks
     chunks = []
     for i, doc in enumerate(sample_documents):
-        chunks.append({
-            "text": doc["text"],
-            "file_path": doc["metadata"].get("file_path", f"/test/doc_{i}.md"),
-            "chunk_index": i,
-            "metadata": doc["metadata"]
-        })
+        chunks.append(
+            {
+                "text": doc["text"],
+                "file_path": doc["metadata"].get("file_path", f"/test/doc_{i}.md"),
+                "chunk_index": i,
+                "metadata": doc["metadata"],
+            }
+        )
 
     # Generate embeddings
     texts = [chunk["text"] for chunk in chunks]
@@ -210,7 +231,9 @@ def populated_graph(real_graph_service, sample_documents):
 
 
 @pytest.fixture
-def real_nexus_processor(real_vector_indexer, real_graph_query_engine, real_embedding_pipeline):
+def real_nexus_processor(
+    real_vector_indexer, real_graph_query_engine, real_embedding_pipeline
+):
     """
     Real NexusProcessor with all three tiers wired.
     """
@@ -224,7 +247,7 @@ def real_nexus_processor(real_vector_indexer, real_graph_query_engine, real_embe
         vector_indexer=real_vector_indexer,
         graph_query_engine=real_graph_query_engine,
         probabilistic_query_engine=bayesian_engine,
-        embedding_pipeline=real_embedding_pipeline
+        embedding_pipeline=real_embedding_pipeline,
     )
 
     return processor

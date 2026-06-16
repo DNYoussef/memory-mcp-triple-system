@@ -18,6 +18,7 @@ from .entity_service import EntityService
 @dataclass
 class QueryEntity:
     """Query entity with graph node mapping."""
+
     text: str
     type: str
     node_id: Optional[str]
@@ -27,6 +28,7 @@ class QueryEntity:
 @dataclass
 class RetrievalResult:
     """HippoRAG retrieval result."""
+
     chunk_id: str
     text: str
     score: float
@@ -43,11 +45,7 @@ class HippoRagService:
     Uses Personalized PageRank on knowledge graph for context-aware retrieval.
     """
 
-    def __init__(
-        self,
-        graph_service: GraphService,
-        entity_service: EntityService
-    ):
+    def __init__(self, graph_service: GraphService, entity_service: EntityService):
         """
         Initialize HippoRAG service with dependencies.
 
@@ -69,15 +67,13 @@ class HippoRagService:
 
         # Initialize graph query engine (Day 2)
         from .graph_query_engine import GraphQueryEngine
+
         self.graph_query_engine = GraphQueryEngine(graph_service)
 
         logger.info("HippoRagService initialized")
 
     def retrieve(
-        self,
-        query: str,
-        top_k: int = 5,
-        alpha: float = 0.85
+        self, query: str, top_k: int = 5, alpha: float = 0.85
     ) -> List[RetrievalResult]:
         """
         Retrieve top-K chunks using HippoRAG (graph-based retrieval).
@@ -114,10 +110,7 @@ class HippoRagService:
                 return []
 
             # Step 4: Format results
-            results = self._format_retrieval_results(
-                ranked_chunks,
-                query_nodes
-            )
+            results = self._format_retrieval_results(ranked_chunks, query_nodes)
 
             logger.info(f"Retrieved {len(results)} chunks for query")
             return results
@@ -127,10 +120,7 @@ class HippoRagService:
             return []
 
     def _run_ppr_and_rank(
-        self,
-        query_nodes: List[str],
-        alpha: float,
-        top_k: int
+        self, query_nodes: List[str], alpha: float, top_k: int
     ) -> List[Tuple[str, float]]:
         """
         Run Personalized PageRank and rank chunks.
@@ -145,8 +135,7 @@ class HippoRagService:
         """
         # Run PPR
         ppr_scores = self.graph_query_engine.personalized_pagerank(
-            query_nodes=query_nodes,
-            alpha=alpha
+            query_nodes=query_nodes, alpha=alpha
         )
 
         if not ppr_scores:
@@ -155,16 +144,13 @@ class HippoRagService:
 
         # Rank chunks
         ranked_chunks = self.graph_query_engine.rank_chunks_by_ppr(
-            ppr_scores=ppr_scores,
-            top_k=top_k
+            ppr_scores=ppr_scores, top_k=top_k
         )
 
         return ranked_chunks
 
     def _format_retrieval_results(
-        self,
-        ranked_chunks: List[Tuple[str, float]],
-        query_nodes: List[str]
+        self, ranked_chunks: List[Tuple[str, float]], query_nodes: List[str]
     ) -> List[RetrievalResult]:
         """
         Format ranked chunks as RetrievalResult objects.
@@ -181,7 +167,7 @@ class HippoRagService:
         for rank, (chunk_id, score) in enumerate(ranked_chunks, 1):
             # Get chunk metadata
             node_data = self.graph_service.get_node(chunk_id)
-            chunk_text = node_data.get('metadata', {}).get('text', '')
+            chunk_text = node_data.get("metadata", {}).get("text", "")
 
             result = RetrievalResult(
                 chunk_id=chunk_id,
@@ -189,7 +175,7 @@ class HippoRagService:
                 score=float(score),
                 rank=rank,
                 entities=query_nodes,
-                metadata=node_data.get('metadata', {})
+                metadata=node_data.get("metadata", {}),
             )
             results.append(result)
 
@@ -214,10 +200,7 @@ class HippoRagService:
             entities = self.entity_service.extract_entities(query)
 
             # Normalize entity texts to IDs
-            entity_ids = [
-                self._normalize_entity_text(ent['text'])
-                for ent in entities
-            ]
+            entity_ids = [self._normalize_entity_text(ent["text"]) for ent in entities]
 
             logger.debug(f"Extracted {len(entity_ids)} entities from query")
             return entity_ids
@@ -226,10 +209,7 @@ class HippoRagService:
             logger.error(f"Failed to extract query entities: {e}")
             return []
 
-    def _match_entities_to_nodes(
-        self,
-        entities: List[str]
-    ) -> List[str]:
+    def _match_entities_to_nodes(self, entities: List[str]) -> List[str]:
         """
         Match extracted entities to graph nodes.
 
@@ -264,7 +244,7 @@ class HippoRagService:
         Returns:
             Normalized text (lowercase, no spaces)
         """
-        return text.lower().replace(' ', '_').replace('.', '')
+        return text.lower().replace(" ", "_").replace(".", "")
 
     def _match_query_tokens_to_nodes(self, query: str) -> List[str]:
         """
@@ -294,10 +274,7 @@ class HippoRagService:
         return self._match_entities_to_nodes(candidates)
 
     def retrieve_multi_hop(
-        self,
-        query: str,
-        max_hops: int = 3,
-        top_k: int = 5
+        self, query: str, max_hops: int = 3, top_k: int = 5
     ) -> List[RetrievalResult]:
         """
         Retrieve using multi-hop graph traversal.
@@ -313,8 +290,7 @@ class HippoRagService:
             List of RetrievalResult dicts
         """
         logger.info(
-            f"Multi-hop retrieve: '{query}' "
-            f"(max_hops={max_hops}, top_k={top_k})"
+            f"Multi-hop retrieve: '{query}' " f"(max_hops={max_hops}, top_k={top_k})"
         )
 
         try:
@@ -324,16 +300,12 @@ class HippoRagService:
                 return []
 
             # Expand with multi-hop search
-            expanded_entities = self._expand_entities_multi_hop(
-                query_nodes, max_hops
-            )
+            expanded_entities = self._expand_entities_multi_hop(query_nodes, max_hops)
             if not expanded_entities:
                 return []
 
             # Run PPR and rank chunks
-            results = self._ppr_rank_and_format(
-                expanded_entities, top_k
-            )
+            results = self._ppr_rank_and_format(expanded_entities, top_k)
 
             logger.info(
                 f"Multi-hop retrieve found {len(results)} chunks "
@@ -370,9 +342,7 @@ class HippoRagService:
         return query_nodes
 
     def _expand_entities_multi_hop(
-        self,
-        query_nodes: List[str],
-        max_hops: int
+        self, query_nodes: List[str], max_hops: int
     ) -> List[str]:
         """
         Expand entities using multi-hop search.
@@ -385,11 +355,10 @@ class HippoRagService:
             List of expanded entity IDs
         """
         multi_hop_result = self.graph_query_engine.multi_hop_search(
-            start_nodes=query_nodes,
-            max_hops=max_hops
+            start_nodes=query_nodes, max_hops=max_hops
         )
 
-        expanded_entities = multi_hop_result['entities']
+        expanded_entities = multi_hop_result["entities"]
         if not expanded_entities:
             logger.warning("Multi-hop search found no entities")
             return []
@@ -397,9 +366,7 @@ class HippoRagService:
         return expanded_entities
 
     def _ppr_rank_and_format(
-        self,
-        expanded_entities: List[str],
-        top_k: int
+        self, expanded_entities: List[str], top_k: int
     ) -> List[RetrievalResult]:
         """
         Run PPR, rank chunks, and format results.
@@ -413,8 +380,7 @@ class HippoRagService:
         """
         # Run PPR on expanded entity set
         ppr_scores = self.graph_query_engine.personalized_pagerank(
-            query_nodes=expanded_entities,
-            alpha=0.85
+            query_nodes=expanded_entities, alpha=0.85
         )
 
         if not ppr_scores:
@@ -423,8 +389,7 @@ class HippoRagService:
 
         # Rank chunks
         ranked_chunks = self.graph_query_engine.rank_chunks_by_ppr(
-            ppr_scores=ppr_scores,
-            top_k=top_k
+            ppr_scores=ppr_scores, top_k=top_k
         )
 
         if not ranked_chunks:
@@ -432,7 +397,4 @@ class HippoRagService:
             return []
 
         # Format results
-        return self._format_retrieval_results(
-            ranked_chunks,
-            expanded_entities
-        )
+        return self._format_retrieval_results(ranked_chunks, expanded_entities)

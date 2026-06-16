@@ -84,11 +84,19 @@ class GraphService:
     def add_chunk_node(self, chunk_id: str, metadata: Optional[Dict] = None) -> bool:
         return self._mutate(self._node_manager.add_chunk(chunk_id, metadata))
 
-    def add_entity_node(self, entity_id: str, entity_type: str, metadata: Optional[Dict] = None) -> bool:
-        return self._mutate(self._node_manager.add_entity(entity_id, entity_type, metadata))
+    def add_entity_node(
+        self, entity_id: str, entity_type: str, metadata: Optional[Dict] = None
+    ) -> bool:
+        return self._mutate(
+            self._node_manager.add_entity(entity_id, entity_type, metadata)
+        )
 
-    def add_entity(self, entity_id: str, entity_type: str, metadata: Optional[Dict] = None) -> bool:
-        return self._mutate(self._node_manager.add_entity(entity_id, entity_type, metadata))
+    def add_entity(
+        self, entity_id: str, entity_type: str, metadata: Optional[Dict] = None
+    ) -> bool:
+        return self._mutate(
+            self._node_manager.add_entity(entity_id, entity_type, metadata)
+        )
 
     def get_node(self, node_id: str) -> Optional[Dict[str, Any]]:
         return self._node_manager.get_node(node_id)
@@ -104,21 +112,25 @@ class GraphService:
         """Increment frequency counter when node is accessed."""
         return self._mutate(self._node_manager.increment_frequency(node_id))
 
-    def update_node_importance(self, node_id: str, explicit_weight: float = 0.5) -> bool:
+    def update_node_importance(
+        self, node_id: str, explicit_weight: float = 0.5
+    ) -> bool:
         """Update node importance using weighted formula."""
-        return self._mutate(self._node_manager.update_importance(node_id, explicit_weight))
+        return self._mutate(
+            self._node_manager.update_importance(node_id, explicit_weight)
+        )
 
     def update_node_decay_score(self, node_id: str) -> bool:
         """Update decay score based on time since last access."""
         return self._mutate(self._node_manager.update_decay_score(node_id))
 
     def get_nodes_by_importance(
-        self,
-        min_importance: float = 0.0,
-        max_importance: float = 1.0
+        self, min_importance: float = 0.0, max_importance: float = 1.0
     ) -> List[tuple]:
         """Get nodes filtered by importance range."""
-        return self._node_manager.get_nodes_by_importance(min_importance, max_importance)
+        return self._node_manager.get_nodes_by_importance(
+            min_importance, max_importance
+        )
 
     # Edge operations (delegate to GraphEdgeManager)
     def add_relationship(
@@ -126,27 +138,28 @@ class GraphService:
         source: str,
         relationship_type: str,
         target: str,
-        metadata: Optional[Dict] = None
+        metadata: Optional[Dict] = None,
     ) -> bool:
         standard_types = {
             self.EDGE_REFERENCES,
             self.EDGE_MENTIONS,
             self.EDGE_SIMILAR_TO,
-            self.EDGE_RELATED_TO
+            self.EDGE_RELATED_TO,
         }
         if relationship_type not in standard_types and target in standard_types:
             relationship_type, target = target, relationship_type
-        return self._mutate(self._edge_manager.add_relationship(
-            source,
-            relationship_type,
-            target,
-            metadata
-        ))
+        return self._mutate(
+            self._edge_manager.add_relationship(
+                source, relationship_type, target, metadata
+            )
+        )
 
     def remove_edge(self, source: str, target: str) -> bool:
         return self._mutate(self._edge_manager.remove_edge(source, target))
 
-    def get_neighbors(self, node_id: str, relationship_type: Optional[str] = None) -> List[str]:
+    def get_neighbors(
+        self, node_id: str, relationship_type: Optional[str] = None
+    ) -> List[str]:
         return self._edge_manager.get_neighbors(node_id, relationship_type)
 
     def get_edge_count(self) -> int:
@@ -158,24 +171,26 @@ class GraphService:
         source: str,
         target: str,
         new_confidence: float,
-        evidence_chunk: Optional[str] = None
+        evidence_chunk: Optional[str] = None,
     ) -> bool:
         """Update edge confidence based on new evidence."""
-        return self._mutate(self._edge_manager.update_edge_confidence(
-            source, target, new_confidence, evidence_chunk
-        ))
+        return self._mutate(
+            self._edge_manager.update_edge_confidence(
+                source, target, new_confidence, evidence_chunk
+            )
+        )
 
     def increment_edge_frequency(self, source: str, target: str) -> bool:
         """Increment frequency counter when edge is observed."""
         return self._mutate(self._edge_manager.increment_frequency(source, target))
 
     def get_edges_by_confidence(
-        self,
-        min_confidence: float = 0.0,
-        max_confidence: float = 1.0
+        self, min_confidence: float = 0.0, max_confidence: float = 1.0
     ) -> List[tuple]:
         """Get edges filtered by confidence range."""
-        return self._edge_manager.get_edges_by_confidence(min_confidence, max_confidence)
+        return self._edge_manager.get_edges_by_confidence(
+            min_confidence, max_confidence
+        )
 
     def update_edge_from_bayesian(
         self,
@@ -183,7 +198,7 @@ class GraphService:
         target: str,
         bayesian_posterior: float,
         prior_weight: float = 0.7,
-        posterior_weight: float = 0.3
+        posterior_weight: float = 0.3,
     ) -> bool:
         """
         Update edge confidence based on Bayesian inference result.
@@ -207,18 +222,19 @@ class GraphService:
             return False
 
         edge_data = self.graph.get_edge_data(source, target)
-        prior_confidence = edge_data.get('confidence', 0.5)
+        prior_confidence = edge_data.get("confidence", 0.5)
 
         # Apply weighted update formula
         new_confidence = (
-            prior_weight * prior_confidence +
-            posterior_weight * bayesian_posterior
+            prior_weight * prior_confidence + posterior_weight * bayesian_posterior
         )
 
         # Clamp to [0.1, 0.95] to prevent certainty
         new_confidence = max(0.1, min(0.95, new_confidence))
 
-        return self._mutate(self._edge_manager.update_edge_confidence(source, target, new_confidence))
+        return self._mutate(
+            self._edge_manager.update_edge_confidence(source, target, new_confidence)
+        )
 
     # Query operations (delegate to GraphQueryService)
     def find_path(self, source: str, target: str) -> Optional[List[str]]:
@@ -252,7 +268,7 @@ class GraphService:
         entity_id: str,
         embedder: Any,
         similarity_threshold: float = 0.85,
-        max_links: int = 3
+        max_links: int = 3,
     ) -> int:
         """
         Link entity to similar entities across components.
@@ -262,18 +278,11 @@ class GraphService:
         if embedder is None or not self.graph.has_node(entity_id):
             return 0
         return self._link_similar_entities(
-            entity_id,
-            embedder,
-            similarity_threshold,
-            max_links
+            entity_id, embedder, similarity_threshold, max_links
         )
 
     def _link_similar_entities(
-        self,
-        entity_id: str,
-        embedder: Any,
-        similarity_threshold: float,
-        max_links: int
+        self, entity_id: str, embedder: Any, similarity_threshold: float, max_links: int
     ) -> int:
         """
         Link entity to similar entities using embedding similarity.
@@ -289,7 +298,9 @@ class GraphService:
             return 0
 
         candidate_texts = [self._get_entity_text(cid) for cid in candidates]
-        filtered = [(cid, text) for cid, text in zip(candidates, candidate_texts) if text]
+        filtered = [
+            (cid, text) for cid, text in zip(candidates, candidate_texts) if text
+        ]
         if not filtered:
             return 0
 
@@ -297,11 +308,7 @@ class GraphService:
         embeddings = embedder.encode([entity_text] + list(texts))
         base = embeddings[0]
         scores = self._cosine_similarity(base, embeddings[1:])
-        ranked = sorted(
-            zip(ids, scores),
-            key=lambda item: item[1],
-            reverse=True
-        )
+        ranked = sorted(zip(ids, scores), key=lambda item: item[1], reverse=True)
 
         links_added = 0
         for candidate_id, score in ranked:
@@ -313,7 +320,7 @@ class GraphService:
                 entity_id,
                 self.EDGE_SIMILAR_TO,
                 candidate_id,
-                {"confidence": float(score)}
+                {"confidence": float(score)},
             )
             links_added += 1
 
@@ -326,7 +333,9 @@ class GraphService:
 
     def _get_cross_component_entities(self, entity_id: str) -> List[str]:
         components = list(nx.weakly_connected_components(self.graph))
-        component_map = {node: idx for idx, comp in enumerate(components) for node in comp}
+        component_map = {
+            node: idx for idx, comp in enumerate(components) for node in comp
+        }
         source_component = component_map.get(entity_id)
         candidates = []
         for node_id, data in self.graph.nodes(data=True):

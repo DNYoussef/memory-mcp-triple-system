@@ -307,15 +307,23 @@ class FineTuneCoordinator:
         parts = [f"Analyzed {total_failures} failures"]
 
         if total_clusters > 0:
-            parts.append(f"found {total_clusters} clusters ({significant_clusters} significant)")
+            parts.append(
+                f"found {total_clusters} clusters ({significant_clusters} significant)"
+            )
 
-        critical = [r for r in recommendations if r.priority == RecommendationPriority.CRITICAL]
+        critical = [
+            r for r in recommendations if r.priority == RecommendationPriority.CRITICAL
+        ]
         high = [r for r in recommendations if r.priority == RecommendationPriority.HIGH]
 
         if critical:
-            parts.append(f"{len(critical)} critical fine-tuning opportunities identified")
+            parts.append(
+                f"{len(critical)} critical fine-tuning opportunities identified"
+            )
         elif high:
-            parts.append(f"{len(high)} high-priority fine-tuning opportunities identified")
+            parts.append(
+                f"{len(high)} high-priority fine-tuning opportunities identified"
+            )
         elif recommendations:
             parts.append(f"{len(recommendations)} fine-tuning opportunities identified")
         else:

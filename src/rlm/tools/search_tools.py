@@ -34,6 +34,7 @@ class SearchResult:
         metadata: Additional metadata
         timestamp: When the item was created/modified
     """
+
     id: str
     content: str
     source: str
@@ -63,6 +64,7 @@ class TimeRange:
         start: Start datetime (inclusive)
         end: End datetime (inclusive)
     """
+
     start: Optional[datetime] = None
     end: Optional[datetime] = None
 
@@ -101,6 +103,7 @@ class GraphEdgeFilter:
         target_type: Target node type filter
         bidirectional: Search both directions
     """
+
     relation_type: Optional[str] = None
     source_type: Optional[str] = None
     target_type: Optional[str] = None
@@ -121,7 +124,7 @@ class RLMSearchTools:
         self,
         kv_data: Optional[Dict[str, Any]] = None,
         graph_data: Optional[Dict[str, Any]] = None,
-        vector_search_fn: Optional[Callable] = None
+        vector_search_fn: Optional[Callable] = None,
     ):
         """
         Initialize search tools.
@@ -138,13 +141,12 @@ class RLMSearchTools:
         self._vector_search = vector_search_fn
         self._search_count = 0
 
-        logger.info(f"RLMSearchTools initialized: kv={len(self._kv_data)}, graph_nodes={len(self._graph_data.get('nodes', []))}")
+        logger.info(
+            f"RLMSearchTools initialized: kv={len(self._kv_data)}, graph_nodes={len(self._graph_data.get('nodes', []))}"
+        )
 
     def search_by_namespace(
-        self,
-        namespace: str,
-        limit: int = 50,
-        exact_match: bool = False
+        self, namespace: str, limit: int = 50, exact_match: bool = False
     ) -> List[SearchResult]:
         """
         Search by Memory MCP namespace prefix.
@@ -177,15 +179,19 @@ class RLMSearchTools:
             if matches:
                 content = json.dumps(value) if isinstance(value, dict) else str(value)
                 ns_parts = key.split(":")
-                results.append(SearchResult(
-                    id=key,
-                    content=content[:1000],
-                    source="kv",
-                    namespace=ns_parts[0] if ns_parts else "default",
-                    score=1.0 if exact_match else 0.9,
-                    metadata={"full_key": key},
-                    timestamp=value.get("created_at") if isinstance(value, dict) else None
-                ))
+                results.append(
+                    SearchResult(
+                        id=key,
+                        content=content[:1000],
+                        source="kv",
+                        namespace=ns_parts[0] if ns_parts else "default",
+                        score=1.0 if exact_match else 0.9,
+                        metadata={"full_key": key},
+                        timestamp=value.get("created_at")
+                        if isinstance(value, dict)
+                        else None,
+                    )
+                )
 
                 if len(results) >= limit:
                     break
@@ -198,7 +204,7 @@ class RLMSearchTools:
         self,
         time_range: TimeRange,
         namespace_filter: Optional[str] = None,
-        limit: int = 100
+        limit: int = 100,
     ) -> List[SearchResult]:
         """
         Search by creation/modification time range.
@@ -217,13 +223,19 @@ class RLMSearchTools:
 
         for key, value in self._kv_data.items():
             # Namespace filter
-            if namespace_filter and not key.lower().startswith(namespace_filter.lower()):
+            if namespace_filter and not key.lower().startswith(
+                namespace_filter.lower()
+            ):
                 continue
 
             # Extract timestamp
             timestamp = None
             if isinstance(value, dict):
-                timestamp = value.get("created_at") or value.get("timestamp") or value.get("when")
+                timestamp = (
+                    value.get("created_at")
+                    or value.get("timestamp")
+                    or value.get("when")
+                )
 
             # Check time range
             if timestamp and not time_range.contains(timestamp):
@@ -231,15 +243,17 @@ class RLMSearchTools:
 
             content = json.dumps(value) if isinstance(value, dict) else str(value)
             ns_parts = key.split(":")
-            results.append(SearchResult(
-                id=key,
-                content=content[:1000],
-                source="kv",
-                namespace=ns_parts[0] if ns_parts else "default",
-                score=0.8,
-                metadata={"full_key": key},
-                timestamp=timestamp
-            ))
+            results.append(
+                SearchResult(
+                    id=key,
+                    content=content[:1000],
+                    source="kv",
+                    namespace=ns_parts[0] if ns_parts else "default",
+                    score=0.8,
+                    metadata={"full_key": key},
+                    timestamp=timestamp,
+                )
+            )
 
             if len(results) >= limit:
                 break
@@ -256,7 +270,7 @@ class RLMSearchTools:
         query: str,
         case_sensitive: bool = False,
         use_regex: bool = False,
-        limit: int = 50
+        limit: int = 50,
     ) -> List[SearchResult]:
         """
         Full-text content search across KV store.
@@ -299,15 +313,22 @@ class RLMSearchTools:
 
             if match:
                 ns_parts = key.split(":")
-                results.append(SearchResult(
-                    id=key,
-                    content=content[:1000],
-                    source="kv",
-                    namespace=ns_parts[0] if ns_parts else "default",
-                    score=0.85,
-                    metadata={"full_key": key, "match_type": "regex" if use_regex else "substring"},
-                    timestamp=value.get("created_at") if isinstance(value, dict) else None
-                ))
+                results.append(
+                    SearchResult(
+                        id=key,
+                        content=content[:1000],
+                        source="kv",
+                        namespace=ns_parts[0] if ns_parts else "default",
+                        score=0.85,
+                        metadata={
+                            "full_key": key,
+                            "match_type": "regex" if use_regex else "substring",
+                        },
+                        timestamp=value.get("created_at")
+                        if isinstance(value, dict)
+                        else None,
+                    )
+                )
 
                 if len(results) >= limit:
                     break
@@ -317,9 +338,7 @@ class RLMSearchTools:
         return results
 
     def search_graph_edges(
-        self,
-        edge_filter: GraphEdgeFilter,
-        limit: int = 100
+        self, edge_filter: GraphEdgeFilter, limit: int = 100
     ) -> List[SearchResult]:
         """
         Search graph edges by relation type and node filters.
@@ -350,30 +369,38 @@ class RLMSearchTools:
             # Source type filter
             source_node = nodes.get(source_id, {})
             if edge_filter.source_type:
-                if edge_filter.source_type.lower() not in str(source_node.get("type", "")).lower():
+                if (
+                    edge_filter.source_type.lower()
+                    not in str(source_node.get("type", "")).lower()
+                ):
                     continue
 
             # Target type filter
             target_node = nodes.get(target_id, {})
             if edge_filter.target_type:
-                if edge_filter.target_type.lower() not in str(target_node.get("type", "")).lower():
+                if (
+                    edge_filter.target_type.lower()
+                    not in str(target_node.get("type", "")).lower()
+                ):
                     continue
 
             # Build result
             content = f"{source_node.get('label', source_id)} --[{relation}]--> {target_node.get('label', target_id)}"
-            results.append(SearchResult(
-                id=f"edge:{source_id}:{target_id}",
-                content=content,
-                source="graph",
-                namespace="graph_edges",
-                score=0.9,
-                metadata={
-                    "source_id": source_id,
-                    "target_id": target_id,
-                    "relation": relation,
-                    "edge_data": edge
-                }
-            ))
+            results.append(
+                SearchResult(
+                    id=f"edge:{source_id}:{target_id}",
+                    content=content,
+                    source="graph",
+                    namespace="graph_edges",
+                    score=0.9,
+                    metadata={
+                        "source_id": source_id,
+                        "target_id": target_id,
+                        "relation": relation,
+                        "edge_data": edge,
+                    },
+                )
+            )
 
             if len(results) >= limit:
                 break
@@ -389,17 +416,15 @@ class RLMSearchTools:
             "kv_items": len(self._kv_data),
             "graph_nodes": len(self._graph_data.get("nodes", [])),
             "graph_edges": len(self._graph_data.get("edges", [])),
-            "has_vector_search": self._vector_search is not None
+            "has_vector_search": self._vector_search is not None,
         }
 
 
 # Convenience functions for standalone use
 
+
 def search_by_namespace(
-    kv_data: Dict[str, Any],
-    namespace: str,
-    limit: int = 50,
-    exact_match: bool = False
+    kv_data: Dict[str, Any], namespace: str, limit: int = 50, exact_match: bool = False
 ) -> List[SearchResult]:
     """Search by namespace prefix."""
     tools = RLMSearchTools(kv_data=kv_data)
@@ -410,7 +435,7 @@ def search_by_time_range(
     kv_data: Dict[str, Any],
     time_range: TimeRange,
     namespace_filter: Optional[str] = None,
-    limit: int = 100
+    limit: int = 100,
 ) -> List[SearchResult]:
     """Search by time range."""
     tools = RLMSearchTools(kv_data=kv_data)
@@ -422,7 +447,7 @@ def search_by_content(
     query: str,
     case_sensitive: bool = False,
     use_regex: bool = False,
-    limit: int = 50
+    limit: int = 50,
 ) -> List[SearchResult]:
     """Search by content."""
     tools = RLMSearchTools(kv_data=kv_data)
@@ -430,9 +455,7 @@ def search_by_content(
 
 
 def search_graph_edges(
-    graph_data: Dict[str, Any],
-    edge_filter: GraphEdgeFilter,
-    limit: int = 100
+    graph_data: Dict[str, Any], edge_filter: GraphEdgeFilter, limit: int = 100
 ) -> List[SearchResult]:
     """Search graph edges."""
     tools = RLMSearchTools(graph_data=graph_data)

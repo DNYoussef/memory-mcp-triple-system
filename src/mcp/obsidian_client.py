@@ -30,6 +30,7 @@ def _get_chunker():
     global _CHUNKER
     if _CHUNKER is None:
         from ..chunking.semantic_chunker import SemanticChunker
+
         _CHUNKER = SemanticChunker()
     return _CHUNKER
 
@@ -38,6 +39,7 @@ def _get_embedder():
     global _EMBEDDER
     if _EMBEDDER is None:
         from ..indexing.embedding_pipeline import EmbeddingPipeline
+
         _EMBEDDER = EmbeddingPipeline()
     return _EMBEDDER
 
@@ -46,6 +48,7 @@ def _get_indexer():
     global _INDEXER
     if _INDEXER is None:
         from ..indexing.vector_indexer import VectorIndexer
+
         # get_instance resolves CHROMA_PERSIST_DIR / MEMORY_MCP_DATA_DIR / default.
         _INDEXER = VectorIndexer.get_instance()
     return _INDEXER
@@ -70,7 +73,7 @@ class ObsidianMCPClient:
         vault_path: str,
         chunker: Any = None,
         embedder: Any = None,
-        indexer: Any = None
+        indexer: Any = None,
     ):
         """
         Initialize Obsidian MCP client.
@@ -97,6 +100,7 @@ class ObsidianMCPClient:
         """Lazy load SemanticChunker."""
         if self._chunker is None:
             from ..chunking.semantic_chunker import SemanticChunker
+
             self._chunker = SemanticChunker()
         return self._chunker
 
@@ -105,6 +109,7 @@ class ObsidianMCPClient:
         """Lazy load EmbeddingPipeline."""
         if self._embedder is None:
             from ..indexing.embedding_pipeline import EmbeddingPipeline
+
             self._embedder = EmbeddingPipeline()
         return self._embedder
 
@@ -113,6 +118,7 @@ class ObsidianMCPClient:
         """Lazy load VectorIndexer."""
         if self._indexer is None:
             from ..indexing.vector_indexer import VectorIndexer
+
             # get_instance resolves CHROMA_PERSIST_DIR / MEMORY_MCP_DATA_DIR / default.
             self._indexer = VectorIndexer.get_instance()
         return self._indexer
@@ -125,14 +131,11 @@ class ObsidianMCPClient:
                 file_manager=self._file_manager,
                 chunker=self.chunker,
                 embedder=self.embedder,
-                indexer=self.indexer
+                indexer=self.indexer,
             )
         return self._sync_service
 
-    def sync_vault(
-        self,
-        file_extensions: Optional[List[str]] = None
-    ) -> Dict[str, Any]:
+    def sync_vault(self, file_extensions: Optional[List[str]] = None) -> Dict[str, Any]:
         """
         Sync entire vault to memory system.
 
@@ -146,9 +149,7 @@ class ObsidianMCPClient:
         return self.sync_service.sync_vault(config)
 
     def watch_changes(
-        self,
-        callback: Callable[[str, str], None],
-        poll_interval: int = 5
+        self, callback: Callable[[str, str], None], poll_interval: int = 5
     ) -> None:
         """
         Watch for file changes and sync incrementally.
@@ -161,9 +162,7 @@ class ObsidianMCPClient:
         self.sync_service.watch_changes(callback, config)
 
     def export_to_vault(
-        self,
-        chunks: List[Dict[str, Any]],
-        output_file: str = "exported_memories.md"
+        self, chunks: List[Dict[str, Any]], output_file: str = "exported_memories.md"
     ) -> Dict[str, Any]:
         """
         Export memory chunks to Obsidian vault.

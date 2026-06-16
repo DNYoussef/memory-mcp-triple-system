@@ -21,6 +21,7 @@ from ...integrations.proactive_schema import TriggerEvent, ContextPriority
 
 class DayOfWeek(Enum):
     """Days of the week (ISO 8601 numbering)."""
+
     MONDAY = 1
     TUESDAY = 2
     WEDNESDAY = 3
@@ -79,8 +80,13 @@ class TimePattern:
             trigger_id=f"weekday-morning-{hour}",
             hour=hour,
             minute=0,
-            days=[DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY,
-                  DayOfWeek.THURSDAY, DayOfWeek.FRIDAY],
+            days=[
+                DayOfWeek.MONDAY,
+                DayOfWeek.TUESDAY,
+                DayOfWeek.WEDNESDAY,
+                DayOfWeek.THURSDAY,
+                DayOfWeek.FRIDAY,
+            ],
             context_query="morning standup daily tasks priorities",
             priority=ContextPriority.MEDIUM,
             metadata={"pattern": "weekday_morning"},
@@ -93,8 +99,13 @@ class TimePattern:
             trigger_id=f"weekday-afternoon-{hour}",
             hour=hour,
             minute=0,
-            days=[DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY,
-                  DayOfWeek.THURSDAY, DayOfWeek.FRIDAY],
+            days=[
+                DayOfWeek.MONDAY,
+                DayOfWeek.TUESDAY,
+                DayOfWeek.WEDNESDAY,
+                DayOfWeek.THURSDAY,
+                DayOfWeek.FRIDAY,
+            ],
             context_query="afternoon progress blockers help-needed",
             priority=ContextPriority.LOW,
             metadata={"pattern": "weekday_afternoon"},
@@ -107,15 +118,22 @@ class TimePattern:
             trigger_id=f"end-of-day-{hour}",
             hour=hour,
             minute=0,
-            days=[DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY,
-                  DayOfWeek.THURSDAY, DayOfWeek.FRIDAY],
+            days=[
+                DayOfWeek.MONDAY,
+                DayOfWeek.TUESDAY,
+                DayOfWeek.WEDNESDAY,
+                DayOfWeek.THURSDAY,
+                DayOfWeek.FRIDAY,
+            ],
             context_query="daily summary accomplishments tomorrow",
             priority=ContextPriority.MEDIUM,
             metadata={"pattern": "end_of_day"},
         )
 
     @staticmethod
-    def weekly_review(day: DayOfWeek = DayOfWeek.FRIDAY, hour: int = 16) -> ScheduledTrigger:
+    def weekly_review(
+        day: DayOfWeek = DayOfWeek.FRIDAY, hour: int = 16
+    ) -> ScheduledTrigger:
         """Create weekly review trigger."""
         return ScheduledTrigger(
             trigger_id=f"weekly-review-{day.name.lower()}",
@@ -185,7 +203,7 @@ class TimeScheduler:
         self._scheduler_task: Optional[asyncio.Task] = None
 
         # Initialize with provided or default schedules
-        for schedule in (schedules or DEFAULT_SCHEDULES):
+        for schedule in schedules or DEFAULT_SCHEDULES:
             self._schedules[schedule.trigger_id] = schedule
 
         logger.info(f"TimeScheduler initialized with {len(self._schedules)} schedules")
@@ -243,7 +261,9 @@ class TimeScheduler:
                     f"{len(context.chunks)} chunks"
                 )
             else:
-                logger.debug(f"Scheduled trigger {schedule.trigger_id} produced no context")
+                logger.debug(
+                    f"Scheduled trigger {schedule.trigger_id} produced no context"
+                )
 
         except Exception as e:
             logger.error(f"Failed to trigger scheduled injection: {e}")
@@ -353,12 +373,14 @@ class TimeScheduler:
         while current < end_time:
             for schedule in self._schedules.values():
                 if schedule.matches_now(current):
-                    upcoming.append({
-                        "trigger_id": schedule.trigger_id,
-                        "time": current.isoformat(),
-                        "query": schedule.context_query,
-                        "priority": schedule.priority.value,
-                    })
+                    upcoming.append(
+                        {
+                            "trigger_id": schedule.trigger_id,
+                            "time": current.isoformat(),
+                            "query": schedule.context_query,
+                            "priority": schedule.priority.value,
+                        }
+                    )
 
             current += timedelta(minutes=1)
 
@@ -392,7 +414,9 @@ class TimeScheduler:
                     "minute": s.minute,
                     "days": [d.name for d in s.days],
                     "enabled": s.enabled,
-                    "last_triggered": s.last_triggered.isoformat() if s.last_triggered else None,
+                    "last_triggered": s.last_triggered.isoformat()
+                    if s.last_triggered
+                    else None,
                 }
                 for s in self._schedules.values()
             ],

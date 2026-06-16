@@ -49,7 +49,7 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         weights: Optional[Dict[str, float]] = None,
         rerank_top_k: int = 30,
         rerank_enabled: bool = True,
-        lost_in_middle_mitigation: LostInMiddleMitigation = LostInMiddleMitigation.EDGES
+        lost_in_middle_mitigation: LostInMiddleMitigation = LostInMiddleMitigation.EDGES,
     ) -> None:
         """
         Initialize Nexus Processor with all 3 tier services.
@@ -81,11 +81,7 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         self.rerank_top_k = rerank_top_k
         self.rerank_enabled = rerank_enabled
         self.lost_in_middle_mitigation = lost_in_middle_mitigation  # MEM-CHUNK-002
-        self.weights = weights or {
-            "vector": 0.4,
-            "hipporag": 0.4,
-            "bayesian": 0.2
-        }
+        self.weights = weights or {"vector": 0.4, "hipporag": 0.4, "bayesian": 0.2}
 
         rerank_status = "enabled" if (reranker and rerank_enabled) else "disabled"
         feedback_status = "enabled" if bayesian_graph_sync else "disabled"
@@ -102,7 +98,7 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         mode: str = "execution",
         top_k: int = 50,
         token_budget: int = 10000,
-        use_rlm: bool = False
+        use_rlm: bool = False,
     ) -> Dict[str, Any]:
         """
         Full 5-step SOP pipeline.
@@ -124,6 +120,7 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
             }
         """
         import time
+
         start = time.time()
 
         if use_rlm:
@@ -155,17 +152,14 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         return result
 
     def _process_rlm(
-        self,
-        query: str,
-        mode: str,
-        top_k: int,
-        token_budget: int
+        self, query: str, mode: str, top_k: int, token_budget: int
     ) -> Optional[Dict[str, Any]]:
         """Execute RLM exploration as a NexusProcessor alternative."""
         adapter = self.rlm_adapter
         if adapter is None:
             try:
                 from ..rlm.rlm_nexus_adapter import RLMNexusAdapter
+
                 adapter = RLMNexusAdapter()
                 self.rlm_adapter = adapter
             except Exception as exc:
@@ -183,14 +177,11 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
             return None
 
     def _execute_pipeline(
-        self,
-        query: str,
-        mode: str,
-        top_k: int,
-        token_budget: int
+        self, query: str, mode: str, top_k: int, token_budget: int
     ) -> tuple[Dict[str, Any], Dict[str, Any]]:
         """Execute 5-step pipeline and return result with stats."""
         import time
+
         stats = {}
 
         # Step 1: Recall
@@ -270,8 +261,7 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         return text[:200] if text else "unknown"
 
     def _combine_tier_scores(
-        self,
-        candidates: List[Dict[str, Any]]
+        self, candidates: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """
         Combine tier-specific scores into hybrid candidates.
@@ -282,15 +272,18 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
 
         for candidate in self._normalize_candidates_by_tier(candidates):
             key = self._candidate_key(candidate)
-            entry = grouped.setdefault(key, {
-                "id": candidate.get("id", key),
-                "text": candidate.get("text", ""),
-                "metadata": candidate.get("metadata", {}),
-                "vector_score": 0.0,
-                "graph_score": 0.0,
-                "bayesian_score": 0.0,
-                "source_tiers": set()
-            })
+            entry = grouped.setdefault(
+                key,
+                {
+                    "id": candidate.get("id", key),
+                    "text": candidate.get("text", ""),
+                    "metadata": candidate.get("metadata", {}),
+                    "vector_score": 0.0,
+                    "graph_score": 0.0,
+                    "bayesian_score": 0.0,
+                    "source_tiers": set(),
+                },
+            )
 
             tier = candidate.get("tier", "vector")
             score = float(candidate.get("score", 0.0))
@@ -313,7 +306,7 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
             final_score = self._calculate_hybrid_score(
                 vector_score=entry["vector_score"],
                 graph_score=entry["graph_score"],
-                bayesian_score=entry["bayesian_score"]
+                bayesian_score=entry["bayesian_score"],
             )
             entry["score"] = final_score
             entry["hybrid_score"] = final_score
@@ -323,36 +316,48 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
 
         return combined
 
-    def _step_recall(self, query: str, top_k: int, stats: Dict[str, Any]) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    def _step_recall(
+        self, query: str, top_k: int, stats: Dict[str, Any]
+    ) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """Step 1: Recall candidates."""
         import time
+
         start = time.time()
         candidates = self.recall(query, top_k=top_k)
         stats["recall_ms"] = int((time.time() - start) * 1000)
         logger.info(f"Recall: {len(candidates)} candidates in {stats['recall_ms']}ms")
         return candidates, stats
 
-    def _step_filter(self, candidates: List[Dict[str, Any]], stats: Dict[str, Any]) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    def _step_filter(
+        self, candidates: List[Dict[str, Any]], stats: Dict[str, Any]
+    ) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """Step 2: Filter by confidence."""
         import time
+
         start = time.time()
         filtered = self.filter_by_confidence(candidates)
         stats["filter_ms"] = int((time.time() - start) * 1000)
-        logger.info(f"Filter: {len(candidates)} → {len(filtered)} ({stats['filter_ms']}ms)")
+        logger.info(
+            f"Filter: {len(candidates)} → {len(filtered)} ({stats['filter_ms']}ms)"
+        )
         return filtered, stats
 
     def _step_deduplicate(self, filtered, stats):
         """Step 3: Deduplicate."""
         import time
+
         start = time.time()
         deduplicated = self.deduplicate(filtered)
         stats["dedup_ms"] = int((time.time() - start) * 1000)
-        logger.info(f"Deduplicate: {len(filtered)} → {len(deduplicated)} ({stats['dedup_ms']}ms)")
+        logger.info(
+            f"Deduplicate: {len(filtered)} → {len(deduplicated)} ({stats['dedup_ms']}ms)"
+        )
         return deduplicated, stats
 
     def _step_rank(self, deduplicated, stats):
         """Step 4: Rank by weighted sum."""
         import time
+
         start = time.time()
         ranked = self.rank(deduplicated)
         stats["rank_ms"] = int((time.time() - start) * 1000)
@@ -360,10 +365,7 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         return ranked, stats
 
     def _step_rerank(
-        self,
-        query: str,
-        candidates: List[Dict[str, Any]],
-        stats: Dict[str, Any]
+        self, query: str, candidates: List[Dict[str, Any]], stats: Dict[str, Any]
     ) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """
         Step 4.5: Rerank top candidates with cross-encoder (MEM-QWEN-002).
@@ -372,24 +374,21 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         Only reranks top-k candidates to limit latency overhead.
         """
         import time
+
         start = time.time()
 
         # Limit candidates for reranking (latency optimization)
-        candidates_to_rerank = candidates[:self.rerank_top_k]
-        remaining = candidates[self.rerank_top_k:]
+        candidates_to_rerank = candidates[: self.rerank_top_k]
+        remaining = candidates[self.rerank_top_k :]
 
         # Call reranker service
         reranked, rerank_stats = self.reranker.rerank(
-            query=query,
-            documents=candidates_to_rerank,
-            top_k=self.rerank_top_k
+            query=query, documents=candidates_to_rerank, top_k=self.rerank_top_k
         )
 
         # Merge rerank scores with hybrid scores
         reranked = self.reranker.merge_scores(
-            reranked,
-            hybrid_weight=0.5,
-            rerank_weight=0.5
+            reranked, hybrid_weight=0.5, rerank_weight=0.5
         )
 
         # Append remaining candidates (not reranked) at lower priority
@@ -408,13 +407,13 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
     def _step_compress(self, ranked, mode, token_budget, stats):
         """Step 5: Compress to core + extended with lost-in-middle mitigation."""
         import time
+
         start = time.time()
 
         # Apply lost-in-middle mitigation before compression (MEM-CHUNK-002)
         if self.lost_in_middle_mitigation != LostInMiddleMitigation.NONE:
             ranked = self.apply_lost_in_middle_mitigation(
-                ranked,
-                self.lost_in_middle_mitigation
+                ranked, self.lost_in_middle_mitigation
             )
             stats["mitigation_applied"] = self.lost_in_middle_mitigation.value
 
@@ -482,8 +481,7 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         )
 
     def filter_by_confidence(
-        self,
-        candidates: List[Dict[str, Any]]
+        self, candidates: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """
         Step 2: Filter by confidence threshold.
@@ -495,7 +493,8 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
             Filtered list (confidence >= threshold)
         """
         filtered = [
-            c for c in candidates
+            c
+            for c in candidates
             if self._candidate_confidence(c) >= self.confidence_threshold
         ]
 
@@ -506,10 +505,7 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
 
         return filtered
 
-    def deduplicate(
-        self,
-        candidates: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+    def deduplicate(self, candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Step 3: Remove duplicates by cosine similarity.
 
@@ -579,10 +575,7 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
 
         return [candidates[exact_unique_indices[i]] for i in final_indices]
 
-    def _batch_encode_texts(
-        self,
-        texts: List[str]
-    ) -> Optional[Any]:
+    def _batch_encode_texts(self, texts: List[str]) -> Optional[Any]:
         """Pre-compute embeddings for all texts in one batch call."""
 
         if self.embedding_pipeline is None:
@@ -636,21 +629,19 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
             final_score = self._calculate_hybrid_score(
                 vector_score=vector_score,
                 graph_score=graph_score,
-                bayesian_score=bayesian_score
+                bayesian_score=bayesian_score,
             )
             candidate["score"] = final_score
             candidate["hybrid_score"] = final_score
             candidate["score_breakdown"] = {
                 "vector": vector_score,
                 "graph": graph_score,
-                "bayesian": bayesian_score
+                "bayesian": bayesian_score,
             }
 
         # Sort by hybrid score (descending)
         ranked = sorted(
-            candidates,
-            key=lambda x: x.get("hybrid_score", 0.0),
-            reverse=True
+            candidates, key=lambda x: x.get("hybrid_score", 0.0), reverse=True
         )
 
         logger.info(
@@ -661,10 +652,7 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         return ranked
 
     def compress(
-        self,
-        ranked_results: List[Dict[str, Any]],
-        mode: str,
-        token_budget: int = 10000
+        self, ranked_results: List[Dict[str, Any]], mode: str, token_budget: int = 10000
     ) -> Dict[str, Any]:
         """
         Step 5: Compress to curated core + extended.

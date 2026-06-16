@@ -32,7 +32,7 @@ class TestLoadConfig:
 
     def test_load_config_file_not_found_on_missing_file(self):
         """Test config raises explicit exception when file missing."""
-        with patch.object(Path, 'exists', return_value=False):
+        with patch.object(Path, "exists", return_value=False):
             with pytest.raises(FileNotFoundError):
                 load_config()
 
@@ -125,7 +125,7 @@ class TestHandleCallTool:
         mock.hot_cold_classifier = MagicMock()
         mock.hot_cold_classifier.classify.return_value = {
             "tier": "hot",
-            "decay_score": 1.0
+            "decay_score": 1.0,
         }
         mock.lifecycle_manager = MagicMock()
         mock.entity_service = None
@@ -135,9 +135,7 @@ class TestHandleCallTool:
     def test_vector_search_returns_content(self, mock_vector_tool):
         """Test vector_search tool returns content structure."""
         result = handle_call_tool(
-            "vector_search",
-            {"query": "test query", "limit": 5},
-            mock_vector_tool
+            "vector_search", {"query": "test query", "limit": 5}, mock_vector_tool
         )
 
         assert "content" in result
@@ -148,9 +146,7 @@ class TestHandleCallTool:
     def test_vector_search_formats_results(self, mock_vector_tool):
         """Test vector_search formats results correctly."""
         result = handle_call_tool(
-            "vector_search",
-            {"query": "test query"},
-            mock_vector_tool
+            "vector_search", {"query": "test query"}, mock_vector_tool
         )
 
         assert len(result["content"]) == 1
@@ -162,44 +158,33 @@ class TestHandleCallTool:
 
     def test_vector_search_calls_execute_with_defaults(self, mock_vector_tool):
         """Test vector_search uses default limit."""
-        handle_call_tool(
-            "vector_search",
-            {"query": "test query"},
-            mock_vector_tool
-        )
+        handle_call_tool("vector_search", {"query": "test query"}, mock_vector_tool)
 
-        mock_vector_tool.execute.assert_called_once_with(
-            "test query",
-            5,
-            "execution"
-        )
+        mock_vector_tool.execute.assert_called_once_with("test query", 5, "execution")
 
     def test_vector_search_respects_custom_limit(self, mock_vector_tool):
         """Test vector_search uses custom limit."""
         handle_call_tool(
-            "vector_search",
-            {"query": "test query", "limit": 10},
-            mock_vector_tool
+            "vector_search", {"query": "test query", "limit": 10}, mock_vector_tool
         )
 
-        mock_vector_tool.execute.assert_called_once_with(
-            "test query",
-            10,
-            "execution"
-        )
+        mock_vector_tool.execute.assert_called_once_with("test query", 10, "execution")
 
     def test_memory_store_returns_success(self, mock_vector_tool):
         """Test memory_store returns success structure."""
         result = handle_call_tool(
             "memory_store",
-            {"text": "content to store", "metadata": {
-                "key": "test_key",
-                "who": "test-agent",
-                "when": "2026-01-13T12:00:00",
-                "project": "test-project",
-                "why": "testing"
-            }},
-            mock_vector_tool
+            {
+                "text": "content to store",
+                "metadata": {
+                    "key": "test_key",
+                    "who": "test-agent",
+                    "when": "2026-01-13T12:00:00",
+                    "project": "test-project",
+                    "why": "testing",
+                },
+            },
+            mock_vector_tool,
         )
 
         assert "content" in result
@@ -210,13 +195,16 @@ class TestHandleCallTool:
         """Test memory_store returns confirmation."""
         result = handle_call_tool(
             "memory_store",
-            {"text": "content to store", "metadata": {
-                "who": "test-agent",
-                "when": "2026-01-13T12:00:00",
-                "project": "test-project",
-                "why": "testing"
-            }},
-            mock_vector_tool
+            {
+                "text": "content to store",
+                "metadata": {
+                    "who": "test-agent",
+                    "when": "2026-01-13T12:00:00",
+                    "project": "test-project",
+                    "why": "testing",
+                },
+            },
+            mock_vector_tool,
         )
 
         content_text = result["content"][0]["text"]
@@ -224,11 +212,7 @@ class TestHandleCallTool:
 
     def test_unknown_tool_returns_error(self, mock_vector_tool):
         """Test unknown tool returns error."""
-        result = handle_call_tool(
-            "unknown_tool",
-            {},
-            mock_vector_tool
-        )
+        result = handle_call_tool("unknown_tool", {}, mock_vector_tool)
 
         assert result["isError"] is True
         assert "Unknown tool" in result["content"][0]["text"]
@@ -237,11 +221,7 @@ class TestHandleCallTool:
         """Test exception in tool execution is handled."""
         mock_vector_tool.execute.side_effect = Exception("Test error")
 
-        result = handle_call_tool(
-            "vector_search",
-            {"query": "test"},
-            mock_vector_tool
-        )
+        result = handle_call_tool("vector_search", {"query": "test"}, mock_vector_tool)
 
         assert result["isError"] is True
         assert "Error:" in result["content"][0]["text"]
@@ -259,12 +239,7 @@ class TestJSONRPCProtocol:
 
     def test_tools_list_request_format(self):
         """Test tools/list request format."""
-        request = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "tools/list",
-            "params": {}
-        }
+        request = {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}
 
         # Validate request structure
         assert request["jsonrpc"] == "2.0"
@@ -279,8 +254,8 @@ class TestJSONRPCProtocol:
             "method": "tools/call",
             "params": {
                 "name": "vector_search",
-                "arguments": {"query": "test", "limit": 5}
-            }
+                "arguments": {"query": "test", "limit": 5},
+            },
         }
 
         assert request["jsonrpc"] == "2.0"
@@ -290,12 +265,7 @@ class TestJSONRPCProtocol:
 
     def test_initialize_request_format(self):
         """Test initialize request format."""
-        request = {
-            "jsonrpc": "2.0",
-            "id": 0,
-            "method": "initialize",
-            "params": {}
-        }
+        request = {"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {}}
 
         assert request["jsonrpc"] == "2.0"
         assert request["method"] == "initialize"
@@ -310,14 +280,14 @@ class TestStdioMainLoop:
         return {
             "storage": {"type": "local"},
             "embeddings": {"model": "test"},
-            "mcp": {"port": 3000}
+            "mcp": {"port": 3000},
         }
 
     @pytest.fixture
     def mock_dependencies(self, mock_config):
         """Setup all mocks for main loop."""
-        with patch('src.mcp.stdio_server.load_config', return_value=mock_config):
-            with patch('src.mcp.stdio_server.VectorSearchTool') as mock_tool_class:
+        with patch("src.mcp.stdio_server.load_config", return_value=mock_config):
+            with patch("src.mcp.stdio_server.VectorSearchTool") as mock_tool_class:
                 mock_tool = MagicMock()
                 mock_tool.execute.return_value = []
                 mock_tool_class.return_value = mock_tool
@@ -331,26 +301,22 @@ class TestStdioMainLoop:
             "result": {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}},
-                "serverInfo": {
-                    "name": "memory-mcp-triple-system",
-                    "version": "1.0.0"
-                }
-            }
+                "serverInfo": {"name": "memory-mcp-triple-system", "version": "1.0.0"},
+            },
         }
 
         assert expected_response["result"]["protocolVersion"] == "2024-11-05"
         assert "tools" in expected_response["result"]["capabilities"]
-        assert expected_response["result"]["serverInfo"]["name"] == "memory-mcp-triple-system"
+        assert (
+            expected_response["result"]["serverInfo"]["name"]
+            == "memory-mcp-triple-system"
+        )
 
     def test_tools_list_response_structure(self):
         """Test tools/list response structure."""
         tools = handle_list_tools()
 
-        response = {
-            "jsonrpc": "2.0",
-            "id": 1,
-            "result": {"tools": tools}
-        }
+        response = {"jsonrpc": "2.0", "id": 1, "result": {"tools": tools}}
 
         assert "result" in response
         assert "tools" in response["result"]
@@ -361,10 +327,7 @@ class TestStdioMainLoop:
         error_response = {
             "jsonrpc": "2.0",
             "id": 99,
-            "error": {
-                "code": -32601,
-                "message": "Method not found: unknown_method"
-            }
+            "error": {"code": -32601, "message": "Method not found: unknown_method"},
         }
 
         assert "error" in error_response
@@ -378,8 +341,8 @@ class TestStdioMainLoop:
             "id": None,
             "error": {
                 "code": -32603,
-                "message": "Internal error: Something went wrong"
-            }
+                "message": "Internal error: Something went wrong",
+            },
         }
 
         assert error_response["error"]["code"] == -32603
@@ -409,7 +372,7 @@ class TestEdgeCases:
         mock.hot_cold_classifier = MagicMock()
         mock.hot_cold_classifier.classify.return_value = {
             "tier": "hot",
-            "decay_score": 1.0
+            "decay_score": 1.0,
         }
         mock.lifecycle_manager = MagicMock()
         mock.entity_service = None
@@ -418,11 +381,7 @@ class TestEdgeCases:
 
     def test_empty_query_handling(self, mock_tool):
         """Test handling of empty query."""
-        result = handle_call_tool(
-            "vector_search",
-            {"query": ""},
-            mock_tool
-        )
+        result = handle_call_tool("vector_search", {"query": ""}, mock_tool)
 
         # Should still work, just return empty results
         assert result["isError"] is False
@@ -430,11 +389,7 @@ class TestEdgeCases:
 
     def test_missing_query_handling(self, mock_tool):
         """Test handling of missing query parameter."""
-        result = handle_call_tool(
-            "vector_search",
-            {},
-            mock_tool
-        )
+        result = handle_call_tool("vector_search", {}, mock_tool)
 
         # Should use empty string as default
         assert result["isError"] is False
@@ -444,13 +399,16 @@ class TestEdgeCases:
         """Test memory_store with empty text."""
         result = handle_call_tool(
             "memory_store",
-            {"text": "", "metadata": {
-                "who": "test-agent",
-                "when": "2026-01-13T12:00:00",
-                "project": "test-project",
-                "why": "testing"
-            }},
-            mock_tool
+            {
+                "text": "",
+                "metadata": {
+                    "who": "test-agent",
+                    "when": "2026-01-13T12:00:00",
+                    "project": "test-project",
+                    "why": "testing",
+                },
+            },
+            mock_tool,
         )
 
         assert result["isError"] is True
@@ -459,13 +417,16 @@ class TestEdgeCases:
         """Test memory_store uses default key when not provided."""
         result = handle_call_tool(
             "memory_store",
-            {"text": "test content", "metadata": {
-                "who": "test-agent",
-                "when": "2026-01-13T12:00:00",
-                "project": "test-project",
-                "why": "testing"
-            }},
-            mock_tool
+            {
+                "text": "test content",
+                "metadata": {
+                    "who": "test-agent",
+                    "when": "2026-01-13T12:00:00",
+                    "project": "test-project",
+                    "why": "testing",
+                },
+            },
+            mock_tool,
         )
 
         # Verify indexer was called
@@ -474,9 +435,7 @@ class TestEdgeCases:
     def test_large_limit_value(self, mock_tool):
         """Test vector_search with large limit value."""
         result = handle_call_tool(
-            "vector_search",
-            {"query": "test", "limit": 10000},
-            mock_tool
+            "vector_search", {"query": "test", "limit": 10000}, mock_tool
         )
 
         assert result["isError"] is False
@@ -485,9 +444,7 @@ class TestEdgeCases:
     def test_negative_limit_handling(self, mock_tool):
         """Test vector_search with negative limit."""
         result = handle_call_tool(
-            "vector_search",
-            {"query": "test", "limit": -1},
-            mock_tool
+            "vector_search", {"query": "test", "limit": -1}, mock_tool
         )
 
         # Should pass through to tool (validation is tool's responsibility)
@@ -497,11 +454,7 @@ class TestEdgeCases:
     def test_special_characters_in_query(self, mock_tool):
         """Test query with special characters."""
         query = "test <script>alert('xss')</script> & \"quotes\" 'single'"
-        result = handle_call_tool(
-            "vector_search",
-            {"query": query},
-            mock_tool
-        )
+        result = handle_call_tool("vector_search", {"query": query}, mock_tool)
 
         assert result["isError"] is False
         mock_tool.execute.assert_called_with(query, 5, "execution")
@@ -509,10 +462,6 @@ class TestEdgeCases:
     def test_unicode_in_query(self, mock_tool):
         """Test query with unicode characters."""
         query = "test query"  # ASCII only per CLAUDE.md
-        result = handle_call_tool(
-            "vector_search",
-            {"query": query},
-            mock_tool
-        )
+        result = handle_call_tool("vector_search", {"query": query}, mock_tool)
 
         assert result["isError"] is False

@@ -35,6 +35,7 @@ from src.woundhealer.rlm_client import RLMClient, PatternMatch
 
 class RepairStatus(Enum):
     """Status of a repair operation."""
+
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     SUCCESS = "success"
@@ -45,9 +46,10 @@ class RepairStatus(Enum):
 
 class RepairConfidence(Enum):
     """Confidence levels for repair actions."""
-    HIGH = "high"      # >= 0.80: Auto-apply
+
+    HIGH = "high"  # >= 0.80: Auto-apply
     MEDIUM = "medium"  # >= 0.60: Apply with logging
-    LOW = "low"        # >= 0.40: Requires approval
+    LOW = "low"  # >= 0.40: Requires approval
     MINIMAL = "minimal"  # < 0.40: Block, manual only
 
 
@@ -67,6 +69,7 @@ class GuardEvent:
         timestamp: When event occurred
         metadata: Additional event data
     """
+
     event_id: str
     guard_name: str
     event_type: str
@@ -106,6 +109,7 @@ class FixPlan:
         steps: List of fix steps
         requires_approval: Whether approval needed
     """
+
     plan_id: str
     event: GuardEvent
     matches: List[PatternMatch]
@@ -143,6 +147,7 @@ class RepairResult:
         error_message: Error if failed
         timestamp: When repair completed
     """
+
     result_id: str
     plan_id: str
     status: RepairStatus
@@ -173,8 +178,12 @@ class WoundHealer:
     """
 
     # Memory MCP paths (env-first, portable fallbacks; no hardcoded host paths)
-    MEMORY_MCP_DATA_PATH = os.getenv("MEMORY_MCP_DATA_DIR") or str(Path.home() / ".claude" / "memory-mcp-data")
-    MEMORY_MCP_PROJECT_PATH = os.getenv("MEMORY_MCP_PROJECT_DIR") or str(Path(__file__).resolve().parents[2])
+    MEMORY_MCP_DATA_PATH = os.getenv("MEMORY_MCP_DATA_DIR") or str(
+        Path.home() / ".claude" / "memory-mcp-data"
+    )
+    MEMORY_MCP_PROJECT_PATH = os.getenv("MEMORY_MCP_PROJECT_DIR") or str(
+        Path(__file__).resolve().parents[2]
+    )
 
     # Namespace for guard events
     GUARD_EVENTS_NAMESPACE = "guard:events"
@@ -186,9 +195,17 @@ class WoundHealer:
 
     # Known guards
     KNOWN_GUARDS = [
-        "SyntaxGuard", "CruftGuard", "TestGuard", "DependencyGuard",
-        "FormatGuard", "SecurityGuard", "PathGuard", "EncodingGuard",
-        "PromptGuard", "HookGuard", "ConfigGuard"
+        "SyntaxGuard",
+        "CruftGuard",
+        "TestGuard",
+        "DependencyGuard",
+        "FormatGuard",
+        "SecurityGuard",
+        "PathGuard",
+        "EncodingGuard",
+        "PromptGuard",
+        "HookGuard",
+        "ConfigGuard",
     ]
 
     def __init__(self):
@@ -219,9 +236,7 @@ class WoundHealer:
         return self._kv_store
 
     def register_fix_handler(
-        self,
-        guard_name: str,
-        handler: Callable[[FixPlan], RepairResult]
+        self, guard_name: str, handler: Callable[[FixPlan], RepairResult]
     ) -> None:
         """
         Register a fix handler for a specific guard.
@@ -235,11 +250,7 @@ class WoundHealer:
         self._fix_handlers[guard_name] = handler
         logger.info(f"Registered fix handler for {guard_name}")
 
-    def consume_guard_events(
-        self,
-        days: int = 1,
-        limit: int = 100
-    ) -> List[GuardEvent]:
+    def consume_guard_events(self, days: int = 1, limit: int = 100) -> List[GuardEvent]:
         """
         GS-016: Consume guard telemetry events.
 
@@ -269,16 +280,18 @@ class WoundHealer:
                 if not value:
                     continue
 
-                events.append(GuardEvent(
-                    event_id=key,
-                    guard_name=value.get("guard", "unknown"),
-                    event_type=value.get("type", "unknown"),
-                    severity=value.get("severity", "LOW"),
-                    content=str(value.get("content", value.get("message", ""))),
-                    file_path=value.get("file_path"),
-                    timestamp=value.get("WHEN", value.get("timestamp", "")),
-                    metadata=value.get("metadata", {}),
-                ))
+                events.append(
+                    GuardEvent(
+                        event_id=key,
+                        guard_name=value.get("guard", "unknown"),
+                        event_type=value.get("type", "unknown"),
+                        severity=value.get("severity", "LOW"),
+                        content=str(value.get("content", value.get("message", ""))),
+                        file_path=value.get("file_path"),
+                        timestamp=value.get("WHEN", value.get("timestamp", "")),
+                        metadata=value.get("metadata", {}),
+                    )
+                )
 
             except Exception:
                 continue
@@ -287,10 +300,7 @@ class WoundHealer:
         events.sort(key=lambda e: e.timestamp, reverse=True)
         return events[:limit]
 
-    def _calculate_confidence_level(
-        self,
-        confidence: float
-    ) -> RepairConfidence:
+    def _calculate_confidence_level(self, confidence: float) -> RepairConfidence:
         """
         Calculate confidence level from score.
 
@@ -311,10 +321,7 @@ class WoundHealer:
         else:
             return RepairConfidence.MINIMAL
 
-    def generate_fix_plan(
-        self,
-        event: GuardEvent
-    ) -> FixPlan:
+    def generate_fix_plan(self, event: GuardEvent) -> FixPlan:
         """
         GS-016: Generate a fix plan for a guard event.
 
@@ -336,7 +343,7 @@ class WoundHealer:
             error_description=event.content,
             severity_filter=event.severity,
             days=30,
-            limit=5
+            limit=5,
         )
 
         # Calculate overall confidence
@@ -362,7 +369,7 @@ class WoundHealer:
         # Determine if approval required
         requires_approval = confidence_level in [
             RepairConfidence.LOW,
-            RepairConfidence.MINIMAL
+            RepairConfidence.MINIMAL,
         ]
 
         return FixPlan(
@@ -376,11 +383,7 @@ class WoundHealer:
             requires_approval=requires_approval,
         )
 
-    def _generate_fix_steps(
-        self,
-        event: GuardEvent,
-        match: PatternMatch
-    ) -> List[str]:
+    def _generate_fix_steps(self, event: GuardEvent, match: PatternMatch) -> List[str]:
         """
         Generate fix steps from pattern match.
 
@@ -396,7 +399,9 @@ class WoundHealer:
         steps = []
 
         # Add guard-specific context
-        steps.append(f"1. Review {event.guard_name} violation in {event.file_path or 'affected area'}")
+        steps.append(
+            f"1. Review {event.guard_name} violation in {event.file_path or 'affected area'}"
+        )
 
         if match.fix:
             fix_content = match.fix.content
@@ -416,11 +421,7 @@ class WoundHealer:
 
         return steps
 
-    def execute_repair(
-        self,
-        plan: FixPlan,
-        force: bool = False
-    ) -> RepairResult:
+    def execute_repair(self, plan: FixPlan, force: bool = False) -> RepairResult:
         """
         GS-016: Execute a fix plan.
 
@@ -490,11 +491,7 @@ class WoundHealer:
                 timestamp=timestamp,
             )
 
-    def _log_repair_result(
-        self,
-        plan: FixPlan,
-        status: RepairStatus
-    ) -> None:
+    def _log_repair_result(self, plan: FixPlan, status: RepairStatus) -> None:
         """
         Log repair result to Memory MCP.
 
@@ -528,10 +525,7 @@ class WoundHealer:
         except Exception as e:
             logger.error(f"Failed to log repair: {e}")
 
-    def process_all_events(
-        self,
-        auto_repair: bool = False
-    ) -> Dict[str, Any]:
+    def process_all_events(self, auto_repair: bool = False) -> Dict[str, Any]:
         """
         GS-016: Process all pending guard events.
 
@@ -557,14 +551,18 @@ class WoundHealer:
 
         # Summarize
         high_conf = sum(1 for p in plans if p.confidence_level == RepairConfidence.HIGH)
-        med_conf = sum(1 for p in plans if p.confidence_level == RepairConfidence.MEDIUM)
+        med_conf = sum(
+            1 for p in plans if p.confidence_level == RepairConfidence.MEDIUM
+        )
         low_conf = sum(1 for p in plans if p.confidence_level == RepairConfidence.LOW)
 
         return {
             "events_processed": len(events),
             "plans_generated": len(plans),
             "repairs_executed": len(results),
-            "successful_repairs": sum(1 for r in results if r.status == RepairStatus.SUCCESS),
+            "successful_repairs": sum(
+                1 for r in results if r.status == RepairStatus.SUCCESS
+            ),
             "confidence_breakdown": {
                 "high": high_conf,
                 "medium": med_conf,
@@ -613,7 +611,7 @@ if __name__ == "__main__":
             print(f"Successful: {result['successful_repairs']}")
             print()
             print("Confidence Breakdown:")
-            for level, count in result['confidence_breakdown'].items():
+            for level, count in result["confidence_breakdown"].items():
                 print(f"  {level.upper()}: {count}")
             print(f"{'='*60}")
     else:

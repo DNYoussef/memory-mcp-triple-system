@@ -45,7 +45,7 @@ class RerankerService:
         device: Optional[str] = None,
         max_length: int = 512,
         batch_size: int = 32,
-        enabled: bool = True
+        enabled: bool = True,
     ):
         """
         Initialize reranker service.
@@ -58,14 +58,18 @@ class RerankerService:
             batch_size: Batch size for inference
             enabled: Enable/disable reranking (for A/B testing)
         """
-        self.model_name = model_name or self.MODELS.get(model_size, self.MODELS["small"])
+        self.model_name = model_name or self.MODELS.get(
+            model_size, self.MODELS["small"]
+        )
         self.max_length = max_length
         self.batch_size = batch_size
         self.enabled = enabled
         self._model = None
         self._device = device
 
-        logger.info(f"RerankerService initialized: model={self.model_name}, enabled={enabled}")
+        logger.info(
+            f"RerankerService initialized: model={self.model_name}, enabled={enabled}"
+        )
 
     @property
     def device(self) -> str:
@@ -73,6 +77,7 @@ class RerankerService:
         if self._device is None:
             try:
                 import torch
+
                 self._device = "cuda" if torch.cuda.is_available() else "cpu"
             except ImportError:
                 self._device = "cpu"
@@ -94,13 +99,13 @@ class RerankerService:
             start = time.time()
 
             model = CrossEncoder(
-                self.model_name,
-                max_length=self.max_length,
-                device=self.device
+                self.model_name, max_length=self.max_length, device=self.device
             )
 
             load_time = time.time() - start
-            logger.info(f"Cross-encoder loaded in {load_time:.2f}s (device={self.device})")
+            logger.info(
+                f"Cross-encoder loaded in {load_time:.2f}s (device={self.device})"
+            )
             return model
 
         except Exception as e:
@@ -109,10 +114,7 @@ class RerankerService:
             return None
 
     def rerank(
-        self,
-        query: str,
-        documents: List[Dict[str, Any]],
-        top_k: int = 30
+        self, query: str, documents: List[Dict[str, Any]], top_k: int = 30
     ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """
         Rerank documents using cross-encoder scoring.
@@ -163,7 +165,9 @@ class RerankerService:
         stats["rerank_ms"] = int((time.time() - start) * 1000)
         stats["rerank_input_count"] = len(documents)
         stats["rerank_output_count"] = min(top_k, len(scored_docs))
-        stats["rerank_top_score"] = scored_docs[0]["rerank_score"] if scored_docs else 0.0
+        stats["rerank_top_score"] = (
+            scored_docs[0]["rerank_score"] if scored_docs else 0.0
+        )
 
         logger.info(
             f"Rerank: {len(documents)} -> {stats['rerank_output_count']} "
@@ -184,7 +188,7 @@ class RerankerService:
         self,
         documents: List[Dict[str, Any]],
         hybrid_weight: float = 0.5,
-        rerank_weight: float = 0.5
+        rerank_weight: float = 0.5,
     ) -> List[Dict[str, Any]]:
         """
         Merge hybrid scores with rerank scores.
@@ -205,7 +209,9 @@ class RerankerService:
             # Normalize rerank score to 0-1 range (cross-encoder outputs unbounded)
             rerank_normalized = self._sigmoid(rerank)
 
-            doc["final_score"] = hybrid_weight * hybrid_normalized + rerank_weight * rerank_normalized
+            doc["final_score"] = (
+                hybrid_weight * hybrid_normalized + rerank_weight * rerank_normalized
+            )
             doc["score"] = doc["final_score"]
             doc["score_breakdown"] = doc.get("score_breakdown", {})
             doc["score_breakdown"]["hybrid"] = hybrid_normalized
@@ -218,6 +224,7 @@ class RerankerService:
     def _sigmoid(self, x: float) -> float:
         """Sigmoid normalization for unbounded scores."""
         import math
+
         try:
             return 1 / (1 + math.exp(-x))
         except OverflowError:
@@ -235,5 +242,5 @@ class RerankerService:
             "enabled": self.enabled,
             "available": self.is_available(),
             "max_length": self.max_length,
-            "batch_size": self.batch_size
+            "batch_size": self.batch_size,
         }

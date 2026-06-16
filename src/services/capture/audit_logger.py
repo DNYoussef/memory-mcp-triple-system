@@ -59,9 +59,7 @@ class AuditConfig:
     def __post_init__(self):
         if not self.log_path:
             self.log_path = os.path.join(
-                os.path.expanduser("~"),
-                ".claude",
-                "ephemeral-audit"
+                os.path.expanduser("~"), ".claude", "ephemeral-audit"
             )
 
 
@@ -199,22 +197,19 @@ class AuditLogger:
         if self.config.rotate_daily and self._current_date != today:
             self._current_date = today
             self._current_file = os.path.join(
-                self.config.log_path,
-                f"audit_{today}.{self.config.format}"
+                self.config.log_path, f"audit_{today}.{self.config.format}"
             )
             self._entry_count = 0
         elif self._current_file is None:
             self._current_file = os.path.join(
-                self.config.log_path,
-                f"audit_{today}.{self.config.format}"
+                self.config.log_path, f"audit_{today}.{self.config.format}"
             )
 
         # Check entry count
         if self._entry_count >= self.config.max_entries_per_file:
             timestamp = datetime.now(timezone.utc).strftime("%H%M%S")
             self._current_file = os.path.join(
-                self.config.log_path,
-                f"audit_{today}_{timestamp}.{self.config.format}"
+                self.config.log_path, f"audit_{today}_{timestamp}.{self.config.format}"
             )
             self._entry_count = 0
 
@@ -269,7 +264,9 @@ class AuditLogger:
                 "file_size": buffer.metadata.file_size_bytes,
                 "buffer_type": buffer.buffer_type.value,
                 "railway_path": buffer.railway_path,
-                "expires_at": buffer.expires_at.isoformat() if buffer.expires_at else None,
+                "expires_at": buffer.expires_at.isoformat()
+                if buffer.expires_at
+                else None,
             },
             new_status=BufferStatus.PENDING_UPLOAD,
         )
@@ -297,7 +294,9 @@ class AuditLogger:
             actor=actor,
             details={
                 "railway_url": buffer.railway_url,
-                "checksum": buffer.railway_checksum if self.config.include_checksums else None,
+                "checksum": buffer.railway_checksum
+                if self.config.include_checksums
+                else None,
             },
             previous_status=BufferStatus.PENDING_UPLOAD,
             new_status=BufferStatus.UPLOADED,
@@ -356,7 +355,9 @@ class AuditLogger:
             details={
                 "local_path": local_path,
                 "checksum_verified": checksum_verified,
-                "local_checksum": buffer.local_checksum if self.config.include_checksums else None,
+                "local_checksum": buffer.local_checksum
+                if self.config.include_checksums
+                else None,
             },
             previous_status=BufferStatus.DOWNLOADING,
             new_status=BufferStatus.DOWNLOADED,
@@ -415,7 +416,9 @@ class AuditLogger:
             details={
                 "word_count": word_count,
                 "confidence": confidence,
-                "transcript_path": buffer.transcription.transcript_path if buffer.transcription else None,
+                "transcript_path": buffer.transcription.transcript_path
+                if buffer.transcription
+                else None,
             },
             previous_status=BufferStatus.TRANSCRIBING,
             new_status=BufferStatus.TRANSCRIBED,
@@ -443,7 +446,9 @@ class AuditLogger:
             action=AuditAction.TRANSCRIPTION_VERIFIED,
             actor=actor,
             details={
-                "verified_at": buffer.transcription.verified_at.isoformat() if buffer.transcription and buffer.transcription.verified_at else None,
+                "verified_at": buffer.transcription.verified_at.isoformat()
+                if buffer.transcription and buffer.transcription.verified_at
+                else None,
             },
         )
 
@@ -509,13 +514,25 @@ class AuditLogger:
                 "railway_path": buffer.railway_path,
                 "local_path": buffer.local_path,
                 "created_at": buffer.created_at.isoformat(),
-                "uploaded_at": buffer.uploaded_at.isoformat() if buffer.uploaded_at else None,
-                "downloaded_at": buffer.downloaded_at.isoformat() if buffer.downloaded_at else None,
-                "transcribed_at": buffer.transcribed_at.isoformat() if buffer.transcribed_at else None,
+                "uploaded_at": buffer.uploaded_at.isoformat()
+                if buffer.uploaded_at
+                else None,
+                "downloaded_at": buffer.downloaded_at.isoformat()
+                if buffer.downloaded_at
+                else None,
+                "transcribed_at": buffer.transcribed_at.isoformat()
+                if buffer.transcribed_at
+                else None,
                 "was_transcribed": buffer.transcription is not None,
-                "transcription_verified": buffer.transcription.is_verified() if buffer.transcription else False,
-                "railway_checksum": buffer.railway_checksum if self.config.include_checksums else None,
-                "local_checksum": buffer.local_checksum if self.config.include_checksums else None,
+                "transcription_verified": buffer.transcription.is_verified()
+                if buffer.transcription
+                else False,
+                "railway_checksum": buffer.railway_checksum
+                if self.config.include_checksums
+                else None,
+                "local_checksum": buffer.local_checksum
+                if self.config.include_checksums
+                else None,
             },
             previous_status=buffer.status,
             new_status=BufferStatus.DELETED,
@@ -698,10 +715,14 @@ class AuditLogger:
                 parts = entry.name.split("_")
                 if len(parts) >= 2:
                     try:
-                        file_date = datetime.strptime(parts[1].split(".")[0], "%Y-%m-%d")
+                        file_date = datetime.strptime(
+                            parts[1].split(".")[0], "%Y-%m-%d"
+                        )
                         file_date = file_date.replace(tzinfo=timezone.utc)
 
-                        if start_date and file_date < start_date.replace(hour=0, minute=0, second=0, microsecond=0):
+                        if start_date and file_date < start_date.replace(
+                            hour=0, minute=0, second=0, microsecond=0
+                        ):
                             continue
                         if end_date and file_date > end_date:
                             continue
@@ -728,8 +749,12 @@ class AuditLogger:
             timestamp=datetime.fromisoformat(data["timestamp"]),
             actor=data["actor"],
             details=data.get("details", {}),
-            previous_status=BufferStatus(data["previous_status"]) if data.get("previous_status") else None,
-            new_status=BufferStatus(data["new_status"]) if data.get("new_status") else None,
+            previous_status=BufferStatus(data["previous_status"])
+            if data.get("previous_status")
+            else None,
+            new_status=BufferStatus(data["new_status"])
+            if data.get("new_status")
+            else None,
             success=data.get("success", True),
             error_message=data.get("error_message"),
         )

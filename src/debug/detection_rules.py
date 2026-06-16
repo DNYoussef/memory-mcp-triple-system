@@ -91,7 +91,13 @@ class DetectionRules:
                 if stage in ["archived", "demoted", "rehydratable"]:
                     if hasattr(trace, "query"):
                         query_lower = trace.query.lower()
-                        active_keywords = ["current", "latest", "now", "today", "recent"]
+                        active_keywords = [
+                            "current",
+                            "latest",
+                            "now",
+                            "today",
+                            "recent",
+                        ]
                         if any(kw in query_lower for kw in active_keywords):
                             return True
 

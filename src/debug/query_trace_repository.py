@@ -49,10 +49,7 @@ class QueryTraceRepository:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
 
-            cursor.execute(
-                "SELECT * FROM query_traces WHERE query_id = ?",
-                (query_id,)
-            )
+            cursor.execute("SELECT * FROM query_traces WHERE query_id = ?", (query_id,))
 
             row = cursor.fetchone()
             conn.close()
@@ -76,16 +73,22 @@ class QueryTraceRepository:
             mode_detected=row["mode_detected"] or "",
             mode_confidence=row["mode_confidence"] or 0.0,
             mode_detection_ms=row["mode_detection_ms"] or 0,
-            stores_queried=json.loads(row["stores_queried"]) if row["stores_queried"] else [],
+            stores_queried=json.loads(row["stores_queried"])
+            if row["stores_queried"]
+            else [],
             routing_logic=row["routing_logic"] or "",
-            retrieved_chunks=json.loads(row["retrieved_chunks"]) if row["retrieved_chunks"] else [],
+            retrieved_chunks=json.loads(row["retrieved_chunks"])
+            if row["retrieved_chunks"]
+            else [],
             retrieval_ms=row["retrieval_ms"] or 0,
-            verification_result=json.loads(row["verification_result"]) if row["verification_result"] else None,
+            verification_result=json.loads(row["verification_result"])
+            if row["verification_result"]
+            else None,
             verification_ms=row["verification_ms"] or 0,
             output=row["output"] or "",
             total_latency_ms=row["total_latency_ms"] or 0,
             error=row["error"],
-            error_type=row["error_type"]
+            error_type=row["error_type"],
         )
 
     def list_recent(self, limit: int = 100) -> List[QueryTrace]:
@@ -104,8 +107,7 @@ class QueryTraceRepository:
             cursor = conn.cursor()
 
             cursor.execute(
-                "SELECT * FROM query_traces ORDER BY timestamp DESC LIMIT ?",
-                (limit,)
+                "SELECT * FROM query_traces ORDER BY timestamp DESC LIMIT ?", (limit,)
             )
 
             rows = cursor.fetchall()

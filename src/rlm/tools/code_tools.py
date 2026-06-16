@@ -36,6 +36,7 @@ class CodeSymbol:
         docstring: Optional docstring
         project: Project name
     """
+
     name: str
     symbol_type: str  # function, class, method, import, variable
     file_path: str
@@ -72,6 +73,7 @@ class FunctionCall:
         line_number: Line number of call
         arguments: Call arguments (if extractable)
     """
+
     caller: str
     callee: str
     file_path: str
@@ -120,7 +122,7 @@ class RLMCodeTools:
         name_pattern: str,
         project: Optional[str] = None,
         use_regex: bool = False,
-        limit: int = 50
+        limit: int = 50,
     ) -> List[Dict[str, Any]]:
         """
         RLM-011: Find function definitions by name.
@@ -180,7 +182,7 @@ class RLMCodeTools:
         name_pattern: str,
         project: Optional[str] = None,
         use_regex: bool = False,
-        limit: int = 50
+        limit: int = 50,
     ) -> List[Dict[str, Any]]:
         """
         RLM-011: Find class definitions by name.
@@ -235,10 +237,7 @@ class RLMCodeTools:
         return [s.to_dict() for s in results]
 
     def find_imports(
-        self,
-        module_pattern: str,
-        project: Optional[str] = None,
-        limit: int = 100
+        self, module_pattern: str, project: Optional[str] = None, limit: int = 100
     ) -> List[Dict[str, Any]]:
         """
         RLM-011: Find import statements.
@@ -280,7 +279,7 @@ class RLMCodeTools:
         function_name: str,
         project: Optional[str] = None,
         direction: str = "callers",
-        limit: int = 50
+        limit: int = 50,
     ) -> List[Dict[str, Any]]:
         """
         RLM-011: Trace function call chains.
@@ -358,16 +357,25 @@ class RLMCodeTools:
                 if isinstance(node, ast.FunctionDef):
                     symbols.append(self._func_to_symbol(node, file_path, project, ""))
                 elif isinstance(node, ast.AsyncFunctionDef):
-                    symbols.append(self._func_to_symbol(node, file_path, project, "", is_async=True))
+                    symbols.append(
+                        self._func_to_symbol(
+                            node, file_path, project, "", is_async=True
+                        )
+                    )
                 elif isinstance(node, ast.ClassDef):
                     symbols.append(self._class_to_symbol(node, file_path, project))
                     # Extract methods
                     for item in node.body:
                         if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                            symbols.append(self._func_to_symbol(
-                                item, file_path, project, node.name,
-                                is_async=isinstance(item, ast.AsyncFunctionDef)
-                            ))
+                            symbols.append(
+                                self._func_to_symbol(
+                                    item,
+                                    file_path,
+                                    project,
+                                    node.name,
+                                    is_async=isinstance(item, ast.AsyncFunctionDef),
+                                )
+                            )
 
         except (SyntaxError, Exception) as e:
             logger.debug(f"Failed to parse {file_path}: {e}")
@@ -376,12 +384,7 @@ class RLMCodeTools:
         return symbols
 
     def _func_to_symbol(
-        self,
-        node,
-        file_path: str,
-        project: str,
-        parent: str,
-        is_async: bool = False
+        self, node, file_path: str, project: str, parent: str, is_async: bool = False
     ) -> CodeSymbol:
         """Convert AST function node to CodeSymbol."""
         # Build signature
@@ -405,7 +408,9 @@ class RLMCodeTools:
     def _class_to_symbol(self, node, file_path: str, project: str) -> CodeSymbol:
         """Convert AST class node to CodeSymbol."""
         bases = [self._get_name(b) for b in node.bases]
-        sig = f"class {node.name}({', '.join(bases)})" if bases else f"class {node.name}"
+        sig = (
+            f"class {node.name}({', '.join(bases)})" if bases else f"class {node.name}"
+        )
 
         return CodeSymbol(
             name=node.name,
@@ -440,26 +445,32 @@ class RLMCodeTools:
             for node in ast.walk(tree):
                 if isinstance(node, ast.Import):
                     for alias in node.names:
-                        symbols.append(CodeSymbol(
-                            name=alias.name,
-                            symbol_type="import",
-                            file_path=file_path,
-                            line_number=node.lineno,
-                            signature=f"import {alias.name}" + (f" as {alias.asname}" if alias.asname else ""),
-                            project=project,
-                        ))
+                        symbols.append(
+                            CodeSymbol(
+                                name=alias.name,
+                                symbol_type="import",
+                                file_path=file_path,
+                                line_number=node.lineno,
+                                signature=f"import {alias.name}"
+                                + (f" as {alias.asname}" if alias.asname else ""),
+                                project=project,
+                            )
+                        )
                 elif isinstance(node, ast.ImportFrom):
                     module = node.module or ""
                     for alias in node.names:
-                        symbols.append(CodeSymbol(
-                            name=f"{module}.{alias.name}" if module else alias.name,
-                            symbol_type="import",
-                            file_path=file_path,
-                            line_number=node.lineno,
-                            signature=f"from {module} import {alias.name}" + (f" as {alias.asname}" if alias.asname else ""),
-                            project=project,
-                            parent=module,
-                        ))
+                        symbols.append(
+                            CodeSymbol(
+                                name=f"{module}.{alias.name}" if module else alias.name,
+                                symbol_type="import",
+                                file_path=file_path,
+                                line_number=node.lineno,
+                                signature=f"from {module} import {alias.name}"
+                                + (f" as {alias.asname}" if alias.asname else ""),
+                                project=project,
+                                parent=module,
+                            )
+                        )
 
         except (SyntaxError, Exception) as e:
             logger.debug(f"Failed to parse imports from {file_path}: {e}")
@@ -499,12 +510,14 @@ class RLMCodeTools:
                 def visit_Call(self, node):
                     callee = self._get_call_name(node.func)
                     if callee:
-                        calls.append(FunctionCall(
-                            caller=current_func,
-                            callee=callee,
-                            file_path=file_path,
-                            line_number=node.lineno,
-                        ))
+                        calls.append(
+                            FunctionCall(
+                                caller=current_func,
+                                callee=callee,
+                                file_path=file_path,
+                                line_number=node.lineno,
+                            )
+                        )
                     self.generic_visit(node)
 
                 def _get_call_name(self, node) -> str:
@@ -543,12 +556,13 @@ class RLMCodeTools:
 
 # Convenience functions for standalone use
 
+
 def find_function(
     codebase_env,
     name_pattern: str,
     project: Optional[str] = None,
     use_regex: bool = False,
-    limit: int = 50
+    limit: int = 50,
 ) -> List[Dict[str, Any]]:
     """Find function definitions."""
     tools = RLMCodeTools(codebase_env)
@@ -560,7 +574,7 @@ def find_class(
     name_pattern: str,
     project: Optional[str] = None,
     use_regex: bool = False,
-    limit: int = 50
+    limit: int = 50,
 ) -> List[Dict[str, Any]]:
     """Find class definitions."""
     tools = RLMCodeTools(codebase_env)
@@ -568,10 +582,7 @@ def find_class(
 
 
 def find_imports(
-    codebase_env,
-    module_pattern: str,
-    project: Optional[str] = None,
-    limit: int = 100
+    codebase_env, module_pattern: str, project: Optional[str] = None, limit: int = 100
 ) -> List[Dict[str, Any]]:
     """Find import statements."""
     tools = RLMCodeTools(codebase_env)
@@ -583,7 +594,7 @@ def trace_calls(
     function_name: str,
     project: Optional[str] = None,
     direction: str = "callers",
-    limit: int = 50
+    limit: int = 50,
 ) -> List[Dict[str, Any]]:
     """Trace function calls."""
     tools = RLMCodeTools(codebase_env)

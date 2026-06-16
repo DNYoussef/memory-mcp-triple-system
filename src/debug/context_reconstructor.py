@@ -21,9 +21,7 @@ class ContextReconstructor:
     """
 
     def __init__(
-        self,
-        kv_store: Optional[Any] = None,
-        vector_indexer: Optional[Any] = None
+        self, kv_store: Optional[Any] = None, vector_indexer: Optional[Any] = None
     ):
         """
         Initialize context reconstructor.
@@ -36,9 +34,7 @@ class ContextReconstructor:
         self._vector_indexer = vector_indexer
 
     def set_stores(
-        self,
-        kv_store: Optional[Any] = None,
-        vector_indexer: Optional[Any] = None
+        self, kv_store: Optional[Any] = None, vector_indexer: Optional[Any] = None
     ) -> None:
         """Configure stores for context reconstruction."""
         if kv_store:
@@ -48,9 +44,7 @@ class ContextReconstructor:
         logger.info("Context reconstructor stores configured")
 
     def reconstruct(
-        self,
-        timestamp: datetime,
-        user_context: Dict[str, Any]
+        self, timestamp: datetime, user_context: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         Reconstruct exact context at timestamp.
@@ -67,7 +61,7 @@ class ContextReconstructor:
             "user_context": user_context,
             "memory_snapshot": self._get_memory_snapshot(timestamp),
             "preferences": self._get_preferences(),
-            "sessions": self._get_sessions()
+            "sessions": self._get_sessions(),
         }
 
         logger.debug(f"Reconstructed context for {timestamp}")
@@ -81,7 +75,7 @@ class ContextReconstructor:
             collection = self._vector_indexer.collection
             return {
                 "chunk_count": collection.count(),
-                "timestamp": timestamp.isoformat()
+                "timestamp": timestamp.isoformat(),
             }
         except Exception as e:
             logger.warning(f"Memory snapshot failed: {e}")

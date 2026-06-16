@@ -28,6 +28,7 @@ from loguru import logger
 
 class SignalType(Enum):
     """Types of learning signals from Loop 1.5."""
+
     CORRECTION = "correction"  # User corrected Claude's output
     RULE = "rule"  # User stated explicit rule
     APPROVAL = "approval"  # User approved output
@@ -46,6 +47,7 @@ SIGNAL_CONFIDENCE: Dict[SignalType, float] = {
 @dataclass
 class LearningSignal:
     """A learning signal from session reflection."""
+
     signal_type: SignalType
     domain: str
     topic: str
@@ -65,7 +67,7 @@ class LearningSignal:
             "confidence": self.confidence,
             "session_id": self.session_id,
             "source_context": self.source_context,
-            "created_at": self.created_at
+            "created_at": self.created_at,
         }
 
     def to_namespace_key(self) -> str:
@@ -76,6 +78,7 @@ class LearningSignal:
 @dataclass
 class Loop15StorageResult:
     """Result of Loop 1.5 storage operation."""
+
     success: bool
     signal_id: str
     namespace_key: str
@@ -120,7 +123,7 @@ class Loop15StorageInterface:
         topic: str,
         content: str,
         session_id: str,
-        source_context: Optional[str] = None
+        source_context: Optional[str] = None,
     ) -> Loop15StorageResult:
         """
         Store a correction signal (confidence 0.90).
@@ -144,7 +147,7 @@ class Loop15StorageInterface:
             content=content,
             confidence=SIGNAL_CONFIDENCE[SignalType.CORRECTION],
             session_id=session_id,
-            source_context=source_context
+            source_context=source_context,
         )
 
         return self._store_signal(signal)
@@ -155,7 +158,7 @@ class Loop15StorageInterface:
         topic: str,
         content: str,
         session_id: str,
-        source_context: Optional[str] = None
+        source_context: Optional[str] = None,
     ) -> Loop15StorageResult:
         """
         Store an explicit rule signal (confidence 0.90).
@@ -169,7 +172,7 @@ class Loop15StorageInterface:
             content=content,
             confidence=SIGNAL_CONFIDENCE[SignalType.RULE],
             session_id=session_id,
-            source_context=source_context
+            source_context=source_context,
         )
 
         return self._store_signal(signal)
@@ -180,7 +183,7 @@ class Loop15StorageInterface:
         topic: str,
         content: str,
         session_id: str,
-        source_context: Optional[str] = None
+        source_context: Optional[str] = None,
     ) -> Loop15StorageResult:
         """
         Store an approval signal (confidence 0.75).
@@ -194,7 +197,7 @@ class Loop15StorageInterface:
             content=content,
             confidence=SIGNAL_CONFIDENCE[SignalType.APPROVAL],
             session_id=session_id,
-            source_context=source_context
+            source_context=source_context,
         )
 
         return self._store_signal(signal)
@@ -205,7 +208,7 @@ class Loop15StorageInterface:
         topic: str,
         content: str,
         session_id: str,
-        source_context: Optional[str] = None
+        source_context: Optional[str] = None,
     ) -> Loop15StorageResult:
         """
         Store an observation signal (confidence 0.55).
@@ -219,7 +222,7 @@ class Loop15StorageInterface:
             content=content,
             confidence=SIGNAL_CONFIDENCE[SignalType.OBSERVATION],
             session_id=session_id,
-            source_context=source_context
+            source_context=source_context,
         )
 
         return self._store_signal(signal)
@@ -246,10 +249,7 @@ class Loop15StorageInterface:
                 success = self.namespace_router.store_expertise(
                     domain=signal.domain,
                     topic=signal.topic,
-                    expertise_data={
-                        "signal_id": signal_id,
-                        **signal.to_dict()
-                    }
+                    expertise_data={"signal_id": signal_id, **signal.to_dict()},
                 )
             except Exception as e:
                 logger.error(f"Failed to store signal: {e}")
@@ -267,7 +267,7 @@ class Loop15StorageInterface:
             success=success,
             signal_id=signal_id,
             namespace_key=namespace_key,
-            message=f"Stored {signal.signal_type.value} with confidence {signal.confidence}"
+            message=f"Stored {signal.signal_type.value} with confidence {signal.confidence}",
         )
 
     def flush_pending(self) -> int:
@@ -303,7 +303,7 @@ class Loop15StorageInterface:
             "pending_count": len(self.pending_signals),
             "signal_confidences": {
                 st.value: conf for st, conf in SIGNAL_CONFIDENCE.items()
-            }
+            },
         }
 
 
@@ -330,7 +330,7 @@ class Loop3QueryInterface:
         self,
         domain: Optional[str] = None,
         min_confidence: float = 0.5,
-        limit: int = 100
+        limit: int = 100,
     ) -> List[Dict[str, Any]]:
         """
         Query learnings for meta-optimization.
@@ -357,13 +357,12 @@ class Loop3QueryInterface:
 
             # List expertise keys
             keys = self.namespace_router.list_by_namespace(
-                TelemetryNamespace.EXPERTISE,
-                prefix_filter=prefix
+                TelemetryNamespace.EXPERTISE, prefix_filter=prefix
             )
 
             # Retrieve and filter
             results = []
-            for key in keys[:limit * 2]:  # Over-fetch for filtering
+            for key in keys[: limit * 2]:  # Over-fetch for filtering
                 data = self.namespace_router.retrieve(key)
                 if data and data.get("confidence", 0) >= min_confidence:
                     results.append(data)
@@ -378,8 +377,7 @@ class Loop3QueryInterface:
             return []
 
     def aggregate_by_domain(
-        self,
-        learnings: List[Dict[str, Any]]
+        self, learnings: List[Dict[str, Any]]
     ) -> Dict[str, List[Dict[str, Any]]]:
         """
         Aggregate learnings by domain for analysis.
@@ -397,10 +395,7 @@ class Loop3QueryInterface:
         logger.debug(f"Aggregated learnings into {len(aggregated)} domains")
         return aggregated
 
-    def extract_globalmoo_5d(
-        self,
-        learnings: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+    def extract_globalmoo_5d(self, learnings: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         ORG-004: Extract GlobalMOO 5D parameters for meta-optimization.
 
@@ -437,8 +432,8 @@ class Loop3QueryInterface:
             "_meta": {
                 "total_learnings": len(learnings),
                 "correction_rate": correction_rate,
-                "rule_strictness": rule_strictness
-            }
+                "rule_strictness": rule_strictness,
+            },
         }
 
         logger.info(f"Extracted GlobalMOO 5D params: {params}")
@@ -447,7 +442,7 @@ class Loop3QueryInterface:
     def extract_pymoo_14d(
         self,
         learnings: List[Dict[str, Any]],
-        current_config: Optional[Dict[str, Any]] = None
+        current_config: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         ORG-004: Extract PyMOO 14D parameters for fine-tuning.
@@ -495,7 +490,7 @@ class Loop3QueryInterface:
         params["_meta"] = {
             "source": "loop3_extraction",
             "learnings_count": len(learnings),
-            "extracted_at": datetime.utcnow().isoformat()
+            "extracted_at": datetime.utcnow().isoformat(),
         }
 
         logger.info("Extracted PyMOO 14D params")
@@ -509,13 +504,10 @@ class Loop3QueryInterface:
             "verix_strictness": 0.70,
             "compression_level": 1,
             "require_ground": 0.5,
-            "_meta": {"total_learnings": 0}
+            "_meta": {"total_learnings": 0},
         }
 
-    def prepare_optimization_input(
-        self,
-        days_back: int = 3
-    ) -> Dict[str, Any]:
+    def prepare_optimization_input(self, days_back: int = 3) -> Dict[str, Any]:
         """
         ORG-004: Prepare input for meta-optimization cycle.
 
@@ -534,6 +526,7 @@ class Loop3QueryInterface:
 
         # Filter by date if timestamp available
         from datetime import timedelta
+
         cutoff = datetime.utcnow() - timedelta(days=days_back)
         recent_learnings = []
         for l in learnings:
@@ -552,5 +545,5 @@ class Loop3QueryInterface:
             "pymoo_14d": self.extract_pymoo_14d(recent_learnings),
             "learnings": recent_learnings,
             "aggregated": self.aggregate_by_domain(recent_learnings),
-            "days_back": days_back
+            "days_back": days_back,
         }

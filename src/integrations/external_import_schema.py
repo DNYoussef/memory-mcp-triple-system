@@ -74,9 +74,9 @@ class ImportStatus(Enum):
 class TagConfidence(Enum):
     """Confidence level for auto-derived tags."""
 
-    HIGH = "high"      # Explicit in source metadata
+    HIGH = "high"  # Explicit in source metadata
     MEDIUM = "medium"  # Inferred from context
-    LOW = "low"        # Best guess
+    LOW = "low"  # Best guess
 
 
 @dataclass
@@ -325,11 +325,13 @@ class ImportJob:
 
     def add_error(self, error: str, file_path: str = "") -> None:
         """Add an error."""
-        self.errors.append({
-            "error": error,
-            "file_path": file_path,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
+        self.errors.append(
+            {
+                "error": error,
+                "file_path": file_path,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
         self.failed_items += 1
 
     def to_dict(self) -> Dict[str, Any]:
@@ -346,13 +348,16 @@ class ImportJob:
                 "skipped_items": self.skipped_items,
                 "percentage": (
                     round(self.processed_items / self.total_items * 100, 1)
-                    if self.total_items > 0 else 0
+                    if self.total_items > 0
+                    else 0
                 ),
             },
             "timestamps": {
                 "created_at": self.created_at.isoformat(),
                 "started_at": self.started_at.isoformat() if self.started_at else None,
-                "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+                "completed_at": self.completed_at.isoformat()
+                if self.completed_at
+                else None,
             },
             "item_count": len(self.items),
             "error_count": len(self.errors),
@@ -526,6 +531,7 @@ class ImportStats:
 
 
 # Helper functions for parsing common formats
+
 
 def parse_iso_timestamp(ts_string: str) -> Optional[datetime]:
     """Parse ISO8601 timestamp string."""
