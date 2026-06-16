@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Tuple
 import networkx as nx
 from loguru import logger
 
+from ._parent_cap import cap_in_degree, MAX_PARENTS
 from .lightweight_bayesian import (
     LightweightBayesianNetwork,
     LightweightCPD,
@@ -20,8 +21,10 @@ from .lightweight_bayesian import (
 class LightweightNetworkBuilder:
     """Build Bayesian network from knowledge graph (no pgmpy/torch)."""
 
-    def __init__(self, max_nodes: int = 50, config_path: str = ""):
+    def __init__(self, max_nodes: int = 50, config_path: str = "",
+                 max_parents: int = MAX_PARENTS):
         self.max_nodes = max_nodes
+        self.max_parents = max_parents
         self._cache: Dict[str, LightweightBayesianNetwork] = {}
 
     def build_network(
@@ -42,8 +45,13 @@ class LightweightNetworkBuilder:
         else:
             subgraph = graph
 
-        # Extract edges (only between selected nodes)
-        edges = [(u, v) for u, v in subgraph.edges() if u in nodes and v in nodes]
+        # Extract edges (only between selected nodes), capping in-degree so the
+        # CPD estimator does not enumerate 2^(many) parent combinations and hang.
+        edges = cap_in_degree(
+            [(u, v) for u, v in subgraph.edges() if u in nodes and v in nodes],
+            max_parents=self.max_parents,
+            weight=lambda u, v: subgraph[u][v].get("weight", 1.0),
+        )
         if not edges:
             logger.warning("No valid edges for Bayesian network")
             return None
