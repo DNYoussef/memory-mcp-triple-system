@@ -448,7 +448,12 @@ def handle_hipporag_retrieve(
         ]
 
         if not entity_result.get("isError"):
-            content.append(entity_result["content"][0])
+            seed_text = entity_result["content"][0]["text"]
+            # Retrieval uses retrieve_multi_hop's own token fallback, not these
+            # NER seeds, so a bare "Extracted 0 entities" line just reads as a
+            # false failure. Only surface seeds when some were actually found.
+            if not seed_text.startswith("Extracted 0 entities"):
+                content.append(entity_result["content"][0])
 
         for idx, result in enumerate(results, 1):
             if isinstance(result, dict):

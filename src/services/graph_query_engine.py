@@ -581,7 +581,16 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
             return ""
 
         node_data = self.graph.nodes[chunk_id]
-        return node_data.get("text", node_data.get("content", ""))
+        # Ingestion stores the chunk body under metadata["text"] -- the live
+        # source (167/197 chunks) and the field HippoRagService reads. Check it
+        # first; fall back to top-level text/content for legacy nodes. First
+        # non-empty body wins (an empty string is treated as "no body").
+        metadata = node_data.get("metadata")
+        if isinstance(metadata, dict):
+            text = metadata.get("text") or metadata.get("content")
+            if text:
+                return text
+        return node_data.get("text") or node_data.get("content") or ""
 
     def _get_chunk_metadata(self, chunk_id: str) -> Dict[str, Any]:
         """
