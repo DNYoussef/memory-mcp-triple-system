@@ -42,14 +42,14 @@ The Memory MCP Triple System integrates seamlessly with intelligent code analysi
 
 ## Key Features
 
-- **Triple-Layer Memory Architecture**: Three-tier storage system (Short-term, Mid-term, Long-term) with automatic retention policies
-- **Mode-Aware Context Adaptation**: Automatically detects and adapts to three interaction modes (Execution, Planning, Brainstorming)
-- **Semantic Vector Search**: ChromaDB-powered vector similarity search with 384-dimensional embeddings
-- **Self-Referential Memory**: System can retrieve information about its own capabilities and documentation
-- **Pattern-Based Mode Detection**: 29 regex patterns achieving 85%+ accuracy in query classification
-- **Curated Core Results**: Intelligent result curation (5 core + variable extended results based on mode)
-- **MCP-Compatible**: Full MCP protocol support for seamless integration with Claude Desktop, Continue, and other MCP clients
-- **Production Status**: See [audits/STATUS-2026-06-13.md](audits/STATUS-2026-06-13.md)
+- **Triple retrieval tiers, fused**: Vector (ChromaDB, 384-dim) + HippoRAG knowledge graph (NetworkX multi-hop) + Bayesian inference (built from the live stored-memory graph) are fused by the Nexus pipeline (RECALL → FILTER → DEDUPE → RANK → RERANK → COMPRESS) at 0.4 / 0.4 / 0.2. (Not to be confused with the lifecycle *stages* below.)
+- **Mode-aware retrieval**: detects Execution / Planning / Brainstorming via 29 patterns and adapts result count + token budget; brainstorming gives broader recall.
+- **Four-stage lifecycle**: active → demoted → archived → rehydratable, with real aging — chunks carry a numeric `last_accessed_ts` and demote/archive/clean up on an elapsed-time schedule.
+- **WHO/WHEN/PROJECT/WHY tagging** on every stored memory, plus per-call query tracing for replay and error attribution.
+- **18 MCP tools** — semantic/graph/bayesian/unified search, entity extraction, mode detection, lifecycle status, a key-value store (`kv_get` / `kv_set` / `kv_delete`), and **`context_retrieve`** (surface relevant memory to inject as context). Full current list in [docs/CURRENT.md](docs/CURRENT.md).
+- **Self-referential memory**: the system stores and retrieves its own documentation.
+- **MCP-compatible**: stdio (canonical transport) + HTTP (FastAPI, API-key auth); works with Claude Desktop, Continue, and other MCP clients.
+- **Verified end to end**: `scripts/acceptance_all_parts.py` exercises all 12 capabilities (store + every retrieval tier + lifecycle + injection) and passes on both Claude and Codex. Status: [audits/STATUS-2026-06-13.md](audits/STATUS-2026-06-13.md).
 
 ## Architecture Overview
 
@@ -79,10 +79,11 @@ The Memory MCP Triple System integrates seamlessly with intelligent code analysi
 │                          │                                   │
 │                          ▼                                   │
 │  ┌─────────────────────────────────────────────────────┐   │
-│  │  Triple-Layer Memory Storage                        │   │
-│  │  • Short-term (24h retention)                       │   │
-│  │  • Mid-term (7d retention)                          │   │
-│  │  • Long-term (30d retention)                        │   │
+│  │  Triple retrieval tiers (fused 0.4/0.4/0.2)         │   │
+│  │  • Vector (ChromaDB)                                │   │
+│  │  • HippoRAG graph (NetworkX)                        │   │
+│  │  • Bayesian (from the live graph)                  │   │
+│  │  Lifecycle stages: active→demoted→archived→rehydr.  │   │
 │  └─────────────────────────────────────────────────────┘   │
 │                          │                                   │
 │                          ▼                                   │
