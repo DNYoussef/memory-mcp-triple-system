@@ -64,6 +64,30 @@ def test_bayesian_inference_resolves_multiword_entity_to_single_token_node():
     assert kwargs["query_vars"] == ["wilhelmina"]
 
 
+def test_bayesian_inference_rejects_empty_query():
+    """An empty/whitespace query is rejected before any build."""
+    tool = MagicMock()
+    result = handle_bayesian_inference({"query": "   "}, tool)
+    assert result["isError"] is True
+    assert "No query provided" in result["content"][0]["text"]
+
+
+def test_bayesian_inference_per_word_skips_stopwords():
+    """The per-word fallback must not match a common node like "the"."""
+    tool = MagicMock()
+    tool.nexus_processor._extract_query_entity.return_value = "the report"
+    net = MagicMock()
+    net.nodes.return_value = ["the", "report"]  # both present
+    tool._build_bayesian_network.return_value = net
+    tool.nexus_processor.probabilistic_query_engine.query_conditional.return_value = {"p": 0.5}
+
+    handle_bayesian_inference({"query": "show me the report"}, tool)
+
+    # "the" is a stopword and skipped; "report" (>3 chars) is the match
+    _, kwargs = tool.nexus_processor.probabilistic_query_engine.query_conditional.call_args
+    assert kwargs["query_vars"] == ["report"]
+
+
 def test_bayesian_inference_returns_error_not_raises_on_exception():
     """An inference exception must become an isError result, not propagate."""
     tool = _tool_with_engine()

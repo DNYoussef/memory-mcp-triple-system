@@ -411,6 +411,9 @@ class NexusSearchTool:
         if os.getenv("MEMORY_MCP_SYNC_BAYESIAN") == "1":
             _build()
             return
+        existing = getattr(self, "_bayesian_build_thread", None)
+        if existing is not None and existing.is_alive():
+            return  # a build is already in flight; don't start a duplicate
         t = threading.Thread(target=_build, name="bayesian-build", daemon=True)
         t.start()
         self._bayesian_build_thread = t

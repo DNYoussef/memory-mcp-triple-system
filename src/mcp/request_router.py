@@ -502,12 +502,14 @@ def handle_bayesian_inference(
     query = arguments.get("query", "")
     evidence = arguments.get("evidence")
 
+    if not query or not query.strip():
+        return {"content": [{"type": "text", "text": "No query provided"}], "isError": True}
     if not tool.nexus_processor or not tool.nexus_processor.probabilistic_query_engine:
         return {"content": [{"type": "text", "text": "Bayesian engine unavailable"}], "isError": True}
 
     try:
         query_var = tool.nexus_processor._extract_query_entity(query)
-        if not query_var:
+        if not query_var or query_var.lower() == "unknown":
             return {"content": [{"type": "text", "text": "No query entity extracted from query"}], "isError": True}
 
         # P4: build the network from the CURRENT graph (the init-time net is
@@ -528,7 +530,11 @@ def handle_bayesian_inference(
         # the raw form, the underscored form, then each lowercased word.
         nodes = set(network.nodes())
         candidates = [query_var, query_var.lower().replace(" ", "_")]
-        candidates += [w.lower() for w in query_var.split() if w]
+        # per-word fallback: skip short/stopword tokens so we don't match a
+        # common node ("the", "project") when the real entity is absent.
+        _stop = {"the", "and", "for", "with", "that", "this", "about", "tell", "what", "from"}
+        candidates += [w.lower() for w in query_var.split()
+                       if len(w) > 3 and w.lower() not in _stop]
         node_var = next((v for v in candidates if v in nodes), None)
         if node_var is None:
             return {"content": [{"type": "text", "text": (
