@@ -119,6 +119,36 @@ def get_connascence_bridge():
     return _connascence_bridge
 
 
+class _LazyEmbedder:
+    """Defers the ~8s SentenceTransformer load until the embedder is first used.
+
+    The MCP stdio server must answer the handshake quickly; force-loading the
+    model at boot risked a startup timeout. This proxy resolves the real
+    embedder on first attribute access (encode/encode_single/embedding_dim/...)
+    and forwards everything to it, so a session that never embeds never loads it.
+    """
+
+    def __init__(self, provider):
+        self._provider = provider
+        self._real = None
+
+    def _resolve(self):
+        # ponytail: no lock - the only caller is the single-threaded lifecycle
+        # scheduler, so a concurrent double-load can't happen here; a lock would
+        # also make the proxy uncopyable (_thread.lock).
+        if self._real is None:
+            self._real = self._provider()
+        return self._real
+
+    def __getattr__(self, name):
+        # Never proxy private/dunder lookups: that would recurse on an
+        # uninitialized proxy (e.g. copy.deepcopy probing __deepcopy__ before
+        # __init__ runs) until RecursionError. Only forward real attributes.
+        if name.startswith("_"):
+            raise AttributeError(name)
+        return getattr(self._resolve(), name)
+
+
 class NexusSearchTool:
     """
     Wrapper around NexusProcessor for MCP integration.
@@ -156,12 +186,16 @@ class NexusSearchTool:
         # C3.4: KV store for session state
         self.kv_store = KVStore(db_path=str(data_dir / "kv_store.db"))
 
-        # C3.5: Lifecycle manager with hot/cold classifier
+        # C3.5: Lifecycle manager with hot/cold classifier.
+        # F6: pass the embedder LAZILY. Accessing .embedder here force-loaded the
+        # ~8s SentenceTransformer at boot, risking the MCP stdio handshake
+        # timeout. The lifecycle manager only needs it during a merge/rehydrate,
+        # so defer the load until first use (or never, for non-embedding sessions).
         self.hot_cold_classifier = HotColdClassifier()
         self.lifecycle_manager = MemoryLifecycleManager(
             vector_indexer=self.vector_search_tool.indexer,
             kv_store=self.kv_store,
-            embedding_pipeline=self.vector_search_tool.embedder
+            embedding_pipeline=_LazyEmbedder(lambda: self.vector_search_tool.embedder)
         )
 
         # C3.2: Obsidian client (lazy init)
