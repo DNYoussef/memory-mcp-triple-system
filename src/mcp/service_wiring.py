@@ -10,6 +10,7 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 import json
 import os
 import sqlite3
+import threading
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 import yaml
@@ -134,6 +135,10 @@ class NexusSearchTool:
         self.config = config
         self.vector_search_tool = VectorSearchTool(config)
         self._nexus_processor: Optional[NexusProcessor] = None
+        # F2b: one reused NetworkBuilder (its cache survives across calls),
+        # guarded so concurrent first calls do not each build one.
+        self._network_builder = None
+        self._network_builder_lock = threading.Lock()
 
         # Phase 6: Production wiring (C3.2-C3.6)
         self._init_production_features(config)
@@ -383,12 +388,21 @@ class NexusSearchTool:
             logger.warning(f"Reranker init failed (disabled): {e}")
             return None
 
-    @staticmethod
-    def _build_bayesian_network(graph_service: GraphService):
-        """Build Bayesian network from knowledge graph."""
+    def _build_bayesian_network(self, graph_service: GraphService):
+        """Build the Bayesian network from the knowledge graph.
+
+        F2b: reuse ONE NetworkBuilder so its graph-version cache survives across
+        calls. bayesian_inference calls this on every request; a fresh builder
+        each time threw the cache away and rebuilt from scratch (minutes on the
+        real graph). With a persistent builder, a repeated call on an unchanged
+        graph is a cache hit; the net is only rebuilt when the graph changed.
+        """
         try:
-            network_builder = NetworkBuilder(max_nodes=1000)
-            network = network_builder.build_network(graph_service.graph)
+            if getattr(self, "_network_builder", None) is None:
+                with self._network_builder_lock:
+                    if getattr(self, "_network_builder", None) is None:
+                        self._network_builder = NetworkBuilder(max_nodes=1000)
+            network = self._network_builder.build_network(graph_service.graph)
             if network:
                 logger.info("Bayesian network built successfully")
             return network

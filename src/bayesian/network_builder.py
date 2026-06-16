@@ -457,14 +457,21 @@ class NetworkBuilder:
 
         NASA Rule 10: 13 LOC (≤60) ✅
         """
-        # Hash structure AND edge confidence: both the parent cap and the CPDs
-        # depend on confidence, so a confidence change must miss the cache.
-        nodes_str = str(sorted(graph.nodes()))
+        # Hash everything build_network reads from the graph, so any mutation
+        # that changes the net misses the cache: structure + edge confidence
+        # (cap + CPDs) + edge weight (CPDs) + node frequency (pruning) + states.
+        nodes_str = str(sorted(
+            (n,
+             round(float(graph.nodes[n].get("frequency", 0)), 4),
+             tuple(graph.nodes[n].get("states", ())))
+            for n in graph.nodes()
+        ))
         edges_str = str(sorted(
-            (u, v, round(float(d.get("confidence", DEFAULT_EDGE_CONFIDENCE)), 4))
+            (u, v,
+             round(float(d.get("confidence", DEFAULT_EDGE_CONFIDENCE)), 4),
+             round(float(d.get("weight", 1.0)), 4))
             for u, v, d in graph.edges(data=True)
         ))
-        graph_str = nodes_str + edges_str
 
-        cache_key = hashlib.md5(graph_str.encode()).hexdigest()
+        cache_key = hashlib.md5((nodes_str + edges_str).encode()).hexdigest()
         return cache_key

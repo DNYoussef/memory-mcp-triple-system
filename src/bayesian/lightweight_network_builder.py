@@ -37,6 +37,12 @@ class LightweightNetworkBuilder:
             logger.warning("Empty graph, cannot build Bayesian network")
             return None
 
+        # F2b: cache by graph version so a repeated build on an unchanged graph
+        # is a hit (the builder is reused across bayesian_inference calls).
+        cache_key = self._cache_key(graph)
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
         # Filter to top nodes by degree
         nodes = sorted(graph.nodes(), key=lambda n: graph.degree(n), reverse=True)
         if len(nodes) > self.max_nodes:
@@ -66,12 +72,24 @@ class LightweightNetworkBuilder:
         # Estimate CPDs
         bn = self.estimate_cpds(bn, subgraph)
 
-        if bn.check_model():
-            logger.info(f"Lightweight Bayesian network built: {len(bn.nodes())} nodes, {len(bn.edges())} edges")
-            return bn
-        else:
+        if not bn.check_model():
             logger.warning("Bayesian network validation failed")
-            return bn  # Return anyway — degraded but usable
+        else:
+            logger.info(f"Lightweight Bayesian network built: {len(bn.nodes())} nodes, {len(bn.edges())} edges")
+        if len(self._cache) >= 100:  # bound: drop an arbitrary old entry
+            self._cache.pop(next(iter(self._cache)))
+        self._cache[cache_key] = bn  # degraded-but-usable nets are cached too
+        return bn
+
+    @staticmethod
+    def _cache_key(graph: nx.DiGraph) -> str:
+        """Graph-version key: structure + edge weight (the only CPD input here)."""
+        import hashlib
+        edges = sorted(
+            (u, v, round(float(d.get("weight", 1.0)), 4))
+            for u, v, d in graph.edges(data=True)
+        )
+        return hashlib.md5((str(sorted(graph.nodes())) + str(edges)).encode()).hexdigest()
 
     def estimate_cpds(
         self,
