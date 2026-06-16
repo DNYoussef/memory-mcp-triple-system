@@ -27,6 +27,9 @@ from datetime import datetime
 # Add src to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+# F4: force UTF-8 stdout/stderr before heavy imports (cp1252 pipe crash).
+from src.mcp import _utf8_io  # noqa: F401  (import runs ensure_utf8_io())
+
 from fastapi import Depends, FastAPI, Header, HTTPException, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.middleware.cors import CORSMiddleware
@@ -35,7 +38,7 @@ import uvicorn
 from loguru import logger
 
 # Import Memory MCP components
-from src.indexing.vector_indexer import VectorIndexer
+from src.indexing.vector_indexer import VectorIndexer, resolve_persist_dir
 from src.indexing.embedding_pipeline import EmbeddingPipeline
 from src.modes.mode_detector import ModeDetector
 from src.routing.query_router import QueryRouter
@@ -45,7 +48,7 @@ from src.services.graph_service import GraphService
 from src.services.graph_query_engine import GraphQueryEngine
 from src.bayesian import BAYESIAN_AVAILABLE, BAYESIAN_BACKEND, NetworkBuilder, ProbabilisticQueryEngine
 from src.stores.event_log import EventLog, EventType
-from src.stores.kv_store import KVStore
+from src.stores.kv_store import KVStore, DEFAULT_DB_NAME
 from src.memory.lifecycle_manager import MemoryLifecycleManager
 from src.memory.lifecycle_scheduler import LifecycleScheduler
 # Lazy imports to avoid startup crashes if dependencies are missing
@@ -285,7 +288,9 @@ def get_indexer() -> VectorIndexer:
                 # Default /data/chroma matches config/memory-mcp.yaml:18.
                 # /app/chroma_data was a broken workaround that made every
                 # redeploy amnesia. Do not revert to container-local.
-                persist_dir = os.getenv("CHROMA_PERSIST_DIR", "/data/chroma")
+                # resolve_persist_dir adds MEMORY_MCP_DATA_DIR resolution while
+                # keeping this durable default when nothing is set.
+                persist_dir = resolve_persist_dir(default="/data/chroma")
                 _verify_volume_writable(persist_dir)
                 _indexer = VectorIndexer.get_instance(persist_directory=persist_dir)
     return _indexer
@@ -380,7 +385,7 @@ def get_kv_store() -> KVStore:
             if _kv_store is None:
                 config = load_config()
                 data_dir = _get_data_dir(config)
-                _kv_store = KVStore(db_path=os.path.join(data_dir, "kv_store.db"))
+                _kv_store = KVStore(db_path=os.path.join(data_dir, DEFAULT_DB_NAME))
     return _kv_store
 
 

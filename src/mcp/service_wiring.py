@@ -10,6 +10,7 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 import json
 import os
 import sqlite3
+import threading
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 import yaml
@@ -27,7 +28,7 @@ from ..nexus.processor import NexusProcessor
 
 # Phase 6: Production wiring imports (C3.2-C3.6)
 from ..stores.event_log import EventLog
-from ..stores.kv_store import KVStore
+from ..stores.kv_store import KVStore, DEFAULT_DB_NAME
 from ..debug.query_trace import QueryTrace
 from ..lifecycle.hotcold_classifier import HotColdClassifier
 from ..memory.lifecycle_manager import MemoryLifecycleManager
@@ -118,6 +119,36 @@ def get_connascence_bridge():
     return _connascence_bridge
 
 
+class _LazyEmbedder:
+    """Defers the ~8s SentenceTransformer load until the embedder is first used.
+
+    The MCP stdio server must answer the handshake quickly; force-loading the
+    model at boot risked a startup timeout. This proxy resolves the real
+    embedder on first attribute access (encode/encode_single/embedding_dim/...)
+    and forwards everything to it, so a session that never embeds never loads it.
+    """
+
+    def __init__(self, provider):
+        self._provider = provider
+        self._real = None
+
+    def _resolve(self):
+        # ponytail: no lock - the only caller is the single-threaded lifecycle
+        # scheduler, so a concurrent double-load can't happen here; a lock would
+        # also make the proxy uncopyable (_thread.lock).
+        if self._real is None:
+            self._real = self._provider()
+        return self._real
+
+    def __getattr__(self, name):
+        # Never proxy private/dunder lookups: that would recurse on an
+        # uninitialized proxy (e.g. copy.deepcopy probing __deepcopy__ before
+        # __init__ runs) until RecursionError. Only forward real attributes.
+        if name.startswith("_"):
+            raise AttributeError(name)
+        return getattr(self._resolve(), name)
+
+
 class NexusSearchTool:
     """
     Wrapper around NexusProcessor for MCP integration.
@@ -134,6 +165,10 @@ class NexusSearchTool:
         self.config = config
         self.vector_search_tool = VectorSearchTool(config)
         self._nexus_processor: Optional[NexusProcessor] = None
+        # F2b: one reused NetworkBuilder (its cache survives across calls),
+        # guarded so concurrent first calls do not each build one.
+        self._network_builder = None
+        self._network_builder_lock = threading.Lock()
 
         # Phase 6: Production wiring (C3.2-C3.6)
         self._init_production_features(config)
@@ -148,15 +183,21 @@ class NexusSearchTool:
         # C3.3: Event logging
         self.event_log = EventLog(db_path=str(data_dir / "events.db"))
 
-        # C3.4: KV store for session state
-        self.kv_store = KVStore(db_path=str(data_dir / "kv_store.db"))
+        # C3.4: KV store for session state. Must match the capture hooks'
+        # DEFAULT_DB or observation_timeline reads an empty file (the runtime
+        # wrote here while hooks wrote agent_kv.db -- the empty-timeline bug).
+        self.kv_store = KVStore(db_path=str(data_dir / DEFAULT_DB_NAME))
 
-        # C3.5: Lifecycle manager with hot/cold classifier
+        # C3.5: Lifecycle manager with hot/cold classifier.
+        # F6: pass the embedder LAZILY. Accessing .embedder here force-loaded the
+        # ~8s SentenceTransformer at boot, risking the MCP stdio handshake
+        # timeout. The lifecycle manager only needs it during a merge/rehydrate,
+        # so defer the load until first use (or never, for non-embedding sessions).
         self.hot_cold_classifier = HotColdClassifier()
         self.lifecycle_manager = MemoryLifecycleManager(
             vector_indexer=self.vector_search_tool.indexer,
             kv_store=self.kv_store,
-            embedding_pipeline=self.vector_search_tool.embedder
+            embedding_pipeline=_LazyEmbedder(lambda: self.vector_search_tool.embedder)
         )
 
         # C3.2: Obsidian client (lazy init)
@@ -331,13 +372,16 @@ class NexusSearchTool:
             # This ensures NexusProcessor uses the same graph that was loaded from graph.json
             graph_query_engine = GraphQueryEngine(graph_service=self.graph_service)
 
-            # ISS-018 fix: Build Bayesian network from knowledge graph
-            bayesian_network = self._build_bayesian_network(self.graph_service)
-
+            # F2: do NOT build the Bayesian net synchronously here - that put a
+            # full graph build on the first fused read's critical path. Start
+            # the engine with no net (the Bayesian tier degrades gracefully,
+            # exactly as it already does on timeout) and build it in the
+            # background; set_network wires it in once ready.
             probabilistic_engine = ProbabilisticQueryEngine(
                 timeout_seconds=1.0,
-                network=bayesian_network
+                network=None
             )
+            self._start_bayesian_build(probabilistic_engine)
 
             # MEM-QWEN-002: Initialize cross-encoder reranker
             reranker = self._init_reranker()
@@ -383,12 +427,48 @@ class NexusSearchTool:
             logger.warning(f"Reranker init failed (disabled): {e}")
             return None
 
-    @staticmethod
-    def _build_bayesian_network(graph_service: GraphService):
-        """Build Bayesian network from knowledge graph."""
+    def _start_bayesian_build(self, engine) -> None:
+        """F2: build the Bayesian net off the fused-read hot path.
+
+        Runs the (now bounded, cached) build in a daemon thread and wires it
+        into the engine via set_network when ready. Until then the Bayesian
+        tier degrades to no contribution - the same state it already reaches on
+        a query timeout - so the vector/HippoRAG tiers are never blocked on it.
+        MEMORY_MCP_SYNC_BAYESIAN=1 forces a synchronous build (tests/determinism).
+        """
+        def _build():
+            try:
+                net = self._build_bayesian_network(self.graph_service)
+                if net is not None:
+                    engine.set_network(net)
+            except Exception as e:
+                logger.warning(f"Background Bayesian build failed: {e}")
+
+        if os.getenv("MEMORY_MCP_SYNC_BAYESIAN") == "1":
+            _build()
+            return
+        existing = getattr(self, "_bayesian_build_thread", None)
+        if existing is not None and existing.is_alive():
+            return  # a build is already in flight; don't start a duplicate
+        t = threading.Thread(target=_build, name="bayesian-build", daemon=True)
+        t.start()
+        self._bayesian_build_thread = t
+
+    def _build_bayesian_network(self, graph_service: GraphService):
+        """Build the Bayesian network from the knowledge graph.
+
+        F2b: reuse ONE NetworkBuilder so its graph-version cache survives across
+        calls. bayesian_inference calls this on every request; a fresh builder
+        each time threw the cache away and rebuilt from scratch (minutes on the
+        real graph). With a persistent builder, a repeated call on an unchanged
+        graph is a cache hit; the net is only rebuilt when the graph changed.
+        """
         try:
-            network_builder = NetworkBuilder(max_nodes=1000)
-            network = network_builder.build_network(graph_service.graph)
+            if getattr(self, "_network_builder", None) is None:
+                with self._network_builder_lock:
+                    if getattr(self, "_network_builder", None) is None:
+                        self._network_builder = NetworkBuilder(max_nodes=1000)
+            network = self._network_builder.build_network(graph_service.graph)
             if network:
                 logger.info("Bayesian network built successfully")
             return network

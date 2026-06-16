@@ -1,4 +1,3 @@
-import os
 """
 Vector Search Tool Implementation
 Implements vector similarity search using semantic chunking and embeddings.
@@ -12,7 +11,7 @@ from loguru import logger
 
 from ...chunking.semantic_chunker import SemanticChunker
 from ...indexing.embedding_pipeline import EmbeddingPipeline
-from ...indexing.vector_indexer import VectorIndexer
+from ...indexing.vector_indexer import VectorIndexer, resolve_persist_dir
 
 
 def _require_config_section(config: Dict[str, Any], section: str) -> None:
@@ -84,10 +83,11 @@ class VectorSearchTool:
         """Lazy load vector indexer."""
         if self._indexer is None:
             vector_config = self.config['storage']['vector_db']
-            persist_directory = (
-                os.getenv('CHROMA_PERSIST_DIR') or
-                vector_config.get('persist_directory') or
-                '/data/chroma'
+            # Single resolver so stdio and HTTP open the same store. Env
+            # (CHROMA_PERSIST_DIR / MEMORY_MCP_DATA_DIR) wins over the config
+            # default, matching service_wiring._get_data_dir precedence.
+            persist_directory = resolve_persist_dir(
+                default=vector_config.get('persist_directory') or '/data/chroma'
             )
             self._indexer = VectorIndexer.get_instance(
                 persist_directory=persist_directory,

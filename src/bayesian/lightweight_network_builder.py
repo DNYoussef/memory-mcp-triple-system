@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Tuple
 import networkx as nx
 from loguru import logger
 
+from ._parent_cap import cap_in_degree, MAX_PARENTS
 from .lightweight_bayesian import (
     LightweightBayesianNetwork,
     LightweightCPD,
@@ -20,8 +21,10 @@ from .lightweight_bayesian import (
 class LightweightNetworkBuilder:
     """Build Bayesian network from knowledge graph (no pgmpy/torch)."""
 
-    def __init__(self, max_nodes: int = 50, config_path: str = ""):
+    def __init__(self, max_nodes: int = 50, config_path: str = "",
+                 max_parents: int = MAX_PARENTS):
         self.max_nodes = max_nodes
+        self.max_parents = max_parents
         self._cache: Dict[str, LightweightBayesianNetwork] = {}
 
     def build_network(
@@ -34,6 +37,12 @@ class LightweightNetworkBuilder:
             logger.warning("Empty graph, cannot build Bayesian network")
             return None
 
+        # F2b: cache by graph version so a repeated build on an unchanged graph
+        # is a hit (the builder is reused across bayesian_inference calls).
+        cache_key = self._cache_key(graph)
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
         # Filter to top nodes by degree
         nodes = sorted(graph.nodes(), key=lambda n: graph.degree(n), reverse=True)
         if len(nodes) > self.max_nodes:
@@ -42,8 +51,13 @@ class LightweightNetworkBuilder:
         else:
             subgraph = graph
 
-        # Extract edges (only between selected nodes)
-        edges = [(u, v) for u, v in subgraph.edges() if u in nodes and v in nodes]
+        # Extract edges (only between selected nodes), capping in-degree so the
+        # CPD estimator does not enumerate 2^(many) parent combinations and hang.
+        edges = cap_in_degree(
+            [(u, v) for u, v in subgraph.edges() if u in nodes and v in nodes],
+            max_parents=self.max_parents,
+            weight=lambda u, v: subgraph[u][v].get("weight", 1.0),
+        )
         if not edges:
             logger.warning("No valid edges for Bayesian network")
             return None
@@ -58,12 +72,24 @@ class LightweightNetworkBuilder:
         # Estimate CPDs
         bn = self.estimate_cpds(bn, subgraph)
 
-        if bn.check_model():
-            logger.info(f"Lightweight Bayesian network built: {len(bn.nodes())} nodes, {len(bn.edges())} edges")
-            return bn
-        else:
+        if not bn.check_model():
             logger.warning("Bayesian network validation failed")
-            return bn  # Return anyway — degraded but usable
+        else:
+            logger.info(f"Lightweight Bayesian network built: {len(bn.nodes())} nodes, {len(bn.edges())} edges")
+        if len(self._cache) >= 100:  # bound: drop an arbitrary old entry
+            self._cache.pop(next(iter(self._cache)))
+        self._cache[cache_key] = bn  # degraded-but-usable nets are cached too
+        return bn
+
+    @staticmethod
+    def _cache_key(graph: nx.DiGraph) -> str:
+        """Graph-version key: structure + edge weight (the only CPD input here)."""
+        import hashlib
+        edges = sorted(
+            (u, v, round(float(d.get("weight", 1.0)), 4))
+            for u, v, d in graph.edges(data=True)
+        )
+        return hashlib.md5((str(sorted(graph.nodes())) + str(edges)).encode()).hexdigest()
 
     def estimate_cpds(
         self,

@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 import chromadb
 from chromadb.config import Settings
 import networkx as nx
+from indexing.vector_indexer import resolve_persist_dir
 
 
 def load_config():
@@ -37,7 +38,7 @@ def audit_vector_rag(config: dict) -> Dict[str, Any]:
     """Audit ChromaDB vector store."""
     print("\n[1/3] Auditing Vector RAG (ChromaDB)...")
 
-    chroma_dir = Path(config['storage']['vector_db']['persist_directory'])
+    chroma_dir = Path(resolve_persist_dir(default=config['storage']['vector_db']['persist_directory']))
     collection_name = config['storage']['vector_db']['collection_name']
 
     client = chromadb.PersistentClient(
@@ -208,7 +209,7 @@ def audit_bayesian(config: dict) -> Dict[str, Any]:
     """Audit Bayesian tier (confidence/probability analysis)."""
     print("\n[3/3] Auditing Bayesian Tier (Confidence)...")
 
-    chroma_dir = Path(config['storage']['vector_db']['persist_directory'])
+    chroma_dir = Path(resolve_persist_dir(default=config['storage']['vector_db']['persist_directory']))
     collection_name = config['storage']['vector_db']['collection_name']
 
     client = chromadb.PersistentClient(

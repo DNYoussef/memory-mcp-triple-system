@@ -47,7 +47,8 @@ def _get_indexer():
     global _INDEXER
     if _INDEXER is None:
         from ..indexing.vector_indexer import VectorIndexer
-        _INDEXER = VectorIndexer.get_instance(persist_directory=os.getenv("CHROMA_PERSIST_DIR", "/data/chroma"))
+        # get_instance resolves CHROMA_PERSIST_DIR / MEMORY_MCP_DATA_DIR / default.
+        _INDEXER = VectorIndexer.get_instance()
     return _INDEXER
 
 
@@ -113,7 +114,8 @@ class ObsidianMCPClient:
         """Lazy load VectorIndexer."""
         if self._indexer is None:
             from ..indexing.vector_indexer import VectorIndexer
-            self._indexer = VectorIndexer.get_instance(persist_directory=os.getenv("CHROMA_PERSIST_DIR", "/data/chroma"))
+            # get_instance resolves CHROMA_PERSIST_DIR / MEMORY_MCP_DATA_DIR / default.
+            self._indexer = VectorIndexer.get_instance()
         return self._indexer
 
     @property

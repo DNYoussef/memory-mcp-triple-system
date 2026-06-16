@@ -26,6 +26,8 @@ from pathlib import Path
 import hashlib
 import yaml
 
+from ._parent_cap import cap_in_degree, MAX_PARENTS
+
 # Import default confidence from graph edge manager for consistency
 try:
     from ..services.graph_edge_manager import DEFAULT_EDGE_CONFIDENCE
@@ -45,7 +47,8 @@ class NetworkBuilder:
         max_nodes: Optional[int] = None,
         min_edge_confidence: float = 0.3,
         cache_ttl_hours: int = 1,
-        config_path: str = "config/memory-mcp.yaml"
+        config_path: str = "config/memory-mcp.yaml",
+        max_parents: int = MAX_PARENTS
     ):
         """
         Initialize Network Builder.
@@ -63,6 +66,7 @@ class NetworkBuilder:
             max_nodes = self._load_max_nodes_from_config(config_path)
 
         self.max_nodes = max_nodes
+        self.max_parents = max_parents
         self.min_edge_confidence = min_edge_confidence
         self.cache_ttl = timedelta(hours=cache_ttl_hours)
         self.cache: Dict[str, Dict[str, Any]] = {}
@@ -129,11 +133,9 @@ class NetworkBuilder:
             logger.info(f"Pruning {len(graph.nodes())} nodes to {self.max_nodes}")
             graph = self.prune_nodes(graph, self.max_nodes)
 
-        # Filter low-confidence edges
+        # Filter low-confidence edges, then cap in-degree (see _bounded_edges).
         graph = self._filter_edges(graph)
-
-        # Convert to Bayesian network structure
-        edges = [(u, v) for u, v in graph.edges()]
+        edges = self._bounded_edges(graph)
         if not edges:
             logger.warning("No edges after filtering, cannot build network")
             return None
@@ -413,6 +415,19 @@ class NetworkBuilder:
         }
         logger.debug(f"Cached network {cache_key[:8]}, TTL={self.cache_ttl}, cache_size={len(self.cache)}")
 
+    def _bounded_edges(self, graph: nx.DiGraph) -> List[tuple]:
+        """Edge list with node in-degree capped to MAX_PARENTS.
+
+        A hub node with dozens of parents needs a 2^parents CPD table; pgmpy
+        then tries a 128 GiB+ allocation, the CPD is skipped, and check_model()
+        loses the whole network. Keep the highest-confidence parents only.
+        """
+        return cap_in_degree(
+            [(u, v, d) for u, v, d in graph.edges(data=True)],
+            max_parents=self.max_parents,
+            weight=lambda u, v: graph[u][v].get("confidence", DEFAULT_EDGE_CONFIDENCE),
+        )
+
     def _filter_edges(self, graph: nx.DiGraph) -> nx.DiGraph:
         """
         Filter edges by confidence threshold.
@@ -442,10 +457,21 @@ class NetworkBuilder:
 
         NASA Rule 10: 13 LOC (≤60) ✅
         """
-        # Hash graph structure (nodes + edges)
-        nodes_str = str(sorted(graph.nodes()))
-        edges_str = str(sorted(graph.edges()))
-        graph_str = nodes_str + edges_str
+        # Hash everything build_network reads from the graph, so any mutation
+        # that changes the net misses the cache: structure + edge confidence
+        # (cap + CPDs) + edge weight (CPDs) + node frequency (pruning) + states.
+        nodes_str = str(sorted(
+            (n,
+             round(float(graph.nodes[n].get("frequency", 0)), 4),
+             tuple(graph.nodes[n].get("states", ())))
+            for n in graph.nodes()
+        ))
+        edges_str = str(sorted(
+            (u, v,
+             round(float(d.get("confidence", DEFAULT_EDGE_CONFIDENCE)), 4),
+             round(float(d.get("weight", 1.0)), 4))
+            for u, v, d in graph.edges(data=True)
+        ))
 
-        cache_key = hashlib.md5(graph_str.encode()).hexdigest()
+        cache_key = hashlib.md5((nodes_str + edges_str).encode()).hexdigest()
         return cache_key

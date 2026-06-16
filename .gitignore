@@ -77,3 +77,4 @@ temp_*.py
 Thumbs.db
 nul
 venv-memory/
+audits/bench-baseline.json

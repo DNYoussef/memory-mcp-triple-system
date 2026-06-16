@@ -247,7 +247,7 @@ def handle_memory_store(
         }
 
     except Exception as e:
-        return {"content": [{"type": "text", "text": f"Memory store error: {e}"}], "isError": True}
+        return _text_result(f"Memory store error: {e}", True)
 
 
 def _get_ingestion_service(tool: "NexusSearchTool"):
@@ -349,7 +349,7 @@ def handle_graph_query(
 
         return {"content": content, "isError": False}
     except Exception as e:
-        return {"content": [{"type": "text", "text": f"Graph query error: {e}"}], "isError": True}
+        return _text_result(f"Graph query error: {e}", True)
 
 
 def handle_entity_extraction(
@@ -386,7 +386,7 @@ def handle_entity_extraction(
             "isError": False
         }
     except Exception as e:
-        return {"content": [{"type": "text", "text": f"Entity extraction error: {e}"}], "isError": True}
+        return _text_result(f"Entity extraction error: {e}", True)
 
 
 def handle_hipporag_retrieve(
@@ -426,7 +426,7 @@ def handle_hipporag_retrieve(
 
         return {"content": content, "isError": False}
     except Exception as e:
-        return {"content": [{"type": "text", "text": f"HippoRAG error: {e}"}], "isError": True}
+        return _text_result(f"HippoRAG error: {e}", True)
 
 
 def handle_detect_mode(
@@ -491,7 +491,7 @@ def handle_lifecycle_status(
 ) -> Dict[str, Any]:
     """Handle lifecycle_status - Get lifecycle statistics."""
     stats = tool.lifecycle_manager.get_stage_stats()
-    return {"content": [{"type": "text", "text": json.dumps(stats)}], "isError": False}
+    return _text_result(json.dumps(stats))
 
 
 def handle_bayesian_inference(
@@ -502,13 +502,15 @@ def handle_bayesian_inference(
     query = arguments.get("query", "")
     evidence = arguments.get("evidence")
 
+    if not query or not query.strip():
+        return _text_result("No query provided", True)
     if not tool.nexus_processor or not tool.nexus_processor.probabilistic_query_engine:
-        return {"content": [{"type": "text", "text": "Bayesian engine unavailable"}], "isError": True}
+        return _text_result("Bayesian engine unavailable", True)
 
     try:
         query_var = tool.nexus_processor._extract_query_entity(query)
-        if not query_var:
-            return {"content": [{"type": "text", "text": "No query entity extracted from query"}], "isError": True}
+        if not query_var or query_var.lower() == "unknown":
+            return _text_result("No query entity extracted from query", True)
 
         # P4: build the network from the CURRENT graph (the init-time net is
         # built before anything is ingested, so stored entities are not nodes).
@@ -522,13 +524,18 @@ def handle_bayesian_inference(
                 "Bayesian inference unavailable: not enough entity co-occurrence in stored "
                 "memory to build a network yet (store related memories first)")}], "isError": False}
 
-        # Graph nodes are normalized (lowercase, spaces->underscores); the query
-        # extractor returns the raw surface form. Match against both.
+        # Graph nodes are normalized (lowercase, spaces->underscores) and NER
+        # often stores a multi-word entity under a single token (spaCy tags
+        # "Wilhelmina Ashgrove" as just "wilhelmina"). Try, in priority order:
+        # the raw form, the underscored form, then each lowercased word.
         nodes = set(network.nodes())
-        node_var = next(
-            (v for v in (query_var, query_var.lower().replace(" ", "_")) if v in nodes),
-            None,
-        )
+        candidates = [query_var, query_var.lower().replace(" ", "_")]
+        # per-word fallback: skip short/stopword tokens so we don't match a
+        # common node ("the", "project") when the real entity is absent.
+        _stop = {"the", "and", "for", "with", "that", "this", "about", "tell", "what", "from"}
+        candidates += [w.lower() for w in query_var.split()
+                       if len(w) > 3 and w.lower() not in _stop]
+        node_var = next((v for v in candidates if v in nodes), None)
         if node_var is None:
             return {"content": [{"type": "text", "text": (
                 f"Bayesian: '{query_var}' is not a node in the stored-memory network yet")}], "isError": False}
@@ -538,12 +545,12 @@ def handle_bayesian_inference(
         )
     except Exception as exc:
         logger.error(f"Bayesian inference failed: {exc}")
-        return {"content": [{"type": "text", "text": f"Bayesian inference failed: {exc}"}], "isError": True}
+        return _text_result(f"Bayesian inference failed: {exc}", True)
 
     if result is None:
-        return {"content": [{"type": "text", "text": "No Bayesian inference available (inference returned no result)"}], "isError": False}
+        return _text_result("No Bayesian inference available (inference returned no result)")
 
-    return {"content": [{"type": "text", "text": json.dumps(result, default=str)}], "isError": False}
+    return _text_result(json.dumps(result, default=str))
 
 
 def handle_unified_search(
@@ -626,7 +633,7 @@ def handle_obsidian_sync(
 
         return {"content": [{"type": "text", "text": success_text}], "isError": not result["success"]}
     except Exception as e:
-        return {"content": [{"type": "text", "text": f"Obsidian sync error: {e}"}], "isError": True}
+        return _text_result(f"Obsidian sync error: {e}", True)
 
 
 def handle_beads_ready_tasks(
@@ -644,7 +651,7 @@ def handle_beads_ready_tasks(
         )
 
         if not tasks:
-            return {"content": [{"type": "text", "text": "No ready tasks found"}], "isError": False}
+            return _text_result("No ready tasks found")
 
         task_lines = []
         for task in tasks:
@@ -656,7 +663,7 @@ def handle_beads_ready_tasks(
             "isError": False
         }
     except Exception as e:
-        return {"content": [{"type": "text", "text": f"Beads error: {e}"}], "isError": True}
+        return _text_result(f"Beads error: {e}", True)
 
 
 def handle_beads_task_detail(
@@ -667,7 +674,7 @@ def handle_beads_task_detail(
     task_id = arguments.get("task_id", "")
 
     if not task_id:
-        return {"content": [{"type": "text", "text": "Error: task_id is required"}], "isError": True}
+        return _text_result("Error: task_id is required", True)
 
     try:
         task = _run_coroutine_sync(
@@ -676,7 +683,7 @@ def handle_beads_task_detail(
         )
 
         if task.status == "unknown":
-            return {"content": [{"type": "text", "text": f"Task {task_id} not found"}], "isError": True}
+            return _text_result(f"Task {task_id} not found", True)
 
         deps_text = ", ".join([d.id for d in task.dependencies]) if task.dependencies else "None"
         labels_text = ", ".join(task.labels) if task.labels else "None"
@@ -694,9 +701,9 @@ Description: {task.description or 'No description'}
 Comments:
 {comments_text}"""
 
-        return {"content": [{"type": "text", "text": detail}], "isError": False}
+        return _text_result(detail)
     except Exception as e:
-        return {"content": [{"type": "text", "text": f"Beads error: {e}"}], "isError": True}
+        return _text_result(f"Beads error: {e}", True)
 
 
 def handle_beads_query_tasks(
@@ -726,7 +733,7 @@ def handle_beads_query_tasks(
             if assignee:
                 filter_info.append(f"assignee={assignee}")
             filter_str = ", ".join(filter_info) if filter_info else "no filters"
-            return {"content": [{"type": "text", "text": f"No tasks found ({filter_str})"}], "isError": False}
+            return _text_result(f"No tasks found ({filter_str})")
 
         task_lines = []
         for task in tasks:
@@ -739,7 +746,7 @@ def handle_beads_query_tasks(
             "isError": False
         }
     except Exception as e:
-        return {"content": [{"type": "text", "text": f"Beads error: {e}"}], "isError": True}
+        return _text_result(f"Beads error: {e}", True)
 
 
 def handle_observation_timeline(
@@ -911,4 +918,4 @@ def handle_call_tool(
         }
     except Exception as e:
         logger.error(f"Tool execution failed: {e}")
-        return {"content": [{"type": "text", "text": f"Error: {str(e)}"}], "isError": True}
+        return _text_result(f"Error: {str(e)}", True)
