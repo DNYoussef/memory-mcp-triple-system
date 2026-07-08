@@ -186,7 +186,10 @@ class TierQueryMixin:
             return results[:top_k]
 
         except Exception as e:
-            logger.warning(f"Bayesian tier query failed (expected): {e}")
+            # Not "expected": a Bayesian tier failure means the triple system is
+            # silently running on two tiers. Log it loudly (return None preserves
+            # the caller contract; fusion treats None as "no bayesian results").
+            logger.error(f"Bayesian tier query failed: {e}", exc_info=True)
             return None
 
     def _query_bayesian_conditional(
