@@ -186,8 +186,8 @@ def handle_vector_search(
     )
     try:
         trace.log(db_path=f"{data_dir}/query_traces.db")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("query-trace log failed (db=%s/query_traces.db): %s", data_dir, exc)
 
     tool.log_event(
         "vector_search",
@@ -344,8 +344,9 @@ def _store_entities_to_graph(
 
         tool.graph_service.save_graph()
         return entities_added
-    except Exception:
-        return 0
+    except Exception as exc:
+        logger.error("graph store failed: %s", exc, exc_info=True)
+        return 0   # fail-safe count, but the failure is now visible
 
 
 def handle_graph_query(
