@@ -23,3 +23,6 @@ jobs:
           black --check src tests
       - name: Run tests
         run: pytest
+
+      - name: Tri-tier acceptance gate
+        run: python scripts/gate_tri_tier.py
