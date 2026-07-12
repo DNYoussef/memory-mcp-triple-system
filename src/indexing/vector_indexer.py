@@ -50,6 +50,7 @@ def resolve_persist_dir(
 try:
     import chromadb
     import chromadb.errors
+    from chromadb.config import Settings
 
     CHROMADB_AVAILABLE = True
     _CHROMA_NOT_FOUND = chromadb.errors.NotFoundError
@@ -122,7 +123,10 @@ class VectorIndexer:
             return
 
         # Initialize ChromaDB client with persistence (new API)
-        self.client = chromadb.PersistentClient(path=persist_directory)
+        self.client = chromadb.PersistentClient(
+            path=persist_directory,
+            settings=Settings(anonymized_telemetry=False),
+        )
 
         # Initialize collection immediately (fixes VectorIndexer bug)
         self.create_collection()
