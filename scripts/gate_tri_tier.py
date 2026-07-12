@@ -1,8 +1,9 @@
 #!/usr/bin/env python
-"""Phase-0 tri-tier acceptance gate. Hermetic, canary-asserted, tier-death-RED.
+"""Phase-0 tri-tier acceptance gate. Isolated-data, PostHog-canary, tier-death-RED.
 Run: python scripts/gate_tri_tier.py   (exit 0 = green, nonzero = red)."""
 import json, os, shutil, sys, tempfile, uuid
 from pathlib import Path
+from unittest.mock import patch
 
 # Standalone run: put the repo root on sys.path so `from src.mcp...` resolves
 # (tests get this from conftest.py; this script has no conftest).
@@ -20,11 +21,22 @@ def _hermetic():
     d = tempfile.mkdtemp(prefix="mmts-gate-")
     os.environ["MEMORY_MCP_DATA_DIR"] = d
     os.environ["CHROMA_PERSIST_DIR"] = os.path.join(d, "chroma")
+    # Hostile ambient default: the source constructor must explicitly opt out.
+    os.environ["ANONYMIZED_TELEMETRY"] = "True"
     return d
 
 def main():
     data_dir = _hermetic()
     failures = []
+    telemetry_attempts = []
+
+    def block_enabled_telemetry(client, message, disable_geoip=None):
+        if not client.disabled:
+            telemetry_attempts.append(str(message.get("event", "unknown")))
+        return False, "blocked by hermetic gate"
+
+    telemetry_patch = patch("posthog.client.Client._enqueue", new=block_enabled_telemetry)
+    telemetry_patch.start()
     try:
         from src.mcp.service_wiring import NexusSearchTool, load_config
         from src.mcp.request_router import handle_call_tool
@@ -62,12 +74,20 @@ def main():
     except Exception as e:
         failures.append(f"gate crashed: {e}")
     finally:
+        telemetry_patch.stop()
+        if telemetry_attempts:
+            failures.append(
+                "enabled outbound telemetry attempted: " + ", ".join(telemetry_attempts)
+            )
         shutil.rmtree(data_dir, ignore_errors=True)
 
     print(f"=== gate_tri_tier (canary {CANARY[:14]}) ===")
     for f in failures:
         print(f"  RED: {f}")
-    print("  GREEN: all three tiers contribute and tier-death is observable" if not failures else f"  {len(failures)} FAIL")
+    print(
+        "  GREEN: all three tiers contribute, tier-death is observable, and PostHog telemetry is disabled"
+        if not failures else f"  {len(failures)} FAIL"
+    )
     return 1 if failures else 0
 
 if __name__ == "__main__":
