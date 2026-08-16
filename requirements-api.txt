@@ -1,3 +1,9 @@
+# PINNED 2026-08-15. These six were version ranges, and the service deploys with
+# skipBuildCache, so every rebuild resolved a different set. The April image ran
+# for four months; the first rebuild after it failed to start and produced no log
+# output, which is what an import-time dependency conflict looks like. Verified to
+# resolve together with pip --dry-run (112 packages). Do not relax without
+# re-running that check.
 # Core Dependencies -- Railway API mode (no torch, no pgmpy, no sentence-transformers)
 # Cache bust: 2026-03-16T23:00:00
 python-dotenv==1.0.0
@@ -5,7 +11,7 @@ pydantic==2.5.0
 pyyaml==6.0.1
 
 # REMOVED for API mode: # NumPy compatibility - must be <2 for spacy/torch compatibility
-numpy<2.0.0
+numpy==1.26.4
 
 # Vector Layer (v5.0: Docker-free with ChromaDB)
 # ISS-039 fix: Pinned versions for reproducible builds
@@ -15,17 +21,17 @@ chromadb==1.3.0
 
 # Graph Layer (v5.0: In-memory with NetworkX)
 networkx==3.5
-spacy>=3.8.0  # Python 3.12 compatibility fix
+spacy==3.8.2
 # hipporag - implemented in-repo (src/services/hipporag_service.py); external package not required
 
 # Bayesian Layer
 # pgmpy pulls torch + full NVIDIA CUDA stack as transitive deps (~2GB).
 # Install pgmpy's real deps first, then pgmpy itself via --no-deps in Dockerfile.
 # See Dockerfile.railway RUN step for the --no-deps install.
-pandas>=2.0.0
-scipy>=1.10.0
-scikit-learn>=1.3.0
-statsmodels>=0.14.0
+pandas==2.1.4
+scipy==1.11.4
+scikit-learn==1.3.2
+statsmodels==0.14.1
 # networkx, numpy already listed above
 # torch NOT needed -- pgmpy uses it optionally for GPU acceleration, not required for CPU inference
 
