@@ -145,10 +145,11 @@ def test_post_tool_handler_captures_observation(tmp_path, monkeypatch):
         json.dumps({"session_id": session.session_id, "project": "hook-test"})
     )
 
-    monkeypatch.setattr(h, "SESSION_FILE", str(session_file))
+    monkeypatch.setattr(h, "_session_file", lambda _: str(session_file))
     monkeypatch.setenv("MEMORY_MCP_DB", str(db))
     payload = json.dumps(
         {
+            "session_id": "hook-test-session",
             "tool_name": "Bash",
             "tool_input": {"command": canary},
             "tool_result": "done",
@@ -191,10 +192,10 @@ def test_claude_settings_wire_capture_hooks():
 
     merged_hooks = {}
     for name in ("settings.json", "settings.local.json"):
-        p = claude_dir / name
-        if not p.exists():
+        path = claude_dir / name
+        if not path.exists():
             continue
-        data = json.loads(p.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
         merged_hooks.update(data.get("hooks", {}) or {})
 
     missing = []

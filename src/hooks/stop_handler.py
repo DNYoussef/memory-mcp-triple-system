@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Stop hook handler -- generates session summary at session end.
+"""Stop hook handler -- generates a summary when Claude accepts a Stop event.
 
 Called by Claude Code's Stop lifecycle event.
-Summarizes the session's observations into a structured summary,
-stores it, and cleans up the current_session file.
+Summarizes the session's observations into a structured summary and stores it.
+Per-session handoff files remain because Stop can fire more than once per session.
 
 Usage (from settings.local.json):
     "hooks": {
@@ -30,16 +30,23 @@ from src.services.session_summarizer import SessionSummarizer  # noqa: E402
 
 # Default paths
 DEFAULT_DB = os.path.join(str(Path.home()), ".claude", "memory-mcp-data", "agent_kv.db")
-SESSION_FILE = os.path.join(
-    str(Path.home()), ".claude", "memory-mcp-data", "current_session.json"
-)
 
 
-def get_current_session() -> dict:
+def _session_file(hook_session_id: str) -> str:
+    return os.path.join(
+        str(Path.home()),
+        ".claude",
+        "memory-mcp-data",
+        f"current_session-{hook_session_id}.json",
+    )
+
+
+def get_current_session(hook_session_id: str) -> dict:
     """Read current session info from shared file."""
     try:
-        if os.path.exists(SESSION_FILE):
-            with open(SESSION_FILE, "r") as f:
+        path = _session_file(hook_session_id)
+        if os.path.exists(path):
+            with open(path, "r") as f:
                 return json.load(f)
     except (json.JSONDecodeError, IOError):
         pass
@@ -48,17 +55,14 @@ def get_current_session() -> dict:
 
 def main():
     """Main entry point for Stop hook."""
-    # Read hook payload from stdin (may be empty)
     try:
-        raw = sys.stdin.read()  # noqa: F841
-    except IOError:
-        pass
+        raw = sys.stdin.read()
+        hook_payload = json.loads(raw) if raw.strip() else {}
+    except (json.JSONDecodeError, IOError):
+        hook_payload = {}
 
-    # Get session info
-    session_info = get_current_session()
-    session_id = session_info.get("session_id", "")
-
-    if not session_id:
+    hook_session_id = hook_payload.get("session_id", "")
+    if not hook_session_id:
         return
 
     # Open store
@@ -66,12 +70,20 @@ def main():
     if not os.path.exists(db_path):
         return
 
-    store = KVStore(db_path)
+    try:
+        store = KVStore(db_path)
+    except Exception as exc:
+        sys.stderr.write(f"stop_handler: KVStore init failed ({type(exc).__name__})\n")
+        return
 
     try:
-        # Generate and store summary
+        session_info = get_current_session(hook_session_id)
+        obs_session_id = session_info.get("session_id", "")
+        if not obs_session_id:
+            return
+
         summarizer = SessionSummarizer(kv_store=store)
-        summary = summarizer.summarize(session_id)
+        summary = summarizer.summarize(obs_session_id)
 
         if summary.observation_count > 0:
             summarizer.store_summary(summary)
@@ -80,10 +92,10 @@ def main():
             summary_text = summary.to_text()
             est_tokens = len(summary_text) // 4
             store.set(
-                f"economics:summary:{session_id}",
+                f"economics:summary:{obs_session_id}",
                 json.dumps(
                     {
-                        "session_id": session_id,
+                        "session_id": obs_session_id,
                         "summary_tokens": est_tokens,
                         "observation_count": summary.observation_count,
                         "duration_seconds": summary.duration_seconds,
@@ -91,18 +103,14 @@ def main():
                 ),
             )
 
-        # Clean up session file
-        try:
-            if os.path.exists(SESSION_FILE):
-                os.remove(SESSION_FILE)
-        except OSError:
-            pass
-
     except Exception:
         # Silent failure
         pass
     finally:
-        store.close()
+        try:
+            store.close()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

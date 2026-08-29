@@ -83,20 +83,27 @@ def test_post_tool_hook_redacts_secret_output_and_preserves_normal_text(
     )
 
     monkeypatch.setenv("MEMORY_MCP_DB", str(db_path))
-    monkeypatch.setattr(post_tool_handler, "SESSION_FILE", str(session_file))
+    monkeypatch.setattr(post_tool_handler, "_session_file", lambda _: str(session_file))
     monkeypatch.setattr(
         sys,
         "stdin",
         io.StringIO(
             json.dumps(
                 {
+                    "session_id": "phase4-hook-session",
                     "tool_name": "Bash",
-                    "tool_input": {"command": "echo normal"},
-                    "tool_output": (
-                        "normal output line "
-                        "OPENAI_API_KEY=sk-live-secret-value-1234567890 "
-                        "Bearer eyJhbGciOiJsecretsecret"
-                    ),
+                    "tool_input": {
+                        "command": (
+                            'echo normal PASSWORD="alpha \\"beta\\" gamma" '
+                            "Authorization: Basic dXNlcjpwYXNzd29yZA=="
+                        )
+                    },
+                    "tool_response": {
+                        "PASSWORD": "hunter2",
+                        "OPENAI_API_KEY": "sk-live-secret-value-1234567890",
+                        "Authorization": "Digest username=admin secret=topsecret",
+                        "normal": "normal output line",
+                    },
                 }
             )
         ),
@@ -113,6 +120,158 @@ def test_post_tool_hook_redacts_secret_output_and_preserves_normal_text(
     assert len(observations) == 1
     content = observations[0]["content"]
     assert "normal output line" in content
-    assert "OPENAI_API_KEY=[REDACTED]" in content
+    assert "'PASSWORD': '[REDACTED]'" in content
+    assert "'OPENAI_API_KEY': '[REDACTED]'" in content
+    assert "hunter2" not in content
+    assert "alpha" not in content
+    assert "beta" not in content
+    assert "gamma" not in content
+    assert "dXNlcjpwYXNzd29yZA" not in content
     assert "sk-live-secret-value" not in content
-    assert "eyJhbGciOiJsecretsecret" not in content
+
+
+def test_structured_redaction_handles_multiple_keys_and_stable_placeholders():
+    value = {
+        "PASSWORD": "hunter2",
+        "OPENAI_API_KEY": "sk-live-secret-value-1234567890",
+        "Authorization": "Basic dXNlcjpwYXNzd29yZA==",
+        "sk-secret-key-material-123456": "first secret used as a key",
+        "sk-other-key-material-654321": "second secret used as a key",
+        "normal": "keep me",
+    }
+    first = post_tool_handler._redact_structured(value)
+    second = post_tool_handler._redact_structured(value)
+
+    assert first == second
+    assert first["normal"] == "keep me"
+    assert first["PASSWORD"] == "[REDACTED]"
+    assert first["OPENAI_API_KEY"] == "[REDACTED]"
+    assert first["Authorization"] == "[REDACTED]"
+    redacted_keys = [key for key in first if key.startswith("[REDACTED_KEY_")]
+    assert len(redacted_keys) == 2
+    assert "[REDACTED_KEY_ce342576]" in first
+    assert "sk-secret-key-material-123456" not in json.dumps(first)
+    assert "sk-other-key-material-654321" not in json.dumps(first)
+
+
+def test_dict_failure_records_error_observation(tmp_path, monkeypatch):
+    db_path = tmp_path / "agent_kv.db"
+    session_file = tmp_path / "current_session.json"
+    KVStore(str(db_path)).close()
+    session_file.write_text(
+        json.dumps({"session_id": "error-session", "project": "memory-mcp"}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("MEMORY_MCP_DB", str(db_path))
+    monkeypatch.setattr(post_tool_handler, "_session_file", lambda _: str(session_file))
+    monkeypatch.setattr(
+        sys,
+        "stdin",
+        io.StringIO(
+            json.dumps(
+                {
+                    "session_id": "error-hook-session",
+                    "tool_name": "mcp__memory-mcp__memory_store",
+                    "tool_input": {"text": "normal"},
+                    "tool_response": {"content": [], "isError": True},
+                }
+            )
+        ),
+    )
+
+    post_tool_handler.main()
+    store = KVStore(str(db_path))
+    try:
+        observations = store.get_observations(session_id="error-session")
+    finally:
+        store.close()
+    assert len(observations) == 1
+    assert observations[0]["metadata"]["is_error"] is True
+
+
+def test_builtin_failure_records_error_observation(tmp_path, monkeypatch):
+    db_path = tmp_path / "agent_kv.db"
+    session_file = tmp_path / "current_session.json"
+    KVStore(str(db_path)).close()
+    session_file.write_text(
+        json.dumps({"session_id": "builtin-error-session", "project": "memory-mcp"}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("MEMORY_MCP_DB", str(db_path))
+    monkeypatch.setattr(post_tool_handler, "_session_file", lambda _: str(session_file))
+    monkeypatch.setattr(
+        sys,
+        "stdin",
+        io.StringIO(
+            json.dumps(
+                {
+                    "session_id": "builtin-error-hook-session",
+                    "tool_name": "Bash",
+                    "tool_input": {"command": "exit 1"},
+                    "tool_response": {"success": False, "stderr": "fatal"},
+                }
+            )
+        ),
+    )
+
+    post_tool_handler.main()
+    store = KVStore(str(db_path))
+    try:
+        observations = store.get_observations(session_id="builtin-error-session")
+    finally:
+        store.close()
+    assert len(observations) == 1
+    assert observations[0]["metadata"]["is_error"] is True
+
+
+def test_post_tool_hook_redacts_legacy_string_output(tmp_path, monkeypatch):
+    db_path = tmp_path / "agent_kv.db"
+    session_file = tmp_path / "current_session.json"
+    KVStore(str(db_path)).close()
+    session_file.write_text(
+        json.dumps({"session_id": "legacy-session", "project": "memory-mcp"}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("MEMORY_MCP_DB", str(db_path))
+    monkeypatch.setattr(post_tool_handler, "_session_file", lambda _: str(session_file))
+    monkeypatch.setattr(
+        sys,
+        "stdin",
+        io.StringIO(
+            json.dumps(
+                {
+                    "session_id": "legacy-hook-session",
+                    "tool_name": "Bash",
+                    "tool_input": {"command": "echo normal"},
+                    "tool_output": (
+                        "normal output PASSWORD=legacy-secret "
+                        "<private>private-secret</private>"
+                    ),
+                }
+            )
+        ),
+    )
+
+    post_tool_handler.main()
+    store = KVStore(str(db_path))
+    try:
+        content = store.get_observations(session_id="legacy-session")[0]["content"]
+    finally:
+        store.close()
+    assert "normal output" in content
+    assert "legacy-secret" not in content
+    assert "private-secret" not in content
+
+
+def test_bounded_redaction_hides_secrets_split_at_preview_boundary():
+    value = {
+        "pad": "y" * 400,
+        "command": "z" * 75 + "<private>TOPSECRET</private>",
+        "PASSWORD": "hunter2",
+        "notes": "kept",
+    }
+    redacted = post_tool_handler._redact_structured(value)
+    serialized = json.dumps(redacted)
+    assert set(redacted) == set(value)
+    assert "TOPSECRET" not in serialized
+    assert "hunter2" not in serialized

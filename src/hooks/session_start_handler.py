@@ -33,6 +33,15 @@ from src.services.token_calculator import TokenTracker  # noqa: E402
 DEFAULT_DB = os.path.join(str(Path.home()), ".claude", "memory-mcp-data", "agent_kv.db")
 
 
+def _session_file(hook_session_id: str) -> str:
+    return os.path.join(
+        str(Path.home()),
+        ".claude",
+        "memory-mcp-data",
+        f"current_session-{hook_session_id}.json",
+    )
+
+
 def get_project_info() -> dict:
     """Extract project info from environment/cwd."""
     cwd = os.getcwd()
@@ -127,14 +136,14 @@ def build_context_block(store: KVStore, project: str, mode: str = "execution") -
     if beads_text and tracker.try_add("beads_tasks", beads_text):
         sections.append(f"## Ready Tasks (Beads)\n{beads_text}")
 
-    if not sections:
-        return ""
-
     header = f"# Memory Context [{project}]"
     footer = (
         f"\n---\n_Tokens: {tracker.used}/{tracker.budget} " f"({tracker.mode} mode)_"
     )
-    return header + "\n\n" + "\n\n".join(sections) + footer
+    body = header
+    if sections:
+        body += "\n\n" + "\n\n".join(sections)
+    return body + footer + "\n\n## Memory Store: ARMED"
 
 
 def _emit_context(context: str) -> None:
@@ -162,7 +171,7 @@ def main():
     try:
         raw = sys.stdin.read()
         if raw.strip():
-            payload = json.loads(raw)  # noqa: F841
+            payload = json.loads(raw)
     except (json.JSONDecodeError, IOError):
         pass
 
@@ -173,10 +182,11 @@ def main():
     # Open KVStore
     db_path = os.environ.get("MEMORY_MCP_DB", DEFAULT_DB)
     if not os.path.exists(db_path):
-        # No database yet -- nothing to inject
+        _emit_context("# Memory Store: DOWN (no database)")
         return
 
     store = None
+    context_emitted = False
 
     try:
         # KVStore() itself can raise (locked/corrupt DB); keep it inside the
@@ -192,9 +202,7 @@ def main():
         store.create_session(session.to_dict())
 
         # Store session ID in env file for PostToolUse/Stop to pick up
-        session_file = os.path.join(
-            str(Path.home()), ".claude", "memory-mcp-data", "current_session.json"
-        )
+        session_file = _session_file(payload.get("session_id", ""))
         os.makedirs(os.path.dirname(session_file), exist_ok=True)
         with open(session_file, "w") as f:
             json.dump(
@@ -213,6 +221,7 @@ def main():
             # hookSpecificOutput: Claude Code reads stdout from hook scripts.
             # UTF-8-safe write so non-ASCII memory content cannot crash the hook.
             _emit_context(context)
+            context_emitted = True
 
             # Token economics: track injection cost
             est_tokens = len(context) // 4
@@ -235,6 +244,8 @@ def main():
         sys.stderr.write(
             f"session_start_handler: skipped context injection ({type(exc).__name__})\n"
         )
+        if not context_emitted:
+            _emit_context(f"# Memory Store: DOWN ({type(exc).__name__})")
     finally:
         if store is not None:
             try:
