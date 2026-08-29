@@ -123,10 +123,7 @@ class VectorIndexer:
             return
 
         # Initialize ChromaDB client with persistence (new API)
-        self.client = chromadb.PersistentClient(
-            path=persist_directory,
-            settings=Settings(anonymized_telemetry=False),
-        )
+        self.client = chromadb.PersistentClient(path=persist_directory)
 
         # Initialize collection immediately (fixes VectorIndexer bug)
         self.create_collection()
