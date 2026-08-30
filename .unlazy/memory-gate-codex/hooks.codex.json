@@ -1,0 +1,72 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "D:/Projects/memory-mcp-triple-system/venv-memory/Scripts/python.exe D:/Projects/memory-mcp-triple-system/src/hooks/session_start_handler.py",
+            "timeout": 15,
+            "statusMessage": "Loading memory context..."
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "D:/Projects/memory-mcp-triple-system/venv-memory/Scripts/python.exe D:/Projects/memory-mcp-triple-system/src/hooks/prompt_marker_handler.py",
+            "timeout": 5,
+            "statusMessage": "Arming memory recall gate..."
+          },
+          {
+            "type": "command",
+            "command": "D:/Projects/memory-mcp-triple-system/venv-memory/Scripts/python.exe D:/Projects/memory-mcp-triple-system/src/hooks/user_prompt_memory_handler.py",
+            "timeout": 10,
+            "statusMessage": "Checking relevant memory..."
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "^apply_patch$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "D:/Projects/memory-mcp-triple-system/venv-memory/Scripts/python.exe D:/Projects/memory-mcp-triple-system/src/hooks/pre_tool_memory_gate.py",
+            "timeout": 5,
+            "statusMessage": "Checking prompt recall..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "D:/Projects/memory-mcp-triple-system/venv-memory/Scripts/python.exe D:/Projects/memory-mcp-triple-system/src/hooks/post_tool_handler.py",
+            "timeout": 10,
+            "statusMessage": "Recording memory state..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "D:/Projects/memory-mcp-triple-system/venv-memory/Scripts/python.exe D:/Projects/memory-mcp-triple-system/src/hooks/stop_handler.py",
+            "timeout": 30,
+            "statusMessage": "Checking memory save state..."
+          }
+        ]
+      }
+    ]
+  }
+}

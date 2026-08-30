@@ -28,12 +28,14 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.stores.kv_store import KVStore  # noqa: E402
+from src.stores.kv_store import DEFAULT_DB_NAME, KVStore  # noqa: E402
 from src.services.observation_bridge import ObservationBridge  # noqa: E402
 
 
 # Default paths
-DEFAULT_DB = os.path.join(str(Path.home()), ".claude", "memory-mcp-data", "agent_kv.db")
+DEFAULT_DB = os.path.join(
+    str(Path.home()), ".claude", "memory-mcp-data", DEFAULT_DB_NAME
+)
 # Privacy tag regex
 PRIVATE_RE = re.compile(r"<private>.*?</private>", re.DOTALL)
 PRIVATE_OPEN_RE = re.compile(r"<private>.*$", re.DOTALL)
@@ -63,8 +65,15 @@ RETRIEVAL_TOOLS = {
     "mcp__memory-mcp__unified_search",
     "mcp__memory-mcp__context_retrieve",
     "mcp__memory-mcp__hipporag_retrieve",
+    "mcp__memory_mcp__unified_search",
+    "mcp__memory_mcp__context_retrieve",
+    "mcp__memory_mcp__hipporag_retrieve",
 }
-EDIT_TOOLS = {"Write", "Edit", "NotebookEdit"}
+MEMORY_STORE_TOOLS = {
+    "mcp__memory-mcp__memory_store",
+    "mcp__memory_mcp__memory_store",
+}
+EDIT_TOOLS = {"Write", "Edit", "NotebookEdit", "apply_patch"}
 
 
 def strip_private(text: str) -> str:
@@ -257,14 +266,14 @@ def main():
                 )
 
         now_iso = datetime.now(timezone.utc).isoformat()
-        if tool_name in EDIT_TOOLS:
+        if tool_name in EDIT_TOOLS and not (
+            isinstance(raw_tool_result, dict) and is_error
+        ):
             if not store.set(f"last_edit_at:{hook_session_id}", now_iso, ttl=86400):
                 sys.stderr.write(
                     "post_tool_handler: last_edit_at write failed, KV store may be degraded\n"
                 )
-        elif tool_name == "mcp__memory-mcp__memory_store" and _memory_store_succeeded(
-            payload
-        ):
+        elif tool_name in MEMORY_STORE_TOOLS and _memory_store_succeeded(payload):
             if not store.set(f"last_save_at:{hook_session_id}", now_iso, ttl=86400):
                 sys.stderr.write(
                     "post_tool_handler: last_save_at write failed, KV store may be degraded\n"

@@ -208,7 +208,7 @@ class TestHandleCallTool:
         )
 
         content_text = result["content"][0]["text"]
-        assert "Stored memory:" in content_text
+        assert content_text.startswith("Stored memory: ")
 
     def test_unknown_tool_returns_error(self, mock_vector_tool):
         """Test unknown tool returns error."""

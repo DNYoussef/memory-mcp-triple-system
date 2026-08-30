@@ -24,13 +24,15 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.stores.kv_store import KVStore  # noqa: E402
+from src.stores.kv_store import DEFAULT_DB_NAME, KVStore  # noqa: E402
 from src.models.observation_types import Session  # noqa: E402
 from src.services.token_calculator import TokenTracker  # noqa: E402
 
 
 # Default paths
-DEFAULT_DB = os.path.join(str(Path.home()), ".claude", "memory-mcp-data", "agent_kv.db")
+DEFAULT_DB = os.path.join(
+    str(Path.home()), ".claude", "memory-mcp-data", DEFAULT_DB_NAME
+)
 
 
 def _session_file(hook_session_id: str) -> str:
@@ -146,12 +148,20 @@ def build_context_block(store: KVStore, project: str, mode: str = "execution") -
     return body + footer + "\n\n## Memory Store: ARMED"
 
 
-def _emit_context(context: str) -> None:
+def _emit_context(context: str, payload: dict | None = None) -> None:
     """Write hook output as UTF-8 so non-ASCII memory content cannot crash the
     hook on Windows, where stdout defaults to cp1252 and print() would raise
     UnicodeEncodeError. Writes raw UTF-8 bytes via the binary buffer (bypassing
     the text encoding); never raises.
     """
+    if payload is not None and "turn_id" in payload:
+        output = {
+            "hookSpecificOutput": {
+                "hookEventName": "SessionStart",
+                "additionalContext": context,
+            }
+        }
+        context = json.dumps(output)
     data = (context + "\n").encode("utf-8", "replace")
     try:
         sys.stdout.buffer.write(data)
@@ -182,7 +192,7 @@ def main():
     # Open KVStore
     db_path = os.environ.get("MEMORY_MCP_DB", DEFAULT_DB)
     if not os.path.exists(db_path):
-        _emit_context("# Memory Store: DOWN (no database)")
+        _emit_context("# Memory Store: DOWN (no database)", payload)
         return
 
     store = None
@@ -220,7 +230,7 @@ def main():
         if context:
             # hookSpecificOutput: Claude Code reads stdout from hook scripts.
             # UTF-8-safe write so non-ASCII memory content cannot crash the hook.
-            _emit_context(context)
+            _emit_context(context, payload)
             context_emitted = True
 
             # Token economics: track injection cost
@@ -245,7 +255,7 @@ def main():
             f"session_start_handler: skipped context injection ({type(exc).__name__})\n"
         )
         if not context_emitted:
-            _emit_context(f"# Memory Store: DOWN ({type(exc).__name__})")
+            _emit_context(f"# Memory Store: DOWN ({type(exc).__name__})", payload)
     finally:
         if store is not None:
             try:

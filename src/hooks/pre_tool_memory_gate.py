@@ -8,11 +8,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.stores.kv_store import KVStore  # noqa: E402
+from src.stores.kv_store import DEFAULT_DB_NAME, KVStore  # noqa: E402
 
 
-DEFAULT_DB = os.path.join(str(Path.home()), ".claude", "memory-mcp-data", "agent_kv.db")
-EDIT_TOOLS = {"Write", "Edit", "NotebookEdit"}
+DEFAULT_DB = os.path.join(
+    str(Path.home()), ".claude", "memory-mcp-data", DEFAULT_DB_NAME
+)
+EDIT_TOOLS = {"Write", "Edit", "NotebookEdit", "apply_patch"}
 
 
 def _deny(reason: str) -> None:
@@ -26,6 +28,18 @@ def _deny(reason: str) -> None:
     data = (json.dumps(output) + "\n").encode("utf-8", "replace")
     sys.stdout.buffer.write(data)
     sys.stdout.flush()
+
+
+def _retrieval_remedy(payload: dict) -> str:
+    if "turn_id" in payload:
+        return (
+            "Call mcp__memory_mcp__unified_search"
+            '(query="<this task, in your own words>"), then retry.'
+        )
+    return (
+        'Call ToolSearch("select:mcp__memory-mcp__unified_search") then '
+        'unified_search(query="<this task, in your own words>"), then retry.'
+    )
 
 
 def main() -> None:
@@ -58,8 +72,7 @@ def main() -> None:
             return
         _deny(
             "Memory gate: no successful retrieval recorded yet this prompt. "
-            'Call ToolSearch("select:mcp__memory-mcp__unified_search") then '
-            'unified_search(query="<this task, in your own words>"), then retry.'
+            + _retrieval_remedy(payload)
         )
     except Exception as exc:
         sys.stderr.write(

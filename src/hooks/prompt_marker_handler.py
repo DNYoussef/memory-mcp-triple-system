@@ -9,10 +9,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.stores.kv_store import KVStore  # noqa: E402
+from src.stores.kv_store import DEFAULT_DB_NAME, KVStore  # noqa: E402
 
 
-DEFAULT_DB = os.path.join(str(Path.home()), ".claude", "memory-mcp-data", "agent_kv.db")
+DEFAULT_DB = os.path.join(
+    str(Path.home()), ".claude", "memory-mcp-data", DEFAULT_DB_NAME
+)
 
 
 def main() -> None:

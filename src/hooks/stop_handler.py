@@ -25,12 +25,31 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.stores.kv_store import KVStore  # noqa: E402
+from src.stores.kv_store import DEFAULT_DB_NAME, KVStore  # noqa: E402
 from src.services.session_summarizer import SessionSummarizer  # noqa: E402
 
 
 # Default paths
-DEFAULT_DB = os.path.join(str(Path.home()), ".claude", "memory-mcp-data", "agent_kv.db")
+DEFAULT_DB = os.path.join(
+    str(Path.home()), ".claude", "memory-mcp-data", DEFAULT_DB_NAME
+)
+
+
+def _codex_success(payload: dict) -> None:
+    if "turn_id" in payload:
+        sys.stdout.write("{}\n")
+        sys.stdout.flush()
+
+
+def _memory_tool(payload: dict, name: str) -> str:
+    separator = "_" if "turn_id" in payload else "-"
+    return f"mcp__memory{separator}mcp__{name}"
+
+
+def _remedy_lead(payload: dict) -> str:
+    if "turn_id" in payload:
+        return "Call "
+    return "Load a remedy with ToolSearch, then call "
 
 
 def _session_file(hook_session_id: str) -> str:
@@ -64,17 +83,21 @@ def main():
 
     hook_session_id = hook_payload.get("session_id", "")
     if not hook_session_id:
+        _codex_success(hook_payload)
         return
 
     # Open store
     db_path = os.environ.get("MEMORY_MCP_DB", DEFAULT_DB)
     if not os.path.exists(db_path):
+        sys.stderr.write("stop_handler: memory database is unavailable\n")
+        _codex_success(hook_payload)
         return
 
     try:
         store = KVStore(db_path)
     except Exception as exc:
         sys.stderr.write(f"stop_handler: KVStore init failed ({type(exc).__name__})\n")
+        _codex_success(hook_payload)
         return
 
     try:
@@ -91,12 +114,20 @@ def main():
         if not hook_payload.get("stop_hook_active"):
             last_save = store.get(f"last_save_at:{hook_session_id}")
             if last_edit and (not last_save or last_edit > last_save):
+                # Receipt consumed by the live hook verifier; Codex hides Stop stderr.
+                if not store.set(f"stop_nudge:{hook_session_id}", "1", ttl=86400):
+                    sys.stderr.write(
+                        "stop_handler: nudge write failed, KV store may be degraded\n"
+                    )
                 sys.stderr.write(
                     "Memory gate: this session has an edit newer than your last "
-                    "saved memory. Load a remedy with ToolSearch, then call "
-                    "mcp__memory-mcp__memory_store("
+                    "saved memory. "
+                    + _remedy_lead(hook_payload)
+                    + _memory_tool(hook_payload, "memory_store")
+                    + "("
                     'text="<distilled lesson or decision>") or '
-                    'mcp__memory-mcp__kv_set(key="skip:'
+                    + _memory_tool(hook_payload, "kv_set")
+                    + '(key="skip:'
                     + hook_session_id
                     + '", value="<reason>", ttl=86400) before stopping.\n'
                 )
@@ -105,6 +136,7 @@ def main():
         session_info = get_current_session(hook_session_id)
         obs_session_id = session_info.get("session_id", "")
         if not obs_session_id:
+            _codex_success(hook_payload)
             return
 
         summarizer = SessionSummarizer(kv_store=store)
@@ -136,6 +168,7 @@ def main():
             store.close()
         except Exception:
             pass
+    _codex_success(hook_payload)
 
 
 if __name__ == "__main__":

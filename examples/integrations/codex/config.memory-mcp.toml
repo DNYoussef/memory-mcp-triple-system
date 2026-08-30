@@ -8,4 +8,5 @@ cwd = 'C:\path\to\workspace'
 
 [mcp_servers.memory-mcp.env]
 MEMORY_MCP_ROOT = 'D:\path\to\memory-mcp-triple-system'
+MEMORY_MCP_DATA_DIR = 'C:\Users\<username>\.claude\memory-mcp-data'
 PYTHONUTF8 = "1"
