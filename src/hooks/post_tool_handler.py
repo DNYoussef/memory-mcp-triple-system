@@ -3,9 +3,10 @@
 
 Called by Claude Code's PostToolUse lifecycle event.
 Reads tool name + result from stdin JSON, classifies, deduplicates,
-stores as structured observation. Must be FAST (<100ms blocking).
+stores as a structured observation. Hook logic is bounded; process startup is
+measured separately by scripts/verify_memory_gate_latency.py.
 
-Usage (from settings.local.json):
+Usage (from settings.json):
     "hooks": {
         "PostToolUse": [{
             "type": "command",
@@ -21,6 +22,7 @@ import hashlib
 import os
 import re
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Add project root to path
@@ -57,6 +59,12 @@ TRAILING_SECRET_PATTERNS = (
     re.compile(r"(?i)\bsk-[A-Za-z0-9_-]*$"),
     re.compile(r"(?i)\b(?:Bearer|Basic|Digest)\s+\S*$"),
 )
+RETRIEVAL_TOOLS = {
+    "mcp__memory-mcp__unified_search",
+    "mcp__memory-mcp__context_retrieve",
+    "mcp__memory-mcp__hipporag_retrieve",
+}
+EDIT_TOOLS = {"Write", "Edit", "NotebookEdit"}
 
 
 def strip_private(text: str) -> str:
@@ -139,6 +147,48 @@ def get_current_session(hook_session_id: str) -> dict:
     return {}
 
 
+def _mcp_call_succeeded(payload: dict) -> bool:
+    """Use structured error bits when present; list-shaped PostToolUse fails open."""
+    response = payload.get("tool_response")
+    if response is None:
+        response = payload.get("tool_output")
+    if response is None:
+        response = payload.get("tool_result")
+    if isinstance(response, dict):
+        return not (
+            bool(response.get("isError", False)) or response.get("success") is False
+        )
+    # Live Claude 2.1.251 strips the MCP wrapper and supplies only content.
+    # Its text can contain arbitrary recalled/stored words, so scanning it for
+    # failure phrases creates false denials. PostToolUse is a nudge, not a
+    # security boundary; without a reliable error bit the honest choice is open.
+    return True
+
+
+def _memory_store_succeeded(payload: dict) -> bool:
+    """Credit a save only when the repository's fixed success prefix is present."""
+    response = payload.get("tool_response")
+    if response is None:
+        response = payload.get("tool_output")
+    if response is None:
+        response = payload.get("tool_result")
+    if isinstance(response, dict):
+        if not _mcp_call_succeeded(payload):
+            return False
+        content = response.get("content")
+        if content is None:
+            return True
+        response = content
+    if isinstance(response, list):
+        return any(
+            isinstance(block, dict)
+            and isinstance(block.get("text"), str)
+            and block["text"].startswith("Stored memory: ")
+            for block in response
+        )
+    return _mcp_call_succeeded(payload)
+
+
 def main():
     """Main entry point for PostToolUse hook."""
     # Read hook payload from stdin
@@ -197,6 +247,29 @@ def main():
         return
 
     try:
+        if tool_name in RETRIEVAL_TOOLS and _mcp_call_succeeded(payload):
+            marker = store.get(f"prompt_marker:{hook_session_id}")
+            if marker and not store.set(
+                f"recall:{hook_session_id}:{marker}", "1", ttl=86400
+            ):
+                sys.stderr.write(
+                    "post_tool_handler: receipt write failed, KV store may be degraded\n"
+                )
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+        if tool_name in EDIT_TOOLS:
+            if not store.set(f"last_edit_at:{hook_session_id}", now_iso, ttl=86400):
+                sys.stderr.write(
+                    "post_tool_handler: last_edit_at write failed, KV store may be degraded\n"
+                )
+        elif tool_name == "mcp__memory-mcp__memory_store" and _memory_store_succeeded(
+            payload
+        ):
+            if not store.set(f"last_save_at:{hook_session_id}", now_iso, ttl=86400):
+                sys.stderr.write(
+                    "post_tool_handler: last_save_at write failed, KV store may be degraded\n"
+                )
+
         session_info = get_current_session(hook_session_id)
         obs_session_id = session_info.get("session_id", "")
         if obs_session_id:

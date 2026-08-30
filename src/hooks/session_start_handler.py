@@ -5,7 +5,7 @@ Called by Claude Code's SessionStart lifecycle event.
 Reads stdin for hook payload, queries memory for relevant prior context,
 outputs structured context block via stdout (hookSpecificOutput).
 
-Usage (from settings.local.json):
+Usage (from settings.json):
     "hooks": {
         "SessionStart": [{
             "type": "command",

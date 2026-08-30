@@ -167,48 +167,57 @@ def test_post_tool_handler_captures_observation(tmp_path, monkeypatch):
     ), "PostToolUse handler did not persist the observation"
 
 
-def test_claude_settings_wire_capture_hooks():
-    """Claude Code settings must wire all three capture hooks.
-
-    Fails before the fix: neither settings.json nor settings.local.json has a
-    hooks block, so the PostToolUse handler never runs.
-
-    Local-only: validates THIS developer's Claude config. Skipped on CI / a
-    fresh checkout where ~/.claude settings do not exist.
-    """
+def test_claude_settings_wire_memory_hooks_once_in_loaded_user_settings():
+    """Loaded user settings must register each memory hook exactly once."""
     claude_dir = Path.home() / ".claude"
-    if not any(
-        (claude_dir / n).exists() for n in ("settings.json", "settings.local.json")
-    ):
+    settings_path = claude_dir / "settings.json"
+    if not settings_path.exists():
         pytest.skip("no ~/.claude settings file present (CI/fresh checkout)")
     # Assert the FULL handler script path, not just the basename -- a hook
     # pointing at the wrong repo would silently run unfixed code.
     hooks_dir = "D:/Projects/memory-mcp-triple-system/src/hooks"
     wanted = {
-        "PostToolUse": f"{hooks_dir}/post_tool_handler.py",
-        "SessionStart": f"{hooks_dir}/session_start_handler.py",
-        "Stop": f"{hooks_dir}/stop_handler.py",
+        "PostToolUse": [f"{hooks_dir}/post_tool_handler.py"],
+        "SessionStart": [f"{hooks_dir}/session_start_handler.py"],
+        "Stop": [f"{hooks_dir}/stop_handler.py"],
+        "UserPromptSubmit": [
+            f"{hooks_dir}/prompt_marker_handler.py",
+            f"{hooks_dir}/user_prompt_memory_handler.py",
+        ],
+        "PreToolUse": [f"{hooks_dir}/pre_tool_memory_gate.py"],
     }
 
-    merged_hooks = {}
-    for name in ("settings.json", "settings.local.json"):
-        path = claude_dir / name
-        if not path.exists():
-            continue
-        data = json.loads(path.read_text(encoding="utf-8"))
-        merged_hooks.update(data.get("hooks", {}) or {})
+    settings = json.loads(settings_path.read_text(encoding="utf-8"))
+    merged_hooks = settings.get("hooks", {}) or {}
+    local_path = claude_dir / "settings.local.json"
+    if local_path.exists():
+        local = json.loads(local_path.read_text(encoding="utf-8"))
+        assert not local.get(
+            "hooks"
+        ), "home-local hook copy would duplicate registration"
 
     missing = []
-    for event, cmd_path in wanted.items():
+    duplicates = []
+    for event, command_paths in wanted.items():
         entries = merged_hooks.get(event)
-        # Normalize backslashes so the check is path-separator agnostic.
         blob = (
             json.dumps(entries).replace("\\\\", "/").replace("\\", "/")
             if entries
             else ""
         )
-        if not entries or cmd_path not in blob:
-            missing.append(f"{event} -> {cmd_path}")
-    assert (
-        not missing
-    ), f"capture hooks not wired (or wrong path) in settings: {missing}"
+        for command_path in command_paths:
+            count = blob.count(command_path)
+            if count == 0:
+                missing.append(f"{event} -> {command_path}")
+            elif count > 1:
+                duplicates.append(f"{event} -> {command_path} ({count})")
+    assert not missing, f"memory hooks not wired in loaded settings: {missing}"
+    assert not duplicates, f"duplicate memory hook registrations: {duplicates}"
+    pretool_groups = merged_hooks.get("PreToolUse", [])
+    matching_groups = [
+        group
+        for group in pretool_groups
+        if group.get("matcher") == "Write|Edit|NotebookEdit"
+        and "pre_tool_memory_gate.py" in json.dumps(group.get("hooks", []))
+    ]
+    assert len(matching_groups) == 1, "memory gate must use the exact edit matcher"

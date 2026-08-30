@@ -78,3 +78,5 @@ Thumbs.db
 nul
 venv-memory/
 audits/bench-baseline.json
+.unlazy/memory-gate-v12/FINAL-AUDIT.md
+.unlazy/memory-gate-v12/RUN-GATES.md
