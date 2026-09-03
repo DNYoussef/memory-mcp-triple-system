@@ -588,6 +588,7 @@ async def health_check() -> Dict[str, Any]:
         "status": "healthy",
         "service": "memory-mcp-http",
         "version": "1.5.0",
+        "bayesian_backend": BAYESIAN_BACKEND if BAYESIAN_AVAILABLE else "unavailable",
         "timestamp": datetime.utcnow().isoformat(),
         "auth": {
             "api_key_configured": bool(MCP_API_KEY),
