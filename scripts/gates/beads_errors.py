@@ -43,13 +43,18 @@ async def _command_failures():
             return 0
 
     errors = []
+
+    async def timeout(awaitable, **kwargs):
+        awaitable.close()
+        raise asyncio.TimeoutError
+
     with patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=Process())):
         try:
             await bridge._run_command(["bd"])
         except BeadsCLIError as exc:
             errors.append(exc)
     with patch("asyncio.create_subprocess_exec", new=AsyncMock(return_value=Process(0))), patch(
-        "asyncio.wait_for", new=AsyncMock(side_effect=asyncio.TimeoutError)
+        "asyncio.wait_for", new=timeout
     ):
         try:
             await bridge._run_command(["bd"])

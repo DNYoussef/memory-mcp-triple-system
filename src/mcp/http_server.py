@@ -997,6 +997,7 @@ async def unified_retrieve(request: UnifiedRetrievalRequest) -> Dict[str, Any]:
             "beads_budget": result.get("beads_budget"),
             "memory_budget": result.get("memory_budget"),
             "beads": beads_tasks,
+            "beads_error": result.get("beads_error"),
             "memory": result.get("memory", {}),
             "processor": "unified_retrieval_router",
         }

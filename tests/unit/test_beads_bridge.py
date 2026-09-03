@@ -4,7 +4,7 @@ from typing import Any, List
 
 import pytest
 
-from src.integrations.beads_bridge import BeadsBridge, BeadTask
+from src.integrations.beads_bridge import BeadsBridge, BeadsCLIError, BeadTask
 
 
 class FakeProcess:
@@ -64,5 +64,5 @@ async def test_query_tasks_handles_failure(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
     bridge = BeadsBridge()
 
-    tasks = await bridge.query_tasks(status="open")
-    assert tasks == []
+    with pytest.raises(BeadsCLIError, match="error"):
+        await bridge.query_tasks(status="open")

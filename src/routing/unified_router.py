@@ -50,7 +50,7 @@ class UnifiedRetrievalRouter:
             return_exceptions=True,
         )
 
-        beads_tasks = self._coerce_tasks(beads_result)
+        beads_tasks, beads_error = self._coerce_tasks(beads_result)
         memory_payload = self._coerce_memory(memory_result)
 
         return {
@@ -59,6 +59,7 @@ class UnifiedRetrievalRouter:
             "beads_budget": beads_budget,
             "memory_budget": memory_budget,
             "beads": beads_tasks,
+            "beads_error": beads_error,
             "memory": memory_payload,
         }
 
@@ -67,7 +68,7 @@ class UnifiedRetrievalRouter:
         query: str,
         budget: int,
         mode: str,
-    ) -> List[BeadTask]:
+    ) -> tuple[List[BeadTask], Optional[str]]:
         try:
             limit = max(1, min(25, budget // 200))
             if mode == "execution":
@@ -76,10 +77,10 @@ class UnifiedRetrievalRouter:
                 )
             else:
                 tasks = await self._beads_bridge.query_tasks(limit=limit, brief=True)
-            return self._trim_to_budget(tasks, budget)
+            return self._trim_to_budget(tasks, budget), None
         except Exception as exc:
             logger.warning("Beads retrieval failed: %s", exc)
-            return []
+            return [], str(exc)
 
     async def _retrieve_memory(
         self,
@@ -121,12 +122,12 @@ class UnifiedRetrievalRouter:
             total += estimate
         return trimmed
 
-    def _coerce_tasks(self, result: Any) -> List[BeadTask]:
+    def _coerce_tasks(self, result: Any) -> tuple[List[BeadTask], Optional[str]]:
         if isinstance(result, Exception):
-            return []
-        if isinstance(result, list):
+            return [], str(result)
+        if isinstance(result, tuple) and len(result) == 2:
             return result
-        return []
+        return [], "Invalid Beads response"
 
     def _coerce_memory(self, result: Any) -> Dict[str, Any]:
         if isinstance(result, Exception):

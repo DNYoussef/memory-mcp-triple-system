@@ -14,6 +14,10 @@ from typing import Any, Dict, List, Optional, Tuple
 logger = logging.getLogger(__name__)
 
 
+class BeadsCLIError(RuntimeError):
+    """Raised when the Beads CLI cannot return a valid response."""
+
+
 def resolve_beads_binary(explicit: Optional[str] = None) -> str:
     """Resolve the bd binary with one precedence across every surface.
 
@@ -291,8 +295,7 @@ class BeadsBridge:
                 process.communicate(), timeout=timeout
             )
             if process.returncode != 0:
-                logger.warning("Beads CLI failed: %s", stderr.decode().strip())
-                return []
+                raise BeadsCLIError(stderr.decode().strip() or f"Beads CLI exited {process.returncode}")
             return json.loads(stdout.decode() or "[]")
         except asyncio.TimeoutError:
             # A hung bd must not block the tool call indefinitely (the caller
@@ -304,10 +307,12 @@ class BeadsBridge:
                     await process.wait()
                 except ProcessLookupError:
                     pass
-            return []
+            raise BeadsCLIError(f"Beads CLI timed out after {timeout}s")
+        except BeadsCLIError:
+            raise
         except Exception as exc:
             logger.error("Beads CLI error: %s", exc)
-            return []
+            raise BeadsCLIError(str(exc)) from exc
 
     # ========== DEPENDENCY TREE METHODS ==========
 
