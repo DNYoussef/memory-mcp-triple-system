@@ -39,6 +39,8 @@ OUT = os.getenv("BENCH_OUT", os.path.join("audits", "bench-baseline.json"))
 
 # (label, tool_name, args, canary_required)
 PROBES = [
+    ("memory_store", "memory_store", {"text": TEXT, "metadata": {
+        "who": "bench", "when": "2026-06-15", "project": "triplecheck", "why": "probe"}}, False),
     ("kv_set", "kv_set", {"key": "benchk", "value": CANARY}, False),
     ("kv_get", "kv_get", {"key": "benchk"}, True),
     ("detect_mode", "detect_mode", {"query": "how should I plan the rollout?"}, False),

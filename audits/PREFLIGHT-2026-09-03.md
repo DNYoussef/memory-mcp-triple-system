@@ -49,3 +49,11 @@ re-run against v10 before Phase 0 begins.
 Final convergence: PASS from canonical `claude-opus-5` with canary
 `OPUS5_V10_CONVERGENCE_COMPLETE_20260903`; PASS from `gemini-3.8-flash` with canary
 `GEMINI38_V10_CONVERGENCE_COMPLETE_20260903`. Both runs were read-only.
+
+## Phase 0 gate audit
+
+The first gate implementation was rejected after both model audits found false-green and
+impossible-pass paths. The corrected suite observes backend identity, exercises Beads errors,
+thread-local degradation, both transports, cleanup contention, and exact success tokens. Every
+probe clause has a planted-bad variant. Final focused review passed in Gemini; Opus found two
+missing Railway status variants, which were added before the Phase 0 commit.
