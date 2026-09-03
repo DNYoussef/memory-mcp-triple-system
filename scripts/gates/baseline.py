@@ -152,6 +152,9 @@ def main(argv=None):
     if args.verify:
         args.path = args.verify
     if args.write:
+        if args.path.exists():
+            print(f"BASELINE_EXISTS {args.path}")
+            return 2
         if _run(["git", "status", "--porcelain"]).stdout.strip():
             print("BASELINE_DIRTY_WORKTREE")
             return 3
