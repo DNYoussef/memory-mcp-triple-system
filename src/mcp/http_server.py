@@ -268,6 +268,7 @@ def get_ingestion_service():
                     lifecycle_manager=get_lifecycle_manager(),
                     event_log=get_event_log(),
                     chunker=chunker,
+                    kv_store=get_kv_store(),
                 )
                 logger.info("MemoryIngestionService initialized")
     return _ingestion_service

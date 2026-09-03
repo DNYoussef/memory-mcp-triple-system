@@ -288,6 +288,27 @@ class KVStore:
             logger.error(f"KV set failed for key '{key}': {e}")
             return False
 
+    def set_if_absent(self, key: str, value: str, ttl: int) -> bool:
+        """Atomically claim a key, replacing it only after its TTL expires."""
+        if isinstance(value, (dict, list)):
+            value = json.dumps(value)
+        now = datetime.now()
+        expires_at = (now + timedelta(seconds=ttl)).isoformat()
+        try:
+            with self._transaction() as cursor:
+                cursor.execute(
+                    "DELETE FROM kv_store WHERE key=? AND expires_at IS NOT NULL AND expires_at <= ?",
+                    (key, now.isoformat()),
+                )
+                cursor.execute(
+                    "INSERT OR IGNORE INTO kv_store (key,value,created_at,updated_at,expires_at) VALUES (?,?,?,?,?)",
+                    (key, value, now.isoformat(), now.isoformat(), expires_at),
+                )
+                return cursor.rowcount > 0
+        except sqlite3.Error as e:
+            logger.warning(f"KV claim failed for key '{key}': {e}")
+            return False
+
     def delete(self, key: str) -> bool:
         """
         Delete key-value pair.

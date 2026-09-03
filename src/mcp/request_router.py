@@ -170,26 +170,9 @@ def handle_vector_search(
     tool.kv_store.set("session:last_query_mode", mode)
     tool.kv_store.set("session:last_query_limit", str(limit))
 
-    trace = tool.create_query_trace(query, mode)
     start_time = time.time()
     results, degraded = tool.execute_with_status(query, limit, mode)
-
-    trace.retrieval_ms = int((time.time() - start_time) * 1000)
-    trace.retrieved_chunks = [{"score": r.get("score", 0)} for r in results[:5]]
-    trace.stores_queried = ["vector", "graph", "bayesian"]
-    trace.routing_logic = "NexusProcessor 3-tier"
-    trace.output = f"Retrieved {len(results)} results"
-    trace.total_latency_ms = trace.retrieval_ms
-
-    data_dir = os.getenv(
-        "MEMORY_MCP_DATA_DIR", tool.config.get("storage", {}).get("data_dir", "/data")
-    )
-    try:
-        trace.log(db_path=f"{data_dir}/query_traces.db")
-    except Exception as exc:
-        logger.warning(
-            "query-trace log failed (db=%s/query_traces.db): %s", data_dir, exc
-        )
+    elapsed_ms = int((time.time() - start_time) * 1000)
 
     tool.log_event(
         "vector_search",
@@ -198,7 +181,7 @@ def handle_vector_search(
             "mode": mode,
             "limit": limit,
             "results_count": len(results),
-            "latency_ms": trace.retrieval_ms,
+            "latency_ms": elapsed_ms,
         },
     )
 
@@ -294,6 +277,7 @@ def _get_ingestion_service(tool: "NexusSearchTool"):
         lifecycle_manager=getattr(tool, "lifecycle_manager", None),
         event_log=getattr(tool, "event_log", None),
         chunker=getattr(vector_tool, "chunker", None),
+        kv_store=getattr(tool, "kv_store", None),
     )
     setattr(tool, "_ingestion_service", service)
     return service
@@ -1072,14 +1056,39 @@ def handle_call_tool(
         "context_retrieve": handle_context_retrieve,
     }
 
+    started = time.time()
     try:
         handler = handlers.get(tool_name)
         if handler:
-            return handler(arguments, tool)
-        return {
-            "content": [{"type": "text", "text": f"Unknown tool: {tool_name}"}],
-            "isError": True,
-        }
+            result = handler(arguments, tool)
+        else:
+            result = {
+                "content": [{"type": "text", "text": f"Unknown tool: {tool_name}"}],
+                "isError": True,
+            }
     except Exception as e:
         logger.error(f"Tool execution failed: {e}")
-        return _text_result(f"Error: {str(e)}", True)
+        result = _text_result(f"Error: {str(e)}", True)
+
+    try:
+        query = arguments.get("query", arguments.get("text", ""))
+        mode = arguments.get("mode", "execution")
+        trace = tool.create_query_trace(query, mode)
+        trace.retrieval_ms = int((time.time() - started) * 1000)
+        trace.total_latency_ms = trace.retrieval_ms
+        trace.stores_queried = ["vector", "graph", "bayesian"]
+        trace.routing_logic = tool_name
+        trace.output = "\n".join(
+            str(item.get("text", "")) for item in result.get("content", [])
+        )
+        if result.get("isError"):
+            trace.error = trace.output or "tool error"
+            trace.error_type = "system_error"
+        data_dir = os.getenv(
+            "MEMORY_MCP_DATA_DIR",
+            tool.config.get("storage", {}).get("data_dir", "/data"),
+        )
+        trace.log(db_path=f"{data_dir}/query_traces.db")
+    except Exception as exc:
+        logger.warning(f"query-trace log failed: {exc}")
+    return result

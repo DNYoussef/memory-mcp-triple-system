@@ -145,21 +145,21 @@ def handle_call_tool(tool_name, arguments, tool):
     """Compatibility router with explicit tool_name branches."""
     try:
         if tool_name == "vector_search":
-            return handle_vector_search(arguments, tool)
+            return _handle_call_tool(tool_name, arguments, tool)
         if tool_name == "memory_store":
-            return handle_memory_store(arguments, tool)
+            return _handle_call_tool(tool_name, arguments, tool)
         if tool_name == "graph_query":
-            return handle_graph_query(arguments, tool)
+            return _handle_call_tool(tool_name, arguments, tool)
         if tool_name == "entity_extraction":
-            return handle_entity_extraction(arguments, tool)
+            return _handle_call_tool(tool_name, arguments, tool)
         if tool_name == "hipporag_retrieve":
-            return handle_hipporag_retrieve(arguments, tool)
+            return _handle_call_tool(tool_name, arguments, tool)
         if tool_name == "detect_mode":
-            return handle_detect_mode(arguments, tool)
+            return _handle_call_tool(tool_name, arguments, tool)
         if tool_name == "obsidian_sync":
-            return handle_obsidian_sync(arguments, tool)
+            return _handle_call_tool(tool_name, arguments, tool)
         if tool_name == "observation_timeline":
-            return handle_observation_timeline(arguments, tool)
+            return _handle_call_tool(tool_name, arguments, tool)
         return _handle_call_tool(tool_name, arguments, tool)
     except Exception as e:
         return {

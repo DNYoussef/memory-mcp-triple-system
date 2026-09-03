@@ -41,6 +41,7 @@ class MemoryIngestionService:
         lifecycle_manager,
         event_log,
         chunker=None,
+        kv_store=None,
     ):
         self._embedder = embedder
         self._indexer = indexer
@@ -50,6 +51,7 @@ class MemoryIngestionService:
         self._lifecycle_manager = lifecycle_manager
         self._event_log = event_log
         self._chunker = chunker
+        self._kv_store = kv_store
 
     # ------------------------------------------------------------------
     # Public API
@@ -267,6 +269,10 @@ class MemoryIngestionService:
         if not self._lifecycle_manager:
             return
         try:
+            if self._kv_store and self._kv_store.set_if_absent(
+                "lifecycle:cleanup:claim", "1", ttl=86400
+            ):
+                self._lifecycle_manager.cleanup_expired()
             self._lifecycle_manager.demote_stale_chunks()
             self._lifecycle_manager.archive_demoted_chunks()
         except Exception as e:

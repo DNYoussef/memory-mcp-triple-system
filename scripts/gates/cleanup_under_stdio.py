@@ -5,6 +5,7 @@ import sqlite3
 import sys
 import tempfile
 import threading
+from contextlib import closing
 from pathlib import Path
 from unittest.mock import MagicMock
 from unittest.mock import patch
@@ -15,11 +16,27 @@ TOKEN = "CLEANUP_UNDER_STDIO_OK expired_row_removed=1 spy_first=1 spy_second=0 r
 
 
 def probe(fixture) -> bool:
-    return fixture == {"removed": True, "first": 1, "second": 0, "reacquired": True, "contenders": 2, "runs": 1, "safe": True}
+    return fixture == {
+        "removed": True,
+        "first": 1,
+        "second": 0,
+        "reacquired": True,
+        "contenders": 2,
+        "runs": 1,
+        "safe": True,
+    }
 
 
 def _planted_bad_fixture():
-    good = {"removed": True, "first": 1, "second": 0, "reacquired": True, "contenders": 2, "runs": 1, "safe": True}
+    good = {
+        "removed": True,
+        "first": 1,
+        "second": 0,
+        "reacquired": True,
+        "contenders": 2,
+        "runs": 1,
+        "safe": True,
+    }
     bad = []
     for key, value in good.items():
         bad.append({**good, key: (not value if isinstance(value, bool) else value + 1)})
@@ -29,7 +46,9 @@ def _planted_bad_fixture():
 def _service(kv, lifecycle):
     from src.services.memory_ingestion_service import MemoryIngestionService
 
-    return MemoryIngestionService(*(MagicMock() for _ in range(5)), lifecycle, MagicMock(), kv_store=kv)
+    return MemoryIngestionService(
+        *(MagicMock() for _ in range(5)), lifecycle, MagicMock(), kv_store=kv
+    )
 
 
 def _real_fixture():
@@ -38,6 +57,7 @@ def _real_fixture():
     with tempfile.TemporaryDirectory() as tmp:
         db = Path(tmp) / "gate.db"
         kv = KVStore(str(db))
+
         class Lifecycle:
             def __init__(self):
                 self.cleanup_calls = 0
@@ -54,34 +74,61 @@ def _real_fixture():
 
         lifecycle = Lifecycle()
         service = _service(kv, lifecycle)
-        with sqlite3.connect(db) as con:
-            con.execute("INSERT INTO kv_store (key,value,created_at,updated_at,expires_at) VALUES (?,?,?,?,?)", ("expired", "x", "2000-01-01", "2000-01-01", "2000-01-01"))
+        with closing(sqlite3.connect(db)) as con, con:
+            con.execute(
+                "INSERT INTO kv_store (key,value,created_at,updated_at,expires_at) VALUES (?,?,?,?,?)",
+                ("expired", "x", "2000-01-01", "2000-01-01", "2000-01-01"),
+            )
         service._run_lifecycle_maintenance()
-        with sqlite3.connect(db) as con:
-            removed = con.execute("SELECT count(*) FROM kv_store WHERE key='expired'").fetchone()[0] == 0
+        with closing(sqlite3.connect(db)) as con, con:
+            removed = (
+                con.execute(
+                    "SELECT count(*) FROM kv_store WHERE key='expired'"
+                ).fetchone()[0]
+                == 0
+            )
         first = lifecycle.cleanup_calls
         service._run_lifecycle_maintenance()
         second = lifecycle.cleanup_calls - first
-        with sqlite3.connect(db) as con:
-            con.execute("UPDATE kv_store SET expires_at='2000-01-01' WHERE key='lifecycle:cleanup:claim'")
+        with closing(sqlite3.connect(db)) as con, con:
+            con.execute(
+                "UPDATE kv_store SET expires_at='2000-01-01' WHERE key='lifecycle:cleanup:claim'"
+            )
         service._run_lifecycle_maintenance()
         reacquired = lifecycle.cleanup_calls == first + 1
 
-        with sqlite3.connect(db) as con:
-            con.execute("UPDATE kv_store SET expires_at='2000-01-01' WHERE key='lifecycle:cleanup:claim'")
+        with closing(sqlite3.connect(db)) as con, con:
+            con.execute(
+                "UPDATE kv_store SET expires_at='2000-01-01' WHERE key='lifecycle:cleanup:claim'"
+            )
         lifecycle.cleanup_calls = 0
         services = [_service(kv, lifecycle), _service(kv, lifecycle)]
-        threads = [threading.Thread(target=item._run_lifecycle_maintenance) for item in services]
+
+        def run(item):
+            item._run_lifecycle_maintenance()
+            kv.close()
+
+        threads = [threading.Thread(target=run, args=(item,)) for item in services]
         for thread in threads:
             thread.start()
         for thread in threads:
             thread.join()
         runs = lifecycle.cleanup_calls
-        with patch.object(kv, "_transaction", side_effect=sqlite3.OperationalError("busy")):
+        with patch.object(
+            kv, "_transaction", side_effect=sqlite3.OperationalError("busy")
+        ):
             safe = kv.set_if_absent("contended", "x", ttl=1) is False
         safe = safe and all(not thread.is_alive() for thread in threads)
         kv.close()
-    return {"removed": removed, "first": first, "second": second, "reacquired": reacquired, "contenders": 2, "runs": runs, "safe": safe}
+    return {
+        "removed": removed,
+        "first": first,
+        "second": second,
+        "reacquired": reacquired,
+        "contenders": 2,
+        "runs": runs,
+        "safe": safe,
+    }
 
 
 def self_test() -> bool:
