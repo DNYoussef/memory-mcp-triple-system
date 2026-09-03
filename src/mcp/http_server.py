@@ -772,6 +772,11 @@ async def vector_search(request: VectorSearchRequest) -> Dict[str, Any]:
         results = (nexus_result.get("core", []) + nexus_result.get("extended", []))[
             : request.limit
         ]
+        degraded = nexus_result.get("degraded_tiers", [])
+        if len(degraded) == 3:
+            raise HTTPException(
+                status_code=503, detail="All retrieval tiers unavailable"
+            )
 
         event_log = get_event_log()
         event_log.log_event(
@@ -790,7 +795,10 @@ async def vector_search(request: VectorSearchRequest) -> Dict[str, Any]:
             "count": len(results),
             "query": request.query,
             "processor": "nexus_5step",
+            "degraded_tiers": degraded,
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Vector search failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -888,6 +896,11 @@ async def search(request: SearchRequest) -> Dict[str, Any]:
         results = (nexus_result.get("core", []) + nexus_result.get("extended", []))[
             : request.limit
         ]
+        degraded = nexus_result.get("degraded_tiers", [])
+        if len(degraded) == 3:
+            raise HTTPException(
+                status_code=503, detail="All retrieval tiers unavailable"
+            )
 
         event_log = get_event_log()
         event_log.log_event(
@@ -901,7 +914,14 @@ async def search(request: SearchRequest) -> Dict[str, Any]:
             },
         )
 
-        return {"results": results, "processor": "nexus_5step", "mode": mode}
+        return {
+            "results": results,
+            "processor": "nexus_5step",
+            "mode": mode,
+            "degraded_tiers": degraded,
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Unified search failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -961,6 +981,11 @@ async def unified_retrieve(request: UnifiedRetrievalRequest) -> Dict[str, Any]:
         result = await router.retrieve(
             query=request.query, mode=mode, token_budget=request.token_budget
         )
+        degraded = result.get("degraded_tiers", [])
+        if len(degraded) == 3:
+            raise HTTPException(
+                status_code=503, detail="All retrieval tiers unavailable"
+            )
 
         # Log the unified retrieval
         event_log = get_event_log()
@@ -998,9 +1023,12 @@ async def unified_retrieve(request: UnifiedRetrievalRequest) -> Dict[str, Any]:
             "memory_budget": result.get("memory_budget"),
             "beads": beads_tasks,
             "beads_error": result.get("beads_error"),
+            "degraded_tiers": degraded,
             "memory": result.get("memory", {}),
             "processor": "unified_retrieval_router",
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Unified retrieval failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))

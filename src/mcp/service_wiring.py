@@ -493,18 +493,26 @@ class NexusSearchTool:
         self, query: str, limit: int = 5, mode: str = "execution"
     ) -> List[Dict[str, Any]]:
         """Execute search through NexusProcessor or fallback."""
+        return self.execute_with_status(query, limit, mode)[0]
+
+    def execute_with_status(
+        self, query: str, limit: int = 5, mode: str = "execution"
+    ) -> tuple[List[Dict[str, Any]], List[str]]:
+        """Execute search and return request-local degraded tiers."""
         if self.nexus_processor:
             try:
-                result = self._execute_nexus(query, mode, limit)
+                result, degraded = self._execute_nexus(query, mode, limit)
                 logger.info(f"NexusProcessor success: {len(result)} results")
-                return result
+                return result, degraded
             except Exception as e:
                 logger.warning(f"NexusProcessor failed, falling back: {e}")
 
         logger.info("Using fallback VectorSearchTool")
-        return self.vector_search_tool.execute(query, limit)
+        return self.vector_search_tool.execute(query, limit), ["bayesian", "hipporag"]
 
-    def _execute_nexus(self, query: str, mode: str, limit: int) -> List[Dict[str, Any]]:
+    def _execute_nexus(
+        self, query: str, mode: str, limit: int
+    ) -> tuple[List[Dict[str, Any]], List[str]]:
         """Execute via NexusProcessor and format results."""
         nexus_result = self.nexus_processor.process(
             query=query, mode=mode, top_k=50, token_budget=10000
@@ -526,7 +534,7 @@ class NexusSearchTool:
                 }
             )
 
-        return formatted
+        return formatted, nexus_result.get("degraded_tiers", [])
 
 
 def load_config(config_path: Optional[Path] = None) -> Dict[str, Any]:

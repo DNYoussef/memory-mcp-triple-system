@@ -172,7 +172,7 @@ def handle_vector_search(
 
     trace = tool.create_query_trace(query, mode)
     start_time = time.time()
-    results = tool.execute(query, limit, mode)
+    results, degraded = tool.execute_with_status(query, limit, mode)
 
     trace.retrieval_ms = int((time.time() - start_time) * 1000)
     trace.retrieved_chunks = [{"score": r.get("score", 0)} for r in results[:5]]
@@ -205,7 +205,11 @@ def handle_vector_search(
     formatter = _format_result_compact if detail == "compact" else _format_result_full
     content = [formatter(idx, r) for idx, r in enumerate(results, 1)]
 
-    return {"content": content, "isError": False}
+    return {
+        "content": content,
+        "isError": len(degraded) == 3,
+        "degraded_tiers": degraded,
+    }
 
 
 def handle_memory_store(
@@ -365,7 +369,7 @@ def handle_graph_query(
                 query=query, top_k=limit, max_hops=max_hops
             )
         else:
-            results = tool.execute(query, limit, "planning")
+            results, degraded = tool.execute_with_status(query, limit, "planning")
             for r in results:
                 r["note"] = "Graph engine not available - using vector fallback"
 
@@ -380,7 +384,12 @@ def handle_graph_query(
                 }
             )
 
-        return {"content": content, "isError": False}
+        degraded = locals().get("degraded", [])
+        return {
+            "content": content,
+            "isError": len(degraded) == 3,
+            "degraded_tiers": degraded,
+        }
     except Exception as e:
         return _text_result(f"Graph query error: {e}", True)
 
@@ -441,7 +450,7 @@ def handle_hipporag_retrieve(
         if tool.hipporag_service:
             results = tool.hipporag_service.retrieve_multi_hop(query=query, top_k=limit)
         else:
-            results = tool.execute(query, limit, mode)
+            results, degraded = tool.execute_with_status(query, limit, mode)
 
         content = [
             {
@@ -474,7 +483,12 @@ def handle_hipporag_retrieve(
                 }
             )
 
-        return {"content": content, "isError": False}
+        degraded = locals().get("degraded", [])
+        return {
+            "content": content,
+            "isError": len(degraded) == 3,
+            "degraded_tiers": degraded,
+        }
     except Exception as e:
         return _text_result(f"HippoRAG error: {e}", True)
 
@@ -659,6 +673,7 @@ def handle_unified_search(
 
     combined = nexus_result.get("core", []) + nexus_result.get("extended", [])
     limited = combined[:limit]
+    degraded = nexus_result.get("degraded_tiers", [])
 
     if detail == "compact":
         content = []
@@ -680,7 +695,11 @@ def handle_unified_search(
                 "text": f"--- {len(limited)} results | mode={mode} | {stats.get('total_ms', '?')}ms",
             }
         )
-        return {"content": content, "isError": False}
+        return {
+            "content": content,
+            "isError": len(degraded) == 3,
+            "degraded_tiers": degraded,
+        }
 
     return {
         "content": [
@@ -695,7 +714,8 @@ def handle_unified_search(
                 ),
             }
         ],
-        "isError": False,
+        "isError": len(degraded) == 3,
+        "degraded_tiers": degraded,
     }
 
 
@@ -1008,7 +1028,7 @@ def handle_context_retrieve(
     limit = arguments.get("limit", 5)
     mode = arguments.get("mode", "planning")
     try:
-        results = tool.execute(query, limit, mode)
+        results, degraded = tool.execute_with_status(query, limit, mode)
     except Exception as exc:
         return _text_result(f"context_retrieve failed: {exc}", True)
 
@@ -1017,9 +1037,11 @@ def handle_context_retrieve(
         text = r.get("text", "") if isinstance(r, dict) else getattr(r, "text", "")
         score = r.get("score", 0.0) if isinstance(r, dict) else getattr(r, "score", 0.0)
         lines.append(f"[{score:.2f}] {text[:300]}")
-    return _text_result(
-        "\n".join(lines) if results else "No relevant context found", False
+    response = _text_result(
+        "\n".join(lines) if results else "No relevant context found", len(degraded) == 3
     )
+    response["degraded_tiers"] = degraded
+    return response
 
 
 # === Main Router ===

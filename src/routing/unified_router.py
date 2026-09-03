@@ -61,6 +61,7 @@ class UnifiedRetrievalRouter:
             "beads": beads_tasks,
             "beads_error": beads_error,
             "memory": memory_payload,
+            "degraded_tiers": memory_payload.get("degraded_tiers", []),
         }
 
     async def _retrieve_beads(

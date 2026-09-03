@@ -15,7 +15,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from src.integrations.beads_bridge import BeadsBridge, BeadTask
+from src.integrations.beads_bridge import BeadsBridge, BeadsCLIError, BeadTask
 from src.mcp.obsidian_client import ObsidianMCPClient
 from src.mcp.request_router import (
     handle_beads_ready_tasks,
@@ -42,7 +42,10 @@ class TestBeadsBridge:
         """get_ready_tasks should return a list."""
         if shutil.which("bd") is None:
             pytest.skip("bd binary not available")
-        tasks = await bridge.get_ready_tasks(limit=5)
+        try:
+            tasks = await bridge.get_ready_tasks(limit=5)
+        except BeadsCLIError as exc:
+            pytest.skip(str(exc))
         assert isinstance(tasks, list)
 
     @pytest.mark.asyncio
@@ -51,7 +54,10 @@ class TestBeadsBridge:
         if shutil.which("bd") is None:
             pytest.skip("bd binary not available")
         # First get a task ID
-        tasks = await bridge.get_ready_tasks(limit=1)
+        try:
+            tasks = await bridge.get_ready_tasks(limit=1)
+        except BeadsCLIError as exc:
+            pytest.skip(str(exc))
         if not tasks:
             pytest.skip("No tasks available")
         task = await bridge.get_task_detail(tasks[0].id)
@@ -62,7 +68,10 @@ class TestBeadsBridge:
         """query_tasks should support status filter."""
         if shutil.which("bd") is None:
             pytest.skip("bd binary not available")
-        tasks = await bridge.query_tasks(status="open", limit=5)
+        try:
+            tasks = await bridge.query_tasks(status="open", limit=5)
+        except BeadsCLIError as exc:
+            pytest.skip(str(exc))
         assert isinstance(tasks, list)
 
     def test_bead_task_dataclass_fields(self):
@@ -99,9 +108,8 @@ class TestBeadsBridge:
             return proc
 
         with patch("asyncio.create_subprocess_exec", side_effect=fake_exec):
-            result = await bridge._run_command(["bd", "list"], timeout=0.05)
-
-        assert result == []
+            with pytest.raises(BeadsCLIError, match="timed out"):
+                await bridge._run_command(["bd", "list"], timeout=0.05)
         proc.kill.assert_called_once()
 
     def test_run_coroutine_sync_bounds_wait_with_timeout(self):

@@ -110,6 +110,7 @@ class TestHandleCallTool:
                 "file_path": "/test/file.md",
             }
         ]
+        mock.execute_with_status.return_value = (mock.execute.return_value, [])
         mock.chunker = MagicMock()
         mock.embedder = MagicMock()
         mock.embedder.encode.return_value = MagicMock(tolist=lambda: [[0.1, 0.2, 0.3]])
@@ -160,7 +161,7 @@ class TestHandleCallTool:
         """Test vector_search uses default limit."""
         handle_call_tool("vector_search", {"query": "test query"}, mock_vector_tool)
 
-        mock_vector_tool.execute.assert_called_once_with("test query", 5, "execution")
+        mock_vector_tool.execute_with_status.assert_called_once_with("test query", 5, "execution")
 
     def test_vector_search_respects_custom_limit(self, mock_vector_tool):
         """Test vector_search uses custom limit."""
@@ -168,7 +169,7 @@ class TestHandleCallTool:
             "vector_search", {"query": "test query", "limit": 10}, mock_vector_tool
         )
 
-        mock_vector_tool.execute.assert_called_once_with("test query", 10, "execution")
+        mock_vector_tool.execute_with_status.assert_called_once_with("test query", 10, "execution")
 
     def test_memory_store_returns_success(self, mock_vector_tool):
         """Test memory_store returns success structure."""
@@ -219,7 +220,7 @@ class TestHandleCallTool:
 
     def test_exception_handling(self, mock_vector_tool):
         """Test exception in tool execution is handled."""
-        mock_vector_tool.execute.side_effect = Exception("Test error")
+        mock_vector_tool.execute_with_status.side_effect = Exception("Test error")
 
         result = handle_call_tool("vector_search", {"query": "test"}, mock_vector_tool)
 
@@ -235,6 +236,7 @@ class TestJSONRPCProtocol:
         """Create mock VectorSearchTool."""
         mock = MagicMock()
         mock.execute.return_value = []
+        mock.execute_with_status.return_value = ([], [])
         return mock
 
     def test_tools_list_request_format(self):
@@ -357,6 +359,7 @@ class TestEdgeCases:
         """Create mock VectorSearchTool."""
         mock = MagicMock()
         mock.execute.return_value = []
+        mock.execute_with_status.return_value = ([], [])
         mock.chunker = MagicMock()
         mock.embedder = MagicMock()
         mock.embedder.encode.return_value = MagicMock(tolist=lambda: [[0.1]])
@@ -385,7 +388,7 @@ class TestEdgeCases:
 
         # Should still work, just return empty results
         assert result["isError"] is False
-        mock_tool.execute.assert_called_with("", 5, "execution")
+        mock_tool.execute_with_status.assert_called_with("", 5, "execution")
 
     def test_missing_query_handling(self, mock_tool):
         """Test handling of missing query parameter."""
@@ -393,7 +396,7 @@ class TestEdgeCases:
 
         # Should use empty string as default
         assert result["isError"] is False
-        mock_tool.execute.assert_called_with("", 5, "execution")
+        mock_tool.execute_with_status.assert_called_with("", 5, "execution")
 
     def test_empty_text_memory_store(self, mock_tool):
         """Test memory_store with empty text."""
@@ -439,7 +442,7 @@ class TestEdgeCases:
         )
 
         assert result["isError"] is False
-        mock_tool.execute.assert_called_with("test", 10000, "execution")
+        mock_tool.execute_with_status.assert_called_with("test", 10000, "execution")
 
     def test_negative_limit_handling(self, mock_tool):
         """Test vector_search with negative limit."""
@@ -449,7 +452,7 @@ class TestEdgeCases:
 
         # Should pass through to tool (validation is tool's responsibility)
         assert result["isError"] is False
-        mock_tool.execute.assert_called_with("test", -1, "execution")
+        mock_tool.execute_with_status.assert_called_with("test", -1, "execution")
 
     def test_special_characters_in_query(self, mock_tool):
         """Test query with special characters."""
@@ -457,7 +460,7 @@ class TestEdgeCases:
         result = handle_call_tool("vector_search", {"query": query}, mock_tool)
 
         assert result["isError"] is False
-        mock_tool.execute.assert_called_with(query, 5, "execution")
+        mock_tool.execute_with_status.assert_called_with(query, 5, "execution")
 
     def test_unicode_in_query(self, mock_tool):
         """Test query with unicode characters."""

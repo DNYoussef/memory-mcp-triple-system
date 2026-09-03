@@ -109,15 +109,7 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
             top_k: Number of candidates to recall per tier
             token_budget: Maximum tokens in final result
 
-        Returns:
-            {
-                core: [top-5 chunks],
-                extended: [next 15-25 chunks],
-                token_count: int,
-                compression_ratio: float,
-                mode: str,
-                pipeline_stats: {recall, filter, dedup, rank, compress times}
-            }
+        Returns the compressed result and pipeline metadata.
         """
         import time
 
@@ -138,7 +130,11 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
                 return rlm_result
 
         # Execute 5-step pipeline
-        result, stats = self._execute_pipeline(query, mode, top_k, token_budget)
+        degraded = {}
+        result, stats = self._execute_pipeline(
+            query, mode, top_k, token_budget, degraded
+        )
+        result["degraded_tiers"] = sorted(degraded)
 
         # Add timing metadata
         result["pipeline_stats"] = stats
@@ -177,7 +173,12 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
             return None
 
     def _execute_pipeline(
-        self, query: str, mode: str, top_k: int, token_budget: int
+        self,
+        query: str,
+        mode: str,
+        top_k: int,
+        token_budget: int,
+        degraded: Optional[dict] = None,
     ) -> tuple[Dict[str, Any], Dict[str, Any]]:
         """Execute 5-step pipeline and return result with stats."""
         import time
@@ -185,7 +186,7 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         stats = {}
 
         # Step 1: Recall
-        candidates, stats = self._step_recall(query, top_k, stats)
+        candidates, stats = self._step_recall(query, top_k, stats, degraded)
         if not candidates:
             return self._empty_result(mode), stats
 
@@ -317,13 +318,17 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         return combined
 
     def _step_recall(
-        self, query: str, top_k: int, stats: Dict[str, Any]
+        self,
+        query: str,
+        top_k: int,
+        stats: Dict[str, Any],
+        degraded: Optional[dict] = None,
     ) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """Step 1: Recall candidates."""
         import time
 
         start = time.time()
-        candidates = self.recall(query, top_k=top_k)
+        candidates = self.recall(query, top_k=top_k, status=degraded)
         stats["recall_ms"] = int((time.time() - start) * 1000)
         logger.info(f"Recall: {len(candidates)} candidates in {stats['recall_ms']}ms")
         return candidates, stats
@@ -425,7 +430,9 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         )
         return result, stats
 
-    def recall(self, query: str, top_k: int = 50) -> List[Dict[str, Any]]:
+    def recall(
+        self, query: str, top_k: int = 50, status: Optional[dict] = None
+    ) -> List[Dict[str, Any]]:
         """
         Step 1: Query all 3 tiers (Vector + HippoRAG + Bayesian).
 
@@ -443,17 +450,17 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         candidates = []
 
         # Query Vector tier
-        vector_results = self._query_vector_tier(query, top_k)
+        vector_results = self._query_vector_tier(query, top_k, status)
         candidates.extend(vector_results)
         logger.debug(f"Vector tier: {len(vector_results)} results")
 
         # Query HippoRAG tier
-        hipporag_results = self._query_hipporag_tier(query, top_k)
+        hipporag_results = self._query_hipporag_tier(query, top_k, status)
         candidates.extend(hipporag_results)
         logger.debug(f"HippoRAG tier: {len(hipporag_results)} results")
 
         # Query Bayesian tier (optional, may return None)
-        bayesian_results = self._query_bayesian_tier(query, top_k)
+        bayesian_results = self._query_bayesian_tier(query, top_k, status)
         if bayesian_results:
             candidates.extend(bayesian_results)
             logger.debug(f"Bayesian tier: {len(bayesian_results)} results")

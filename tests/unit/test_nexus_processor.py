@@ -130,9 +130,9 @@ class TestNexusProcessor:
             "metadata": {"variable": "Tesla", "state": "true"},
         }
 
-        processor._query_vector_tier = lambda q, k: [dict(real_doc)]
-        processor._query_hipporag_tier = lambda q, k: []
-        processor._query_bayesian_tier = lambda q, k: [dict(bayes_row)]
+        processor._query_vector_tier = lambda q, k, status=None: [dict(real_doc)]
+        processor._query_hipporag_tier = lambda q, k, status=None: []
+        processor._query_bayesian_tier = lambda q, k, status=None: [dict(bayes_row)]
 
         # The Bayesian row contributes to recall (signal present).
         recalled = processor.recall("Tesla")
@@ -159,9 +159,9 @@ class TestNexusProcessor:
             "id": "bayesian_real_doc",
             "metadata": {},
         }
-        processor._query_vector_tier = lambda q, k: [dict(real_doc)]
-        processor._query_hipporag_tier = lambda q, k: []
-        processor._query_bayesian_tier = lambda q, k: []
+        processor._query_vector_tier = lambda q, k, status=None: [dict(real_doc)]
+        processor._query_hipporag_tier = lambda q, k, status=None: []
+        processor._query_bayesian_tier = lambda q, k, status=None: []
 
         result = processor.process(query="bayesian", mode="execution", top_k=10)
         docs = result["core"] + result["extended"]
@@ -186,9 +186,9 @@ class TestNexusProcessor:
             "id": "bayesian_Tesla_true",
             "metadata": {"variable": "Tesla", "state": "true"},
         }
-        processor._query_vector_tier = lambda q, k: [dict(real_doc)]
-        processor._query_hipporag_tier = lambda q, k: []
-        processor._query_bayesian_tier = lambda q, k: [dict(bayes_row)]
+        processor._query_vector_tier = lambda q, k, status=None: [dict(real_doc)]
+        processor._query_hipporag_tier = lambda q, k, status=None: []
+        processor._query_bayesian_tier = lambda q, k, status=None: [dict(bayes_row)]
 
         seen = {}
 

@@ -25,7 +25,9 @@ class TierQueryMixin:
         - self.bayesian_graph_sync (optional, BAY-002/BAY-005)
     """
 
-    def _query_vector_tier(self, query: str, top_k: int) -> List[Dict[str, Any]]:
+    def _query_vector_tier(
+        self, query: str, top_k: int, status: Optional[dict] = None
+    ) -> List[Dict[str, Any]]:
         """
         Query Vector tier (ChromaDB).
 
@@ -37,6 +39,8 @@ class TierQueryMixin:
             List of results with tier="vector"
         """
         if not self.vector_indexer or not self.embedding_pipeline:
+            if status is not None:
+                status["vector"] = "service unavailable"
             logger.warning("Vector tier not available (indexer or embeddings missing)")
             return []
 
@@ -68,10 +72,14 @@ class TierQueryMixin:
             return results
 
         except Exception as e:
+            if status is not None:
+                status["vector"] = str(e)
             logger.error(f"Vector tier query failed: {e}")
             return []
 
-    def _query_hipporag_tier(self, query: str, top_k: int) -> List[Dict[str, Any]]:
+    def _query_hipporag_tier(
+        self, query: str, top_k: int, status: Optional[dict] = None
+    ) -> List[Dict[str, Any]]:
         """
         Query HippoRAG tier (Multi-hop graph reasoning).
 
@@ -83,6 +91,8 @@ class TierQueryMixin:
             List of results with tier="hipporag"
         """
         if not self.graph_query_engine:
+            if status is not None:
+                status["hipporag"] = "service unavailable"
             logger.warning("HippoRAG tier not available (graph query engine missing)")
             return []
 
@@ -114,11 +124,13 @@ class TierQueryMixin:
             return results
 
         except Exception as e:
+            if status is not None:
+                status["hipporag"] = str(e)
             logger.error(f"HippoRAG tier query failed: {e}")
             return []
 
     def _query_bayesian_tier(
-        self, query: str, top_k: int
+        self, query: str, top_k: int, status: Optional[dict] = None
     ) -> Optional[List[Dict[str, Any]]]:
         """
         Query Bayesian tier (Probabilistic inference).
@@ -134,6 +146,8 @@ class TierQueryMixin:
             List of results with tier="bayesian" or None if skipped/timeout
         """
         if not self.probabilistic_query_engine:
+            if status is not None:
+                status["bayesian"] = "service unavailable"
             logger.warning("Bayesian tier not available (query engine missing)")
             return None
 
@@ -145,6 +159,8 @@ class TierQueryMixin:
             raw_results = self._query_bayesian_conditional(query_entity)
 
             if raw_results is None:
+                if status is not None:
+                    status["bayesian"] = "no result"
                 logger.debug("Bayesian tier timeout/skip")
                 return None
 
@@ -186,6 +202,8 @@ class TierQueryMixin:
             return results[:top_k]
 
         except Exception as e:
+            if status is not None:
+                status["bayesian"] = str(e)
             # Not "expected": a Bayesian tier failure means the triple system is
             # silently running on two tiers. Log it loudly (return None preserves
             # the caller contract; fusion treats None as "no bayesian results").

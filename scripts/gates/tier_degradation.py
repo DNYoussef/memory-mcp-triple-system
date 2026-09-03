@@ -44,7 +44,10 @@ def _planted_bad_fixture():
         "threads": 4,
         "leaks": 0,
     }
-    return [{**good, key: (not value if isinstance(value, bool) else value + 1)} for key, value in good.items()]
+    return [
+        {**good, key: (not value if isinstance(value, bool) else value + 1)}
+        for key, value in good.items()
+    ]
 
 
 def _real_fixture():
@@ -70,17 +73,23 @@ def _real_fixture():
 
     def make_tool(processor):
         tool = object.__new__(NexusSearchTool)
-        tool.nexus_processor = processor
+        tool._nexus_processor = processor
         tool.vector_search_tool = MagicMock()
         tool.vector_search_tool.execute.return_value = [{"text": "fallback"}]
         return tool
 
     no_processor_tool = make_tool(None)
-    no_processor = no_processor_tool.execute_with_status("q")[1] == ["bayesian", "hipporag"]
+    no_processor = no_processor_tool.execute_with_status("q")[1] == [
+        "bayesian",
+        "hipporag",
+    ]
     broken = MagicMock()
     broken.process.side_effect = RuntimeError("processor")
     exception_tool = make_tool(broken)
-    processor_exception = exception_tool.execute_with_status("q")[1] == ["bayesian", "hipporag"]
+    processor_exception = exception_tool.execute_with_status("q")[1] == [
+        "bayesian",
+        "hipporag",
+    ]
 
     barrier = threading.Barrier(4)
     processor = MagicMock()
@@ -98,7 +107,15 @@ def _real_fixture():
     processor.process.side_effect = process
     concurrent_tool = make_tool(processor)
     with ThreadPoolExecutor(max_workers=4) as pool:
-        actual = dict(zip(expected, pool.map(lambda query: concurrent_tool.execute_with_status(query)[1], expected)))
+        actual = dict(
+            zip(
+                expected,
+                pool.map(
+                    lambda query: concurrent_tool.execute_with_status(query)[1],
+                    expected,
+                ),
+            )
+        )
     leaks = sum(actual[name] != tiers for name, tiers in expected.items())
 
     import src.mcp.request_router as request_router
@@ -126,7 +143,10 @@ def _real_fixture():
         tool.hipporag_service = None
         tool.entity_service = None
         tool.execute_with_status.return_value = ([], degraded)
-        return [function(args, tool) for function, args in zip(handler_functions, handler_args)]
+        return [
+            function(args, tool)
+            for function, args in zip(handler_functions, handler_args)
+        ]
 
     one_stdio = stdio_case(["vector"])
     all_stdio = stdio_case(["bayesian", "hipporag", "vector"])
@@ -148,15 +168,30 @@ def _real_fixture():
         router = MagicMock()
         router.retrieve = AsyncMock(return_value=unified_result)
         outcomes = []
-        with patch.object(http_server, "_run_nexus_query", new=AsyncMock(return_value=nexus)), patch.object(
+        with patch.object(
+            http_server, "_run_nexus_query", new=AsyncMock(return_value=nexus)
+        ), patch.object(
             http_server, "get_kv_store", return_value=MagicMock()
-        ), patch.object(http_server, "get_event_log", return_value=MagicMock()), patch.object(
+        ), patch.object(
+            http_server, "get_event_log", return_value=MagicMock()
+        ), patch.object(
             http_server, "get_unified_router", return_value=router
         ):
             calls = (
-                (http_server.vector_search, http_server.VectorSearchRequest(query="q", mode="execution")),
-                (http_server.search, http_server.SearchRequest(query="q", mode="execution")),
-                (http_server.unified_retrieve, http_server.UnifiedRetrievalRequest(query="q", mode="execution", token_budget=1000)),
+                (
+                    http_server.vector_search,
+                    http_server.VectorSearchRequest(query="q", mode="execution"),
+                ),
+                (
+                    http_server.search,
+                    http_server.SearchRequest(query="q", mode="execution"),
+                ),
+                (
+                    http_server.unified_retrieve,
+                    http_server.UnifiedRetrievalRequest(
+                        query="q", mode="execution", token_budget=1000
+                    ),
+                ),
             )
             for function, request in calls:
                 try:
@@ -167,9 +202,16 @@ def _real_fixture():
 
     one_http = asyncio.run(http_cases(["vector"]))
     all_http = asyncio.run(http_cases(["bayesian", "hipporag", "vector"]))
-    http_routes = sum(isinstance(item, dict) and item.get("degraded_tiers") == ["vector"] for item in one_http)
-    http_503 = sum(isinstance(item, HTTPException) and item.status_code == 503 for item in all_http)
-    unified_top = isinstance(one_http[-1], dict) and one_http[-1].get("degraded_tiers") == ["vector"]
+    http_routes = sum(
+        isinstance(item, dict) and item.get("degraded_tiers") == ["vector"]
+        for item in one_http
+    )
+    http_503 = sum(
+        isinstance(item, HTTPException) and item.status_code == 503 for item in all_http
+    )
+    unified_top = isinstance(one_http[-1], dict) and one_http[-1].get(
+        "degraded_tiers"
+    ) == ["vector"]
     clean = stdio_handlers == 5 and http_routes == 3
     return {
         "causes": causes,
