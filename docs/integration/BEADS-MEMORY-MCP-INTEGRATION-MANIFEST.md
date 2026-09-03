@@ -229,7 +229,7 @@ async def test_query_tasks_with_filters():
 
 **Solution**: Extract NexusProcessor as standalone service
 
-**Location**: `D:\Projects\memory-mcp-triple-system\src\nexus\public_api.py`
+**Location**: `D:\Projects\memory-mcp-triple-system\src\mcp\service_wiring.py`
 
 **Implementation**:
 ```python
@@ -338,7 +338,7 @@ async def test_get_related_entities():
 ```python
 from typing import Dict, List, Any, Tuple
 from integrations.beads_bridge import BeadsBridge, BeadTask
-from nexus.public_api import MemoryMCPQueryService
+from mcp.service_wiring import NexusSearchTool
 from modes.mode_detector import ModeDetector
 
 class UnifiedRetrievalRouter:

@@ -282,7 +282,7 @@ Expected results:
 ### Mode Detection Test
 
 ```bash
-python scripts/test-mode-detection.py
+python -m pytest tests/unit/test_mode_detector.py -q
 ```
 
 Expected output:

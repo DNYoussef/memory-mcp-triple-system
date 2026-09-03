@@ -6,9 +6,11 @@ Facts are harvested from code (tool names, entrypoints), NOT hardcoded, so the
 gate tracks the registry. Current docs are gated hard; everything else is treated
 as history and only listed (point-in-time records are not rewritten).
 """
+import argparse
 import os
 import re
 import sys
+from pathlib import Path
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -41,41 +43,112 @@ BANNED = [
 ]
 
 
-def harvest_tool_names():
-    sys.path.insert(0, ROOT)
+def harvest_tool_names(code_root):
+    sys.path.insert(0, str(code_root))
     from src.mcp.tool_registry import get_tool_definitions
+
     return {t["name"] for t in get_tool_definitions()}
 
 
-def read(rel):
-    with open(os.path.join(ROOT, rel), encoding="utf-8") as f:
+def read(root, rel):
+    with open(root / rel, encoding="utf-8") as f:
         return f.read()
 
 
-def all_markdown():
+def all_markdown(root):
     out = []
-    for base, _, files in os.walk(os.path.join(ROOT, "docs")):
+    for base, _, files in os.walk(root / "docs"):
         if "project-history" in base:
             continue
         for fn in files:
             if fn.endswith(".md"):
-                out.append(os.path.relpath(os.path.join(base, fn), ROOT).replace("\\", "/"))
-    if os.path.exists(os.path.join(ROOT, "README.md")):
+                out.append(
+                    os.path.relpath(os.path.join(base, fn), root).replace("\\", "/")
+                )
+    if (root / "README.md").exists():
         out.append("README.md")
     return sorted(out)
 
 
-def main():
-    tools = harvest_tool_names()
+def without_external_blocks(text):
+    kept = []
+    external = False
+    fenced = False
+    for line in text.splitlines():
+        if not external and re.match(
+            r"^\*{0,2}Location\*{0,2}:\s*`?(?:[A-Za-z]:[\\/]|/)", line
+        ):
+            external = True
+            continue
+        if external:
+            if line.startswith("```"):
+                if fenced:
+                    external = False
+                    fenced = False
+                else:
+                    fenced = True
+            continue
+        kept.append(line)
+    return "\n".join(kept)
+
+
+def reference_violations(text, code_root):
+    text = without_external_blocks(text)
+    found = []
+
+    def missing(form, value, relative):
+        path = code_root / relative
+        if not path.exists():
+            found.append((form, value))
+
+    for match in re.finditer(r"(?<![\w])src/([A-Za-z0-9_./-]+\.py)", text):
+        missing("slash", match.group(0), Path("src") / match.group(1))
+    for match in re.finditer(r"(?<![\w])src\\([A-Za-z0-9_.\\-]+\.py)", text):
+        missing(
+            "backslash",
+            match.group(0),
+            Path("src") / Path(match.group(1).replace("\\", "/")),
+        )
+    for match in re.finditer(
+        r"\bfrom\s+src\.([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s+import\b", text
+    ):
+        module = Path("src") / Path(match.group(1).replace(".", "/"))
+        if (
+            not (code_root / module.with_suffix(".py")).exists()
+            and not (code_root / module / "__init__.py").exists()
+        ):
+            found.append(("src-import", match.group(0)))
+    for match in re.finditer(
+        r"\bfrom\s+([A-Za-z_]\w*)\.([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s+import\b", text
+    ):
+        package, rest = match.groups()
+        if package == "src" or not (code_root / "src" / package).exists():
+            continue
+        module = Path("src") / package / Path(rest.replace(".", "/"))
+        if (
+            not (code_root / module.with_suffix(".py")).exists()
+            and not (code_root / module / "__init__.py").exists()
+        ):
+            found.append(("bare-import", match.group(0)))
+    return found
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--docs-root", type=Path, default=Path(ROOT))
+    parser.add_argument("--code-root", type=Path, default=Path(ROOT))
+    args = parser.parse_args(argv)
+    docs_root = args.docs_root.resolve()
+    code_root = args.code_root.resolve()
+    tools = harvest_tool_names(code_root)
     new_tools = {"kv_get", "kv_set", "kv_delete", "context_retrieve"}
     violations = []
 
     for rel in CURRENT_DOCS:
-        if not os.path.exists(os.path.join(ROOT, rel)):
+        if not (docs_root / rel).exists():
             violations.append((rel, "MISSING current doc"))
             continue
-        text = read(rel)
-        low = text.lower()
+        text = read(docs_root, rel)
         for rx, reason in BANNED:
             m = re.search(rx, text, re.IGNORECASE)
             if m:
@@ -89,12 +162,18 @@ def main():
         # Ingestion store field is 'text', not 'content'.
         if "ingestion" in rel.lower() and re.search(r'"content"\s*:', text):
             violations.append((rel, 'store field is "text", not "content"'))
+        for form, value in reference_violations(text, code_root):
+            violations.append(
+                (rel, f"missing code reference form={form} value={value}")
+            )
 
     classified = set(CURRENT_DOCS)
-    history = [m for m in all_markdown() if m not in classified]
+    history = [m for m in all_markdown(docs_root) if m not in classified]
 
     print(f"tools in registry ({len(tools)}): {', '.join(sorted(tools))}\n")
-    print(f"current docs gated: {len(CURRENT_DOCS)} | history (records, not gated): {len(history)}\n")
+    print(
+        f"current docs gated: {len(CURRENT_DOCS)} | history (records, not gated): {len(history)}\n"
+    )
     if violations:
         print("DOC DRIFT:")
         for rel, v in violations:

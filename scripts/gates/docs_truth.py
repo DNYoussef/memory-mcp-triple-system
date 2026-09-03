@@ -18,12 +18,21 @@ def probe(fixture) -> bool:
 
 def _planted_bad_fixture():
     good = {"forms": 4, "violations": 4, "external": True, "real": True}
-    return [{**good, key: 0 if key in ("forms", "violations") else False} for key in good]
+    return [
+        {**good, key: 0 if key in ("forms", "violations") else False} for key in good
+    ]
 
 
 def _run(docs, code):
     return subprocess.run(
-        [sys.executable, "scripts/check_docs.py", "--docs-root", str(docs), "--code-root", str(code)],
+        [
+            sys.executable,
+            "scripts/check_docs.py",
+            "--docs-root",
+            str(docs),
+            "--code-root",
+            str(code),
+        ],
         cwd=REPO,
         text=True,
         capture_output=True,
@@ -51,18 +60,26 @@ def _real_fixture():
         current = docs / "docs/CURRENT.md"
         with current.open("a", encoding="ascii") as handle:
             handle.write("\n`src/missing_one.py`\n`src\\missing_two.py`\n")
-            handle.write("`from src.missing_three import Thing`\n`from mcp.missing_four import Thing`\n")
-            handle.write("Location: C:\\external\\life-os\n```python\nfrom mcp.missing_external import Thing\n```\n")
+            handle.write(
+                "`from src.missing_three import Thing`\n`from mcp.missing_four import Thing`\n"
+            )
+            handle.write(
+                "Location: C:\\external\\life-os\n```python\nfrom mcp.missing_external import Thing\n```\n"
+            )
         planted = _run(docs, REPO)
         violations = planted.stdout.count("missing code reference")
         external = "missing_external" not in planted.stdout
-        forms = sum(f"form={name}" in planted.stdout for name in ("slash", "backslash", "src-import", "bare-import"))
+        forms = sum(
+            f"form={name}" in planted.stdout
+            for name in ("slash", "backslash", "src-import", "bare-import")
+        )
     real = _run(REPO, REPO)
     return {
         "forms": forms,
         "violations": violations,
         "external": external,
-        "real": real.returncode == 0 and "OK: all current docs match code reality." in real.stdout,
+        "real": real.returncode == 0
+        and "OK: all current docs match code reality." in real.stdout,
     }
 
 

@@ -440,7 +440,7 @@ embeddings:
 
 ### 1. API Authentication (Recommended for Production)
 
-Add API key authentication in `src/mcp/server.py`:
+API key authentication is implemented in `src/mcp/http_server.py`:
 
 ```python
 from fastapi import Security, HTTPException

@@ -1,4 +1,4 @@
-# Memory MCP - Current Contract (2026-06-16)
+# Memory MCP - Current Contract (2026-09-03)
 
 The single source of truth for how the running system actually works. Verified by
 `scripts/acceptance_all_parts.py` (hermetic, canary-asserted) on both Claude (in-process
@@ -16,7 +16,7 @@ prefer this file. History lives under `docs/project-history/`.
 - `MEMORY_MCP_DATA_DIR` (default `/data`) - root for graph.json, kv_store.db, events.db, query_traces.db.
 - `CHROMA_PERSIST_DIR` - vector store override.
 - **Path resolution (one resolver, `resolve_persist_dir`)**: every caller - the
-  stdio + HTTP servers, the curation UI, and the maintenance scripts - resolves
+  stdio and HTTP servers resolve
   the ChromaDB dir with a single precedence:
   `explicit arg > CHROMA_PERSIST_DIR > MEMORY_MCP_DATA_DIR/chroma > /data/chroma`.
   So setting `MEMORY_MCP_DATA_DIR` alone is enough; the `/data/chroma` default is
@@ -48,8 +48,8 @@ beads_ready_tasks, beads_task_detail, beads_query_tasks, observation_timeline,
 - **Creative / broader-recall**: `unified_search mode=brainstorming` returns a wider set (>= execution).
 - **Lifecycle** (`lifecycle_status` + aging): stages active->demoted->archived->rehydratable. Demotion filters `last_accessed_ts < cutoff`; ingestion now writes that numeric ts (A2), so chunks actually age. (Background scheduler runs under HTTP; under stdio, run maintenance on demand - follow-up.)
 - **KV** (`kv_get/set/kv_delete`): direct key-value store (preferences, archival keys), TTL on set.
-- **Context injection** (`context_retrieve`): surfaces the relevant stored memory to inject for a query (server side; the client performs the actual prompt injection). The richer `ProactiveContextInjector` adds trigger automation + ontology on top of the same retrieval.
-- **Tracing**: every tool call records a `QueryTrace` to `query_traces.db`; `ErrorAttribution` reads them.
+- **Context injection** (`context_retrieve`): surfaces relevant stored memory for the client to inject into a prompt.
+- **Tracing**: every routed stdio or HTTP tool call records a `QueryTrace` to `query_traces.db`.
 
 ## Robustness notes
 - **UTF-8 I/O**: `src/mcp/_utf8_io` reconfigures stdout/stderr to UTF-8 before any
@@ -66,8 +66,7 @@ beads_ready_tasks, beads_task_detail, beads_query_tasks, observation_timeline,
   current docs must match the code; wired into the test suite).
 
 ## Known remaining (tracked in audits/MECE-docs-vs-code-2026-06-15.md)
-- Lifecycle scheduler trigger under stdio.
+- Ingestion cleanup is claimed atomically through the shared KV store, including under stdio.
 - Bayesian query-time variable elimination in the lightweight backend is bounded
   by the engine's 1.0s timeout, not by structure; node cardinality (vs parents)
   is not capped (all nodes are 2-state today).
-- Doc cleanup of older README/api/planning files (C-cluster); this file supersedes them.

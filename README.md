@@ -11,8 +11,8 @@ The Memory MCP Triple System integrates seamlessly with intelligent code analysi
 **Context Cascade Cognitive Architecture** - [https://github.com/DNYoussef/context-cascade](https://github.com/DNYoussef/context-cascade)
 - **Four-Loop Integration**: Loop 1.5 (Reflect) and Loop 3 (Meta-Optimization) fully wired
 - **FrozenHarness Telemetry**: Evaluation metrics stored with WHO/WHEN/PROJECT/WHY tags
-- **Session Learnings**: reflect_to_memory.py stores corrections and patterns
-- **Meta-Loop Optimization**: meta_loop_runner.py aggregates and optimizes every 3 days
+- **Shared MCP contract**: the 18 registered tools are available to compatible AI clients
+- **Per-call tracing**: every routed tool call records success or failure
 - **Library Catalog**: 25 components indexed for pre-coding guard
 
 **Connascence Safety Analyzer** - [https://github.com/DNYoussef/connascence-safety-analyzer](https://github.com/DNYoussef/connascence-safety-analyzer)
@@ -26,15 +26,7 @@ The Memory MCP Triple System integrates seamlessly with intelligent code analysi
 - Complete agent coordination framework
 - Evidence-based prompting techniques
 
-### New Integration Scripts (2026-01-09)
-
-| Script | Location | Purpose |
-|--------|----------|---------|
-| `reflect_to_memory.py` | `scripts/` | Store session learnings from Loop 1.5 |
-| `meta_loop_runner.py` | `scripts/` | Aggregate learnings, run every 3 days |
-| `migrate_library_to_memory_mcp.py` | `cognitive-architecture/scripts/` | Library catalog migration |
-
-**Scheduled Task**: `MemoryMCP-MetaLoop-3Day` runs meta_loop_runner.py every 3 days at 3:00 AM.
+Earlier integration experiments are retained in `docs/project-history/`; they are not runtime entry points.
 
 **MCP Integration Guide**: See [docs/MCP-INTEGRATION.md](docs/MCP-INTEGRATION.md) for complete setup instructions.
 
@@ -268,15 +260,13 @@ See [docs/SELF-REFERENTIAL-MEMORY.md](docs/SELF-REFERENTIAL-MEMORY.md) for detai
 
 ## Project Status
 
-**Current Version**: v1.5.0
-**Status**: Production Ready (Cognitive Architecture Integrated)
-**Last Updated**: 2026-01-09
+**Status**: Current runtime contract verified
+**Last Updated**: 2026-09-03
 
 ### Remediation Progress
-- **Total Issues**: 52 identified
-- **Issues Resolved**: 36/52 (69%)
-- **Critical Issues Fixed**: 13/13 (100%)
-- **Phases Completed**: 0-4 (Foundation, Features, Integration, Hardening)
+- **Acceptance**: 12/12 capabilities pass
+- **MCP registry**: 18 tools
+- **Transports**: stdio and authenticated HTTP
 
 ### Quality Metrics (Current)
 - **Tests**: 40+ passing (core functionality verified)
@@ -295,10 +285,6 @@ See [docs/SELF-REFERENTIAL-MEMORY.md](docs/SELF-REFERENTIAL-MEMORY.md) for detai
 - ✅ Lifecycle management with TTL support
 - ✅ MCP stdio server (current tool set documented in docs/CURRENT.md)
 - ✅ Self-referential memory capability
-- ✅ **Loop 1.5 Integration**: Session reflection storage (reflect_to_memory.py)
-- ✅ **Loop 3 Integration**: Meta-optimization aggregation (meta_loop_runner.py)
-- ✅ **Telemetry Bridge**: FrozenHarness evaluation metrics storage
-- ✅ **Scheduled Automation**: Windows Task Scheduler for 3-day meta-loop cycle
 
 ### Known Limitations
 - Current runtime contract and known remaining items are tracked in [docs/CURRENT.md](docs/CURRENT.md).
