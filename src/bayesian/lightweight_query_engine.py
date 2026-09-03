@@ -6,7 +6,7 @@ Uses lightweight_bayesian module for inference.
 """
 
 import math
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 
 from loguru import logger
@@ -37,65 +37,79 @@ class LightweightQueryEngine:
 
     def query_conditional(
         self,
-        query_variables: List[str],
-        evidence: Dict[str, str],
         network: Optional[LightweightBayesianNetwork] = None,
-    ) -> Dict[str, float]:
+        query_vars: Optional[List[str]] = None,
+        evidence: Optional[Dict[str, str]] = None,
+    ) -> Optional[Dict[str, Any]]:
         """
         Compute P(query_variables | evidence).
         Returns dict of {assignment: probability}.
         """
-        net = network or self._network
+        net = network if network is not None else self._network
         if net is None:
             logger.warning("No Bayesian network available")
-            return {}
+            return None
 
-        # Filter to variables that exist in the network
-        valid_query = [v for v in query_variables if v in net.nodes()]
+        evidence = evidence or {}
+        valid_query = [v for v in (query_vars or []) if v in net.nodes()]
         valid_evidence = {k: v for k, v in evidence.items() if k in net.nodes()}
 
         if not valid_query:
-            return {}
+            return None
 
         try:
             infer = LightweightVariableElimination(net)
-            return self.execute_with_timeout(infer.query, valid_query, valid_evidence)
+            results = {}
+            for var in valid_query:
+                distribution = self.execute_with_timeout(infer.query, [var], valid_evidence)
+                if distribution is None:
+                    return None
+                probabilities = {key.split("=", 1)[-1]: value for key, value in distribution.items()}
+                results[var] = {
+                    "probabilities": probabilities,
+                    "entropy": self.calculate_entropy(probabilities),
+                }
+            return {"results": results, "evidence": valid_evidence, "timeout": False}
         except Exception as e:
             logger.error(f"Conditional query failed: {e}")
-            return {}
+            return None
 
     def query_marginal(
         self,
-        variables: List[str],
         network: Optional[LightweightBayesianNetwork] = None,
-    ) -> Dict[str, float]:
+        query_vars: Optional[List[str]] = None,
+    ) -> Optional[Dict[str, Any]]:
         """Compute marginal P(variables) without evidence."""
-        return self.query_conditional(variables, {}, network)
+        return self.query_conditional(network, query_vars, evidence={})
 
     def get_most_probable_explanation(
         self,
-        evidence: Dict[str, str],
         network: Optional[LightweightBayesianNetwork] = None,
-    ) -> Dict[str, str]:
+        evidence: Optional[Dict[str, str]] = None,
+    ) -> Optional[Dict[str, Any]]:
         """Find MAP assignment given evidence."""
-        net = network or self._network
+        net = network if network is not None else self._network
         if net is None:
-            return {}
+            return None
 
+        evidence = evidence or {}
         valid_evidence = {k: v for k, v in evidence.items() if k in net.nodes()}
         query_vars = [n for n in net.nodes() if n not in valid_evidence]
 
         if not query_vars:
-            return valid_evidence
+            return {"assignment": {}, "probability": 1.0, "evidence": valid_evidence, "timeout": False}
 
         try:
             infer = LightweightVariableElimination(net)
-            return self.execute_with_timeout(
-                infer.map_query, query_vars, valid_evidence
-            )
+            assignment = self.execute_with_timeout(infer.map_query, query_vars, valid_evidence)
+            if assignment is None:
+                return None
+            distribution = infer.query(query_vars, valid_evidence)
+            probability = max(distribution.values(), default=0.0)
+            return {"assignment": assignment, "probability": probability, "evidence": valid_evidence, "timeout": False}
         except Exception as e:
             logger.error(f"MAP query failed: {e}")
-            return {}
+            return None
 
     def calculate_entropy(self, prob_dist: Dict[str, float]) -> float:
         """Calculate Shannon entropy of a probability distribution."""
@@ -113,7 +127,7 @@ class LightweightQueryEngine:
         except FuturesTimeoutError:
             logger.warning(f"Bayesian query timed out after {self._timeout}s")
             future.cancel()
-            return {}
+            return None
         except Exception as e:
             logger.error(f"Bayesian query error: {e}")
-            return {}
+            return None

@@ -13,8 +13,13 @@ Components:
 # On Railway API mode, torch is not installed (~2GB saving).
 # Strategy: try pgmpy first (full precision), fall back to lightweight (pure Python).
 import logging as _logging
+import os as _os
+
+_backend = _os.getenv("MEMORY_MCP_BAYESIAN_BACKEND", "auto").lower()
 
 try:
+    if _backend == "lightweight":
+        raise ImportError("lightweight backend selected")
     from .network_builder import NetworkBuilder
     from .probabilistic_query_engine import ProbabilisticQueryEngine
     from .bayesian_graph_sync import BayesianGraphSync

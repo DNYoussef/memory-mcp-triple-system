@@ -195,19 +195,12 @@ class TierQueryMixin:
     def _query_bayesian_conditional(
         self, query_entity: str
     ) -> Optional[Dict[str, Any]]:
-        """Call pgmpy or lightweight Bayesian engines despite signature drift."""
-        try:
-            return self.probabilistic_query_engine.query_conditional(
-                network=None,
-                query_vars=[query_entity],
-                evidence={},
-            )
-        except TypeError:
-            return self.probabilistic_query_engine.query_conditional(
-                query_variables=[query_entity],
-                evidence={},
-                network=None,
-            )
+        """Query the configured Bayesian engine."""
+        return self.probabilistic_query_engine.query_conditional(
+            network=None,
+            query_vars=[query_entity],
+            evidence={},
+        )
 
     def _apply_bayesian_feedback(self, inference_results: Dict[str, Any]) -> None:
         """
