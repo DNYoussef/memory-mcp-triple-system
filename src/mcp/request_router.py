@@ -567,7 +567,7 @@ def handle_bayesian_inference(
         # P4: build the network from the CURRENT graph (the init-time net is
         # built before anything is ingested, so stored entities are not nodes).
         # CPDs are estimated from real graph co-occurrence, not fabricated.
-        # ponytail: rebuilt per call; cache keyed on graph version if it ever matters.
+        # The persistent builder caches this by graph version.
         network = None
         if hasattr(tool, "_build_bayesian_network") and getattr(
             tool, "graph_service", None
@@ -584,7 +584,7 @@ def handle_bayesian_inference(
                         ),
                     }
                 ],
-                "isError": False,
+                "isError": True,
             }
 
         # Graph nodes are normalized (lowercase, spaces->underscores) and NER
@@ -623,7 +623,7 @@ def handle_bayesian_inference(
                         ),
                     }
                 ],
-                "isError": False,
+                "isError": True,
             }
 
         result = tool.nexus_processor.probabilistic_query_engine.query_conditional(
@@ -635,7 +635,7 @@ def handle_bayesian_inference(
 
     if result is None:
         return _text_result(
-            "No Bayesian inference available (inference returned no result)"
+            "No Bayesian inference available (inference returned no result)", True
         )
 
     return _text_result(json.dumps(result, default=str))

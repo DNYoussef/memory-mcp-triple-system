@@ -126,7 +126,7 @@ def test_bayesian_inference_handles_none_result_clearly():
 
     result = handle_bayesian_inference({"query": "x"}, tool)
 
-    assert result["isError"] is False
+    assert result["isError"] is True
     assert "No Bayesian inference" in result["content"][0]["text"]
     assert result["content"][0]["text"] != "null"
 
