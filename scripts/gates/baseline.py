@@ -71,7 +71,7 @@ def _run(args, env=None):
 
 
 def _measure():
-    collected = _run([sys.executable, "-m", "pytest", "tests", "--collect-only", "-q", "--no-cov"])
+    collected = _run([sys.executable, "-m", "pytest", "tests", "--collect-only", "-q", "-o", "addopts="])
     nodeids = sorted(line for line in collected.stdout.splitlines() if "::" in line and not line.startswith("<"))
     tests = _run([sys.executable, "-m", "pytest", "tests", "--no-cov", "-q"])
     passed_match = re.search(r"(\d+) passed", tests.stdout)

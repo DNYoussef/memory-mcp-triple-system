@@ -91,7 +91,7 @@ def _run(args, cwd=REPO):
 
 
 def _collect(cwd):
-    run = _run([sys.executable, "-m", "pytest", "tests", "--collect-only", "-q", "--no-cov"], cwd)
+    run = _run([sys.executable, "-m", "pytest", "tests", "--collect-only", "-q", "-o", "addopts="], cwd)
     return run, {line for line in run.stdout.splitlines() if "::" in line and not line.startswith("<")}
 
 
