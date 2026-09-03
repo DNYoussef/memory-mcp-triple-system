@@ -667,25 +667,6 @@ class TestNexusProcessorRerank:
         assert len(input_counts) == 1
         assert input_counts[0] <= 10
 
-    def test_process_uses_rlm_adapter(self):
-        """Test RLM adapter bypasses standard pipeline when enabled."""
-        adapter = Mock()
-        adapter.explore.return_value = {
-            "core": [],
-            "extended": [],
-            "token_count": 0,
-            "compression_ratio": 1.0,
-            "mode": "execution",
-            "rlm_stats": {},
-        }
-
-        processor = NexusProcessor(rlm_adapter=adapter)
-        result = processor.process("test query", use_rlm=True)
-
-        adapter.explore.assert_called_once()
-        assert result["mode"] == "execution"
-        assert "pipeline_stats" in result
-
     def test_rerank_stats_in_result(self, processor_with_reranker, mock_reranker):
         """Test reranker is invoked and result is returned."""
         result = processor_with_reranker.process("test query")

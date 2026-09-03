@@ -5,7 +5,7 @@ Lazy imports to avoid cascade crashes from optional Railway dependencies.
 Production entrypoint: python -m src.mcp.http_server
 """
 
-__all__ = ["NexusProcessor", "MemoryMCPQueryService"]
+__all__ = ["NexusProcessor"]
 
 
 def __getattr__(name):
@@ -14,9 +14,4 @@ def __getattr__(name):
 
         globals()["NexusProcessor"] = NexusProcessor
         return NexusProcessor
-    if name == "MemoryMCPQueryService":
-        from .public_api import MemoryMCPQueryService
-
-        globals()["MemoryMCPQueryService"] = MemoryMCPQueryService
-        return MemoryMCPQueryService
     raise AttributeError(f"module 'src.nexus' has no attribute {name!r}")

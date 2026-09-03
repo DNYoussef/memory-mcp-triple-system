@@ -161,7 +161,9 @@ class TestHandleCallTool:
         """Test vector_search uses default limit."""
         handle_call_tool("vector_search", {"query": "test query"}, mock_vector_tool)
 
-        mock_vector_tool.execute_with_status.assert_called_once_with("test query", 5, "execution")
+        mock_vector_tool.execute_with_status.assert_called_once_with(
+            "test query", 5, "execution"
+        )
 
     def test_vector_search_respects_custom_limit(self, mock_vector_tool):
         """Test vector_search uses custom limit."""
@@ -169,7 +171,9 @@ class TestHandleCallTool:
             "vector_search", {"query": "test query", "limit": 10}, mock_vector_tool
         )
 
-        mock_vector_tool.execute_with_status.assert_called_once_with("test query", 10, "execution")
+        mock_vector_tool.execute_with_status.assert_called_once_with(
+            "test query", 10, "execution"
+        )
 
     def test_memory_store_returns_success(self, mock_vector_tool):
         """Test memory_store returns success structure."""

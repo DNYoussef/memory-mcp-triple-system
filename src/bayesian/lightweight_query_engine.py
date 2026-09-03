@@ -61,10 +61,14 @@ class LightweightQueryEngine:
             infer = LightweightVariableElimination(net)
             results = {}
             for var in valid_query:
-                distribution = self.execute_with_timeout(infer.query, [var], valid_evidence)
+                distribution = self.execute_with_timeout(
+                    infer.query, [var], valid_evidence
+                )
                 if distribution is None:
                     return None
-                probabilities = {key.split("=", 1)[-1]: value for key, value in distribution.items()}
+                probabilities = {
+                    key.split("=", 1)[-1]: value for key, value in distribution.items()
+                }
                 results[var] = {
                     "probabilities": probabilities,
                     "entropy": self.calculate_entropy(probabilities),
@@ -97,16 +101,28 @@ class LightweightQueryEngine:
         query_vars = [n for n in net.nodes() if n not in valid_evidence]
 
         if not query_vars:
-            return {"assignment": {}, "probability": 1.0, "evidence": valid_evidence, "timeout": False}
+            return {
+                "assignment": {},
+                "probability": 1.0,
+                "evidence": valid_evidence,
+                "timeout": False,
+            }
 
         try:
             infer = LightweightVariableElimination(net)
-            assignment = self.execute_with_timeout(infer.map_query, query_vars, valid_evidence)
+            assignment = self.execute_with_timeout(
+                infer.map_query, query_vars, valid_evidence
+            )
             if assignment is None:
                 return None
             distribution = infer.query(query_vars, valid_evidence)
             probability = max(distribution.values(), default=0.0)
-            return {"assignment": assignment, "probability": probability, "evidence": valid_evidence, "timeout": False}
+            return {
+                "assignment": assignment,
+                "probability": probability,
+                "evidence": valid_evidence,
+                "timeout": False,
+            }
         except Exception as e:
             logger.error(f"MAP query failed: {e}")
             return None

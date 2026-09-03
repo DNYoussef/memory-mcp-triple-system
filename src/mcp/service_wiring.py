@@ -62,20 +62,6 @@ except ImportError:
     RerankerService = None  # type: ignore[assignment,misc]
 
 # MEM-QWEN-005: Visual Memory Sidecar (optional — torch-dependent, not on Railway)
-try:
-    from ..services.qwen3vl_embedder import Qwen3VLEmbedder
-    from ..services.visual_memory_service import VisualMemoryService
-    from ..indexing.visual_indexer import VisualMemoryIndexer
-except ImportError:
-    Qwen3VLEmbedder = None  # type: ignore[assignment,misc]
-    VisualMemoryService = None  # type: ignore[assignment,misc]
-    VisualMemoryIndexer = None  # type: ignore[assignment,misc]
-
-try:
-    from ..services.unified_search_router import UnifiedSearchRouter
-except ImportError:
-    UnifiedSearchRouter = None  # type: ignore[assignment,misc]
-
 REQUIRED_TAGS = ["who", "when", "project", "why"]
 
 # P0-2 FIX: Lazy service instances (no import-time side effects)
@@ -250,71 +236,6 @@ class NexusSearchTool:
         beads_binary = resolve_beads_binary()
         self.beads_bridge = BeadsBridge(beads_binary=beads_binary, cache_ttl=60)
         logger.info(f"BeadsBridge initialized: binary={beads_binary}")
-
-        # MEM-QWEN-005: Visual Memory Sidecar (lazy init)
-        self._visual_service: Optional[VisualMemoryService] = None
-        self._unified_router: Optional[UnifiedSearchRouter] = None
-        self._visual_config = self.config.get("visual_memory", {})
-
-    @property
-    def visual_service(self) -> Optional[VisualMemoryService]:
-        """MEM-QWEN-005: Lazy load VisualMemoryService."""
-        if self._visual_service is None and self._visual_config.get("enabled", False):
-            self._init_visual_memory()
-        return self._visual_service
-
-    @property
-    def unified_router(self) -> Optional[UnifiedSearchRouter]:
-        """MEM-QWEN-005: Lazy load UnifiedSearchRouter."""
-        if self._unified_router is None and self._visual_config.get("enabled", False):
-            self._init_visual_memory()
-        return self._unified_router
-
-    def _init_visual_memory(self) -> None:
-        """MEM-QWEN-005: Initialize Visual Memory Sidecar."""
-        try:
-            embedder_config = self._visual_config.get("embedder", {})
-            indexer_config = self._visual_config.get("indexer", {})
-            router_config = self._visual_config.get("router", {})
-
-            # Initialize Qwen3-VL embedder
-            self._qwen_embedder = Qwen3VLEmbedder(
-                model_name=embedder_config.get("model_name"),
-                device=embedder_config.get("device"),
-                use_mrl=embedder_config.get("use_mrl", True),
-                target_dim=embedder_config.get("target_dim", 384),
-                enabled=True,
-            )
-
-            # Initialize visual memory indexer
-            self._visual_indexer = VisualMemoryIndexer(
-                persist_directory=indexer_config.get(
-                    "persist_directory", "./chroma_visual"
-                ),
-                collection_name=indexer_config.get(
-                    "collection_name", "visual_memories"
-                ),
-            )
-
-            # Initialize visual memory service
-            self._visual_service = VisualMemoryService(
-                embedder=self._qwen_embedder, indexer=self._visual_indexer, enabled=True
-            )
-
-            # Initialize unified search router
-            self._unified_router = UnifiedSearchRouter(
-                nexus_processor=self.nexus_processor,
-                visual_memory_service=self._visual_service,
-                visual_weight=router_config.get("visual_weight", 0.3),
-                text_weight=router_config.get("text_weight", 0.7),
-            )
-
-            logger.info("Visual Memory Sidecar initialized successfully")
-
-        except Exception as e:
-            logger.warning(f"Visual Memory Sidecar init failed (disabled): {e}")
-            self._visual_service = None
-            self._unified_router = None
 
     @property
     def obsidian_client(self) -> Optional[ObsidianMCPClient]:

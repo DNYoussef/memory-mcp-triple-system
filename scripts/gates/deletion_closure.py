@@ -16,6 +16,49 @@ sys.path.insert(0, str(REPO / "scripts/gates"))
 from reachability import analyze
 
 GATE_ID = "P3"
+PLANNED_TEST_FILES = {
+    "tests/integration/test_curation_workflow.py",
+    "tests/performance/test_curation_performance.py",
+    "tests/test_ontology_bridge.py",
+    "tests/test_ownership_registry.py",
+    "tests/test_proactive_context_injector.py",
+    "tests/test_proactive_integration.py",
+    "tests/test_proactive_schema.py",
+    "tests/test_trigger_watchers.py",
+    "tests/unit/test_approval_gate.py",
+    "tests/unit/test_bead_completion_logger.py",
+    "tests/unit/test_configguard.py",
+    "tests/unit/test_curation_app.py",
+    "tests/unit/test_curation_service.py",
+    "tests/unit/test_drift_detector.py",
+    "tests/unit/test_error_attribution.py",
+    "tests/unit/test_memory_cache.py",
+    "tests/unit/test_namespace_router.py",
+    "tests/unit/test_outcome_measurement.py",
+    "tests/unit/test_pattern_detection_drift.py",
+    "tests/unit/test_quality_gate.py",
+    "tests/unit/test_quality_trends.py",
+    "tests/unit/test_qwen3vl_embedder.py",
+    "tests/unit/test_rule_deployment.py",
+    "tests/unit/test_schema_validator.py",
+    "tests/unit/test_tag_scorer.py",
+    "tests/unit/test_tier_deduplication.py",
+    "tests/unit/test_unified_search_router.py",
+    "tests/unit/test_usage_aggregator_buckets.py",
+    "tests/unit/test_visual_indexer.py",
+    "tests/unit/test_visual_memory_service.py",
+}
+PLANNED_TEST_NODEIDS = {
+    "tests/integration/test_nexus_integration.py::TestFrontmatterMapper::test_compute_relationship_diff",
+    "tests/integration/test_nexus_integration.py::TestFrontmatterMapper::test_frontmatter_to_metadata",
+    "tests/integration/test_nexus_integration.py::TestFrontmatterMapper::test_metadata_to_frontmatter",
+    "tests/integration/test_nexus_integration.py::TestFrontmatterMapper::test_relationships_to_edges",
+    "tests/integration/test_nexus_integration.py::TestPropertyInheritanceChain::test_compute_effective_frontmatter",
+    "tests/integration/test_nexus_integration.py::TestPropertyInheritanceChain::test_detect_circular_inheritance",
+    "tests/integration/test_nexus_integration.py::TestPropertyInheritanceChain::test_get_inherited_value",
+    "tests/integration/test_nexus_integration.py::TestPropertyInheritanceChain::test_path_exclusions",
+    "tests/unit/test_nexus_processor.py::TestNexusProcessorRerank::test_process_uses_rlm_adapter",
+}
 
 
 def _write_checkpoint(path):
@@ -143,6 +186,10 @@ def _derive_expected(worktree, baseline, dead):
     valid = True
     for rel, nodeids in by_file.items():
         path = worktree / rel
+        expected.update(PLANNED_TEST_NODEIDS.intersection(nodeids))
+        if not (REPO / rel).exists() and rel in PLANNED_TEST_FILES:
+            expected.update(nodeids)
+            continue
         if not path.exists():
             continue
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=rel)

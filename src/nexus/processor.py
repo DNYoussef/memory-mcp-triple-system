@@ -42,7 +42,6 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         probabilistic_query_engine: Any = None,
         embedding_pipeline: Any = None,
         reranker: Any = None,
-        rlm_adapter: Any = None,
         bayesian_graph_sync: Any = None,
         confidence_threshold: float = 0.3,
         dedup_threshold: float = 0.95,
@@ -60,7 +59,6 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
             probabilistic_query_engine: ProbabilisticQueryEngine instance (Week 10)
             embedding_pipeline: EmbeddingPipeline instance (Week 6)
             reranker: RerankerService instance (MEM-QWEN-002)
-            rlm_adapter: RLMNexusAdapter instance (RLM-008)
             bayesian_graph_sync: BayesianGraphSync instance (BAY-005 feedback loop)
             confidence_threshold: Minimum confidence for filtering (default: 0.3)
             dedup_threshold: Cosine similarity threshold for deduplication (default: 0.95)
@@ -74,7 +72,6 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         self.probabilistic_query_engine = probabilistic_query_engine
         self.embedding_pipeline = embedding_pipeline
         self.reranker = reranker
-        self.rlm_adapter = rlm_adapter
         self.bayesian_graph_sync = bayesian_graph_sync  # BAY-005: Feedback loop
         self.confidence_threshold = confidence_threshold
         self.dedup_threshold = dedup_threshold
@@ -98,7 +95,6 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         mode: str = "execution",
         top_k: int = 50,
         token_budget: int = 10000,
-        use_rlm: bool = False,
     ) -> Dict[str, Any]:
         """
         Full 5-step SOP pipeline.
@@ -114,20 +110,6 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         import time
 
         start = time.time()
-
-        if use_rlm:
-            rlm_result = self._process_rlm(query, mode, top_k, token_budget)
-            if rlm_result is not None:
-                rlm_result["pipeline_stats"] = {
-                    "rlm_ms": int((time.time() - start) * 1000)
-                }
-                rlm_result["total_ms"] = int((time.time() - start) * 1000)
-                logger.info(
-                    "RLM pipeline complete: "
-                    f"{rlm_result['total_ms']}ms total "
-                    f"({len(rlm_result['core'])} core + {len(rlm_result['extended'])} extended)"
-                )
-                return rlm_result
 
         # Execute 5-step pipeline
         degraded = {}
@@ -146,31 +128,6 @@ class NexusProcessor(TierQueryMixin, ProcessingUtilsMixin):
         )
 
         return result
-
-    def _process_rlm(
-        self, query: str, mode: str, top_k: int, token_budget: int
-    ) -> Optional[Dict[str, Any]]:
-        """Execute RLM exploration as a NexusProcessor alternative."""
-        adapter = self.rlm_adapter
-        if adapter is None:
-            try:
-                from ..rlm.rlm_nexus_adapter import RLMNexusAdapter
-
-                adapter = RLMNexusAdapter()
-                self.rlm_adapter = adapter
-            except Exception as exc:
-                logger.warning(f"RLM adapter unavailable: {exc}")
-                return None
-        try:
-            return adapter.explore(
-                query,
-                mode=mode,
-                top_k=top_k,
-                token_budget=token_budget,
-            )
-        except Exception as exc:
-            logger.warning(f"RLM exploration failed: {exc}")
-            return None
 
     def _execute_pipeline(
         self,

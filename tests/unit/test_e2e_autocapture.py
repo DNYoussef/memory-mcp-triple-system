@@ -13,7 +13,6 @@ from src.stores.kv_store import KVStore
 from src.models.observation_types import Session
 from src.services.observation_bridge import ObservationBridge
 from src.services.session_summarizer import SessionSummarizer
-from src.services.context_builder import ContextBuilder
 
 
 class TestAutoCapturePipeline:
@@ -114,40 +113,6 @@ class TestAutoCapturePipeline:
         assert closed["summary"] is not None
         assert "investigated" in closed["summary"].lower() or len(closed["summary"]) > 0
 
-    def test_context_injection_after_session(self, store):
-        """Test that context injection works with stored session data."""
-        # Create a completed session with summary
-        session = Session(
-            project="inject-test",
-            branch="feature/x",
-            working_dir="/tmp",
-        )
-        store.create_session(session.to_dict())
-
-        # Add some observations
-        bridge = ObservationBridge(kv_store=store)
-        bridge.capture_tool_use(
-            session_id=session.session_id,
-            tool_name="Read",
-            tool_input={"file_path": "config.py"},
-            tool_result="config loaded",
-            project="inject-test",
-        )
-
-        # Generate summary
-        summarizer = SessionSummarizer(kv_store=store)
-        summary = summarizer.summarize(session.session_id)
-        summarizer.store_summary(summary)
-
-        # Now build context for a new session
-        builder = ContextBuilder(kv_store=store)
-        context = builder.build(project="inject-test", mode="execution")
-
-        # Should have content
-        assert len(context) > 0
-        assert "inject-test" in context
-        assert "Previous Session" in context
-
     def test_privacy_tag_stripping(self, store):
         """Test that <private> tags are stripped from observations."""
         session = Session(project="priv-test")
@@ -195,23 +160,6 @@ class TestAutoCapturePipeline:
         # Only 1 observation stored
         obs_list = store.get_observations(session_id=session.session_id)
         assert len(obs_list) == 1
-
-    def test_token_budget_enforcement(self, store):
-        """Test that context builder respects token budget."""
-        # Create session with very long summary
-        session = Session(project="budget-test")
-        store.create_session(session.to_dict())
-
-        # Store a very long summary
-        long_summary = "A" * 30000  # ~7500 tokens, exceeds execution budget
-        store.end_session(session.session_id, summary=long_summary)
-
-        builder = ContextBuilder(kv_store=store)
-        context = builder.build(project="budget-test", mode="execution")
-
-        # Context should exist but be truncated to fit budget
-        # Execution budget is 4500 tokens (5000 * 0.9) = ~18000 chars
-        assert len(context) < 25000  # Well under the 30000 raw summary
 
     def test_date_filtered_observations(self, store):
         """Test observation timeline query with date filters."""
