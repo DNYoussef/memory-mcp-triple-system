@@ -22,6 +22,8 @@ import tempfile
 import time
 import uuid
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 CANARY = f"CANARY-{uuid.uuid4().hex}"
 TEXT = f"{CANARY}: GuardSpine zebra-quasar reactor tuned by Wilhelmina Ashgrove in project triplecheck."
 
