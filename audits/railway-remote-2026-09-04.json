@@ -1,8 +1,8 @@
 {
-  "deployment": "b6806035-bbb1-4543-9f51-880a15d9b771",
+  "deployment": "1179ce2f-de27-4f09-a32e-bef409b27992",
   "service": "memory-mcp",
   "environment": "production",
   "health_url": "https://memory-mcp-production-201b.up.railway.app/health",
   "status": "SUCCESS",
-  "source_head": "b213d5f67429e1d5f4582133ef55a86c3fed2c36"
+  "source_head": "681af0aac06454421a72c2b6a35c46d55b2594f8"
 }
