@@ -35,7 +35,8 @@ RUN pip install --no-cache-dir -r requirements-api.txt
 # spaCy model for NLP pipeline (entity extraction)
 RUN python -m spacy download en_core_web_sm
 
-COPY . .
+COPY src ./src
+COPY config ./config
 
 RUN useradd -m -u 1000 memoryuser && \
     chown -R memoryuser:memoryuser /app && \

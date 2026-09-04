@@ -300,7 +300,7 @@ failed=0.
   GRAPH-001-COMPLETION-REPORT.md -> docs/project-history/.
 
 ## 7. Phase 5 - Railway smoke, coverage ratchet, cross-model verification, merge
-- P6 railway_smoke.py: Railway remotely builds and boots the Dockerfile when local Docker is unavailable;
+- P6 railway_smoke.py: the Dockerfile image builds and boots on Railway when local Docker is unavailable;
   the gate then runs the identical API-embedding server contract as a hermetic host process. CI retains
   the all-in-one Docker build and smoke. Dockerfile.railway:10-15 pins EMBEDDING_MODE=api and EMBEDDING_API_BASE to
   litellm.railway.internal; embedding_pipeline_api.py:28 reads it at construction (appending

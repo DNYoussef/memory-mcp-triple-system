@@ -1,10 +1,17 @@
 .git
+.agents
+.claude
+.codex
+.config
+.env*
 .coverage
 .pytest_cache
 .ruff_cache
 __pycache__
 *.pyc
 *.db
+*.key
+*.pem
 audits
 data
 htmlcov

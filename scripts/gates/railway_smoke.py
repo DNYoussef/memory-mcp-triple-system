@@ -17,7 +17,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 GATE_ID = "P6"
-TOKEN = "RAILWAY_SMOKE_OK remote_build=1 runtime_contract=1 backend=lightweight embed_batch=1 canary_search=1 canary_unified=1 wrong_key=401"
+TOKEN = "RAILWAY_SMOKE_OK image_build=1 runtime_contract=1 backend=lightweight embed_batch=1 canary_search=1 canary_unified=1 wrong_key=401"
 RECEIPT = REPO / "audits" / "railway-remote-2026-09-04.json"
 
 
@@ -37,7 +37,7 @@ class Client:
         self.key = key
         self.embed_base = embed_base
         self.canary = None
-        self.remote_build = True
+        self.image_build = True
 
     def request(self, method, path, body=None, key=None):
         raw = json.dumps(body).encode("ascii") if body is not None else None
@@ -60,8 +60,13 @@ class Client:
         return self.request("POST", path, body, kwargs.get("key"))
 
     def embedding_batch_seen(self):
-        with urllib.request.urlopen(self.embed_base + "/stats", timeout=5) as response:
-            return json.loads(response.read())["max_batch"] > 1
+        try:
+            with urllib.request.urlopen(
+                self.embed_base + "/stats", timeout=5
+            ) as response:
+                return json.loads(response.read())["max_batch"] > 1
+        except (OSError, ValueError, KeyError):
+            return False
 
 
 def probe(client) -> bool:
@@ -83,7 +88,7 @@ def probe(client) -> bool:
     companion = client.post(
         "/tools/memory_store",
         {
-            "text": "BATCH-COMPANION-" + canary,
+            "text": "RAILWAY-BATCH-" + canary[-16:],
             "metadata": {
                 "who": "gate",
                 "when": "2026-09-04",
@@ -114,18 +119,18 @@ def probe(client) -> bool:
         and lightweight
         and companion.status_code == 200
         and client.embedding_batch_seen()
-        and client.remote_build
+        and client.image_build
     )
 
 
 class FakeClient:
     canary = "canary"
-    remote_build = True
+    image_build = True
 
     def __init__(self, bad=None):
         self.bad = bad
         if bad == "remote":
-            self.remote_build = False
+            self.image_build = False
 
     def get(self, path, **kwargs):
         if self.bad == "health":
@@ -214,7 +219,7 @@ def _cleanup_dir(path):
         try:
             shutil.rmtree(path)
             return
-        except PermissionError:
+        except OSError:
             if attempt == 19:
                 raise
             time.sleep(0.25)
@@ -232,7 +237,6 @@ def _docker_fixture():
         cwd=REPO,
     )
     built = False
-    data = Path(tempfile.mkdtemp(prefix="mmts-railway-docker-"))
     try:
         build = subprocess.run(
             ["docker", "build", "-f", "Dockerfile.railway", "-t", image, "."], cwd=REPO
@@ -255,8 +259,8 @@ def _docker_fixture():
                 f"MEMORY_MCP_API_KEY={key}",
                 "-e",
                 "MEMORY_MCP_DATA_DIR=/data",
-                "-v",
-                f"{data}:/data",
+                "--tmpfs",
+                "/data:rw",
                 "-p",
                 f"{http_port}:8080",
                 image,
@@ -280,7 +284,6 @@ def _docker_fixture():
         if built:
             subprocess.run(["docker", "image", "rm", "-f", image], capture_output=True)
         _stop(stub)
-        _cleanup_dir(data)
 
 
 @contextmanager
@@ -360,13 +363,12 @@ def _remote_build_ok():
         "railway.toml",
         ".dockerignore",
         "src",
+        "config",
     ]
     worktree = _run_quiet(["git", "status", "--porcelain", "--", *inputs])
     if worktree.returncode or worktree.stdout.strip():
         return False
-    unchanged = _run_quiet(
-        ["git", "diff", "--quiet", source, "--", *inputs]
-    )
+    unchanged = _run_quiet(["git", "diff", "--quiet", source, "--", *inputs])
     if unchanged.returncode:
         return False
     run = _run_quiet(
@@ -385,24 +387,36 @@ def _remote_build_ok():
     )
     if run.returncode:
         return False
-    deployments = json.loads(run.stdout)
+    try:
+        deployments = json.loads(run.stdout)
+    except ValueError:
+        return False
     deployment = next(
         (item for item in deployments if item.get("id") == receipt.get("deployment")),
         None,
     )
     if not deployment or deployment.get("status") != "SUCCESS":
         return False
+    if deployment.get("meta", {}).get("cliMessage") != f"Memory MCP source {source}":
+        return False
     build = deployment.get("meta", {}).get("serviceManifest", {}).get("build", {})
-    return build.get("builder") == "DOCKERFILE" and build.get(
+    if build.get("builder") != "DOCKERFILE" or not build.get(
         "dockerfilePath", ""
-    ).endswith("Dockerfile.railway")
+    ).endswith("Dockerfile.railway"):
+        return False
+    try:
+        with urllib.request.urlopen(receipt["health_url"], timeout=20) as response:
+            health = json.loads(response.read())
+    except (OSError, ValueError, KeyError):
+        return False
+    return health.get("bayesian_backend") == "lightweight"
 
 
 @contextmanager
 def _real_fixture():
     docker = _docker_available()
     with _docker_fixture() if docker else _host_fixture() as client:
-        client.remote_build = docker or _remote_build_ok()
+        client.image_build = docker or _remote_build_ok()
         yield client
 
 
