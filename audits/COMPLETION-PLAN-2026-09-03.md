@@ -300,10 +300,12 @@ failed=0.
   GRAPH-001-COMPLETION-REPORT.md -> docs/project-history/.
 
 ## 7. Phase 5 - Railway smoke, coverage ratchet, cross-model verification, merge
-- P6 railway_smoke.py: Dockerfile.railway:10-15 pins EMBEDDING_MODE=api and EMBEDDING_API_BASE to
+- P6 railway_smoke.py: Railway remotely builds and boots the Dockerfile when local Docker is unavailable;
+  the gate then runs the identical API-embedding server contract as a hermetic host process. CI retains
+  the all-in-one Docker build and smoke. Dockerfile.railway:10-15 pins EMBEDDING_MODE=api and EMBEDDING_API_BASE to
   litellm.railway.internal; embedding_pipeline_api.py:28 reads it at construction (appending
   /embeddings at :43). The gate runs scripts/gates/_embed_stub.py on the HOST bound to 0.0.0.0,
-  returning one indexed 384-float embedding for EACH input item, seeded by hashlib from that text,
+  returning one indexed 384-float byte-frequency embedding for EACH input item,
   and accepting `dimensions` and `encoding_format`. Container:
   `--add-host=host.docker.internal:host-gateway`, `-e EMBEDDING_API_BASE=http://host.docker.
   internal:<port>/v1 -e MEMORY_MCP_API_KEY=<uuid> -e MEMORY_MCP_DATA_DIR=/data -v <tmp>:/data

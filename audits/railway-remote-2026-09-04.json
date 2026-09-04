@@ -1,0 +1,7 @@
+{
+  "deployment": "de0cd92e-0a81-4c8f-b9db-2519f70b5813",
+  "service": "memory-mcp",
+  "environment": "production",
+  "status": "SUCCESS",
+  "source_head": "12869cd9bd0c81a735c65db8214ba05de8d13e37"
+}

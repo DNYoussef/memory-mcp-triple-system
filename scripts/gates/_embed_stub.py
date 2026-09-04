@@ -2,17 +2,31 @@
 """Small deterministic OpenAI-compatible embedding endpoint for smoke tests."""
 
 import argparse
-import hashlib
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
 def embedding(text):
-    seed = hashlib.sha256(text.encode("utf-8")).digest()
-    return [round((seed[index % len(seed)] - 127.5) / 127.5, 6) for index in range(384)]
+    vector = [0.0] * 384
+    for byte in text.encode("utf-8"):
+        vector[byte] += 1.0
+    return vector
 
 
 class Handler(BaseHTTPRequestHandler):
+    max_batch = 0
+
+    def do_GET(self):
+        if self.path.rstrip("/") != "/stats":
+            self.send_error(404)
+            return
+        raw = json.dumps({"max_batch": type(self).max_batch}).encode("ascii")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+
     def do_POST(self):
         if self.path.rstrip("/") not in ("/embeddings", "/v1/embeddings"):
             self.send_error(404)
@@ -22,6 +36,7 @@ class Handler(BaseHTTPRequestHandler):
         texts = body.get("input", [])
         if isinstance(texts, str):
             texts = [texts]
+        type(self).max_batch = max(type(self).max_batch, len(texts))
         payload = {
             "object": "list",
             "data": [
