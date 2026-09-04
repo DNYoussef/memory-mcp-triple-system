@@ -46,10 +46,10 @@ beads_ready_tasks, beads_task_detail, beads_query_tasks, observation_timeline,
 - **Unified fusion** (`unified_search`): RECALL all tiers -> COMBINE (vector 0.4 / graph 0.4 / bayesian 0.2) -> FILTER(0.3) -> DEDUPE(0.95) -> RANK -> drop Bayesian pseudo-docs -> RERANK -> COMPRESS. Degrades cleanly if a tier returns nothing.
 - **Mode** (`detect_mode`): execution / planning / brainstorming via regex; sets result count + token budget.
 - **Creative / broader-recall**: `unified_search mode=brainstorming` returns a wider set (>= execution).
-- **Lifecycle** (`lifecycle_status` + aging): stages active->demoted->archived->rehydratable. Demotion filters `last_accessed_ts < cutoff`; ingestion now writes that numeric ts (A2), so chunks actually age. (Background scheduler runs under HTTP; under stdio, run maintenance on demand - follow-up.)
+- **Lifecycle** (`lifecycle_status` + aging): stages active->demoted->archived->rehydratable. Demotion filters `last_accessed_ts < cutoff`; ingestion writes that numeric ts. HTTP runs the background scheduler, while ingestion under either transport claims and runs cleanup at most once per 24 hours through the shared KV store.
 - **KV** (`kv_get/set/kv_delete`): direct key-value store (preferences, archival keys), TTL on set.
 - **Context injection** (`context_retrieve`): surfaces relevant stored memory for the client to inject into a prompt.
-- **Tracing**: every routed stdio or HTTP tool call records a `QueryTrace` to `query_traces.db`.
+- **Tracing**: every routed stdio tool call records a `QueryTrace` to `query_traces.db`; HTTP route tracing is not yet implemented.
 
 ## Robustness notes
 - **UTF-8 I/O**: `src/mcp/_utf8_io` reconfigures stdout/stderr to UTF-8 before any
