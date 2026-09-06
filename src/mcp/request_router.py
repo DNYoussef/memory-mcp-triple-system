@@ -584,6 +584,15 @@ def handle_bayesian_inference(
                 "isError": True,
             }
 
+        # Evidence is a trust boundary: pgmpy raises on a key that is not a
+        # network node or a value that is not one of the node's state names
+        # ("true"/"false"), and that exception used to surface as a bare
+        # "no result". Keep only node keys, coerce values to state names, and
+        # report what was dropped so the caller can see why.
+        ignored = sorted(k for k in (evidence or {}) if k not in nodes)
+        evidence = {
+            k: str(v).lower() for k, v in (evidence or {}).items() if k in nodes
+        }
         result = tool.nexus_processor.probabilistic_query_engine.query_conditional(
             network=network, query_vars=[node_var], evidence=evidence
         )
@@ -596,6 +605,8 @@ def handle_bayesian_inference(
             "No Bayesian inference available (inference returned no result)", True
         )
 
+    if ignored:
+        result = {**result, "ignored_evidence": ignored}
     return _text_result(json.dumps(result, default=str))
 
 
