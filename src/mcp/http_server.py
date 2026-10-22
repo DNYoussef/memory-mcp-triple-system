@@ -81,9 +81,23 @@ _memory_client = None
 _telemetry_bridge = None
 _connascence_bridge = None
 MCP_API_KEY = os.getenv("MCP_API_KEY") or os.getenv("MEMORY_MCP_API_KEY", "")
-ALLOW_UNAUTHENTICATED_TOOLS = os.getenv(
+# Railway sets these in every deployment (RAILWAY_ENVIRONMENT is legacy).
+# Presence alone counts, so a deployed service can never run tools unauthenticated.
+_RAILWAY_MARKERS = (
+    "RAILWAY_ENVIRONMENT_NAME",
+    "RAILWAY_ENVIRONMENT_ID",
+    "RAILWAY_ENVIRONMENT",
+)
+ON_RAILWAY = any(name in os.environ for name in _RAILWAY_MARKERS)
+_UNAUTH_OVERRIDE_REQUESTED = os.getenv(
     "MEMORY_MCP_ALLOW_UNAUTHENTICATED_TOOLS", ""
 ).strip().lower() in {"1", "true", "yes", "on"}
+ALLOW_UNAUTHENTICATED_TOOLS = _UNAUTH_OVERRIDE_REQUESTED and not ON_RAILWAY
+if _UNAUTH_OVERRIDE_REQUESTED and ON_RAILWAY:
+    logger.warning(
+        "MEMORY_MCP_ALLOW_UNAUTHENTICATED_TOOLS ignored on Railway; "
+        "tool routes require MCP_API_KEY"
+    )
 _tool_bearer = HTTPBearer(auto_error=False)
 
 
@@ -590,11 +604,6 @@ async def health_check() -> Dict[str, Any]:
         "version": "1.5.0",
         "bayesian_backend": BAYESIAN_BACKEND if BAYESIAN_AVAILABLE else "unavailable",
         "timestamp": datetime.utcnow().isoformat(),
-        "auth": {
-            "api_key_configured": bool(MCP_API_KEY),
-            "tool_routes_protected": not ALLOW_UNAUTHENTICATED_TOOLS,
-            "unauthenticated_override": ALLOW_UNAUTHENTICATED_TOOLS,
-        },
         "components": {
             "vector_indexer": "available",
             "embedding_pipeline": "available",
