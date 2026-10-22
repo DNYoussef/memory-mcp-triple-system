@@ -228,6 +228,12 @@ class BeadsBridge:
         """Get full task details with dependencies and comments."""
         cmd = [self._binary, "show", task_id, "--json"]
         data = await self._run_cached(cmd, cache_key=f"task:{task_id}")
+        # bd show --json returns a list of matching issues, not a bare object.
+        if isinstance(data, list):
+            data = next(
+                (item for item in data if isinstance(item, dict) and item.get("id") == task_id),
+                None,
+            )
         if not isinstance(data, dict):
             return BeadTask.empty(task_id)
         return BeadTask.from_dict(data)
