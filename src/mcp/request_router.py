@@ -10,7 +10,6 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 import json
 import os
 import time
-import hashlib
 import asyncio
 import threading
 from datetime import datetime, timedelta
@@ -285,62 +284,6 @@ def _get_ingestion_service(tool: "NexusSearchTool"):
     )
     setattr(tool, "_ingestion_service", service)
     return service
-
-
-def _store_entities_to_graph(
-    text: str, metadata: Dict[str, Any], tool: "NexusSearchTool", embedder
-) -> int:
-    """Extract and store entities to graph. Returns count added."""
-    if not tool.entity_service:
-        return 0
-
-    try:
-        from ..services.graph_service import GraphService
-
-        chunk_id = hashlib.md5(text.encode()).hexdigest()[:16]
-        entities = tool.entity_service.extract_entities(text)
-
-        if not entities:
-            return 0
-
-        tool.graph_service.add_chunk_node(
-            chunk_id,
-            {
-                "text": text[:500],
-                "file_path": metadata.get("key", "manual_entry"),
-                "timestamp": metadata.get("timestamp"),
-            },
-        )
-
-        entities_added = 0
-        for ent in entities:
-            entity_id = ent["text"].lower().replace(" ", "_")
-            tool.graph_service.add_entity_node(
-                entity_id,
-                ent["type"],
-                {"text": ent["text"], "start": ent["start"], "end": ent["end"]},
-            )
-            tool.graph_service.add_relationship(
-                chunk_id,
-                GraphService.EDGE_MENTIONS,
-                entity_id,
-                {
-                    "entity_type": ent["type"],
-                    "position": ent["start"],
-                    "confidence": 0.8,
-                },
-            )
-            try:
-                tool.graph_service.link_similar_entities(entity_id, embedder=embedder)
-            except Exception:
-                pass
-            entities_added += 1
-
-        tool.graph_service.save_graph()
-        return entities_added
-    except Exception as exc:
-        logger.error("graph store failed: %s", exc, exc_info=True)
-        return 0  # fail-safe count, but the failure is now visible
 
 
 def handle_graph_query(

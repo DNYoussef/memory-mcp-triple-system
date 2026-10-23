@@ -2,7 +2,7 @@
 
 When an observation is stored in KVStore, this bridge:
 1. Indexes content into vector tier (if ChromaDB available)
-2. Extracts entities for graph tier (via NER)
+2. Extracts entities (via NER)
 3. Logs to KV for structured queries
 
 This is the connect point that makes captured observations findable.
@@ -31,7 +31,6 @@ class ObservationBridge:
         self,
         kv_store: KVStore,
         vector_indexer: Optional[Any] = None,
-        graph_service: Optional[Any] = None,
         entity_extractor: Optional[Any] = None,
     ):
         """Initialize bridge with storage backends.
@@ -39,12 +38,10 @@ class ObservationBridge:
         Args:
             kv_store: KVStore for structured observation storage
             vector_indexer: VectorIndexer for semantic search (optional)
-            graph_service: GraphService for entity graph (optional)
             entity_extractor: NER service for entity extraction (optional)
         """
         self.kv_store = kv_store
         self.vector_indexer = vector_indexer
-        self.graph_service = graph_service
         self.entity_extractor = entity_extractor
 
     def capture_tool_use(
@@ -122,9 +119,6 @@ class ObservationBridge:
         # Index into vector tier (background-safe)
         self._index_to_vector(obs)
 
-        # Index into graph tier
-        self._index_to_graph(obs)
-
         return obs
 
     def _build_content(
@@ -197,24 +191,6 @@ class ObservationBridge:
             )
         except Exception as e:
             logger.debug(f"Vector indexing skipped: {e}")
-
-    def _index_to_graph(self, obs: Observation) -> None:
-        """Index observation entities into knowledge graph."""
-        if not self.graph_service or not obs.entities:
-            return
-        try:
-            for entity in obs.entities:
-                self.graph_service.add_node(
-                    entity,
-                    node_type="entity",
-                    metadata={
-                        "source": "observation",
-                        "session_id": obs.session_id,
-                        "obs_type": obs.obs_type.value,
-                    },
-                )
-        except Exception as e:
-            logger.debug(f"Graph indexing skipped: {e}")
 
     def get_recent_observations(
         self,
