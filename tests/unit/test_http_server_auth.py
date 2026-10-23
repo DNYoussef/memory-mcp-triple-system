@@ -122,7 +122,11 @@ def test_posture_leak_detector_positive_control():
         {"key": None},
         {"key": "FAKE_TEST_TOKEN_123"},
         {"key": None, "allow_unauthenticated": True},
-        {"key": None, "allow_unauthenticated": True, "railway_marker": "RAILWAY_ENVIRONMENT_NAME"},
+        {
+            "key": None,
+            "allow_unauthenticated": True,
+            "railway_marker": "RAILWAY_ENVIRONMENT_NAME",
+        },
     ],
 )
 @pytest.mark.asyncio
