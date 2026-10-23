@@ -182,7 +182,7 @@ def _entity_extraction_tool() -> Dict[str, Any]:
                     "type": "array",
                     "items": {"type": "string"},
                     "description": "Entity types to extract (e.g., PERSON, ORG, CONCEPT)",
-                    "default": ["PERSON", "ORG", "GPE", "CONCEPT"],
+                    "default": ["PERSON", "ORG", "GPE", "PRODUCT", "LAW", "CONCEPT"],
                 },
             },
             "required": ["text"],

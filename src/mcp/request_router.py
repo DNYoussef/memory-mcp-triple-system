@@ -386,11 +386,15 @@ def handle_entity_extraction(
     import re
 
     text = arguments.get("text", "")
-    entity_types = arguments.get("entity_types", ["PERSON", "ORG", "GPE", "CONCEPT"])
+    entity_types = arguments.get(
+        "entity_types", ["PERSON", "ORG", "GPE", "PRODUCT", "LAW", "CONCEPT"]
+    )
 
     try:
         if tool.entity_service:
-            entities = tool.entity_service.extract_entities_by_type(text, entity_types)
+            entities = tool.entity_service.extract_entities_for_display(
+                text, entity_types
+            )
         else:
             entities = []
             cap_pattern = r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b"

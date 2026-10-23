@@ -172,3 +172,22 @@ def test_beads_handlers_print_p0_priority():
         text = handler({}, _beads_tool())["content"][0]["text"]
         assert "[mem-vrn] P0 " in text
         assert "[mem-x] P2 " in text
+
+
+# ---- A2: entity_extraction without spaCy ----
+
+
+def test_entity_extraction_without_spacy_uses_regex_fallback():
+    from types import SimpleNamespace
+
+    from src.mcp.request_router import handle_entity_extraction
+    from src.services.entity_service import EntityService
+
+    svc = EntityService.__new__(EntityService)
+    svc.nlp = None
+    out = handle_entity_extraction(
+        {"text": "Apple hired Tim Cook in California"},
+        SimpleNamespace(entity_service=svc),
+    )
+    assert out["isError"] is False
+    assert "Tim Cook" in out["content"][0]["text"]
