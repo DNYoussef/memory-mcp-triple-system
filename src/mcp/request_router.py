@@ -765,7 +765,7 @@ def handle_beads_ready_tasks(
 
         task_lines = []
         for task in tasks:
-            priority_icon = ["", "P1", "P2", "P3", "P4", "P5"][min(task.priority, 5)]
+            priority_icon = f"P{task.priority}"
             task_lines.append(
                 f"[{task.id}] {priority_icon} {task.title} ({task.status})"
             )
@@ -864,7 +864,7 @@ def handle_beads_query_tasks(
 
         task_lines = []
         for task in tasks:
-            priority_icon = ["", "P1", "P2", "P3", "P4", "P5"][min(task.priority, 5)]
+            priority_icon = f"P{task.priority}"
             assignee_str = f" @{task.assignee}" if task.assignee else ""
             task_lines.append(
                 f"[{task.id}] {priority_icon} {task.title} ({task.status}){assignee_str}"
