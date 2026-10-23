@@ -130,7 +130,8 @@ class BeadComment:
         created = _parse_datetime(data.get("created_at"))
         return cls(
             author=data.get("author"),
-            body=data.get("body", ""),
+            # bd 0.47.1 emits "text"; keep "body" for older payloads.
+            body=data.get("text") or data.get("body", ""),
             created_at=created,
         )
 
@@ -228,6 +229,16 @@ class BeadsBridge:
         """Get full task details with dependencies and comments."""
         cmd = [self._binary, "show", task_id, "--json"]
         data = await self._run_cached(cmd, cache_key=f"task:{task_id}")
+        # bd show --json returns a list of matching issues, not a bare object.
+        if isinstance(data, list):
+            data = next(
+                (
+                    item
+                    for item in data
+                    if isinstance(item, dict) and item.get("id") == task_id
+                ),
+                None,
+            )
         if not isinstance(data, dict):
             return BeadTask.empty(task_id)
         return BeadTask.from_dict(data)
