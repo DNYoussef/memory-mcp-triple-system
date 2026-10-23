@@ -202,6 +202,7 @@ def handle_memory_store(
     text = arguments.get("text", "")
     metadata = _normalize_metadata_tags(arguments.get("metadata", {}))
     is_valid, missing = _validate_metadata(metadata)
+    filled: List[str] = []
 
     if not is_valid:
         policy = _get_tagging_policy(tool.config)
@@ -214,6 +215,7 @@ def handle_memory_store(
             }
         if policy["auto_fill"]:
             metadata = _autofill_metadata(metadata, missing)
+            filled = missing
             logger.warning(f"Auto-filled missing tags: {missing}")
 
     if not text:
@@ -243,7 +245,8 @@ def handle_memory_store(
         tagging_info = f"Tagged: WHO={returned_meta['agent_name']}, PROJECT={returned_meta['project']}"
         lifecycle_info = f"Lifecycle: {result.get('lifecycle_tier', returned_meta.get('lifecycle_tier', 'hot'))}"
         chunk_info = f"Chunks: {', '.join(result.get('chunk_ids', []))}"
-        notices = "".join(f"\nWarning: {w}" for w in result.get("warnings", []))
+        notices = f"\nAuto-filled: {', '.join(filled)}" if filled else ""
+        notices += "".join(f"\nWarning: {w}" for w in result.get("warnings", []))
 
         return {
             "content": [

@@ -16,10 +16,12 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 from ..stores.kv_store import KVStore
-from ..models.observation_types import Observation, classify_tool
+from ..models.observation_types import Observation, ObservationType, classify_tool
 
-# Privacy tag regex -- redacts <private>...</private> content before storage
-_PRIVATE_RE = re.compile(r"<private>.*?</private>", re.DOTALL)
+# Privacy tag regexes -- redact <private>...</private> (any case) and an unclosed
+# <private> through end of text, before storage
+_PRIVATE_RE = re.compile(r"<private>.*?</private>", re.DOTALL | re.IGNORECASE)
+_PRIVATE_OPEN_RE = re.compile(r"<private>.*$", re.DOTALL | re.IGNORECASE)
 
 
 class ObservationBridge:
@@ -53,6 +55,7 @@ class ObservationBridge:
         tool_result: str,
         is_error: bool = False,
         project: str = "",
+        memory_meta: Optional[Dict[str, str]] = None,
     ) -> Optional[Observation]:
         """Capture a tool invocation as an observation.
 
@@ -65,6 +68,7 @@ class ObservationBridge:
             tool_result: Tool output (truncated if needed)
             is_error: Whether the tool call resulted in an error
             project: Current project name
+            memory_meta: type/why from a successful memory_store's metadata
 
         Returns:
             Created Observation, or None if deduped/skipped
@@ -77,8 +81,14 @@ class ObservationBridge:
         if self.kv_store.observation_exists(session_id, content):
             return None
 
-        # Classify
+        # Classify. A memory_store tagged type=decision is a decision; errors win.
         obs_type = classify_tool(tool_name, is_error=is_error)
+        memory_meta = memory_meta or {}
+        if (
+            obs_type != ObservationType.ERROR
+            and str(memory_meta.get("type", "")).lower() == "decision"
+        ):
+            obs_type = ObservationType.DECISION
 
         # Create observation
         obs = Observation(
@@ -93,6 +103,8 @@ class ObservationBridge:
             },
             project=project,
         )
+        if memory_meta.get("why"):
+            obs.why = memory_meta["why"]
 
         # Extract entities if NER available
         if self.entity_extractor:
@@ -154,7 +166,7 @@ class ObservationBridge:
             parts.append(f"-> {result_preview}")
 
         raw = " ".join(parts)[:500]
-        return _PRIVATE_RE.sub("[REDACTED]", raw)
+        return _PRIVATE_OPEN_RE.sub("[REDACTED]", _PRIVATE_RE.sub("[REDACTED]", raw))
 
     def _extract_entities(self, text: str) -> List[str]:
         """Extract named entities from text using NER service."""
