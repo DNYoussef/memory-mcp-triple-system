@@ -115,10 +115,11 @@ class ModeDetector:
         query_lower = query.lower().strip()
 
         # Score each mode
+        # Ties go to the first key, so the specific modes come before execution.
         scores = {
-            "execution": self._score_execution_patterns(query_lower),
             "planning": self._score_planning_patterns(query_lower),
             "brainstorming": self._score_brainstorming_patterns(query_lower),
+            "execution": self._score_execution_patterns(query_lower),
         }
 
         # Find mode with highest score

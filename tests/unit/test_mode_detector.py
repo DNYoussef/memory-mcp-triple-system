@@ -123,6 +123,16 @@ class TestDetectionConfidence:
         assert profile == EXECUTION
         assert confidence == 0.5
 
+    def test_score_tie_prefers_specific_mode(self, detector):
+        """A tie between execution and a specific mode goes to the specific one."""
+        profile, _ = detector.detect(
+            "what are the holes and missing links in the GuardSpine idea web"
+            " and business plan"
+        )
+        assert profile == PLANNING
+        profile, _ = detector.detect("What are all the edge cases?")
+        assert profile == BRAINSTORMING
+
 
 class TestDetectionAccuracy:
     """Test suite for overall detection accuracy."""
