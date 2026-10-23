@@ -370,3 +370,42 @@ def test_t10_combined_decision_store_replay(tmp_path, monkeypatch):
     out = handle_memory_store(payload["tool_input"], _router_tool(seen))
     assert out["content"][0]["text"].startswith("Stored memory: ")
     assert seen[0]["beliefs"] == [belief]
+
+
+@pytest.mark.parametrize(
+    "why, leaked",
+    [
+        ("w <PRIVATE>m1</PRIVATE> keep", "m1"),
+        ("w <Private>m2</private> keep", "m2"),
+        ("w <Private>m3 tail", "m3"),
+    ],
+)
+def test_bridge_redacts_private_tags_in_why_and_keys(tmp_path, why, leaked):
+    store = KVStore(str(tmp_path / "b.db"))
+    ObservationBridge(kv_store=store).capture_tool_use(
+        session_id="s",
+        tool_name="Bash",
+        tool_input={f"k <PRIVATE>{leaked}</PRIVATE>": 1},
+        tool_result="",
+        memory_meta={"type": "decision", "why": why},
+    )
+    (row,) = store.get_observations(obs_type="decision")
+    store.close()
+    assert leaked not in row["why"] and "[REDACTED]" in row["why"]
+    assert leaked not in json.dumps(row["metadata"])
+    if "tail" not in why:
+        assert row["why"].endswith(" keep")
+
+
+def test_bridge_lowercase_private_control(tmp_path):
+    store = KVStore(str(tmp_path / "b.db"))
+    ObservationBridge(kv_store=store).capture_tool_use(
+        session_id="s",
+        tool_name="Bash",
+        tool_input={},
+        tool_result="",
+        memory_meta={"type": "decision", "why": "w <private>m4</private> keep"},
+    )
+    (row,) = store.get_observations(obs_type="decision")
+    store.close()
+    assert row["why"] == "w [REDACTED] keep"

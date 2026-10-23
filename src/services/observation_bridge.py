@@ -24,6 +24,11 @@ _PRIVATE_RE = re.compile(r"<private>.*?</private>", re.DOTALL | re.IGNORECASE)
 _PRIVATE_OPEN_RE = re.compile(r"<private>.*$", re.DOTALL | re.IGNORECASE)
 
 
+def _redact_private(text: str) -> str:
+    """Redact closed <private> spans, then an unclosed tag through end of text."""
+    return _PRIVATE_OPEN_RE.sub("[REDACTED]", _PRIVATE_RE.sub("[REDACTED]", text))
+
+
 class ObservationBridge:
     """Bridges observation capture to memory retrieval tiers."""
 
@@ -94,14 +99,14 @@ class ObservationBridge:
             tool_name=tool_name,
             content=content,
             metadata={
-                "tool_input_keys": list(tool_input.keys()) if tool_input else [],
+                "tool_input_keys": [_redact_private(str(k)) for k in tool_input or {}],
                 "is_error": is_error,
                 "content_hash": content_hash,
             },
             project=project,
         )
         if memory_meta.get("why"):
-            obs.why = memory_meta["why"]
+            obs.why = _redact_private(str(memory_meta["why"]))
 
         # Extract entities if NER available
         if self.entity_extractor:
@@ -160,7 +165,7 @@ class ObservationBridge:
             parts.append(f"-> {result_preview}")
 
         raw = " ".join(parts)[:500]
-        return _PRIVATE_OPEN_RE.sub("[REDACTED]", _PRIVATE_RE.sub("[REDACTED]", raw))
+        return _redact_private(raw)
 
     def _extract_entities(self, text: str) -> List[str]:
         """Extract named entities from text using NER service."""
