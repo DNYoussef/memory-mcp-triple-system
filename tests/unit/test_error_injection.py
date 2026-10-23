@@ -114,8 +114,11 @@ class TestGraphPersistenceDegradation:
         gs = GraphService(data_dir=str(tmp_path / "graph"))
         gs.add_chunk_node("test")
 
-        # Patch open to fail
-        with patch("builtins.open", side_effect=PermissionError("read-only")):
+        # Make the temp-file write fail (save writes a temp file, then replaces)
+        with patch(
+            "src.services.graph_persistence.tempfile.NamedTemporaryFile",
+            side_effect=PermissionError("read-only"),
+        ):
             result = gs.save_graph()
             assert result is False
 
