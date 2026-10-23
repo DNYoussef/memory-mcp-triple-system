@@ -12,12 +12,25 @@ See: ppr_algorithms.py
 
 from typing import List, Dict, Tuple, Optional, Any
 from collections import deque
+import re
 from dataclasses import dataclass, field
 import networkx as nx
 from loguru import logger
 
 from .graph_service import GraphService
 from .ppr_algorithms import PPRAlgorithmsMixin
+
+# Entity names that never seed a query by phrase match (besides names < 3 chars and
+# pure digits): they appear in almost every question.
+_PHRASE_STOPWORDS = frozenset(
+    "the and for with that this what are from about into have was were how why who"
+    " when where which there their".split()
+)
+
+
+def _normalize_phrase(text: str) -> str:
+    """Lowercase; punctuation runs become single spaces ("United-States'" -> "united states")."""
+    return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
 
 
 @dataclass
@@ -151,11 +164,16 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
             if chunk_score > 0.0:
                 chunk_scores[node_id] = chunk_score
 
-        # Sort by score descending
+        # Sort by score descending (stable: exact ties keep graph insertion order)
         ranked_chunks = sorted(chunk_scores.items(), key=lambda x: x[1], reverse=True)
 
         logger.info(f"Ranked {len(ranked_chunks)} chunks by PPR scores")
-        return ranked_chunks[:top_k]
+        # Reported score = primary / (1 + 1e-3 * (rank - 1)): positive and strictly
+        # decreasing, so exact ties still read in returned order. Order is unchanged.
+        return [
+            (chunk_id, score / (1.0 + 1e-3 * i))
+            for i, (chunk_id, score) in enumerate(ranked_chunks[:top_k])
+        ]
 
     def _get_mentioned_entities(self, chunk_id: str) -> List[str]:
         """
@@ -452,45 +470,40 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
         self, query: str, max_hops: int = 3, top_k: int = 5
     ) -> List[Dict[str, Any]]:
         """
-        Multi-hop retrieval combining entity extraction, PPR, and chunk ranking.
+        Graph retrieval: phrase-matched seeds, PPR, and chunk ranking.
 
         This is the main interface expected by TierQueryMixin._query_hipporag_tier().
         Wraps lower-level methods to provide unified retrieval.
 
         Args:
             query: User query text
-            max_hops: Maximum hops for graph traversal (default 3)
+            max_hops: Unused; PPR already spreads over the graph from the seeds
             top_k: Number of top results to return (default 5)
 
         Returns:
             List of dicts with chunk_id, text, ppr_score, metadata
         """
         try:
-            # 1. Extract entities from query (simple token-based extraction)
+            # 1. Seed entities whose names appear in the query
             query_entities = self._extract_query_entities(query)
             if not query_entities:
                 logger.debug("No query entities extracted, returning empty")
                 return []
 
-            # 2. Expand via multi-hop search to find related entities
-            expanded_result = self.multi_hop_search(
-                start_nodes=query_entities, max_hops=max_hops
-            )
-            expanded_entities = expanded_result.get("entities", query_entities)
-
-            # 3. Run PPR on expanded entity set
+            # 2. Seeds go straight to PPR. Successor-only BFS from an entity (a sink
+            # under chunk -> entity edges) reached nothing but the seed itself.
             ppr_scores = self.personalized_pagerank(
-                query_nodes=expanded_entities, alpha=0.85
+                query_nodes=query_entities, alpha=0.85
             )
 
             if not ppr_scores:
                 logger.debug("No PPR scores computed, returning empty")
                 return []
 
-            # 4. Rank chunks by aggregated PPR scores
+            # 3. Rank chunks by aggregated PPR scores
             ranked_chunks = self.rank_chunks_by_ppr(ppr_scores, top_k=top_k)
 
-            # 5. Format results with text and metadata
+            # 4. Format results with text and metadata
             results = []
             for chunk_id, score in ranked_chunks:
                 results.append(
@@ -526,44 +539,57 @@ class GraphQueryEngine(PPRAlgorithmsMixin):
         """
         return self.retrieve_multi_hop(query=query, max_hops=max_hops, top_k=top_k)
 
+    def _entity_name(self, node_id: str) -> str:
+        """Normalized name: node text, then metadata text, metadata name, node id."""
+        node_data = self.graph.nodes[node_id]
+        metadata = node_data.get("metadata")
+        metadata = metadata if isinstance(metadata, dict) else {}
+        name = (
+            node_data.get("text")
+            or metadata.get("text")
+            or metadata.get("name")
+            or node_id.replace("_", " ")
+        )
+        return _normalize_phrase(name)
+
     def _extract_query_entities(self, query: str) -> List[str]:
         """
-        Extract potential entity nodes from query text.
+        Entity nodes whose whole name appears in the query as a phrase.
 
-        Simple implementation: finds graph nodes that match query tokens.
+        Names under 3 chars, stopwords and pure digits never match. Nodes sharing
+        one name collapse to one: the node whose id is the canonical id (name with
+        spaces as '_'), else the lowest degree, then the lowest id.
 
         Args:
             query: User query text
 
         Returns:
-            List of matching entity node IDs
+            Matching entity node IDs, rarest (lowest degree) first
         """
-        # Tokenize query (simple whitespace + lowercase)
-        tokens = set(query.lower().split())
-
-        # Find matching entity nodes in graph
-        matching_entities = []
-        for node_id in self.graph.nodes():
-            node_data = self.graph.nodes[node_id]
-
-            # Only check entity nodes
+        padded = f" {_normalize_phrase(query)} "
+        best: Dict[str, Tuple[bool, int, str]] = {}
+        for node_id, node_data in self.graph.nodes(data=True):
             if node_data.get("type") != "entity":
                 continue
+            name = self._entity_name(node_id)
+            if (
+                len(name) < 3
+                or name in _PHRASE_STOPWORDS
+                or name.isdigit()
+                or f" {name} " not in padded
+            ):
+                continue
+            key = (
+                node_id != name.replace(" ", "_"),
+                self.graph.degree(node_id),
+                node_id,
+            )
+            if name not in best or key < best[name]:
+                best[name] = key
 
-            # MEM-002: Check both 'text' field and metadata for entity text
-            # Entity text may be stored in node_data directly or in metadata
-            entity_text = node_data.get("text", "")
-            if not entity_text:
-                # Check metadata field for entity text
-                metadata = node_data.get("metadata", {})
-                if isinstance(metadata, dict):
-                    entity_text = metadata.get("text", metadata.get("name", node_id))
-                else:
-                    entity_text = node_id
-            entity_text = entity_text.lower()
-            if any(token in entity_text or entity_text in token for token in tokens):
-                matching_entities.append(node_id)
-
+        matching_entities = [
+            node_id for _, _, node_id in sorted(best.values(), key=lambda k: k[1:])
+        ]
         logger.debug(f"Extracted {len(matching_entities)} entities from query")
         return matching_entities
 

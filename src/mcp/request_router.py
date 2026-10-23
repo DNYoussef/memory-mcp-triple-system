@@ -431,7 +431,6 @@ def handle_hipporag_retrieve(
     mode = arguments.get("mode", "execution")
 
     try:
-        entity_result = handle_entity_extraction({"text": query}, tool)
         if tool.hipporag_service:
             results = tool.hipporag_service.retrieve_multi_hop(query=query, top_k=limit)
         else:
@@ -444,13 +443,10 @@ def handle_hipporag_retrieve(
             }
         ]
 
-        if not entity_result.get("isError"):
-            seed_text = entity_result["content"][0]["text"]
-            # Retrieval uses retrieve_multi_hop's own token fallback, not these
-            # NER seeds, so a bare "Extracted 0 entities" line just reads as a
-            # false failure. Only surface seeds when some were actually found.
-            if not seed_text.startswith("Extracted 0 entities"):
-                content.append(entity_result["content"][0])
+        # The seed entities retrieval actually used (not the raw NER output).
+        seeds = getattr(results[0], "entities", None) if results else None
+        if seeds:
+            content.append({"type": "text", "text": f"Seeds: {', '.join(seeds)}\n"})
 
         for idx, result in enumerate(results, 1):
             if isinstance(result, dict):
