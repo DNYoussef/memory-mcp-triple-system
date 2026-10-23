@@ -184,6 +184,29 @@ def test_t1c_fallback_fills_second_seed_and_skips_same_name_junk(tmp_path):
     ]
 
 
+def test_t1c_fallback_skips_other_node_with_the_ner_seeds_name(tmp_path):
+    # The NER seed 'guardspine,_inc' is not the canonical node for its name
+    # "guardspine inc"; the rarer canonical node 'guardspine_inc' must not take
+    # the second slot from 'holes'.
+    gs = _graph(
+        tmp_path,
+        [
+            ("c1", ["guardspine,_inc", "holes"]),
+            ("c2", ["guardspine,_inc", "holes"]),
+            ("c3", ["guardspine_inc"]),
+        ],
+        names={
+            "guardspine,_inc": "GuardSpine, Inc.",
+            "guardspine_inc": "GuardSpine Inc",
+        },
+    )
+    h = HippoRagService(gs, StubNER("GuardSpine, Inc."))
+    assert h._get_query_nodes("what are the holes in GuardSpine, Inc.") == [
+        "guardspine,_inc",
+        "holes",
+    ]
+
+
 PHRASES = ["amber", "birch", "cedar", "delta", "ember"]
 PHRASES += ["fjord", "grove", "harbor", "iris", "jade"]
 
