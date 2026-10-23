@@ -130,7 +130,8 @@ class BeadComment:
         created = _parse_datetime(data.get("created_at"))
         return cls(
             author=data.get("author"),
-            body=data.get("body", ""),
+            # bd 0.47.1 emits "text"; keep "body" for older payloads.
+            body=data.get("text") or data.get("body", ""),
             created_at=created,
         )
 
