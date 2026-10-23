@@ -155,3 +155,51 @@ async def test_failed_save_fields_reach_http(tmp_path, monkeypatch):
     )
     assert body["graph_persisted"] is False
     assert body["warnings"] == ["graph not persisted; will retry on next store"]
+
+
+# ---- Review round 1: graph not written must never report graph_persisted ----
+
+UNAVAILABLE = "graph population unavailable; memory stored without graph links"
+
+
+def test_missing_entity_service_reports_graph_unavailable(tmp_path):
+    from src.mcp.request_router import handle_memory_store
+
+    svc = _ingestion(GraphService(data_dir=tmp_path))
+    svc._entity_service = None
+    result = svc.ingest("first memory", {})
+    assert result["success"] is True
+    assert result["graph_persisted"] is False
+    assert result["warnings"] == [UNAVAILABLE]
+    assert not (tmp_path / "graph.json").exists()
+
+    tool = SimpleNamespace(config={}, _ingestion_service=svc)
+    text = handle_memory_store({"text": "second memory"}, tool)["content"][0]["text"]
+    assert text.startswith("Stored memory: ")
+    assert f"Warning: {UNAVAILABLE}" in text
+
+
+def test_graph_population_exception_reports_failure(tmp_path):
+    gs = GraphService(data_dir=tmp_path)
+    svc = _ingestion(gs)
+    svc._entity_service.add_entities_to_graph.side_effect = RuntimeError("ner down")
+    gs.save_graph = MagicMock(return_value=True)
+    result = svc.ingest("first memory", {})
+    assert result["success"] is True
+    assert result["graph_persisted"] is False
+    assert result["warnings"] == ["graph population failed: ner down"]
+    gs.save_graph.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_graph_unavailable_reaches_http(tmp_path, monkeypatch):
+    from src.mcp import http_server
+
+    svc = _ingestion(GraphService(data_dir=tmp_path))
+    svc._graph_service = None
+    monkeypatch.setattr(http_server, "get_ingestion_service", lambda: svc)
+    body = await http_server.memory_store(
+        http_server.MemoryStoreRequest(text="first memory")
+    )
+    assert body["graph_persisted"] is False
+    assert body["warnings"] == [UNAVAILABLE]
