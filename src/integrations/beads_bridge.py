@@ -232,7 +232,11 @@ class BeadsBridge:
         # bd show --json returns a list of matching issues, not a bare object.
         if isinstance(data, list):
             data = next(
-                (item for item in data if isinstance(item, dict) and item.get("id") == task_id),
+                (
+                    item
+                    for item in data
+                    if isinstance(item, dict) and item.get("id") == task_id
+                ),
                 None,
             )
         if not isinstance(data, dict):
