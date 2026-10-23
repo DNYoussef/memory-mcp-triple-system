@@ -10,6 +10,8 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 from pathlib import Path
 from typing import Optional
 import json
+import os
+import tempfile
 import threading
 import networkx as nx
 from loguru import logger
@@ -50,6 +52,7 @@ class GraphPersistence:
             if not force and not self._dirty:
                 logger.debug("Graph not dirty, skipping save")
                 return True
+            tmp_path = None
             try:
                 if file_path is None:
                     file_path = self.data_dir / "graph.json"
@@ -58,13 +61,31 @@ class GraphPersistence:
 
                 data = nx.node_link_data(self.graph)
 
-                with open(file_path, "w") as f:
+                # Write a unique temp file next to the target, then swap it in, so
+                # a crash or a second writer never leaves a truncated graph.json.
+                with tempfile.NamedTemporaryFile(
+                    "w",
+                    encoding="utf-8",
+                    dir=file_path.parent,
+                    prefix="graph.",
+                    suffix=".tmp",
+                    delete=False,
+                ) as f:
+                    tmp_path = f.name
                     json.dump(data, f, indent=2)
+                    f.flush()
+                    os.fsync(f.fileno())
+                os.replace(tmp_path, file_path)
 
                 self._dirty = False
                 logger.info(f"Saved graph to {file_path}")
                 return True
             except Exception as e:
+                if tmp_path:
+                    try:
+                        os.unlink(tmp_path)
+                    except OSError:
+                        pass
                 logger.error(f"Save failed: {e}")
                 return False
 

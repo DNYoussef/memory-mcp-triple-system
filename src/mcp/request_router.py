@@ -243,12 +243,13 @@ def handle_memory_store(
         tagging_info = f"Tagged: WHO={returned_meta['agent_name']}, PROJECT={returned_meta['project']}"
         lifecycle_info = f"Lifecycle: {result.get('lifecycle_tier', returned_meta.get('lifecycle_tier', 'hot'))}"
         chunk_info = f"Chunks: {', '.join(result.get('chunk_ids', []))}"
+        notices = "".join(f"\nWarning: {w}" for w in result.get("warnings", []))
 
         return {
             "content": [
                 {
                     "type": "text",
-                    "text": f"Stored memory: {text[:100]}...\n{tagging_info}\n{lifecycle_info}\n{chunk_info}",
+                    "text": f"Stored memory: {text[:100]}...\n{tagging_info}\n{lifecycle_info}\n{chunk_info}{notices}",
                 }
             ],
             "isError": False,

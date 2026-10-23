@@ -103,6 +103,7 @@ class MemoryIngestionService:
         }
         chunk_ids = []
         chunk_id = None  # Initialize to avoid NameError if loop is empty
+        graph_persisted = True
 
         for idx, chunk_text in enumerate(text_chunks):
             chunk_id = self._make_chunk_id(chunk_text, source, f"{now_iso}:{idx}")
@@ -129,6 +130,9 @@ class MemoryIngestionService:
 
             # Entity extraction → graph population
             stats = self._populate_graph(chunk_id, chunk_text, chunk_meta)
+            graph_persisted = (
+                bool(stats.pop("graph_persisted", True)) and graph_persisted
+            )
             all_entity_stats["entities_added"] += stats.get("entities_added", 0)
             all_entity_stats["relationships_created"] += stats.get(
                 "relationships_created", 0
@@ -159,6 +163,12 @@ class MemoryIngestionService:
             "entities": entity_stats,
             "lifecycle_tier": metadata["lifecycle_tier"],
             "elapsed_ms": round(elapsed_ms, 1),
+            "graph_persisted": graph_persisted,
+            "warnings": (
+                []
+                if graph_persisted
+                else ["graph not persisted; will retry on next store"]
+            ),
         }
 
     # ------------------------------------------------------------------
@@ -229,10 +239,9 @@ class MemoryIngestionService:
                 chunk_id, text, self._graph_service
             )
 
-            # Persist graph to disk (batch save, not per-entity)
-            self._graph_service.save_graph()
-
-            return stats
+            # Persist graph to disk (batch save, not per-entity). A failed save
+            # keeps the graph dirty, so the next store retries it.
+            return {**stats, "graph_persisted": self._graph_service.save_graph()}
         except Exception as e:
             logger.warning(f"Graph population failed: {e}")
             return {"entities_added": 0, "relationships_created": 0, "entity_types": []}
