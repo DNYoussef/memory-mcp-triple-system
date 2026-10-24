@@ -590,8 +590,8 @@ MUTANTS = {
     "unlocated_listed_as_chunks": [
         (
             HOLES,
-            '"chunks": [c for c, loc in rows if loc],',
-            '"chunks": [c for c, loc in rows],',
+            "_capped([c for c, loc in rows if loc], MAX_REFS)",
+            "_capped([c for c, loc in rows], MAX_REFS)",
             1,
         )
     ],
@@ -699,6 +699,30 @@ MUTANTS = {
             HOLES,
             '"holes": _report(web, now)["counts"],',
             '"holes": find_holes(store, now)["counts"],',
+            1,
+        )
+    ],
+    "refs_uncapped": [
+        (
+            HOLES,
+            "_capped([c for c, loc in rows if not loc], MAX_REFS)",
+            "([c for c, loc in rows if not loc], 0)",
+            1,
+        )
+    ],
+    "sources_uncapped": [
+        (
+            HOLES,
+            "shown, omitted = _capped(list(evidence), MAX_SOURCES)",
+            "shown, omitted = list(evidence), 0",
+            1,
+        )
+    ],
+    "response_size_uncapped": [
+        (
+            HOLES,
+            "while page and len(json.dumps(page, default=str)) > MAX_BYTES:",
+            "while False:",
             1,
         )
     ],

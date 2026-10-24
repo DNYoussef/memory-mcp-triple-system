@@ -382,6 +382,45 @@ def test_filters_and_counts(store, tool):
     assert {h["key"] for h in alpha["holes"]} == {"k.p1"} and alpha["beliefs"] == 1
 
 
+def test_provenance_lists_are_capped_with_omitted_counts(store, tool):
+    with store.batch():
+        for i in range(2000):  # one memory note copied into 2000 unlocated chunks
+            write(store, "k.note", -1, "reported", T12, f"chunk-{i:04d}", located=0)
+        write(store, "k.note", 1, "witnessed", T15, "check", source_ref="gmail:sent:e")
+    out = handle_call_tool("find_holes", {"now": T15, "limit": 1}, tool)
+    assert len(out["content"][0]["text"]) < 10_000  # was about 36 KB per 2k refs
+    (h,) = json.loads(out["content"][0]["text"])["holes"]
+    (src,) = h["outdated_sources"]
+    assert len(src["memory_refs"]) == 20 and src["memory_refs_omitted"] == 1980
+    assert src["chunks"] == [] and src["chunks_omitted"] == 0
+    assert h["sources_omitted"] == 0
+
+
+def test_disputed_sources_are_capped(store, tool):
+    for ref in ("gmail:sent:f", "gmail:sent:g"):  # winning side: 2 x 2.944
+        write(store, "k.x", 1, "witnessed", T15, ref, source_ref=ref)
+    write(store, "k.x", -1, "inferred", T15, "n0", who="who0")  # 0.405 >= 0.4
+    for i in range(1, 26):  # 25 more distinct reporters, 0.2 each
+        write(store, "k.x", -1, "assumed", T15, f"n{i}", who=f"who{i}")
+    h = of(holes(tool), "contradicted", "k.x")
+    assert h["p"] > 0.5  # so the 26 negative sources are the disputed side
+    assert len(h["disputed_sources"]) == 20 and h["sources_omitted"] == 6
+
+
+def test_response_size_is_capped(store, tool):
+    from src.belief_web.holes import MAX_BYTES
+
+    with store.batch():
+        for i in range(100):
+            write(store, f"k.s{i:03d}", 1, "witnessed", "2026-09-24T15:00:00Z", f"c{i}",
+                  claim=f"claim {i} " + "x" * 2000)  # fmt: skip
+    payload = holes(tool, limit=200)
+    assert len(json.dumps(payload["holes"])) <= MAX_BYTES
+    assert payload["omitted"]["by_size"] > 0 and payload["omitted"]["by_limit"] == 0
+    assert len(payload["holes"]) + payload["omitted"]["by_size"] == 100
+    assert payload["counts"]["stale"] == 100
+
+
 @pytest.mark.parametrize(
     "arguments, message",
     [

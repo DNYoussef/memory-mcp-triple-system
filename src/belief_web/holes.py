@@ -9,9 +9,10 @@ true when written"). Only located chunks are named as mentions; a memory
 that said it without a located chunk is listed under memory_refs.
 """
 
+import json
 from collections import deque
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from .belief_store import BeliefStore, BeliefValidationError, format_ts, parse_ts
 from .solver import HALF_LIFE_DEFAULT, local_logodds, sigmoid, solve
@@ -30,6 +31,9 @@ UNSUPPORTED_SUM = 0.1  # total |active decayed llr| below this
 WEAK_BAND = (0.3, 0.7)
 LOAD_DEPTH = 5
 METHOD = "belief_web_v1 log-odds propagation"
+MAX_REFS = 20  # chunk ids per chunks or memory_refs list
+MAX_SOURCES = 20  # sources per hole
+MAX_BYTES = 65536  # serialized holes per response
 
 
 def _loads(edges, keys) -> Dict[str, int]:
@@ -56,22 +60,32 @@ def _loads(edges, keys) -> Dict[str, int]:
     return loads
 
 
-def _sources(web, key: str, evidence) -> List[Dict[str, Any]]:
-    """Each evidence group with its located chunks; unlocated ones are memory_refs."""
+def _capped(items: List[Any], cap: int) -> Tuple[List[Any], int]:
+    return items[:cap], max(0, len(items) - cap)
+
+
+def _sources(web, key: str, evidence) -> Tuple[List[Dict[str, Any]], int]:
+    """Each evidence group with its located chunks; unlocated ones are
+    memory_refs. Every list is capped and says how many it left out."""
+    shown, omitted = _capped(list(evidence), MAX_SOURCES)
     out = []
-    for e in evidence:
+    for e in shown:
         rows = web.mentions.get((key, e.source_id, e.polarity), [])
+        chunks, chunks_omitted = _capped([c for c, loc in rows if loc], MAX_REFS)
+        refs, refs_omitted = _capped([c for c, loc in rows if not loc], MAX_REFS)
         out.append(
             {
                 "source_id": e.source_id,
                 "polarity": e.polarity,
                 "source_type": e.source_type,
                 "observed_at": format_ts(e.observed_at),
-                "chunks": [c for c, loc in rows if loc],
-                "memory_refs": [c for c, loc in rows if not loc],
+                "chunks": chunks,
+                "chunks_omitted": chunks_omitted,
+                "memory_refs": refs,
+                "memory_refs_omitted": refs_omitted,
             }
         )
-    return out
+    return out, omitted
 
 
 def parse_args(arguments: Dict[str, Any]) -> Dict[str, Any]:
@@ -155,8 +169,14 @@ def _report(web, now, project=None, kinds=None, min_load=2, limit=20):
             h.get("keys", []),
         )
     )
+    page = shown[:limit]
+    by_size = 0
+    while page and len(json.dumps(page, default=str)) > MAX_BYTES:
+        page.pop()
+        by_size += 1
+    omitted = {"by_limit": max(0, len(shown) - limit), "by_size": by_size}
     return _result(
-        shown[:limit], counts, len(scope), now, sol.converged, sol.iterations
+        page, counts, len(scope), now, sol.converged, sol.iterations, omitted
     )
 
 
@@ -219,11 +239,13 @@ def _belief_holes(web, key, local, p, load, min_load, now) -> List[Dict[str, Any
         # the side the posterior disagrees with; both at an exact tie
         side = {-1} if p > 0.5 else ({1} if p < 0.5 else {1, -1})
         disputed = [e for e in local.active if e.polarity in side]
+        disputed_sources, disputed_omitted = _sources(web, key, disputed)
         holes.append(
             {
                 **base,
                 "hole": "contradicted",
-                "disputed_sources": _sources(web, key, disputed),
+                "disputed_sources": disputed_sources,
+                "sources_omitted": disputed_omitted,
             }
         )
     sign = (sum(llrs) > 0) - (sum(llrs) < 0)
@@ -237,9 +259,15 @@ def _belief_holes(web, key, local, p, load, min_load, now) -> List[Dict[str, Any
                 f"superseded by a newer check on {newest.date().isoformat()}; "
                 "may have been true when written"
             )
-            sources = [{**s, "note": note} for s in _sources(web, key, older)]
+            sources, omitted = _sources(web, key, older)
+            sources = [{**s, "note": note} for s in sources]
             holes.append(
-                {**base, "hole": "outdated_memory", "outdated_sources": sources}
+                {
+                    **base,
+                    "hole": "outdated_memory",
+                    "outdated_sources": sources,
+                    "sources_omitted": omitted,
+                }
             )
     if local.active:
         newest = max(e.observed_at for e in local.active)
@@ -265,9 +293,12 @@ def _belief_holes(web, key, local, p, load, min_load, now) -> List[Dict[str, Any
     return holes
 
 
-def _result(holes, counts, beliefs, now, converged, iterations) -> Dict[str, Any]:
+def _result(
+    holes, counts, beliefs, now, converged, iterations, omitted=None
+) -> Dict[str, Any]:
     return {
         "holes": holes,
+        "omitted": omitted or {"by_limit": 0, "by_size": 0},
         "counts": counts,
         "beliefs": beliefs,
         "now": format_ts(now),
