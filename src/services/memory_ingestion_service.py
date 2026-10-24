@@ -9,7 +9,7 @@ Pipeline:
 2. Classify hot/cold
 3. Generate embedding
 4. Index to vector store (with stable chunk ID)
-5. Extract entities â†’ populate graph
+5. Extract entities → populate graph
 6. Record metadata beliefs/because in the belief web (only when given)
 7. Log event
 8. Run lifecycle maintenance
@@ -47,6 +47,7 @@ BELIEF_FIELDS = {
     *EDGE_TYPES,
 }
 EDGE_WEIGHT = 0.5  # memory_store edges carry no weight of their own
+ERROR_CAP = 500  # chars per belief error, the stdio line cap (section 4.2)
 
 
 class MemoryIngestionService:
@@ -102,7 +103,7 @@ class MemoryIngestionService:
 
         # 0. Validate input
         if not text or not text.strip():
-            return {"success": False, "error": "Empty text â€” nothing to ingest"}
+            return {"success": False, "error": "Empty text — nothing to ingest"}
 
         # 1. Stamp metadata
         now = datetime.utcnow()
@@ -125,7 +126,7 @@ class MemoryIngestionService:
         if not text_chunks:
             text_chunks = [text]  # Fallback: use original text as single chunk
 
-        # 4. Process each chunk: ID â†’ embed â†’ index â†’ graph
+        # 4. Process each chunk: ID → embed → index → graph
         all_entity_stats: Dict[str, Any] = {
             "entities_added": 0,
             "relationships_created": 0,
@@ -158,7 +159,7 @@ class MemoryIngestionService:
             }
             self._indexer.index_chunks([chunk], [embedding])
 
-            # Entity extraction â†’ graph population
+            # Entity extraction → graph population
             stats = self._populate_graph(chunk_id, chunk_text, chunk_meta)
             graph_warning = stats.pop("graph_warning", None)
             if graph_warning and graph_warning not in warnings:
@@ -309,7 +310,8 @@ class MemoryIngestionService:
         A bad entry is rejected on its own (its savepoint rolls back) and
         reported. The valid entries share ONE transaction, so any other write
         failure leaves zero belief rows from this call. The memory itself is
-        already stored either way. Errors are sanitized with strip_private.
+        already stored either way. Errors are sanitized with strip_private,
+        then capped.
         """
         from src.hooks.post_tool_handler import strip_private
 
@@ -355,7 +357,10 @@ class MemoryIngestionService:
             logger.warning(f"Belief write failed: {e}")
             recorded = 0
             errors.append(f"beliefs: not recorded ({e}); no belief rows kept")
-        return {"recorded": recorded, "errors": [strip_private(e) for e in errors]}
+        return {
+            "recorded": recorded,
+            "errors": [strip_private(e)[:ERROR_CAP] for e in errors],
+        }
 
     def _write_belief(
         self, store, entry, because, metadata, chunks, chunk_ids, recorded_at, link

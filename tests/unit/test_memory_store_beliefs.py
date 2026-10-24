@@ -587,3 +587,11 @@ def test_merge_keeps_links_with_the_winning_claim(tmp_path, monkeypatch):
         .fetchone()
     )
     assert got == ("old claim", '["old claim"]', array("f", [1.0]).tobytes())
+
+
+def test_structured_errors_are_capped(tmp_path, monkeypatch):
+    freeze(monkeypatch, T15)
+    svc = service(tmp_path)
+    out = svc.ingest("note", {"beliefs": [belief("K." + "x" * 20000)]})
+    errors = out["beliefs"]["errors"]
+    assert len(errors) == 1 and len(errors[0]) == 500

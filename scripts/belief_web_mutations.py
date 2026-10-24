@@ -434,7 +434,12 @@ MUTANTS = {
         (INGEST, "if quote and len(chunks) > 1 and not any(located):", "if False:", 1)
     ],
     "errors_unsanitized": [
-        (INGEST, "[strip_private(e) for e in errors]", "list(errors)", 1)
+        (
+            INGEST,
+            "strip_private(e)[:ERROR_CAP] for e in errors",
+            "e[:ERROR_CAP] for e in errors",
+            1,
+        )
     ],
     "beliefs_always_reported": [
         (INGEST, 'if "beliefs" in metadata or "because" in metadata:', "if True:", 1)
@@ -480,6 +485,14 @@ MUTANTS = {
         (STORE, "if takes[0]:  # the claim changed hands", "if False:", 1)
     ],
     "merge_drops_links": [(STORE, "                    links=links,\n", "", 1)],
+    "structured_errors_uncapped": [
+        (
+            INGEST,
+            "strip_private(e)[:ERROR_CAP] for e in errors",
+            "strip_private(e) for e in errors",
+            1,
+        )
+    ],
 }
 
 
