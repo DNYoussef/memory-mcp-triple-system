@@ -1,10 +1,11 @@
 """
-Mutation run for the belief web (PLAN-B section 6.5, B-PR1 and B-PR2).
+Mutation run for the belief web (PLAN-B section 6.5, B-PR1 to B-PR3).
 
 Each mutant is a temporary text edit of src/belief_web/*.py that re-creates a
 defect from the reference calculator's mutation list (belief_calc_r8.py), or
 a PR1 safeguard (validation, FK, atomicity), or a B-PR2 ingestion defect
-(memory_store beliefs/because). For each mutant the script
+(memory_store beliefs/because), or a B-PR3 inference defect
+(bayesian_inference on the belief web). For each mutant the script
 applies the edit, runs the belief web tests, restores the original bytes and
 asserts the file hash matches. Exit 0 only if the baseline passes and every
 mutant is killed (some test went red).
@@ -24,11 +25,15 @@ SOLVER = ROOT / "src" / "belief_web" / "solver.py"
 STORE = ROOT / "src" / "belief_web" / "belief_store.py"
 INGEST = ROOT / "src" / "services" / "memory_ingestion_service.py"
 ROUTER = ROOT / "src" / "mcp" / "request_router.py"
+INFER = ROOT / "src" / "belief_web" / "inference.py"
 TESTS = [
     "tests/unit/test_belief_solver.py",
     "tests/unit/test_belief_store.py",
     "tests/unit/test_memory_store_beliefs.py",
     "tests/unit/test_e2e_autocapture.py",
+    "tests/unit/test_belief_inference.py",
+    "tests/unit/test_bayesian_evidence_e2e.py",
+    "tests/unit/test_request_router_handlers.py",
 ]
 
 BELIEF_LINE = "notices += f\"\\nBeliefs: recorded {beliefs['recorded']}\""
@@ -493,6 +498,56 @@ MUTANTS = {
             1,
         )
     ],
+    # B-PR3: bayesian_inference on the belief web (6.5 rows plus safeguards)
+    "refusal_replaced_by_filter": [
+        (INFER, 'if unmatched and mode == "refuse":', "if False:", 1)
+    ],
+    "best_match_regardless_of_threshold": [
+        (
+            INFER,
+            "for k, s in matcher.rank(query) if s >= threshold]",
+            "for k, s in matcher.rank(query)]",
+            1,
+        )
+    ],
+    "non_boolean_evidence_accepted": [
+        (INFER, "if key is None or not isinstance(value, bool):", "if key is None:", 1)
+    ],
+    "evidence_alias_not_resolved": [
+        (INFER, "    key = store.resolve(name)\n", "    key = name\n", 1)
+    ],
+    "evidence_not_slugged": [
+        (INFER, "key = _resolve(store, slug(name))", "key = _resolve(store, name)", 1)
+    ],
+    "clamp_dropped": [
+        (
+            INFER,
+            "keys=[k for k, _ in matches], clamp=clamp)",
+            "keys=[k for k, _ in matches], clamp={})",
+            1,
+        )
+    ],
+    "null_vector_not_embedded": [
+        (
+            INFER,
+            "missing = [i for i, r in enumerate(rows) if r is None]",
+            "missing = []",
+            1,
+        )
+    ],
+    "named_key_ignored": [(INFER, "    if named:\n", "    if False:\n", 1)],
+    "messages_wrong_direction": [
+        (INFER, "        if v == key\n", "        if u == key\n", 1)
+    ],
+    "entropy_in_nats": [(INFER, "x * math.log2(x)", "x * math.log(x)", 1)],
+    "default_backend_belief_web": [
+        (
+            ROUTER,
+            'get("backend", "pgmpy_legacy")',
+            'get("backend", "belief_web")',
+            1,
+        )
+    ],
 }
 
 
@@ -526,7 +581,9 @@ def run_tests():
 
 
 def main():
-    originals = {p: (p.read_bytes(), sha(p)) for p in (SOLVER, STORE, INGEST, ROUTER)}
+    originals = {
+        p: (p.read_bytes(), sha(p)) for p in (SOLVER, STORE, INGEST, ROUTER, INFER)
+    }
     rc, failed, summary = run_tests()
     print(f"baseline: rc={rc} {summary}")
     if rc != 0:
