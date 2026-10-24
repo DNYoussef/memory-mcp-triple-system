@@ -25,10 +25,12 @@ import tempfile
 import time
 from pathlib import Path
 
-from src.belief_web.belief_store import BeliefStore
+from src.belief_web.belief_store import BeliefStore, parse_ts
+from src.belief_web.holes import analyze, find_holes, holes_of
 from src.belief_web.solver import solve
 
 NOW = "2026-10-14T15:00:00Z"
+NOW_DT = parse_ts(NOW)
 TYPES = ("supports", "excludes", "depends_on")
 SOURCE_TYPES = ("witnessed", "reported", "inferred", "assumed")
 
@@ -96,15 +98,27 @@ def bench_store(label, path, n, n_edges, cluster, queries=60):
     whole, sol = timed(lambda: s.solve(NOW), 3)
     rng = random.Random(5)
     picks = [rng.choice(keys) for _ in range(queries)]
-    comp = []
+    comp, infer = [], []
     for k in picks:
+        clamp = {rng.choice(keys): 7.0} if cluster == n else None
         t = time.perf_counter()
-        part = s.solve(
-            NOW, keys=[k], clamp={rng.choice(keys): 7.0} if cluster == n else None
-        )
+        part = s.solve(NOW, keys=[k], clamp=clamp)
         comp.append(time.perf_counter() - t)
+        # bayesian_inference's solve path since B-PR4: one component snapshot,
+        # one solve, then the hole predicates on that solution
+        t = time.perf_counter()
+        web = s.web(NOW_DT, keys=[k] + list(clamp or {}))
+        local, p, _ = analyze(web, NOW_DT, clamp)
+        holes_of(web, local, p, [k], 2, NOW_DT)
+        infer.append(time.perf_counter() - t)
     comp.sort()
+    infer.sort()
     p95 = comp[int(0.95 * (len(comp) - 1))]
+    ip95 = infer[int(0.95 * (len(infer) - 1))]
+    print(
+        f"{label}: inference solve+holes p50 {statistics.median(infer) * 1000:.0f} ms "
+        f"p95 {ip95 * 1000:.0f} ms"
+    )
     print(
         f"{label}: beliefs {len(sol.L)}, rules {len(sol.weights)}, load {load:.1f} s; "
         f"whole-web solve median {statistics.median(whole):.3f} s (max {max(whole):.3f}), "
@@ -112,8 +126,10 @@ def bench_store(label, path, n, n_edges, cluster, queries=60):
         f"component solve p50 {statistics.median(comp) * 1000:.0f} ms p95 {p95 * 1000:.0f} ms "
         f"(last component {len(part.L)} beliefs)"
     )
+    holes_t, _ = timed(lambda: find_holes(s, NOW_DT), 3)
+    print(f"{label}: find_holes whole web median {statistics.median(holes_t):.3f} s")
     s.close()
-    return statistics.median(whole), p95
+    return statistics.median(whole), p95, ip95, statistics.median(holes_t)
 
 
 def main():
@@ -140,10 +156,12 @@ def main():
         ),
     }
     print("targets: whole-web < 3 s, component p95 < 300 ms")
-    for name, (whole, p95) in results.items():
+    for name, (whole, p95, ip95, holes_t) in results.items():
         print(
             f"  {name:13s} whole-web {'PASS' if whole < 3 else 'MISS'} ({whole:.3f} s), "
-            f"component p95 {'PASS' if p95 < 0.3 else 'MISS'} ({p95 * 1000:.0f} ms)"
+            f"component p95 {'PASS' if p95 < 0.3 else 'MISS'} ({p95 * 1000:.0f} ms), "
+            f"inference solve+holes p95 {'PASS' if ip95 < 0.3 else 'MISS'} ({ip95 * 1000:.0f} ms), "
+            f"find_holes {'PASS' if holes_t < 3 else 'MISS'} ({holes_t:.3f} s)"
         )
 
 

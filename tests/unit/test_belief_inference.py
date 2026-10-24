@@ -453,6 +453,41 @@ def test_supplied_evidence_must_be_an_object(web, bad):
     assert is_error is True and "evidence must be an object" in payload["error"]
 
 
+def test_inference_holes_match_find_holes_on_the_component(web, monkeypatch):
+    """Sol r1 finding 5: a witnessed tie that find_holes reports as contradicted
+    came back from inference with holes []. Inference now runs the same
+    predicates on the component it solves; the entries must be identical."""
+    from src.mcp.request_router import handle_call_tool
+
+    s = store_of(web)
+    for pol, ref in ((1, "ref:a"), (-1, "ref:b")):
+        s.add_assertion("live", "k.tie", polarity=pol, source_type="witnessed",
+                        observed_at=T15, recorded_at=T15, chunk_id=ref,
+                        source_ref=ref, reliability=0.9, claim="the tie holds")  # fmt: skip
+    record(web, "k.a", "alpha holds", reliability=0.9)
+    record(web, "k.b", "beta holds", source_type="witnessed", reliability=0.8)
+    s.add_edge("live", "k.a", "k.b", "excludes", 0.5)
+    record(web, "k.far", "an unrelated belief", source_type="reported")
+    out = handle_call_tool("find_holes", {"now": T15, "limit": 200}, web)
+    whole = json.loads(out["content"][0]["text"])["holes"]
+
+    real, scopes = BeliefStore.web, []
+
+    def spy(self, now, keys=None):
+        scopes.append(None if keys is None else sorted(keys))
+        return real(self, now, keys=keys)
+
+    monkeypatch.setattr(BeliefStore, "web", spy)
+    for key in ("k.tie", "k.a"):
+        payload, is_error = ask(web, query=key)
+        assert is_error is False
+        mine = payload["results"][key]["holes"]
+        want = [h for h in whole if key in (h.get("key"), *h.get("keys", ()))]
+        assert mine == want and mine
+    assert {h["hole"] for h in mine} == {"contradicted_pair"}
+    assert scopes == [["k.tie"], ["k.a"]]  # one component snapshot per call
+
+
 def test_omitted_or_null_evidence_is_none(web):
     pilot_web(web)
     for arguments in ({}, {"evidence": None}):

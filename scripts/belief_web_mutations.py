@@ -525,8 +525,8 @@ MUTANTS = {
     "clamp_dropped": [
         (
             INFER,
-            "keys=[k for k, _ in matches], clamp=clamp)",
-            "keys=[k for k, _ in matches], clamp={})",
+            "local, p, sol = analyze(web, now, clamp)",
+            "local, p, sol = analyze(web, now, {})",
             1,
         )
     ],
@@ -723,6 +723,22 @@ MUTANTS = {
             HOLES,
             "while page and len(json.dumps(page, default=str)) > MAX_BYTES:",
             "while False:",
+            1,
+        )
+    ],
+    "inference_holes_empty": [
+        (
+            INFER,
+            '"holes": [h for h in holes if key in (h.get("key"), *h.get("keys", ()))],',
+            '"holes": [],',
+            1,
+        )
+    ],
+    "inference_reads_whole_web": [
+        (
+            INFER,
+            "web = store.web(now, keys=keys + list(clamp))",
+            "web = store.web(now)",
             1,
         )
     ],
