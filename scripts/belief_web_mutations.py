@@ -569,14 +569,15 @@ def run_tests():
         ],
         cwd=ROOT,
         capture_output=True,
-        text=True,
+        # decode as UTF-8 whatever the console code page: the embedder's
+        # libraries print non-ASCII, and a locale decode failure left
+        # stdout None and crashed the run
+        encoding="utf-8",
+        errors="replace",
     )
-    failed = sorted(set(re.findall(r"^(?:FAILED|ERROR) (\S+)", proc.stdout, re.M)))
-    summary = (
-        proc.stdout.strip().splitlines()[-1]
-        if proc.stdout.strip()
-        else proc.stderr[-200:]
-    )
+    stdout, stderr = proc.stdout or "", proc.stderr or ""
+    failed = sorted(set(re.findall(r"^(?:FAILED|ERROR) (\S+)", stdout, re.M)))
+    summary = stdout.strip().splitlines()[-1] if stdout.strip() else stderr[-200:]
     return proc.returncode, failed, summary
 
 
