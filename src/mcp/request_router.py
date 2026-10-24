@@ -291,9 +291,7 @@ def _get_ingestion_service(tool: "NexusSearchTool"):
         event_log=getattr(tool, "event_log", None),
         chunker=getattr(vector_tool, "chunker", None),
         kv_store=getattr(tool, "kv_store", None),
-        beliefs_enabled=(getattr(tool, "config", None) or {})
-        .get("belief_web", {})
-        .get("ingest", True),
+        beliefs_enabled=_belief_web_config(tool).get("ingest", True),
     )
     setattr(tool, "_ingestion_service", service)
     return service
@@ -509,6 +507,12 @@ def handle_bayesian_inference(
     arguments: Dict[str, Any], tool: "NexusSearchTool"
 ) -> Dict[str, Any]:
     """Handle bayesian_inference - Probabilistic inference."""
+    backend = _belief_web_config(tool).get("backend", "pgmpy_legacy")
+    if backend == "belief_web":
+        return _handle_belief_web_inference(arguments, tool)
+    if backend != "pgmpy_legacy":
+        return _text_result(f"Unknown belief_web.backend {backend!r}", True)
+
     query = arguments.get("query", "")
     evidence = arguments.get("evidence")
 
@@ -584,6 +588,15 @@ def handle_bayesian_inference(
                 "isError": True,
             }
 
+        # Evidence is a trust boundary: pgmpy raises on a key that is not a
+        # network node or a value that is not one of the node's state names
+        # ("true"/"false"), and that exception used to surface as a bare
+        # "no result". Keep only node keys, coerce values to state names, and
+        # report what was dropped so the caller can see why.
+        ignored = sorted(k for k in (evidence or {}) if k not in nodes)
+        evidence = {
+            k: str(v).lower() for k, v in (evidence or {}).items() if k in nodes
+        }
         result = tool.nexus_processor.probabilistic_query_engine.query_conditional(
             network=network, query_vars=[node_var], evidence=evidence
         )
@@ -596,7 +609,53 @@ def handle_bayesian_inference(
             "No Bayesian inference available (inference returned no result)", True
         )
 
+    if ignored:
+        result = {**result, "ignored_evidence": ignored}
     return _text_result(json.dumps(result, default=str))
+
+
+def _belief_web_config(tool: "NexusSearchTool") -> Dict[str, Any]:
+    """The belief_web config section; absent or not a mapping means defaults."""
+    config = getattr(tool, "config", None)
+    section = config.get("belief_web") if isinstance(config, dict) else None
+    return section if isinstance(section, dict) else {}
+
+
+def _belief_reader(tool: "NexusSearchTool"):
+    """A read-only BeliefStore next to the KV store (agent_kv.db), or None while
+    no writer has created the belief tables yet. A read never creates them."""
+    reader = getattr(tool, "__dict__", {}).get("_belief_reader")
+    if reader is not None:
+        return reader
+    from ..belief_web.belief_store import BeliefStore
+
+    path = getattr(getattr(tool, "kv_store", None), "db_path", None)
+    if path is None:
+        raise RuntimeError("no belief store (KV store path unknown)")
+    reader = BeliefStore(str(path), readonly=True)
+    if not reader.has_schema():
+        reader.close()
+        return None
+    setattr(tool, "_belief_reader", reader)
+    return reader
+
+
+def _handle_belief_web_inference(
+    arguments: Dict[str, Any], tool: "NexusSearchTool"
+) -> Dict[str, Any]:
+    """bayesian_inference on the belief web (PLAN-B section 5.1), read-only."""
+    from ..belief_web.inference import MATCH_THRESHOLD, infer
+
+    threshold = _belief_web_config(tool).get("match_threshold", MATCH_THRESHOLD)
+    try:
+        store = _belief_reader(tool)
+        payload, is_error = infer(
+            arguments, store, tool.vector_search_tool.embedder, threshold
+        )
+    except Exception as exc:
+        logger.error(f"Belief web inference failed: {exc}")
+        return _text_result(f"Bayesian inference failed: {exc}", True)
+    return _text_result(json.dumps(payload, default=str), is_error)
 
 
 def handle_unified_search(

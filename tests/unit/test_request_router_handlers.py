@@ -191,3 +191,50 @@ def test_entity_extraction_without_spacy_uses_regex_fallback():
     )
     assert out["isError"] is False
     assert "Tim Cook" in out["content"][0]["text"]
+
+
+# ---- evidence validation (2026-09-06) ----
+
+
+def _tool_with_net(nodes):
+    tool = MagicMock()
+    tool.nexus_processor._extract_query_entity.return_value = "guardspine"
+    net = MagicMock()
+    net.nodes.return_value = nodes
+    tool._build_bayesian_network.return_value = net
+    tool.nexus_processor.probabilistic_query_engine.query_conditional.return_value = {
+        "results": {"guardspine": {"probabilities": {"true": 0.5, "false": 0.5}}}
+    }
+    return tool
+
+
+def test_bayesian_inference_filters_unknown_evidence_and_coerces_bools():
+    """Evidence keys that are not network nodes must be dropped (pgmpy raises
+    on them and the handler used to report 'no result'); bool values must be
+    coerced to the 'true'/'false' state names the builder uses."""
+    tool = _tool_with_net(["guardspine", "igor"])
+    result = handle_bayesian_inference(
+        {"query": "GuardSpine", "evidence": {"not_a_node": True, "igor": True}}, tool
+    )
+    assert result["isError"] is False, result["content"][0]["text"]
+    (
+        _,
+        kwargs,
+    ) = tool.nexus_processor.probabilistic_query_engine.query_conditional.call_args
+    assert kwargs["evidence"] == {"igor": "true"}
+    assert '"ignored_evidence": ["not_a_node"]' in result["content"][0]["text"]
+
+
+def test_bayesian_inference_keeps_valid_string_evidence():
+    """Positive control: the filter must not drop evidence that IS a node."""
+    tool = _tool_with_net(["guardspine", "igor"])
+    result = handle_bayesian_inference(
+        {"query": "GuardSpine", "evidence": {"igor": "false"}}, tool
+    )
+    assert result["isError"] is False
+    (
+        _,
+        kwargs,
+    ) = tool.nexus_processor.probabilistic_query_engine.query_conditional.call_args
+    assert kwargs["evidence"] == {"igor": "false"}
+    assert "ignored_evidence" not in result["content"][0]["text"]

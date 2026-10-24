@@ -1,10 +1,11 @@
 """
-Mutation run for the belief web (PLAN-B section 6.5, B-PR1 and B-PR2).
+Mutation run for the belief web (PLAN-B section 6.5, B-PR1 to B-PR3).
 
 Each mutant is a temporary text edit of src/belief_web/*.py that re-creates a
 defect from the reference calculator's mutation list (belief_calc_r8.py), or
 a PR1 safeguard (validation, FK, atomicity), or a B-PR2 ingestion defect
-(memory_store beliefs/because). For each mutant the script
+(memory_store beliefs/because), or a B-PR3 inference defect
+(bayesian_inference on the belief web). For each mutant the script
 applies the edit, runs the belief web tests, restores the original bytes and
 asserts the file hash matches. Exit 0 only if the baseline passes and every
 mutant is killed (some test went red).
@@ -24,11 +25,15 @@ SOLVER = ROOT / "src" / "belief_web" / "solver.py"
 STORE = ROOT / "src" / "belief_web" / "belief_store.py"
 INGEST = ROOT / "src" / "services" / "memory_ingestion_service.py"
 ROUTER = ROOT / "src" / "mcp" / "request_router.py"
+INFER = ROOT / "src" / "belief_web" / "inference.py"
 TESTS = [
     "tests/unit/test_belief_solver.py",
     "tests/unit/test_belief_store.py",
     "tests/unit/test_memory_store_beliefs.py",
     "tests/unit/test_e2e_autocapture.py",
+    "tests/unit/test_belief_inference.py",
+    "tests/unit/test_bayesian_evidence_e2e.py",
+    "tests/unit/test_request_router_handlers.py",
 ]
 
 BELIEF_LINE = "notices += f\"\\nBeliefs: recorded {beliefs['recorded']}\""
@@ -493,6 +498,77 @@ MUTANTS = {
             1,
         )
     ],
+    # B-PR3: bayesian_inference on the belief web (6.5 rows plus safeguards)
+    "refusal_replaced_by_filter": [
+        (INFER, 'if unmatched and mode == "refuse":', "if False:", 1)
+    ],
+    "best_match_regardless_of_threshold": [
+        (
+            INFER,
+            "for k, s in matcher.rank(query) if s >= threshold]",
+            "for k, s in matcher.rank(query)]",
+            1,
+        )
+    ],
+    "non_boolean_evidence_accepted": [
+        (INFER, "if key is None or not isinstance(value, bool):", "if key is None:", 1)
+    ],
+    "evidence_alias_not_resolved": [
+        (INFER, "    key = store.resolve(name)\n", "    key = name\n", 1)
+    ],
+    "evidence_not_slugged": [
+        (INFER, "key = _resolve(store, slug(name))", "key = _resolve(store, name)", 1)
+    ],
+    "clamp_dropped": [
+        (
+            INFER,
+            "keys=[k for k, _ in matches], clamp=clamp)",
+            "keys=[k for k, _ in matches], clamp={})",
+            1,
+        )
+    ],
+    "null_vector_not_embedded": [
+        (
+            INFER,
+            "missing = [i for i, r in enumerate(rows) if r is None]",
+            "missing = []",
+            1,
+        )
+    ],
+    "named_key_ignored": [(INFER, "    if named:\n", "    if False:\n", 1)],
+    "messages_wrong_direction": [
+        (INFER, "        if v == key\n", "        if u == key\n", 1)
+    ],
+    "entropy_in_nats": [(INFER, "x * math.log2(x)", "x * math.log(x)", 1)],
+    "default_backend_belief_web": [
+        (
+            ROUTER,
+            'get("backend", "pgmpy_legacy")',
+            'get("backend", "belief_web")',
+            1,
+        )
+    ],
+    # B-PR3 review r1 fixes: each mutant re-creates the reported defect
+    "inference_reads_through_writer": [
+        (
+            ROUTER,
+            "store = _belief_reader(tool)",
+            "store = _get_ingestion_service(tool)._beliefs()",
+            1,
+        )
+    ],
+    "reader_allows_writes": [(STORE, 'c.execute("PRAGMA query_only=ON")', "pass", 1)],
+    "conflicting_evidence_overwrites": [
+        (INFER, "    if conflicts:\n", "    if False:\n", 1)
+    ],
+    "falsy_evidence_defaulted": [
+        (
+            INFER,
+            "evidence = {} if evidence is None else evidence",
+            "evidence = evidence or {}",
+            1,
+        )
+    ],
 }
 
 
@@ -514,19 +590,27 @@ def run_tests():
         ],
         cwd=ROOT,
         capture_output=True,
-        text=True,
+        # decode as UTF-8 whatever the console code page: the embedder's
+        # libraries print non-ASCII, and a locale decode failure left
+        # stdout None and crashed the run
+        encoding="utf-8",
+        errors="replace",
     )
-    failed = sorted(set(re.findall(r"^(?:FAILED|ERROR) (\S+)", proc.stdout, re.M)))
-    summary = (
-        proc.stdout.strip().splitlines()[-1]
-        if proc.stdout.strip()
-        else proc.stderr[-200:]
-    )
+    stdout, stderr = proc.stdout or "", proc.stderr or ""
+    failed = sorted(set(re.findall(r"^(?:FAILED|ERROR) (\S+)", stdout, re.M)))
+    summary = stdout.strip().splitlines()[-1] if stdout.strip() else stderr[-200:]
     return proc.returncode, failed, summary
 
 
-def main():
-    originals = {p: (p.read_bytes(), sha(p)) for p in (SOLVER, STORE, INGEST, ROUTER)}
+def main(argv):
+    """argv[0], optional, is a slice START:END of the mutant list, so a long run
+    can be split into shorter ones; the control runs in every slice."""
+    start, _, end = (argv[0] if argv else ":").partition(":")
+    names = list(MUTANTS)[int(start or 0) : int(end) if end else None]
+    mutants = {n: MUTANTS[n] for n in names}
+    originals = {
+        p: (p.read_bytes(), sha(p)) for p in (SOLVER, STORE, INGEST, ROUTER, INFER)
+    }
     rc, failed, summary = run_tests()
     print(f"baseline: rc={rc} {summary}")
     if rc != 0:
@@ -538,7 +622,7 @@ def main():
         ]
     }
     survived = []
-    for name, edits in {**control, **MUTANTS}.items():
+    for name, edits in {**control, **mutants}.items():
         try:
             for path, old, new, count in edits:
                 text = path.read_text(encoding="utf-8")
@@ -572,9 +656,10 @@ def main():
     if survived:
         print("SURVIVING MUTATIONS: " + ", ".join(survived))
         return 1
-    print(f"ALL {len(MUTANTS)} MUTATIONS KILLED")
+    total = "" if len(mutants) == len(MUTANTS) else f" (of {len(MUTANTS)})"
+    print(f"ALL {len(mutants)} MUTATIONS KILLED{total}")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

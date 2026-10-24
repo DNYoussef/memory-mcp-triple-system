@@ -250,6 +250,24 @@ def _bayesian_inference_tool() -> Dict[str, Any]:
             "properties": {
                 "query": {"type": "string", "description": "Query text"},
                 "evidence": {"type": "object", "description": "Evidence mapping"},
+                "unknown_evidence": {
+                    "type": "string",
+                    "enum": ["refuse", "drop"],
+                    "description": (
+                        "belief_web backend: refuse (default) errors on an evidence key "
+                        "that is not a known belief or a value that is not true/false; "
+                        "drop skips them and lists them in ignored_evidence"
+                    ),
+                },
+                "top_k": {
+                    "type": "integer",
+                    "description": "belief_web backend: beliefs to answer (1-20)",
+                    "default": 3,
+                },
+                "now": {
+                    "type": "string",
+                    "description": "belief_web backend: ISO time to evaluate at (tests and replay)",
+                },
             },
             "required": ["query"],
         },
