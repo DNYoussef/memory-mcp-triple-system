@@ -749,30 +749,49 @@ def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+TIMEOUT = 900  # seconds per pytest run; a hang is an ERROR, never a kill
+
+
 def run_tests():
-    proc = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pytest",
-            "-q",
-            "-p",
-            "no:cacheprovider",
-            "--no-cov",
-            *TESTS,
-        ],
-        cwd=ROOT,
-        capture_output=True,
-        # decode as UTF-8 whatever the console code page: the embedder's
-        # libraries print non-ASCII, and a locale decode failure left
-        # stdout None and crashed the run
-        encoding="utf-8",
-        errors="replace",
-    )
+    """(outcome, failed test names, summary). KILLED needs what a real test
+    failure produces: exit code 1, an "N failed" summary and FAILED lines.
+    A collection error, crash, timeout or any other exit is ERROR; exit 0 is
+    SURVIVED."""
+    try:
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "-q",
+                "-p",
+                "no:cacheprovider",
+                "--no-cov",
+                *TESTS,
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            # decode as UTF-8 whatever the console code page: the embedder's
+            # libraries print non-ASCII, and a locale decode failure left
+            # stdout None and crashed the run
+            encoding="utf-8",
+            errors="replace",
+            timeout=TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        return "ERROR", [], f"timeout after {TIMEOUT} s"
     stdout, stderr = proc.stdout or "", proc.stderr or ""
-    failed = sorted(set(re.findall(r"^(?:FAILED|ERROR) (\S+)", stdout, re.M)))
-    summary = stdout.strip().splitlines()[-1] if stdout.strip() else stderr[-200:]
-    return proc.returncode, failed, summary
+    failed = sorted(set(re.findall(r"^FAILED (\S+)", stdout, re.M)))
+    lines = stdout.strip().splitlines()
+    summary = lines[-1] if lines else stderr.strip()[-200:]
+    if proc.returncode == 0:
+        outcome = "SURVIVED"
+    elif proc.returncode == 1 and failed and re.search(r"\b\d+ failed\b", summary):
+        outcome = "KILLED"
+    else:
+        outcome = "ERROR"
+        summary = f"rc={proc.returncode} {summary}"
+    return outcome, failed, summary
 
 
 def main(argv):
@@ -785,17 +804,34 @@ def main(argv):
         p: (p.read_bytes(), sha(p))
         for p in (SOLVER, STORE, INGEST, ROUTER, INFER, HOLES)
     }
-    rc, failed, summary = run_tests()
-    print(f"baseline: rc={rc} {summary}")
-    if rc != 0:
+    outcome, failed, summary = run_tests()
+    print(f"baseline: {outcome} {summary}")
+    if outcome != "SURVIVED":
         return 1
-    # known-inert control: a comment edit must SURVIVE, or the harness cannot tell
+    # controls with a known outcome: an inert edit must SURVIVE, and edits that
+    # crash pytest or break collection must be ERROR, never counted as kills
     control = {
         "control_inert_comment": [
             (SOLVER, "K = 2.0  # message gain", "K = 2.0  # gain (control)", 1)
-        ]
+        ],
+        "control_process_crash": [
+            (
+                SOLVER,
+                "K = 2.0  # message gain",
+                "K = 2.0  # message gain\nimport os\nos._exit(3)",
+                1,
+            )
+        ],
+        "control_collection_error": [
+            (SOLVER, "K = 2.0  # message gain", "K = 2.0 +  # syntax error", 1)
+        ],
     }
-    survived = []
+    expected = {
+        "control_inert_comment": "SURVIVED",
+        "control_process_crash": "ERROR",
+        "control_collection_error": "ERROR",
+    }
+    survived, errors = [], []
     for name, edits in {**control, **mutants}.items():
         try:
             for path, old, new, count in edits:
@@ -805,30 +841,32 @@ def main(argv):
                         f"{name}: anchor count {text.count(old)} != {count} in {path.name}"
                     )
                 path.write_text(text.replace(old, new), encoding="utf-8", newline="\n")
-            rc, failed, summary = run_tests()
+            outcome, failed, summary = run_tests()
         finally:
             for path, (data, digest) in originals.items():
                 path.write_bytes(data)
                 assert sha(path) == digest, f"{path} not restored"
-        killed = rc != 0
         shown = ", ".join(f.split("::")[-1] for f in failed[:4]) + (
             f" (+{len(failed) - 4})" if len(failed) > 4 else ""
         )
-        print(
-            f"mutation {name:26s} -> {'KILLED' if killed else 'SURVIVED'}: {shown or summary}"
-        )
+        print(f"mutation {name:26s} -> {outcome}: {shown or summary}")
         if name in control:
-            if killed:
-                print("CONTROL KILLED: the harness reports kills for inert edits")
+            if outcome != expected[name]:
+                print(f"CONTROL {name} gave {outcome}, want {expected[name]}")
                 return 1
-        elif not killed:
+        elif outcome == "SURVIVED":
             survived.append(name)
+        elif outcome == "ERROR":
+            errors.append(name)
     print(
         "hashes restored: "
         + ", ".join(f"{p.name} {d[:12]}" for p, (_, d) in originals.items())
     )
     if survived:
         print("SURVIVING MUTATIONS: " + ", ".join(survived))
+    if errors:
+        print("ERRORED MUTATIONS (not kills): " + ", ".join(errors))
+    if survived or errors:
         return 1
     total = "" if len(mutants) == len(MUTANTS) else f" (of {len(MUTANTS)})"
     print(f"ALL {len(mutants)} MUTATIONS KILLED{total}")
