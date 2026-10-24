@@ -505,6 +505,35 @@ class BeliefStore:
                 (origin, s, d, type, w, _now_stamp()),
             )
 
+    def link(
+        self,
+        origin: str,
+        key: str,
+        claim: str,
+        project: Optional[str] = None,
+        entities: Optional[str] = None,
+        claim_vec: Optional[bytes] = None,
+        vec_model: Optional[str] = None,
+    ) -> None:
+        """Fill the claim-derived columns of (origin, key) while its stored claim
+        is `claim` (section 4.1 linking). Never overwrites: a claim that lost to
+        an earlier one does not lend that row its vector."""
+        with self.batch() as c:
+            c.execute(
+                "UPDATE beliefs SET project=COALESCE(project, ?), entities=COALESCE(entities, ?), "
+                "claim_vec=COALESCE(claim_vec, ?), vec_model=COALESCE(vec_model, ?) "
+                "WHERE origin=? AND key=? AND claim=?",
+                (
+                    project,
+                    entities,
+                    claim_vec,
+                    vec_model,
+                    origin,
+                    self.resolve(key),
+                    claim,
+                ),
+            )
+
     def merge(self, old: str, new: str, merge_id: str) -> None:
         """Merge belief `old` into `new` in one transaction (section 4.4).
         Every moved row keeps its origin, seq and full evidence tuple."""
