@@ -283,6 +283,7 @@ def get_ingestion_service():
                     event_log=get_event_log(),
                     chunker=chunker,
                     kv_store=get_kv_store(),
+                    beliefs_enabled=config.get("belief_web", {}).get("ingest", True),
                 )
                 logger.info("MemoryIngestionService initialized")
     return _ingestion_service

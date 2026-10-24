@@ -132,6 +132,76 @@ def _memory_store_tool() -> Dict[str, Any]:
                             "type": "string",
                             "description": "Why this is stored (the reason or decision rationale)",
                         },
+                        "beliefs": {
+                            "type": "array",
+                            "description": (
+                                "Optional claims this memory bears on. Each is recorded as "
+                                "evidence in the belief web; the reply says 'Beliefs: recorded N' "
+                                "and lists rejected entries."
+                            ),
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "key": {
+                                        "type": "string",
+                                        "description": "Stable claim key, e.g. nick.price_sheet.sent",
+                                    },
+                                    "claim": {
+                                        "type": "string",
+                                        "description": "Positive form of the claim; required for a new key",
+                                    },
+                                    "value": {
+                                        "type": "boolean",
+                                        "description": "true supports the claim, false denies it",
+                                    },
+                                    "source_type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "witnessed",
+                                            "reported",
+                                            "inferred",
+                                            "assumed",
+                                        ],
+                                    },
+                                    "observed_at": {
+                                        "type": "string",
+                                        "description": "ISO time the fact was observed (default: now)",
+                                    },
+                                    "kind": {
+                                        "type": "string",
+                                        "enum": ["state", "plan", "fact"],
+                                    },
+                                    "quote": {
+                                        "type": "string",
+                                        "description": "Text that locates the claim in a long memory",
+                                    },
+                                    "source_ref": {
+                                        "type": "string",
+                                        "description": "External event id, e.g. gmail:sent:<msgid> or git:<sha>",
+                                    },
+                                    "reliability": {"type": "number"},
+                                    "half_life_days": {"type": "number"},
+                                    "supports": {
+                                        "type": "array",
+                                        "items": {"type": "string"},
+                                    },
+                                    "excludes": {
+                                        "type": "array",
+                                        "items": {"type": "string"},
+                                    },
+                                    "depends_on": {
+                                        "type": "array",
+                                        "items": {"type": "string"},
+                                    },
+                                },
+                                "required": ["key", "value", "source_type"],
+                            },
+                        },
+                        "because": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Belief keys every belief in this memory depends on",
+                        },
                     },
                 },
             },

@@ -336,6 +336,7 @@ class BeliefStore:
         prior_logit=None,
         seq=None,
         aseq=None,
+        links=None,
     ):
         """Ensure (origin, key) and merge attributes into it (section 2.2).
 
@@ -345,8 +346,13 @@ class BeliefStore:
         get a new (later) seq, so ordinary writes fill NULLs and never
         overwrite. A merge passes the moved row's seqs. The row seq is the min
         of both: existence order only, it never decides an attribute.
+
+        `links` (project, entities, claim_vec, vec_model) belong to the claim:
+        when the claim changes hands they come with it (a merge passes the moved
+        row's), or are cleared, so a claim never keeps another claim's vector.
         """
         inc = (claim, kind, half_life_days, prior_logit)
+        links = links or (None, None, None, None)
         row = c.execute(
             "SELECT seq, claim, kind, half_life_days, prior_logit, claim_seq, kind_seq, hl_seq, "
             "prior_seq FROM beliefs WHERE origin=? AND key=?",
@@ -359,21 +365,29 @@ class BeliefStore:
         if row is None:
             c.execute(
                 "INSERT INTO beliefs(origin, key, claim, kind, half_life_days, prior_logit, seq, "
-                "claim_seq, kind_seq, hl_seq, prior_seq, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
-                (origin, key, *inc, seq, *aseq, _now_stamp()),
+                "claim_seq, kind_seq, hl_seq, prior_seq, project, entities, claim_vec, vec_model, "
+                "created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (origin, key, *inc, seq, *aseq, *links, _now_stamp()),
             )
             return
-        vals, seqs = [], []
+        vals, seqs, takes = [], [], []
         for cur, cur_seq, new, new_seq in zip(row[1:5], row[5:9], inc, aseq):
             take = new is not None and (cur is None or new_seq < cur_seq)
             vals.append(new if take else cur)
             seqs.append(new_seq if take else cur_seq)
+            takes.append(take)
         row_seq = min(row[0], seq) if seq is not None else row[0]
         c.execute(
             "UPDATE beliefs SET claim=?, kind=?, half_life_days=?, prior_logit=?, seq=?, claim_seq=?, "
             "kind_seq=?, hl_seq=?, prior_seq=? WHERE origin=? AND key=?",
             (*vals, row_seq, *seqs, origin, key),
         )
+        if takes[0]:  # the claim changed hands
+            c.execute(
+                "UPDATE beliefs SET project=?, entities=?, claim_vec=?, vec_model=? "
+                "WHERE origin=? AND key=?",
+                (*links, origin, key),
+            )
 
     def resolve(self, name: str) -> str:
         """alias -> key. Aliases and keys are disjoint, so one hop is enough."""
@@ -412,7 +426,7 @@ class BeliefStore:
         validate_key(key)
         if isinstance(polarity, bool) or polarity not in (-1, 1):
             raise BeliefValidationError(f"polarity must be -1 or 1, got {polarity!r}")
-        if source_type not in RELIABILITY_DEFAULT:
+        if not isinstance(source_type, str) or source_type not in RELIABILITY_DEFAULT:
             raise BeliefValidationError(f"bad source_type {source_type!r}")
         r = RELIABILITY_DEFAULT[source_type] if reliability is None else reliability
         r = _number("reliability", r, 0.5, 1.0, True, True)
@@ -505,6 +519,35 @@ class BeliefStore:
                 (origin, s, d, type, w, _now_stamp()),
             )
 
+    def link(
+        self,
+        origin: str,
+        key: str,
+        claim: str,
+        project: Optional[str] = None,
+        entities: Optional[str] = None,
+        claim_vec: Optional[bytes] = None,
+        vec_model: Optional[str] = None,
+    ) -> None:
+        """Fill the claim-derived columns of (origin, key) while its stored claim
+        is `claim` (section 4.1 linking). Never overwrites: a claim that lost to
+        an earlier one does not lend that row its vector."""
+        with self.batch() as c:
+            c.execute(
+                "UPDATE beliefs SET project=COALESCE(project, ?), entities=COALESCE(entities, ?), "
+                "claim_vec=COALESCE(claim_vec, ?), vec_model=COALESCE(vec_model, ?) "
+                "WHERE origin=? AND key=? AND claim=?",
+                (
+                    project,
+                    entities,
+                    claim_vec,
+                    vec_model,
+                    origin,
+                    self.resolve(key),
+                    claim,
+                ),
+            )
+
     def merge(self, old: str, new: str, merge_id: str) -> None:
         """Merge belief `old` into `new` in one transaction (section 4.4).
         Every moved row keeps its origin, seq and full evidence tuple."""
@@ -528,12 +571,23 @@ class BeliefStore:
             # 0. refuse before any write
             reduce_edges(self._effective_edges(c, rename={old: new}))
             # 1. beliefs, per origin, with the moved row's attribute seqs
-            for o, cl, kd, hl, pr, sq, cs, ks, hs, ps in c.execute(
+            for o, cl, kd, hl, pr, sq, cs, ks, hs, ps, *links in c.execute(
                 "SELECT origin, claim, kind, half_life_days, prior_logit, seq, claim_seq, kind_seq, "
-                "hl_seq, prior_seq FROM beliefs WHERE key=?",
+                "hl_seq, prior_seq, project, entities, claim_vec, vec_model FROM beliefs WHERE key=?",
                 (old,),
             ).fetchall():
-                self._belief(c, o, new, cl, kd, hl, pr, seq=sq, aseq=(cs, ks, hs, ps))
+                self._belief(
+                    c,
+                    o,
+                    new,
+                    cl,
+                    kd,
+                    hl,
+                    pr,
+                    seq=sq,
+                    aseq=(cs, ks, hs, ps),
+                    links=links,
+                )
             # 2a. identical full tuples: the lower seq survives, located = max
             where = " AND ".join(f"{col}=?" for col in TUPLE_COLS)
             for aid, loc, sq, *tup in c.execute(

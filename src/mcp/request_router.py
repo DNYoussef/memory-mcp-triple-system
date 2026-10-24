@@ -246,8 +246,14 @@ def handle_memory_store(
         chunk_info = f"Chunks: {', '.join(result.get('chunk_ids', []))}"
         notices = f"\nAuto-filled: {', '.join(filled)}" if filled else ""
         notices += "".join(f"\nWarning: {w}" for w in result.get("warnings", []))
+        # Belief lines come after lane A's lines, and only when beliefs were given.
+        beliefs = result.get("beliefs")
+        if beliefs is not None:
+            notices += f"\nBeliefs: recorded {beliefs['recorded']}"
+            if beliefs["errors"]:
+                notices += f"\nBelief errors: {'; '.join(beliefs['errors'])[:500]}"
 
-        return {
+        response = {
             "content": [
                 {
                     "type": "text",
@@ -257,6 +263,10 @@ def handle_memory_store(
             "isError": False,
             "tags_auto_filled": missing if not is_valid else [],
         }
+        if beliefs is not None:
+            response["beliefs_recorded"] = beliefs["recorded"]
+            response["belief_errors"] = beliefs["errors"]
+        return response
 
     except Exception as e:
         return _text_result(f"Memory store error: {e}", True)
@@ -281,6 +291,9 @@ def _get_ingestion_service(tool: "NexusSearchTool"):
         event_log=getattr(tool, "event_log", None),
         chunker=getattr(vector_tool, "chunker", None),
         kv_store=getattr(tool, "kv_store", None),
+        beliefs_enabled=(getattr(tool, "config", None) or {})
+        .get("belief_web", {})
+        .get("ingest", True),
     )
     setattr(tool, "_ingestion_service", service)
     return service
