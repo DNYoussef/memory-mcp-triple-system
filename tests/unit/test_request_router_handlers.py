@@ -140,3 +140,54 @@ def test_bayesian_inference_empty_entity_is_handled():
 
     assert result["isError"] is True
     assert "entity" in result["content"][0]["text"].lower()
+
+
+# ---- A5: beads priority P0 ----
+
+
+def _beads_tool():
+    from src.integrations.beads_bridge import BeadTask
+
+    tasks = [
+        BeadTask("mem-vrn", "GuardSpine: ship", "open", 0, "task"),
+        BeadTask("mem-x", "other", "open", 2, "task"),
+    ]
+
+    async def _tasks(**_kw):
+        return tasks
+
+    tool = MagicMock()
+    tool.beads_bridge.get_ready_tasks = _tasks
+    tool.beads_bridge.query_tasks = _tasks
+    return tool
+
+
+def test_beads_handlers_print_p0_priority():
+    from src.mcp.request_router import (
+        handle_beads_query_tasks,
+        handle_beads_ready_tasks,
+    )
+
+    for handler in (handle_beads_ready_tasks, handle_beads_query_tasks):
+        text = handler({}, _beads_tool())["content"][0]["text"]
+        assert "[mem-vrn] P0 " in text
+        assert "[mem-x] P2 " in text
+
+
+# ---- A2: entity_extraction without spaCy ----
+
+
+def test_entity_extraction_without_spacy_uses_regex_fallback():
+    from types import SimpleNamespace
+
+    from src.mcp.request_router import handle_entity_extraction
+    from src.services.entity_service import EntityService
+
+    svc = EntityService.__new__(EntityService)
+    svc.nlp = None
+    out = handle_entity_extraction(
+        {"text": "Apple hired Tim Cook in California"},
+        SimpleNamespace(entity_service=svc),
+    )
+    assert out["isError"] is False
+    assert "Tim Cook" in out["content"][0]["text"]

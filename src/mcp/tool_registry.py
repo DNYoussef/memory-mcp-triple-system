@@ -112,7 +112,28 @@ def _memory_store_tool() -> Dict[str, Any]:
             "type": "object",
             "properties": {
                 "text": {"type": "string", "description": "Content to store"},
-                "metadata": {"type": "object", "description": "Optional metadata"},
+                "metadata": {
+                    "type": "object",
+                    "description": "Optional metadata. Missing who/when/project/why are auto-filled and reported.",
+                    "properties": {
+                        "who": {
+                            "type": "string",
+                            "description": "Agent or person storing this",
+                        },
+                        "when": {
+                            "type": "string",
+                            "description": "ISO timestamp the fact refers to",
+                        },
+                        "project": {
+                            "type": "string",
+                            "description": "Project this memory belongs to",
+                        },
+                        "why": {
+                            "type": "string",
+                            "description": "Why this is stored (the reason or decision rationale)",
+                        },
+                    },
+                },
             },
             "required": ["text"],
         },
@@ -182,7 +203,7 @@ def _entity_extraction_tool() -> Dict[str, Any]:
                     "type": "array",
                     "items": {"type": "string"},
                     "description": "Entity types to extract (e.g., PERSON, ORG, CONCEPT)",
-                    "default": ["PERSON", "ORG", "GPE", "CONCEPT"],
+                    "default": ["PERSON", "ORG", "GPE", "PRODUCT", "LAW", "CONCEPT"],
                 },
             },
             "required": ["text"],
@@ -345,7 +366,7 @@ def _observation_timeline_tool() -> Dict[str, Any]:
                 "project": {"type": "string", "description": "Filter by project name"},
                 "obs_type": {
                     "type": "string",
-                    "description": "Filter by type: tool_use, code_change, error, decision, discovery, conversation",
+                    "description": "Filter by type: tool_use, code_change, error, decision, discovery, conversation. decision comes from a successful memory_store with metadata type=decision; conversation is not captured.",
                     "enum": [
                         "tool_use",
                         "code_change",

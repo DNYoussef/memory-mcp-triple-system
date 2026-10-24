@@ -1,0 +1,11 @@
+{"label": "ORG", "pattern": "GuardSpine"}
+{"label": "ORG", "pattern": "Paperclip"}
+{"label": "ORG", "pattern": "GlobalMOO"}
+{"label": "ORG", "pattern": "WeRAI"}
+{"label": "ORG", "pattern": "Proprioceptive AI"}
+{"label": "ORG", "pattern": "Anthropic"}
+{"label": "PRODUCT", "pattern": "Lean 4"}
+{"label": "PRODUCT", "pattern": "n8n"}
+{"label": "PRODUCT", "pattern": "LiteLLM"}
+{"label": "PERSON", "pattern": "Logan"}
+{"label": "LAW", "pattern": "EU AI Act"}

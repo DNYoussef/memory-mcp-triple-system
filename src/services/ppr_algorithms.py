@@ -172,7 +172,9 @@ class PPRAlgorithmsMixin:
 
     def _create_personalization_vector(self, nodes: List[str]) -> Dict[str, float]:
         """
-        Create uniform personalization vector over query nodes.
+        Create personalization vector weighting each query node by 1/degree.
+
+        A rare seed is more specific than a hub, so it gets more of the restart mass.
 
         Args:
             nodes: List of node IDs
@@ -183,9 +185,9 @@ class PPRAlgorithmsMixin:
         if not nodes:
             return {}
 
-        # Equal weight distribution
-        weight = 1.0 / len(nodes)
-        personalization = {node: weight for node in nodes}
+        weights = {node: 1.0 / max(1, self.graph.degree(node)) for node in nodes}
+        total = sum(weights.values())
+        personalization = {node: w / total for node, w in weights.items()}
 
         logger.debug(f"Created personalization vector: {len(nodes)} nodes")
         return personalization

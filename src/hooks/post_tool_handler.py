@@ -37,8 +37,8 @@ DEFAULT_DB = os.path.join(
     str(Path.home()), ".claude", "memory-mcp-data", DEFAULT_DB_NAME
 )
 # Privacy tag regex
-PRIVATE_RE = re.compile(r"<private>.*?</private>", re.DOTALL)
-PRIVATE_OPEN_RE = re.compile(r"<private>.*$", re.DOTALL)
+PRIVATE_RE = re.compile(r"<private>.*?</private>", re.DOTALL | re.IGNORECASE)
+PRIVATE_OPEN_RE = re.compile(r"<private>.*$", re.DOTALL | re.IGNORECASE)
 SECRET_PATTERNS = [
     re.compile(
         r"""(?i)\b([A-Z0-9_]*(?:API[_-]?KEY|TOKEN|SECRET|PASSWORD|PRIVATE[_-]?KEY)[A-Z0-9_]*)\s*[:=]\s*(?:"(?:\\.|[^"\\])*(?:"|$)|'(?:\\.|[^'\\])*(?:'|$)|[^\s,;]+)"""
@@ -244,6 +244,18 @@ def main():
     else:
         is_error = False
 
+    # Read type/why from the RAW metadata: the redaction budget below is spent on
+    # 'text' first and turns 'metadata' into "[TRUNCATED]".
+    memory_meta = None
+    if tool_name in MEMORY_STORE_TOOLS and _memory_store_succeeded(payload):
+        meta = tool_input.get("metadata") if isinstance(tool_input, dict) else None
+        meta = meta if isinstance(meta, dict) else {}
+        memory_meta = {
+            key: strip_private(str(meta[key]))[:200]
+            for key in ("type", "why")
+            if meta.get(key)
+        }
+
     if isinstance(tool_input, (dict, list)):
         tool_input = _redact_structured(tool_input)
 
@@ -292,6 +304,7 @@ def main():
                 tool_result=str(tool_result) if tool_result else "",
                 is_error=is_error,
                 project=session_info.get("project", ""),
+                memory_meta=memory_meta,
             )
     except Exception:
         # Silent failure -- never block Claude Code

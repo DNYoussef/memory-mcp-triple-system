@@ -2,7 +2,7 @@
 
 When an observation is stored in KVStore, this bridge:
 1. Indexes content into vector tier (if ChromaDB available)
-2. Extracts entities for graph tier (via NER)
+2. Extracts entities (via NER)
 3. Logs to KV for structured queries
 
 This is the connect point that makes captured observations findable.
@@ -16,10 +16,17 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 from ..stores.kv_store import KVStore
-from ..models.observation_types import Observation, classify_tool
+from ..models.observation_types import Observation, ObservationType, classify_tool
 
-# Privacy tag regex -- redacts <private>...</private> content before storage
-_PRIVATE_RE = re.compile(r"<private>.*?</private>", re.DOTALL)
+# Privacy tag regexes -- redact <private>...</private> (any case) and an unclosed
+# <private> through end of text, before storage
+_PRIVATE_RE = re.compile(r"<private>.*?</private>", re.DOTALL | re.IGNORECASE)
+_PRIVATE_OPEN_RE = re.compile(r"<private>.*$", re.DOTALL | re.IGNORECASE)
+
+
+def _redact_private(text: str) -> str:
+    """Redact closed <private> spans, then an unclosed tag through end of text."""
+    return _PRIVATE_OPEN_RE.sub("[REDACTED]", _PRIVATE_RE.sub("[REDACTED]", text))
 
 
 class ObservationBridge:
@@ -29,7 +36,6 @@ class ObservationBridge:
         self,
         kv_store: KVStore,
         vector_indexer: Optional[Any] = None,
-        graph_service: Optional[Any] = None,
         entity_extractor: Optional[Any] = None,
     ):
         """Initialize bridge with storage backends.
@@ -37,12 +43,10 @@ class ObservationBridge:
         Args:
             kv_store: KVStore for structured observation storage
             vector_indexer: VectorIndexer for semantic search (optional)
-            graph_service: GraphService for entity graph (optional)
             entity_extractor: NER service for entity extraction (optional)
         """
         self.kv_store = kv_store
         self.vector_indexer = vector_indexer
-        self.graph_service = graph_service
         self.entity_extractor = entity_extractor
 
     def capture_tool_use(
@@ -53,6 +57,7 @@ class ObservationBridge:
         tool_result: str,
         is_error: bool = False,
         project: str = "",
+        memory_meta: Optional[Dict[str, str]] = None,
     ) -> Optional[Observation]:
         """Capture a tool invocation as an observation.
 
@@ -65,6 +70,7 @@ class ObservationBridge:
             tool_result: Tool output (truncated if needed)
             is_error: Whether the tool call resulted in an error
             project: Current project name
+            memory_meta: type/why from a successful memory_store's metadata
 
         Returns:
             Created Observation, or None if deduped/skipped
@@ -77,8 +83,14 @@ class ObservationBridge:
         if self.kv_store.observation_exists(session_id, content):
             return None
 
-        # Classify
+        # Classify. A memory_store tagged type=decision is a decision; errors win.
         obs_type = classify_tool(tool_name, is_error=is_error)
+        memory_meta = memory_meta or {}
+        if (
+            obs_type != ObservationType.ERROR
+            and str(memory_meta.get("type", "")).lower() == "decision"
+        ):
+            obs_type = ObservationType.DECISION
 
         # Create observation
         obs = Observation(
@@ -87,12 +99,14 @@ class ObservationBridge:
             tool_name=tool_name,
             content=content,
             metadata={
-                "tool_input_keys": list(tool_input.keys()) if tool_input else [],
+                "tool_input_keys": [_redact_private(str(k)) for k in tool_input or {}],
                 "is_error": is_error,
                 "content_hash": content_hash,
             },
             project=project,
         )
+        if memory_meta.get("why"):
+            obs.why = _redact_private(str(memory_meta["why"]))
 
         # Extract entities if NER available
         if self.entity_extractor:
@@ -109,9 +123,6 @@ class ObservationBridge:
 
         # Index into vector tier (background-safe)
         self._index_to_vector(obs)
-
-        # Index into graph tier
-        self._index_to_graph(obs)
 
         return obs
 
@@ -154,7 +165,7 @@ class ObservationBridge:
             parts.append(f"-> {result_preview}")
 
         raw = " ".join(parts)[:500]
-        return _PRIVATE_RE.sub("[REDACTED]", raw)
+        return _redact_private(raw)
 
     def _extract_entities(self, text: str) -> List[str]:
         """Extract named entities from text using NER service."""
@@ -185,24 +196,6 @@ class ObservationBridge:
             )
         except Exception as e:
             logger.debug(f"Vector indexing skipped: {e}")
-
-    def _index_to_graph(self, obs: Observation) -> None:
-        """Index observation entities into knowledge graph."""
-        if not self.graph_service or not obs.entities:
-            return
-        try:
-            for entity in obs.entities:
-                self.graph_service.add_node(
-                    entity,
-                    node_type="entity",
-                    metadata={
-                        "source": "observation",
-                        "session_id": obs.session_id,
-                        "obs_type": obs.obs_type.value,
-                    },
-                )
-        except Exception as e:
-            logger.debug(f"Graph indexing skipped: {e}")
 
     def get_recent_observations(
         self,

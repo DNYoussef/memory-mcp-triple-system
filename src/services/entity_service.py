@@ -7,7 +7,9 @@ Provides entity extraction, filtering, and graph integration.
 NASA Rule 10 Compliant: All functions ≤60 LOC
 """
 
+from pathlib import Path
 from typing import List, Dict, Any, Optional, Set
+import json
 import re
 from loguru import logger
 from difflib import SequenceMatcher
@@ -16,6 +18,36 @@ import networkx as nx
 from .graph_service import GraphService
 
 _MODEL_CACHE: Dict[str, Any] = {}
+_PATTERNS_PATH = (
+    Path(__file__).resolve().parents[2] / "config" / "entity_patterns.jsonl"
+)
+
+
+def _add_display_ruler(nlp, path: Path = _PATTERNS_PATH) -> None:
+    """Install domain patterns as a DISABLED entity_ruler.
+
+    nlp(text) skips disabled components, so ingestion and query seeding keep the
+    plain model; only EntityService.extract_entities_for_display applies the ruler.
+    A missing, empty or malformed pattern file means no ruler.
+    """
+    if "entity_ruler" in nlp.component_names:
+        return
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+        patterns = [json.loads(line) for line in lines if line.strip()]
+        if not patterns:
+            raise ValueError("no patterns")
+        ruler = nlp.add_pipe(
+            "entity_ruler",
+            last=True,
+            config={"overwrite_ents": True, "phrase_matcher_attr": "LOWER"},
+        )
+        ruler.add_patterns(patterns)
+        nlp.disable_pipe("entity_ruler")
+    except Exception as e:
+        if "entity_ruler" in nlp.component_names:
+            nlp.remove_pipe("entity_ruler")
+        logger.warning(f"No display entity ruler from {path}: {e}")
 
 
 def load_spacy_model(model_name: str = "en_core_web_sm"):
@@ -37,6 +69,8 @@ def load_spacy_model(model_name: str = "en_core_web_sm"):
         spacy_download(model_name)
         nlp = spacy.load(model_name)
 
+    if nlp is not None:
+        _add_display_ruler(nlp)
     _MODEL_CACHE[model_name] = nlp
     return nlp
 
@@ -203,6 +237,26 @@ class EntityService:
 
         logger.debug(f"Filtered to {len(filtered)} entities of types {entity_types}")
         return filtered
+
+    def extract_entities_for_display(
+        self, text: str, entity_types: List[str]
+    ) -> List[Dict[str, Any]]:
+        """Entities for the entity_extraction tool: plain NER plus the domain ruler."""
+        if self.nlp is None:
+            return self.extract_entities_by_type(text, entity_types)
+        doc = self.nlp(text)
+        if "entity_ruler" in self.nlp.component_names:
+            doc = self.nlp.get_pipe("entity_ruler")(doc)
+        return [
+            {
+                "text": ent.text,
+                "type": ent.label_,
+                "start": ent.start_char,
+                "end": ent.end_char,
+            }
+            for ent in doc.ents
+            if ent.label_ in entity_types
+        ]
 
     def add_entities_to_graph(
         self, chunk_id: str, text: str, graph_service: GraphService

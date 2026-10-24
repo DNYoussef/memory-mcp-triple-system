@@ -294,21 +294,6 @@ class TestExceptionHandling:
         # Should return empty list on exception
         assert results == []
 
-    def test_multi_hop_exception_in_expansion(self, hipporag_service, graph_service):
-        """Test exception handling in retrieve_multi_hop() during expansion."""
-        # Add entity to graph
-        graph_service.add_entity_node("test", "ORG", {"text": "Test"})
-
-        # Mock _expand_entities_multi_hop to raise exception
-        hipporag_service._expand_entities_multi_hop = Mock(
-            side_effect=RuntimeError("Expansion failed")
-        )
-
-        results = hipporag_service.retrieve_multi_hop("test")
-
-        # Should return empty list on exception
-        assert results == []
-
     def test_get_query_nodes_no_entities(self, hipporag_service):
         """Test _get_query_nodes when no entities are extracted."""
         # Mock _extract_query_entities to return empty list
@@ -332,23 +317,6 @@ class TestExceptionHandling:
 
         # Should return empty list (line 352-353 coverage)
         assert nodes == []
-
-    def test_expand_entities_multi_hop_no_results(
-        self, hipporag_service, graph_service
-    ):
-        """Test _expand_entities_multi_hop when search finds nothing."""
-        # Add entity to graph
-        graph_service.add_entity_node("test", "ORG", {"text": "Test"})
-
-        # Mock multi_hop_search to return empty entities
-        hipporag_service.graph_query_engine.multi_hop_search = Mock(
-            return_value={"entities": [], "paths": []}
-        )
-
-        entities = hipporag_service._expand_entities_multi_hop(["test"], 3)
-
-        # Should return empty list (line 379-380 coverage)
-        assert entities == []
 
     def test_ppr_rank_and_format_no_ppr_scores(self, hipporag_service):
         """Test _ppr_rank_and_format when PPR returns no scores."""

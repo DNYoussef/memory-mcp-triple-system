@@ -277,13 +277,11 @@ class HippoRagService:
         self, query: str, max_hops: int = 3, top_k: int = 5
     ) -> List[RetrievalResult]:
         """
-        Retrieve using multi-hop graph traversal.
-
-        Combines PPR with multi-hop BFS for better coverage.
+        Retrieve by PPR from the query's seed entities.
 
         Args:
             query: User query text
-            max_hops: Maximum hops to traverse
+            max_hops: Unused; PPR already spreads over the graph from the seeds
             top_k: Number of results
 
         Returns:
@@ -294,22 +292,17 @@ class HippoRagService:
         )
 
         try:
-            # Extract and match entities
+            # Seeds go straight to PPR (successor-only BFS from an entity sink
+            # reached nothing but the seed itself).
             query_nodes = self._get_query_nodes(query)
             if not query_nodes:
                 return []
 
-            # Expand with multi-hop search
-            expanded_entities = self._expand_entities_multi_hop(query_nodes, max_hops)
-            if not expanded_entities:
-                return []
-
-            # Run PPR and rank chunks
-            results = self._ppr_rank_and_format(expanded_entities, top_k)
+            results = self._ppr_rank_and_format(query_nodes, top_k)
 
             logger.info(
                 f"Multi-hop retrieve found {len(results)} chunks "
-                f"using {len(expanded_entities)} entities"
+                f"using {len(query_nodes)} entities"
             )
             return results
 
@@ -330,40 +323,24 @@ class HippoRagService:
         query_entities = self._extract_query_entities(query)
         query_nodes = self._match_entities_to_nodes(query_entities)
 
-        # Same keyword fallback as retrieve() for short queries where NER finds
-        # nothing.
-        if not query_nodes:
-            query_nodes = self._match_query_tokens_to_nodes(query)
+        # NER matched < 2 nodes: fill up to 2 seeds with phrase matches (rarest
+        # first) whose names are not already chosen. The cap keeps a pile of rare
+        # phrase names from drowning the NER seed.
+        if len(query_nodes) < 2:
+            engine = self.graph_query_engine
+            chosen = {engine._entity_name(n) for n in query_nodes}
+            extra = [
+                n
+                for n in engine._extract_query_entities(query)
+                if n not in query_nodes and engine._entity_name(n) not in chosen
+            ]
+            query_nodes = query_nodes + extra[: 2 - len(query_nodes)]
 
         if not query_nodes:
             logger.warning(f"No query entities found in graph: {query}")
             return []
 
         return query_nodes
-
-    def _expand_entities_multi_hop(
-        self, query_nodes: List[str], max_hops: int
-    ) -> List[str]:
-        """
-        Expand entities using multi-hop search.
-
-        Args:
-            query_nodes: Starting nodes
-            max_hops: Maximum hops
-
-        Returns:
-            List of expanded entity IDs
-        """
-        multi_hop_result = self.graph_query_engine.multi_hop_search(
-            start_nodes=query_nodes, max_hops=max_hops
-        )
-
-        expanded_entities = multi_hop_result["entities"]
-        if not expanded_entities:
-            logger.warning("Multi-hop search found no entities")
-            return []
-
-        return expanded_entities
 
     def _ppr_rank_and_format(
         self, expanded_entities: List[str], top_k: int

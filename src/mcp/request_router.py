@@ -10,7 +10,6 @@ NASA Rule 10 Compliant: All functions <=60 LOC
 import json
 import os
 import time
-import hashlib
 import asyncio
 import threading
 from datetime import datetime, timedelta
@@ -202,6 +201,7 @@ def handle_memory_store(
     text = arguments.get("text", "")
     metadata = _normalize_metadata_tags(arguments.get("metadata", {}))
     is_valid, missing = _validate_metadata(metadata)
+    filled: List[str] = []
 
     if not is_valid:
         policy = _get_tagging_policy(tool.config)
@@ -214,6 +214,7 @@ def handle_memory_store(
             }
         if policy["auto_fill"]:
             metadata = _autofill_metadata(metadata, missing)
+            filled = missing
             logger.warning(f"Auto-filled missing tags: {missing}")
 
     if not text:
@@ -243,12 +244,14 @@ def handle_memory_store(
         tagging_info = f"Tagged: WHO={returned_meta['agent_name']}, PROJECT={returned_meta['project']}"
         lifecycle_info = f"Lifecycle: {result.get('lifecycle_tier', returned_meta.get('lifecycle_tier', 'hot'))}"
         chunk_info = f"Chunks: {', '.join(result.get('chunk_ids', []))}"
+        notices = f"\nAuto-filled: {', '.join(filled)}" if filled else ""
+        notices += "".join(f"\nWarning: {w}" for w in result.get("warnings", []))
 
         return {
             "content": [
                 {
                     "type": "text",
-                    "text": f"Stored memory: {text[:100]}...\n{tagging_info}\n{lifecycle_info}\n{chunk_info}",
+                    "text": f"Stored memory: {text[:100]}...\n{tagging_info}\n{lifecycle_info}\n{chunk_info}{notices}",
                 }
             ],
             "isError": False,
@@ -281,62 +284,6 @@ def _get_ingestion_service(tool: "NexusSearchTool"):
     )
     setattr(tool, "_ingestion_service", service)
     return service
-
-
-def _store_entities_to_graph(
-    text: str, metadata: Dict[str, Any], tool: "NexusSearchTool", embedder
-) -> int:
-    """Extract and store entities to graph. Returns count added."""
-    if not tool.entity_service:
-        return 0
-
-    try:
-        from ..services.graph_service import GraphService
-
-        chunk_id = hashlib.md5(text.encode()).hexdigest()[:16]
-        entities = tool.entity_service.extract_entities(text)
-
-        if not entities:
-            return 0
-
-        tool.graph_service.add_chunk_node(
-            chunk_id,
-            {
-                "text": text[:500],
-                "file_path": metadata.get("key", "manual_entry"),
-                "timestamp": metadata.get("timestamp"),
-            },
-        )
-
-        entities_added = 0
-        for ent in entities:
-            entity_id = ent["text"].lower().replace(" ", "_")
-            tool.graph_service.add_entity_node(
-                entity_id,
-                ent["type"],
-                {"text": ent["text"], "start": ent["start"], "end": ent["end"]},
-            )
-            tool.graph_service.add_relationship(
-                chunk_id,
-                GraphService.EDGE_MENTIONS,
-                entity_id,
-                {
-                    "entity_type": ent["type"],
-                    "position": ent["start"],
-                    "confidence": 0.8,
-                },
-            )
-            try:
-                tool.graph_service.link_similar_entities(entity_id, embedder=embedder)
-            except Exception:
-                pass
-            entities_added += 1
-
-        tool.graph_service.save_graph()
-        return entities_added
-    except Exception as exc:
-        logger.error("graph store failed: %s", exc, exc_info=True)
-        return 0  # fail-safe count, but the failure is now visible
 
 
 def handle_graph_query(
@@ -385,11 +332,15 @@ def handle_entity_extraction(
     import re
 
     text = arguments.get("text", "")
-    entity_types = arguments.get("entity_types", ["PERSON", "ORG", "GPE", "CONCEPT"])
+    entity_types = arguments.get(
+        "entity_types", ["PERSON", "ORG", "GPE", "PRODUCT", "LAW", "CONCEPT"]
+    )
 
     try:
         if tool.entity_service:
-            entities = tool.entity_service.extract_entities_by_type(text, entity_types)
+            entities = tool.entity_service.extract_entities_for_display(
+                text, entity_types
+            )
         else:
             entities = []
             cap_pattern = r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b"
@@ -430,7 +381,6 @@ def handle_hipporag_retrieve(
     mode = arguments.get("mode", "execution")
 
     try:
-        entity_result = handle_entity_extraction({"text": query}, tool)
         if tool.hipporag_service:
             results = tool.hipporag_service.retrieve_multi_hop(query=query, top_k=limit)
         else:
@@ -443,13 +393,10 @@ def handle_hipporag_retrieve(
             }
         ]
 
-        if not entity_result.get("isError"):
-            seed_text = entity_result["content"][0]["text"]
-            # Retrieval uses retrieve_multi_hop's own token fallback, not these
-            # NER seeds, so a bare "Extracted 0 entities" line just reads as a
-            # false failure. Only surface seeds when some were actually found.
-            if not seed_text.startswith("Extracted 0 entities"):
-                content.append(entity_result["content"][0])
+        # The seed entities retrieval actually used (not the raw NER output).
+        seeds = getattr(results[0], "entities", None) if results else None
+        if seeds:
+            content.append({"type": "text", "text": f"Seeds: {', '.join(seeds)}\n"})
 
         for idx, result in enumerate(results, 1):
             if isinstance(result, dict):
@@ -765,7 +712,7 @@ def handle_beads_ready_tasks(
 
         task_lines = []
         for task in tasks:
-            priority_icon = ["", "P1", "P2", "P3", "P4", "P5"][min(task.priority, 5)]
+            priority_icon = f"P{task.priority}"
             task_lines.append(
                 f"[{task.id}] {priority_icon} {task.title} ({task.status})"
             )
@@ -864,7 +811,7 @@ def handle_beads_query_tasks(
 
         task_lines = []
         for task in tasks:
-            priority_icon = ["", "P1", "P2", "P3", "P4", "P5"][min(task.priority, 5)]
+            priority_icon = f"P{task.priority}"
             assignee_str = f" @{task.assignee}" if task.assignee else ""
             task_lines.append(
                 f"[{task.id}] {priority_icon} {task.title} ({task.status}){assignee_str}"

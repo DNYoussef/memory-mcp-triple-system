@@ -17,7 +17,7 @@ def mock_services():
 
     graph_service = MagicMock()
     graph_service.add_chunk_node.return_value = True
-    graph_service.save_graph.return_value = None
+    graph_service.save_graph.return_value = True
 
     entity_service = MagicMock()
     entity_service.add_entities_to_graph.return_value = {
