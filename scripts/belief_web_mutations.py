@@ -694,6 +694,14 @@ MUTANTS = {
             1,
         ),
     ],
+    "lifecycle_two_snapshots": [
+        (
+            HOLES,
+            '"holes": _report(web, now)["counts"],',
+            '"holes": find_holes(store, now)["counts"],',
+            1,
+        )
+    ],
 }
 
 

@@ -436,6 +436,24 @@ def test_lifecycle_status_adds_belief_counts(store, tool):
     )
 
 
+def test_lifecycle_counts_and_holes_come_from_one_snapshot(store, tool, monkeypatch):
+    """A commit between two snapshots gave beliefs 0 with unsupported 1."""
+    real, calls = BeliefStore.web, []
+
+    def web(self, now, *a, **kw):
+        snap = real(self, now, *a, **kw)
+        calls.append(1)
+        if len(calls) == 1:  # another writer commits right after the first read
+            store.add_edge("live", "k.a", "k.b", "supports", 0.5)
+        return snap
+
+    monkeypatch.setattr(BeliefStore, "web", web)
+    payload, is_error = call(tool, "lifecycle_status")
+    assert is_error is False and len(calls) == 1
+    assert payload["beliefs"]["beliefs"] == 0
+    assert payload["beliefs"]["holes"] == {k: 0 for k in KINDS}
+
+
 def test_lifecycle_counts_failure_keeps_stats(tool, monkeypatch):
     from src.mcp import request_router
 

@@ -125,14 +125,22 @@ def find_holes(
     counts are by kind before `kinds` and `limit` are applied."""
     if store is None:  # no belief tables yet
         return _result([], {k: 0 for k in HOLE_KINDS}, 0, now, True, 0)
-    web = store.web(now)
+    return _report(store.web(now), now, project, kinds, min_load, limit)
+
+
+def analyze(web, now: datetime, clamp: Optional[Dict[str, float]] = None):
+    """(local log-odds per key, p per key, Solution) for one snapshot."""
     local, L0 = {}, {}
     for k, (_, kind, hl, prior) in web.attrs.items():
         kind = kind or "state"
         local[k] = local_logodds(web.evidence.get(k, []), kind, now, hl, prior or 0.0)
         L0[k] = local[k].L
-    sol = solve(L0, web.edges)
-    p = {k: sigmoid(v) for k, v in sol.L.items()}
+    sol = solve(L0, web.edges, clamp)
+    return local, {k: sigmoid(v) for k, v in sol.L.items()}, sol
+
+
+def _report(web, now, project=None, kinds=None, min_load=2, limit=20):
+    local, p, sol = analyze(web, now)
     scope = sorted(
         k for k in web.attrs if project is None or project in web.projects.get(k, ())
     )
@@ -275,11 +283,11 @@ def belief_counts(store: Optional[BeliefStore], now: datetime) -> Dict[str, Any]
     if store is None:
         return {"beliefs": 0, "evidence": 0, "mentions": 0, "edges": 0,
                 "holes": {k: 0 for k in HOLE_KINDS}}  # fmt: skip
-    web = store.web(now)
+    web = store.web(now)  # one snapshot for the counts and the holes
     return {
         "beliefs": len(web.attrs),
         "evidence": sum(len(v) for v in web.evidence.values()),
         "mentions": web.mention_rows,
         "edges": len(web.edges),
-        "holes": find_holes(store, now)["counts"],
+        "holes": _report(web, now)["counts"],
     }
