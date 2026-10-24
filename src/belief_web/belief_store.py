@@ -780,6 +780,23 @@ class BeliefStore:
         with self._read() as c:
             return self._load_evidence(c, format_ts(now), [key]).get(key, [])
 
+    def catalog(self) -> List[Tuple[str, str, Optional[bytes], Optional[str]]]:
+        """(key, display claim, claim_vec, vec_model) per belief, sorted by key.
+        The vector is the one stored with the effective claim, else None."""
+        with self._read() as c:
+            attrs = self._load_attrs(c, None)
+            vecs: Dict[str, Tuple[bytes, Optional[str]]] = {}
+            for key, claim, vec, model in c.execute(
+                "SELECT key, claim, claim_vec, vec_model FROM beliefs "
+                "WHERE claim_vec IS NOT NULL ORDER BY origin <> 'live', claim_seq"
+            ):
+                if attrs[key][0] == claim:
+                    vecs.setdefault(key, (vec, model))
+        return [
+            (k, a[0] if a[0] is not None else k, *vecs.get(k, (None, None)))
+            for k, a in sorted(attrs.items())
+        ]
+
     def exists(self, name: str) -> bool:
         return (
             self._conn()
