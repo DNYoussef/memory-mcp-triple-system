@@ -1,11 +1,12 @@
 """
-Mutation run for the belief web (PLAN-B section 6.5, B-PR1 to B-PR3).
+Mutation run for the belief web (PLAN-B section 6.5, B-PR1 to B-PR4).
 
 Each mutant is a temporary text edit of src/belief_web/*.py that re-creates a
 defect from the reference calculator's mutation list (belief_calc_r8.py), or
 a PR1 safeguard (validation, FK, atomicity), or a B-PR2 ingestion defect
 (memory_store beliefs/because), or a B-PR3 inference defect
-(bayesian_inference on the belief web). For each mutant the script
+(bayesian_inference on the belief web), or a B-PR4 hole defect
+(find_holes and lifecycle counts). For each mutant the script
 applies the edit, runs the belief web tests, restores the original bytes and
 asserts the file hash matches. Exit 0 only if the baseline passes and every
 mutant is killed (some test went red).
@@ -26,6 +27,7 @@ STORE = ROOT / "src" / "belief_web" / "belief_store.py"
 INGEST = ROOT / "src" / "services" / "memory_ingestion_service.py"
 ROUTER = ROOT / "src" / "mcp" / "request_router.py"
 INFER = ROOT / "src" / "belief_web" / "inference.py"
+HOLES = ROOT / "src" / "belief_web" / "holes.py"
 TESTS = [
     "tests/unit/test_belief_solver.py",
     "tests/unit/test_belief_store.py",
@@ -34,6 +36,7 @@ TESTS = [
     "tests/unit/test_belief_inference.py",
     "tests/unit/test_bayesian_evidence_e2e.py",
     "tests/unit/test_request_router_handlers.py",
+    "tests/unit/test_find_holes.py",
 ]
 
 BELIEF_LINE = "notices += f\"\\nBeliefs: recorded {beliefs['recorded']}\""
@@ -569,6 +572,110 @@ MUTANTS = {
             1,
         )
     ],
+    # B-PR4: find_holes predicates, ranking and the read-only lifecycle counts
+    "contradiction_threshold_lowered": [
+        (HOLES, "CONTRADICTION_LLR = 0.4", "CONTRADICTION_LLR = 0.1", 1)
+    ],
+    "disputed_side_reversed": [
+        (HOLES, "side = {-1} if p > 0.5 else", "side = {1} if p > 0.5 else", 1)
+    ],
+    "outdated_ignores_sign": [
+        (
+            HOLES,
+            "older = [e for e in local.superseded if e.polarity != sign]",
+            "older = list(local.superseded)",
+            1,
+        )
+    ],
+    "unlocated_listed_as_chunks": [
+        (
+            HOLES,
+            '"chunks": [c for c, loc in rows if loc],',
+            '"chunks": [c for c, loc in rows],',
+            1,
+        )
+    ],
+    "pair_threshold_lowered": [
+        (HOLES, "p[a] + p[b] > PAIR_SUM", "p[a] + p[b] > 1.0", 1)
+    ],
+    "stale_reads_oldest": [
+        (
+            HOLES,
+            "newest = max(e.observed_at for e in local.active)",
+            "newest = min(e.observed_at for e in local.active)",
+            1,
+        )
+    ],
+    "stale_ignores_half_life": [
+        (
+            HOLES,
+            "half_life = hl if hl is not None else HALF_LIFE_DEFAULT[kind]",
+            "half_life = HALF_LIFE_DEFAULT[kind]",
+            1,
+        )
+    ],
+    "unsupported_threshold_raised": [
+        (HOLES, "UNSUPPORTED_SUM = 0.1", "UNSUPPORTED_SUM = 1.0", 1)
+    ],
+    "load_direction_reversed": [
+        (HOLES, "out.setdefault(s, []).append(d)", "out.setdefault(d, []).append(s)", 1)
+    ],
+    "load_depth_off_by_one": [
+        (HOLES, "if depth == LOAD_DEPTH:", "if depth == LOAD_DEPTH + 1:", 1)
+    ],
+    "weak_band_ignored": [
+        (
+            HOLES,
+            "(WEAK_BAND[0] <= p <= WEAK_BAND[1] or single)",
+            "(single)",
+            1,
+        )
+    ],
+    "single_source_counts_witnessed": [
+        (
+            HOLES,
+            "    single = len(sources) == 1 and all(\n"
+            '        e.source_type != "witnessed" for e in local.active\n'
+            "    )\n",
+            "    single = len(sources) == 1\n",
+            1,
+        )
+    ],
+    "rank_tie_order_reversed": [
+        (HOLES, 'h["hole"] != "contradicted",', 'h["hole"] == "contradicted",', 1)
+    ],
+    "counts_after_limit": [
+        (
+            HOLES,
+            'sum(1 for h in found if h["hole"] == kind)',
+            'sum(1 for h in found[:limit] if h["hole"] == kind)',
+            1,
+        )
+    ],
+    "project_filter_ignored": [
+        (
+            HOLES,
+            "if project is None or project in web.projects.get(k, ())",
+            "if True",
+            1,
+        )
+    ],
+    "find_holes_reads_through_writer": [
+        (
+            ROUTER,
+            "payload = find_holes(_belief_reader(tool), **args)",
+            "payload = find_holes(_get_ingestion_service(tool)._beliefs(), **args)",
+            1,
+        )
+    ],
+    "lifecycle_drops_belief_counts": [
+        (
+            ROUTER,
+            'json.dumps({**stats, "beliefs": beliefs})',
+            "json.dumps(stats)",
+            1,
+        )
+    ],
 }
 
 
@@ -609,7 +716,8 @@ def main(argv):
     names = list(MUTANTS)[int(start or 0) : int(end) if end else None]
     mutants = {n: MUTANTS[n] for n in names}
     originals = {
-        p: (p.read_bytes(), sha(p)) for p in (SOLVER, STORE, INGEST, ROUTER, INFER)
+        p: (p.read_bytes(), sha(p))
+        for p in (SOLVER, STORE, INGEST, ROUTER, INFER, HOLES)
     }
     rc, failed, summary = run_tests()
     print(f"baseline: rc={rc} {summary}")
