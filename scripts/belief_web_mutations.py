@@ -1,9 +1,10 @@
 """
-Mutation run for the belief web (PLAN-B section 6.5, B-PR1).
+Mutation run for the belief web (PLAN-B section 6.5, B-PR1 and B-PR2).
 
 Each mutant is a temporary text edit of src/belief_web/*.py that re-creates a
 defect from the reference calculator's mutation list (belief_calc_r8.py), or
-a PR1 safeguard (validation, FK, atomicity). For each mutant the script
+a PR1 safeguard (validation, FK, atomicity), or a B-PR2 ingestion defect
+(memory_store beliefs/because). For each mutant the script
 applies the edit, runs the belief web tests, restores the original bytes and
 asserts the file hash matches. Exit 0 only if the baseline passes and every
 mutant is killed (some test went red).
@@ -21,7 +22,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SOLVER = ROOT / "src" / "belief_web" / "solver.py"
 STORE = ROOT / "src" / "belief_web" / "belief_store.py"
-TESTS = ["tests/unit/test_belief_solver.py", "tests/unit/test_belief_store.py"]
+INGEST = ROOT / "src" / "services" / "memory_ingestion_service.py"
+ROUTER = ROOT / "src" / "mcp" / "request_router.py"
+TESTS = [
+    "tests/unit/test_belief_solver.py",
+    "tests/unit/test_belief_store.py",
+    "tests/unit/test_memory_store_beliefs.py",
+    "tests/unit/test_e2e_autocapture.py",
+]
+
+BELIEF_LINE = "notices += f\"\\nBeliefs: recorded {beliefs['recorded']}\""
 
 # name -> [(file, old, new, expected count)]
 MUTANTS = {
@@ -246,8 +256,8 @@ MUTANTS = {
     "attrs_insert_ignore": [
         (
             STORE,
-            "        vals, seqs = [], []\n",
-            "        return\n        vals, seqs = [], []\n",
+            "        vals, seqs, takes = [], [], []\n",
+            "        return\n        vals, seqs, takes = [], [], []\n",
             1,
         )
     ],
@@ -345,8 +355,12 @@ MUTANTS = {
     "prior_dropped_by_merge": [
         (
             STORE,
-            "self._belief(c, o, new, cl, kd, hl, pr, seq=sq, aseq=(cs, ks, hs, ps))",
-            "self._belief(c, o, new, cl, kd, hl, None, seq=sq, aseq=(cs, ks, hs, None))",
+            "                    pr,\n"
+            "                    seq=sq,\n"
+            "                    aseq=(cs, ks, hs, ps),",
+            "                    None,\n"
+            "                    seq=sq,\n"
+            "                    aseq=(cs, ks, hs, None),",
             1,
         )
     ],
@@ -378,6 +392,106 @@ MUTANTS = {
     # review r2 fix
     "nested_after_auto_rollback": [
         (STORE, "if depth and not c.in_transaction:", "if False:", 1)
+    ],
+    # B-PR2: memory_store beliefs/because ingestion
+    "entry_error_aborts_call": [
+        (
+            INGEST,
+            "                    except (BeliefValidationError, EdgeConflict) as e:\n"
+            '                        errors.append(f"{label}: {e}")',
+            "                    except ZeroDivisionError:\n                        pass",
+            1,
+        )
+    ],
+    "commit_per_entry": [
+        (
+            INGEST,
+            "            with store.batch():\n                for i, entry in enumerate(entries):",
+            "            if True:\n                for i, entry in enumerate(entries):",
+            1,
+        )
+    ],
+    "claim_not_required": [
+        (INGEST, "if claim is None and not store.exists(key):", "if False:", 1)
+    ],
+    "unknown_fields_ignored": [
+        (INGEST, "        if unknown:\n", "        if False:\n", 1)
+    ],
+    "who_dropped": [(INGEST, 'who=metadata.get("who"),', "who=None,", 1)],
+    "because_dropped": [
+        (INGEST, "targets = targets + because", "targets = targets", 1)
+    ],
+    "mention_every_chunk_located": [(INGEST, "located=loc,", "located=1,", 1)],
+    "mention_first_chunk_only": [
+        (
+            INGEST,
+            "for chunk_id, loc in zip(chunk_ids, located):",
+            "for chunk_id, loc in zip(chunk_ids[:1], located):",
+            1,
+        )
+    ],
+    "no_quote_error": [
+        (INGEST, "if quote and len(chunks) > 1 and not any(located):", "if False:", 1)
+    ],
+    "errors_unsanitized": [
+        (
+            INGEST,
+            "strip_private(e)[:ERROR_CAP] for e in errors",
+            "e[:ERROR_CAP] for e in errors",
+            1,
+        )
+    ],
+    "beliefs_always_reported": [
+        (INGEST, 'if "beliefs" in metadata or "because" in metadata:', "if True:", 1)
+    ],
+    "ingest_switch_ignored": [
+        (INGEST, "if not self._beliefs_enabled:", "if False:", 1)
+    ],
+    "router_no_belief_line": [(ROUTER, BELIEF_LINE, "pass", 1)],
+    "router_belief_line_first": [
+        (
+            ROUTER,
+            BELIEF_LINE,
+            "notices = f\"\\nBeliefs: recorded {beliefs['recorded']}\" + notices",
+            1,
+        )
+    ],
+    "router_errors_uncapped": [
+        (
+            ROUTER,
+            "{'; '.join(beliefs['errors'])[:500]}",
+            "{'; '.join(beliefs['errors'])}",
+            1,
+        )
+    ],
+    # B-PR2 review r1 fixes: each mutant re-creates the reported defect
+    "source_type_unhashable": [
+        (
+            STORE,
+            "if not isinstance(source_type, str) or source_type not in RELIABILITY_DEFAULT:",
+            "if source_type not in RELIABILITY_DEFAULT:",
+            1,
+        )
+    ],
+    "observed_at_truthy_fallback": [
+        (
+            INGEST,
+            'observed_at=entry.get("observed_at", recorded_at),',
+            'observed_at=entry.get("observed_at") or recorded_at,',
+            1,
+        )
+    ],
+    "links_stay_on_claim_change": [
+        (STORE, "if takes[0]:  # the claim changed hands", "if False:", 1)
+    ],
+    "merge_drops_links": [(STORE, "                    links=links,\n", "", 1)],
+    "structured_errors_uncapped": [
+        (
+            INGEST,
+            "strip_private(e)[:ERROR_CAP] for e in errors",
+            "strip_private(e) for e in errors",
+            1,
+        )
     ],
 }
 
@@ -412,7 +526,7 @@ def run_tests():
 
 
 def main():
-    originals = {p: (p.read_bytes(), sha(p)) for p in (SOLVER, STORE)}
+    originals = {p: (p.read_bytes(), sha(p)) for p in (SOLVER, STORE, INGEST, ROUTER)}
     rc, failed, summary = run_tests()
     print(f"baseline: rc={rc} {summary}")
     if rc != 0:

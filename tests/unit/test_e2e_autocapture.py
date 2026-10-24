@@ -372,6 +372,60 @@ def test_t10_combined_decision_store_replay(tmp_path, monkeypatch):
     assert seen[0]["beliefs"] == [belief]
 
 
+def test_t10_combined_replay_records_lane_b_belief(tmp_path, monkeypatch):
+    """Lane B extension of T10: a real ingestion records the belief, and the
+    belief line comes after lane A's Auto-filled and Warning lines."""
+    from src.belief_web.belief_store import BeliefStore
+    from src.mcp.request_router import handle_memory_store
+    from src.services.memory_ingestion_service import MemoryIngestionService
+
+    belief = {
+        "key": "t10.x.causes_y",
+        "claim": "x causes y",
+        "value": True,
+        "source_type": "inferred",
+    }
+    meta = {"who": "me", "project": "p", "why": "chose X", "type": "decision"}
+    meta["beliefs"] = [belief]
+    response = [
+        {
+            "type": "text",
+            "text": "Stored memory: x...\nAuto-filled: when\n"
+            "Warning: graph not persisted; will retry on next store\n"
+            "Beliefs: recorded 1",
+        }
+    ]
+    payload = _store_payload(STORE_TOOLS[0], meta, response)
+    store = _replay(tmp_path, monkeypatch, payload)
+    rows = store.get_observations(obs_type="decision")
+    saved = store.get("last_save_at:hook-s")
+    store.close()
+    assert len(rows) == 1 and rows[0]["why"] == "chose X"
+    assert saved
+
+    embedder = SimpleNamespace(encode=lambda texts: [[0.0] * 4 for _ in texts])
+    indexer = SimpleNamespace(index_chunks=lambda chunks, embeddings: None)
+    service = MemoryIngestionService(
+        embedder=embedder,
+        indexer=indexer,
+        graph_service=None,  # gives lane A's graph Warning line
+        entity_service=None,
+        classifier=None,
+        lifecycle_manager=None,
+        event_log=None,
+    )
+    service._belief_store = BeliefStore(str(tmp_path / "beliefs.db"))
+    tool = SimpleNamespace(config={}, _ingestion_service=service)
+    out = handle_memory_store(payload["tool_input"], tool)
+    text = out["content"][0]["text"]
+    assert text.startswith("Stored memory: ")
+    auto = text.index("\nAuto-filled: when")
+    warn = text.index("\nWarning: graph population unavailable")
+    assert auto < warn < text.index("\nBeliefs: recorded 1")
+    assert out["beliefs_recorded"] == 1 and out["belief_errors"] == []
+    assert service._belief_store.exists("t10.x.causes_y")
+
+
 @pytest.mark.parametrize(
     "why, leaked",
     [
