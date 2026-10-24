@@ -11,6 +11,7 @@ import hashlib
 import json
 import math
 import sqlite3
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -457,3 +458,86 @@ def test_omitted_or_null_evidence_is_none(web):
     for arguments in ({}, {"evidence": None}):
         payload, is_error = ask(web, query=PILOT_QUERY, **arguments)
         assert is_error is False and payload["evidence"] == {}
+
+
+# ================================================================ review r2: mid-WAL
+
+
+WAL_WRITER = """
+import sys
+sys.path.insert(0, sys.argv[1])
+from src.belief_web.belief_store import BeliefStore
+
+store = BeliefStore(sys.argv[2])  # journal_mode=WAL on its connection
+store.add_assertion(
+    "live", "k.wal", polarity=1, source_type="witnessed",
+    observed_at=sys.argv[3], recorded_at=sys.argv[3], chunk_id="c1",
+    claim="the WAL writer committed this claim",
+)
+print("READY", flush=True)
+sys.stdin.readline()  # hold the connection: no close, so no checkpoint
+"""
+
+
+def test_reader_sees_rows_mid_wal_from_writer_process(tmp_path, embedder):
+    """A writer process commits and stays connected, so the rows live only in
+    the -wal file. The inference reader must see them and write nothing."""
+    db = tmp_path / "dir with space #1" / "agent_kv.db"
+    wal = db.with_name(db.name + "-wal")
+    root = str(Path(__file__).resolve().parents[2])
+    writer = subprocess.Popen(
+        [sys.executable, "-c", WAL_WRITER, root, str(db), T15],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    tool = SimpleNamespace(
+        config={"belief_web": {"backend": "belief_web"}},
+        vector_search_tool=SimpleNamespace(embedder=embedder),
+        kv_store=SimpleNamespace(db_path=db),
+    )
+    try:
+        line = writer.stdout.readline()
+        assert line.strip() == "READY", writer.stderr.read()
+        assert wal.exists() and wal.stat().st_size > 0
+
+        def snapshot():
+            c = sqlite3.connect(db.resolve().as_uri() + "?mode=ro", uri=True)
+            try:
+                rows = {
+                    t: sorted(c.execute(f"SELECT * FROM {t}").fetchall(), key=repr)
+                    for t in TABLES
+                }
+            finally:
+                c.close()
+            digest = hashlib.sha256(repr(rows).encode()).hexdigest()
+            main = hashlib.sha256(db.read_bytes()).hexdigest()
+            return main, wal.stat().st_size, digest, rows["beliefs"]
+
+        before = snapshot()
+        assert [r[1] for r in before[3]] == ["k.wal"]  # committed, in the WAL
+
+        payload, is_error = ask(tool, query="what is k.wal")
+        assert is_error is False, payload
+        assert list(payload["results"]) == ["k.wal"]
+        assert math.isclose(payload["results"]["k.wal"]["probabilities"]["true"], 0.95)
+
+        assert snapshot()[:3] == before[:3]  # main bytes, -wal size, tables
+        with pytest.raises(sqlite3.OperationalError, match="readonly"):
+            tool._belief_reader._conn().execute("UPDATE belief_seq SET n = n")
+        assert snapshot()[:3] == before[:3]
+        assert writer.poll() is None  # the writer held its connection throughout
+    finally:
+        reader = getattr(tool, "_belief_reader", None)
+        if reader is not None:
+            reader.close()
+        if writer.poll() is None:
+            writer.stdin.close()
+            try:
+                writer.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                writer.kill()
+                writer.wait()
