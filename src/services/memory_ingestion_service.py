@@ -381,7 +381,7 @@ class MemoryIngestionService:
                 key,
                 polarity=1 if entry["value"] else -1,
                 source_type=entry.get("source_type"),
-                observed_at=entry.get("observed_at") or recorded_at,
+                observed_at=entry.get("observed_at", recorded_at),  # omitted only
                 recorded_at=recorded_at,
                 chunk_id=chunk_id,
                 source_ref=entry.get("source_ref"),

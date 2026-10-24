@@ -464,6 +464,14 @@ MUTANTS = {
             1,
         )
     ],
+    "observed_at_truthy_fallback": [
+        (
+            INGEST,
+            'observed_at=entry.get("observed_at", recorded_at),',
+            'observed_at=entry.get("observed_at") or recorded_at,',
+            1,
+        )
+    ],
 }
 
 

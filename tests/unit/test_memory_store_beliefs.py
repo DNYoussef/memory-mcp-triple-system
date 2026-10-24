@@ -553,3 +553,16 @@ def test_malformed_source_type_rejects_only_that_entry(tmp_path, monkeypatch):
         "k.ok1",
         "k.ok2",
     ]
+
+
+@pytest.mark.parametrize("bad", [False, 0, "", [], {}, None])
+def test_supplied_observed_at_is_validated(tmp_path, monkeypatch, bad):
+    freeze(monkeypatch, T15)
+    svc = service(tmp_path)
+    entries = [belief("k.bad", observed_at=bad), belief("k.ok")]  # k.ok: omitted
+    out = svc.ingest("note", {"beliefs": entries})
+    assert out["beliefs"]["recorded"] == 1
+    assert out["beliefs"]["errors"][0].startswith("k.bad: ")
+    assert "timestamp" in out["beliefs"]["errors"][0]
+    got = rows(svc, "SELECT belief_key, observed_at FROM assertions")
+    assert got == [("k.ok", "2026-10-14T15:00:00.000000Z")]
