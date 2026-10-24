@@ -256,8 +256,8 @@ MUTANTS = {
     "attrs_insert_ignore": [
         (
             STORE,
-            "        vals, seqs = [], []\n",
-            "        return\n        vals, seqs = [], []\n",
+            "        vals, seqs, takes = [], [], []\n",
+            "        return\n        vals, seqs, takes = [], [], []\n",
             1,
         )
     ],
@@ -355,8 +355,12 @@ MUTANTS = {
     "prior_dropped_by_merge": [
         (
             STORE,
-            "self._belief(c, o, new, cl, kd, hl, pr, seq=sq, aseq=(cs, ks, hs, ps))",
-            "self._belief(c, o, new, cl, kd, hl, None, seq=sq, aseq=(cs, ks, hs, None))",
+            "                    pr,\n"
+            "                    seq=sq,\n"
+            "                    aseq=(cs, ks, hs, ps),",
+            "                    None,\n"
+            "                    seq=sq,\n"
+            "                    aseq=(cs, ks, hs, None),",
             1,
         )
     ],
@@ -472,6 +476,10 @@ MUTANTS = {
             1,
         )
     ],
+    "links_stay_on_claim_change": [
+        (STORE, "if takes[0]:  # the claim changed hands", "if False:", 1)
+    ],
+    "merge_drops_links": [(STORE, "                    links=links,\n", "", 1)],
 }
 
 

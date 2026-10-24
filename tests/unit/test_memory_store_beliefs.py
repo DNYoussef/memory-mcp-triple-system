@@ -9,6 +9,7 @@ Values match the reference calculator belief_calc_r8.py (F2*, F14, F15, P1-P4).
 import asyncio
 import math
 import sqlite3
+from array import array
 from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -566,3 +567,23 @@ def test_supplied_observed_at_is_validated(tmp_path, monkeypatch, bad):
     assert "timestamp" in out["beliefs"]["errors"][0]
     got = rows(svc, "SELECT belief_key, observed_at FROM assertions")
     assert got == [("k.ok", "2026-10-14T15:00:00.000000Z")]
+
+
+def test_merge_keeps_links_with_the_winning_claim(tmp_path, monkeypatch):
+    freeze(monkeypatch, T15)
+    svc = service(tmp_path)
+    vectors = {"old claim": [1.0], "new claim": [2.0]}
+    svc._embedder.encode.side_effect = lambda texts: [vectors[texts[0]]]
+    svc._entity_service.extract_entities.side_effect = lambda t: [{"text": t}]
+    for key, claim in (("k.old", "old claim"), ("k.new", "new claim")):
+        entry = {**belief(key), "claim": claim}
+        assert svc.ingest(claim, {"beliefs": [entry]})["beliefs"]["recorded"] == 1
+    svc._belief_store.merge("k.old", "k.new", "merge:m1")
+    got = (
+        svc._belief_store._conn()
+        .execute(
+            "SELECT claim, entities, claim_vec FROM beliefs WHERE origin='live' AND key='k.new'"
+        )
+        .fetchone()
+    )
+    assert got == ("old claim", '["old claim"]', array("f", [1.0]).tobytes())
