@@ -328,3 +328,11 @@ def test_round_cap_reports_not_converged():
     sol = solve({"A": a9, "B": 0.0}, [("supports", "A", "B", 0.5)], max_rounds=1)
     assert sol.converged is False
     assert sol.iterations == 1
+
+
+def test_sigmoid_is_stable_at_extremes():
+    assert sigmoid(-1000.0) == 0.0
+    assert sigmoid(1000.0) == 1.0
+    assert 0.0 < sigmoid(-736.1097447916098) < 1e-300
+    assert sigmoid(-2.0) == approx(1 / (1 + math.exp(2.0)), 1e-15)
+    assert sigmoid(2.0) == approx(1 / (1 + math.exp(-2.0)), 1e-15)

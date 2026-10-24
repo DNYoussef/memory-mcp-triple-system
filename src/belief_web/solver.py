@@ -57,7 +57,11 @@ def logit(r: float) -> float:
 
 
 def sigmoid(x: float) -> float:
-    return 1 / (1 + math.exp(-x))
+    """Two branches, so exp never overflows for large |x| (review r1 #3)."""
+    if x >= 0:
+        return 1 / (1 + math.exp(-x))
+    z = math.exp(x)
+    return z / (1 + z)
 
 
 def local_logodds(

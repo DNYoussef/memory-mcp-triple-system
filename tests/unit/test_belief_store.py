@@ -1089,3 +1089,23 @@ def test_prior_logit_priority_and_rollback(store):
 def test_bad_prior_logit_rejected(store, prior):
     with pytest.raises(BeliefValidationError):
         write(store, "live", "k.a", 1, "reported", T15, "c1", prior_logit=prior)
+
+
+def test_extreme_negative_evidence_does_not_overflow(store):
+    with store.batch():
+        for i in range(250):
+            write(
+                store,
+                "live",
+                "k.neg",
+                -1,
+                "witnessed",
+                T15,
+                f"c{i}",
+                source_ref=f"git:{i}",
+                kind="fact",
+            )
+    L = store.solve(T15, keys=["k.neg"]).L["k.neg"]
+    assert L == pytest.approx(-250 * a95, abs=1e-6)
+    p = store.probability("k.neg", T15)
+    assert 0.0 < p < 1e-300

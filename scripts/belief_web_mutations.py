@@ -358,6 +358,15 @@ MUTANTS = {
             1,
         )
     ],
+    "sigmoid_one_branch": [
+        (
+            SOLVER,
+            "    if x >= 0:\n        return 1 / (1 + math.exp(-x))\n"
+            "    z = math.exp(x)\n    return z / (1 + z)",
+            "    return 1 / (1 + math.exp(-x))",
+            1,
+        )
+    ],
 }
 
 
