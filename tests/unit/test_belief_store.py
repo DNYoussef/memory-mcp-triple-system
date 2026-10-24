@@ -62,6 +62,7 @@ def write(
     rec=None,
     claim=None,
     half_life_days=None,
+    **extra,
 ):
     """The calculator's write(): one assertion, recorded_at defaults to observed_at."""
     s.add_assertion(
@@ -79,6 +80,7 @@ def write(
         reliability=r,
         claim=claim,
         half_life_days=half_life_days,
+        **extra,
     )
 
 
@@ -1056,3 +1058,34 @@ def test_failed_commit_rolls_back_and_store_stays_usable(store, db):
     assert snapshot(db) == before
     write(store, "live", "k.after", 1, "reported", T15, "c1")
     assert store.exists("k.after")
+
+
+PRIOR1 = sigmoid(1.0 + a7)  # 0.8638095286: prior_logit 1 plus one reported 0.7
+assert abs(PRIOR1 - 0.8638095286) < 1e-9
+
+
+def test_prior_logit_counts_and_survives_merge(store):
+    write(store, "live", "k.old", 1, "reported", T15, "c1", prior_logit=1.0)
+    assert close(store.probability("k.old", T15), PRIOR1)
+    write(store, "live", "k.new", 1, "reported", T15, "c2", who="bob")
+    store.merge("k.old", "k.new", "merge:1")
+    assert close(store.probability("k.new", T15), sigmoid(1.0 + 2 * a7))
+    assert store.attrs("k.new")["prior_logit"] == 1.0
+
+
+def test_prior_logit_priority_and_rollback(store):
+    write(store, "import:X", "k.p", 1, "reported", T15, "x1", prior_logit=-2.0)
+    write(store, "import:Y", "k.p", 1, "reported", T15, "y1", prior_logit=3.0)
+    assert close(
+        store.probability("k.p", T15), sigmoid(-2.0 + a7)
+    )  # earlier import wins
+    write(store, "live", "k.p", 1, "reported", T15, "l1", prior_logit=1.0)
+    assert close(store.probability("k.p", T15), PRIOR1)  # live first
+    store.rollback("import:X")
+    assert close(store.probability("k.p", T15), PRIOR1)
+
+
+@pytest.mark.parametrize("prior", [5.1, -5.1, float("nan"), True, "1"])
+def test_bad_prior_logit_rejected(store, prior):
+    with pytest.raises(BeliefValidationError):
+        write(store, "live", "k.a", 1, "reported", T15, "c1", prior_logit=prior)

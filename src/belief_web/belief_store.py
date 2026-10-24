@@ -89,6 +89,7 @@ SCHEMA = (
         claim_seq INTEGER,
         kind_seq INTEGER,
         hl_seq INTEGER,
+        prior_seq INTEGER,         -- same for prior_logit (the plan gives none; same rule)
         created_at TEXT NOT NULL,
         PRIMARY KEY(origin, key))""",
     "CREATE INDEX IF NOT EXISTS idx_beliefs_key ON beliefs(key)",
@@ -325,6 +326,7 @@ class BeliefStore:
         claim=None,
         kind=None,
         half_life_days=None,
+        prior_logit=None,
         seq=None,
         aseq=None,
     ):
@@ -337,10 +339,10 @@ class BeliefStore:
         overwrite. A merge passes the moved row's seqs. The row seq is the min
         of both: existence order only, it never decides an attribute.
         """
-        inc = (claim, kind, half_life_days)
+        inc = (claim, kind, half_life_days, prior_logit)
         row = c.execute(
-            "SELECT seq, claim, kind, half_life_days, claim_seq, kind_seq, hl_seq FROM beliefs "
-            "WHERE origin=? AND key=?",
+            "SELECT seq, claim, kind, half_life_days, prior_logit, claim_seq, kind_seq, hl_seq, "
+            "prior_seq FROM beliefs WHERE origin=? AND key=?",
             (origin, key),
         ).fetchone()
         if seq is None and (row is None or any(v is not None for v in inc)):
@@ -349,20 +351,20 @@ class BeliefStore:
             aseq = tuple(seq if v is not None else None for v in inc)
         if row is None:
             c.execute(
-                "INSERT INTO beliefs(origin, key, claim, kind, half_life_days, seq, claim_seq, kind_seq, "
-                "hl_seq, created_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO beliefs(origin, key, claim, kind, half_life_days, prior_logit, seq, "
+                "claim_seq, kind_seq, hl_seq, prior_seq, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                 (origin, key, *inc, seq, *aseq, _now_stamp()),
             )
             return
         vals, seqs = [], []
-        for cur, cur_seq, new, new_seq in zip(row[1:4], row[4:7], inc, aseq):
+        for cur, cur_seq, new, new_seq in zip(row[1:5], row[5:9], inc, aseq):
             take = new is not None and (cur is None or new_seq < cur_seq)
             vals.append(new if take else cur)
             seqs.append(new_seq if take else cur_seq)
         row_seq = min(row[0], seq) if seq is not None else row[0]
         c.execute(
-            "UPDATE beliefs SET claim=?, kind=?, half_life_days=?, seq=?, claim_seq=?, kind_seq=?, "
-            "hl_seq=? WHERE origin=? AND key=?",
+            "UPDATE beliefs SET claim=?, kind=?, half_life_days=?, prior_logit=?, seq=?, claim_seq=?, "
+            "kind_seq=?, hl_seq=?, prior_seq=? WHERE origin=? AND key=?",
             (*vals, row_seq, *seqs, origin, key),
         )
 
@@ -394,6 +396,7 @@ class BeliefStore:
         kind: Optional[str] = None,
         claim: Optional[str] = None,
         half_life_days: Optional[float] = None,
+        prior_logit: Optional[float] = None,
         note: str = "",
     ) -> None:
         """Record one assertion (evidence plus mention) and its belief row.
@@ -423,6 +426,8 @@ class BeliefStore:
             half_life_days = _number(
                 "half_life_days", half_life_days, 0.0, 3650.0, True, False
             )
+        if prior_logit is not None:
+            prior_logit = _number("prior_logit", prior_logit, -5.0, 5.0, False, False)
         if source_ref is not None and (
             not isinstance(source_ref, str) or not source_ref
         ):
@@ -432,7 +437,7 @@ class BeliefStore:
         sid = source_id_for(source_ref, who, polarity)
         with self.batch() as c:
             k = self.resolve(key)
-            self._belief(c, origin, k, claim, kind, half_life_days)
+            self._belief(c, origin, k, claim, kind, half_life_days, prior_logit)
             self._insert_assertion(
                 c,
                 (
@@ -516,12 +521,12 @@ class BeliefStore:
             # 0. refuse before any write
             reduce_edges(self._effective_edges(c, rename={old: new}))
             # 1. beliefs, per origin, with the moved row's attribute seqs
-            for o, cl, kd, hl, sq, cs, ks, hs in c.execute(
-                "SELECT origin, claim, kind, half_life_days, seq, claim_seq, kind_seq, hl_seq FROM beliefs "
-                "WHERE key=?",
+            for o, cl, kd, hl, pr, sq, cs, ks, hs, ps in c.execute(
+                "SELECT origin, claim, kind, half_life_days, prior_logit, seq, claim_seq, kind_seq, "
+                "hl_seq, prior_seq FROM beliefs WHERE key=?",
                 (old,),
             ).fetchall():
-                self._belief(c, o, new, cl, kd, hl, seq=sq, aseq=(cs, ks, hs))
+                self._belief(c, o, new, cl, kd, hl, pr, seq=sq, aseq=(cs, ks, hs, ps))
             # 2a. identical full tuples: the lower seq survives, located = max
             where = " AND ".join(f"{col}=?" for col in TUPLE_COLS)
             for aid, loc, sq, *tup in c.execute(
@@ -606,17 +611,17 @@ class BeliefStore:
         return " IN (SELECT value FROM json_each(?))", (json.dumps(sorted(keys)),)
 
     def _load_attrs(self, c, keys: Optional[Iterable[str]]) -> Dict[str, Tuple]:
-        """Effective (claim, kind, half_life_days) per key: each attribute on its
+        """Effective (claim, kind, half_life_days, prior_logit) per key: each attribute on its
         own, live first, then the smallest attribute seq. NULL means no opinion."""
         flt, args = self._filter(keys)
         best: Dict[str, List[Any]] = {}
         for key, origin, *pairs in c.execute(
-            "SELECT key, origin, claim, claim_seq, kind, kind_seq, half_life_days, hl_seq FROM beliefs"
-            + (f" WHERE key{flt}" if flt else ""),
+            "SELECT key, origin, claim, claim_seq, kind, kind_seq, half_life_days, hl_seq, "
+            "prior_logit, prior_seq FROM beliefs" + (f" WHERE key{flt}" if flt else ""),
             args,
         ):
-            slot = best.setdefault(key, [None, None, None])
-            for i in range(3):
+            slot = best.setdefault(key, [None, None, None, None])
+            for i in range(4):
                 value, seq = pairs[2 * i], pairs[2 * i + 1]
                 rank = (origin != "live", seq)
                 if value is not None and (slot[i] is None or rank < slot[i][0]):
@@ -684,8 +689,10 @@ class BeliefStore:
             evidence = self._load_evidence(c, now_s, scope)
         L0 = {}
         for k in set(attrs) | (scope or set()):
-            _, kind, hl = attrs.get(k, (None, None, None))
-            L0[k] = local_logodds(evidence.get(k, []), kind or "state", now_dt, hl).L
+            _, kind, hl, prior = attrs.get(k, (None, None, None, None))
+            L0[k] = local_logodds(
+                evidence.get(k, []), kind or "state", now_dt, hl, prior or 0.0
+            ).L
         return solve(L0, edges, clamp)
 
     def probability(self, name: str, now: Any) -> float:
@@ -696,11 +703,14 @@ class BeliefStore:
         """Effective attributes; display falls back to the key, kind to state."""
         key = self.resolve(name)
         with self._read() as c:
-            claim, kind, hl = self._load_attrs(c, [key]).get(key, (None, None, None))
+            claim, kind, hl, prior = self._load_attrs(c, [key]).get(
+                key, (None, None, None, None)
+            )
         return {
             "claim": claim if claim is not None else key,
             "kind": kind or "state",
             "half_life_days": hl,
+            "prior_logit": prior,
         }
 
     def evidence(self, name: str, now: Any) -> List[Evidence]:

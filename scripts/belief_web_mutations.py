@@ -180,9 +180,8 @@ MUTANTS = {
     "attr_priority_rowid": [
         (
             STORE,
-            '"SELECT key, origin, claim, claim_seq, kind, kind_seq, half_life_days, hl_seq '
-            'FROM beliefs"',
-            '"SELECT key, origin, claim, rowid, kind, rowid, half_life_days, rowid FROM beliefs"',
+            '"SELECT key, origin, claim, claim_seq, kind, kind_seq, half_life_days, hl_seq, "',
+            '"SELECT key, origin, claim, rowid, kind, rowid, half_life_days, rowid, "',
             1,
         )
     ],
@@ -234,7 +233,7 @@ MUTANTS = {
         )
     ],
     "hl_ignored": [
-        (STORE, 'kind or "state", now_dt, hl).L', 'kind or "state", now_dt, None).L', 1)
+        (STORE, "now_dt, hl, prior or 0.0", "now_dt, None, prior or 0.0", 1)
     ],
     "hl_order_desc": [
         (
@@ -341,6 +340,23 @@ MUTANTS = {
             "            finally:\n                self._local.depth = depth",
             1,
         ),
+    ],
+    "prior_ignored": [(STORE, "now_dt, hl, prior or 0.0", "now_dt, hl, 0.0", 1)],
+    "prior_dropped_by_merge": [
+        (
+            STORE,
+            "self._belief(c, o, new, cl, kd, hl, pr, seq=sq, aseq=(cs, ks, hs, ps))",
+            "self._belief(c, o, new, cl, kd, hl, None, seq=sq, aseq=(cs, ks, hs, None))",
+            1,
+        )
+    ],
+    "prior_unvalidated": [
+        (
+            STORE,
+            'prior_logit = _number("prior_logit", prior_logit, -5.0, 5.0, False, False)',
+            "prior_logit = prior_logit",
+            1,
+        )
     ],
 }
 
