@@ -151,9 +151,13 @@ def solve(
     into: Dict[Hashable, float] = {}
     for (_, v, _), w in rules.items():
         into[v] = into.get(v, 0.0) + w
-    weights = {
-        k: w * (CAP / into[k[1]] if into[k[1]] > CAP else 1.0) for k, w in rules.items()
-    }
+    scaled = (
+        (k, w * (CAP / into[k[1]] if into[k[1]] > CAP else 1.0))
+        for k, w in rules.items()
+    )
+    # A weight that underflows to 0 here would always send m = 0; dropping it
+    # gives the same answer and keeps 0 out of the weighted-norm divisor.
+    weights = {k: w for k, w in scaled if w > 0.0}
 
     keys = list(weights)
     index = {k: i for i, k in enumerate(keys)}

@@ -46,8 +46,8 @@ MUTANTS = {
     "no_norm": [
         (
             SOLVER,
-            "k: w * (CAP / into[k[1]] if into[k[1]] > CAP else 1.0) for k, w in rules.items()",
-            "k: w for k, w in rules.items()",
+            "(k, w * (CAP / into[k[1]] if into[k[1]] > CAP else 1.0))",
+            "(k, w)",
             1,
         )
     ],
@@ -364,6 +364,14 @@ MUTANTS = {
             "    if x >= 0:\n        return 1 / (1 + math.exp(-x))\n"
             "    z = math.exp(x)\n    return z / (1 + z)",
             "    return 1 / (1 + math.exp(-x))",
+            1,
+        )
+    ],
+    "zero_weight_kept": [
+        (
+            SOLVER,
+            "weights = {k: w for k, w in scaled if w > 0.0}",
+            "weights = dict(scaled)",
             1,
         )
     ],

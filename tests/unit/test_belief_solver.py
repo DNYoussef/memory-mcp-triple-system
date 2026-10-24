@@ -336,3 +336,16 @@ def test_sigmoid_is_stable_at_extremes():
     assert 0.0 < sigmoid(-736.1097447916098) < 1e-300
     assert sigmoid(-2.0) == approx(1 / (1 + math.exp(2.0)), 1e-15)
     assert sigmoid(2.0) == approx(1 / (1 + math.exp(-2.0)), 1e-15)
+
+
+def test_underflowed_weight_is_dropped_not_divided_by():
+    three = [
+        ("supports", x, "D", w) for x, w in (("A", 5e-324), ("B", 1.0), ("C", 1.0))
+    ]
+    two = three[1:]
+    L0 = {"A": a9, "B": a9, "C": a9, "D": 0.0}
+    got = solve(L0, three)
+    want = solve(L0, two)
+    assert got.converged
+    assert got.L["D"] == want.L["D"]
+    assert ("A", "D", "supports") not in got.weights

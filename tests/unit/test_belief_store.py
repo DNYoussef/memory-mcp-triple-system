@@ -8,6 +8,7 @@ calculator does not execute. Expected values match the calculator's.
 """
 
 import hashlib
+import math
 import sqlite3
 
 import pytest
@@ -1109,3 +1110,15 @@ def test_extreme_negative_evidence_does_not_overflow(store):
     assert L == pytest.approx(-250 * a95, abs=1e-6)
     p = store.probability("k.neg", T15)
     assert 0.0 < p < 1e-300
+
+
+def test_tiny_accepted_weight_does_not_crash(store):
+    for k in ("k.a", "k.b", "k.c"):
+        write(store, "live", k, 1, "witnessed", T15, "c_" + k, r=0.9)
+    store.add_edge("live", "k.a", "k.d", "supports", 5e-324)
+    store.add_edge("live", "k.b", "k.d", "supports", 1.0)
+    store.add_edge("live", "k.c", "k.d", "supports", 1.0)
+    sol = store.solve(T15, keys=["k.d"])
+    assert sol.converged
+    two = sigmoid(2 * 0.45 * 2 * math.tanh(a9 / 2))
+    assert close(store.probability("k.d", T15), two)
