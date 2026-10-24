@@ -533,3 +533,23 @@ def test_beliefs_open_store_next_to_kv(tmp_path, monkeypatch):
     assert out["beliefs"] == {"recorded": 1, "errors": []}
     assert svc._belief_store.db_path == kv.db_path
     kv.close()
+
+
+# ================================================================ review r1
+
+
+def test_malformed_source_type_rejects_only_that_entry(tmp_path, monkeypatch):
+    freeze(monkeypatch, T15)
+    svc = service(tmp_path)
+    for i, bad in enumerate(([], {}, 7)):
+        entries = [belief(f"k.ok{i}"), belief(f"k.bad{i}", source_type=bad)]
+        out = stdio(svc, "note", {**TAGS, "beliefs": entries})
+        assert out["beliefs_recorded"] == 1
+        assert out["belief_errors"] == [f"k.bad{i}: bad source_type {bad!r}"]
+    body = http(svc, monkeypatch, "note", {**TAGS, "beliefs": entries[::-1]})
+    assert body["beliefs"] == {"recorded": 1, "errors": ["k.bad2: bad source_type 7"]}
+    assert [k for (k,) in rows(svc, "SELECT DISTINCT belief_key FROM assertions")] == [
+        "k.ok0",
+        "k.ok1",
+        "k.ok2",
+    ]

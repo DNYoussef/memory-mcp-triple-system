@@ -9,7 +9,7 @@ Pipeline:
 2. Classify hot/cold
 3. Generate embedding
 4. Index to vector store (with stable chunk ID)
-5. Extract entities → populate graph
+5. Extract entities â†’ populate graph
 6. Record metadata beliefs/because in the belief web (only when given)
 7. Log event
 8. Run lifecycle maintenance
@@ -102,7 +102,7 @@ class MemoryIngestionService:
 
         # 0. Validate input
         if not text or not text.strip():
-            return {"success": False, "error": "Empty text — nothing to ingest"}
+            return {"success": False, "error": "Empty text â€” nothing to ingest"}
 
         # 1. Stamp metadata
         now = datetime.utcnow()
@@ -125,7 +125,7 @@ class MemoryIngestionService:
         if not text_chunks:
             text_chunks = [text]  # Fallback: use original text as single chunk
 
-        # 4. Process each chunk: ID → embed → index → graph
+        # 4. Process each chunk: ID â†’ embed â†’ index â†’ graph
         all_entity_stats: Dict[str, Any] = {
             "entities_added": 0,
             "relationships_created": 0,
@@ -158,7 +158,7 @@ class MemoryIngestionService:
             }
             self._indexer.index_chunks([chunk], [embedding])
 
-            # Entity extraction → graph population
+            # Entity extraction â†’ graph population
             stats = self._populate_graph(chunk_id, chunk_text, chunk_meta)
             graph_warning = stats.pop("graph_warning", None)
             if graph_warning and graph_warning not in warnings:

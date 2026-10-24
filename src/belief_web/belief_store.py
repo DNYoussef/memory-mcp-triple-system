@@ -412,7 +412,7 @@ class BeliefStore:
         validate_key(key)
         if isinstance(polarity, bool) or polarity not in (-1, 1):
             raise BeliefValidationError(f"polarity must be -1 or 1, got {polarity!r}")
-        if source_type not in RELIABILITY_DEFAULT:
+        if not isinstance(source_type, str) or source_type not in RELIABILITY_DEFAULT:
             raise BeliefValidationError(f"bad source_type {source_type!r}")
         r = RELIABILITY_DEFAULT[source_type] if reliability is None else reliability
         r = _number("reliability", r, 0.5, 1.0, True, True)

@@ -455,6 +455,15 @@ MUTANTS = {
             1,
         )
     ],
+    # B-PR2 review r1 fixes: each mutant re-creates the reported defect
+    "source_type_unhashable": [
+        (
+            STORE,
+            "if not isinstance(source_type, str) or source_type not in RELIABILITY_DEFAULT:",
+            "if source_type not in RELIABILITY_DEFAULT:",
+            1,
+        )
+    ],
 }
 
 
