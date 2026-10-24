@@ -290,8 +290,8 @@ MUTANTS = {
     "batch_commits_on_error": [
         (
             STORE,
-            'c.execute("ROLLBACK" if depth == 0 else f"ROLLBACK TO sp{depth}")',
-            'c.execute("COMMIT" if depth == 0 else f"ROLLBACK TO sp{depth}")',
+            'c.execute("ROLLBACK")',
+            'c.execute("COMMIT")',
             1,
         )
     ],
@@ -323,6 +323,24 @@ MUTANTS = {
     ],
     "merge_refuse_skipped": [
         (STORE, "reduce_edges(self._effective_edges(c, rename={old: new}))", "pass", 1)
+    ],
+    # review r1 fixes: each mutant re-creates the reported defect
+    "commit_outside_guard": [
+        (
+            STORE,
+            '                c.execute("COMMIT" if depth == 0 else f"RELEASE sp{depth}")\n'
+            "            except BaseException:",
+            "                pass\n            except BaseException:",
+            1,
+        ),
+        (
+            STORE,
+            "                raise\n            finally:\n                self._local.depth = depth",
+            "                raise\n            else:\n"
+            '                c.execute("COMMIT" if depth == 0 else f"RELEASE sp{depth}")\n'
+            "            finally:\n                self._local.depth = depth",
+            1,
+        ),
     ],
 }
 

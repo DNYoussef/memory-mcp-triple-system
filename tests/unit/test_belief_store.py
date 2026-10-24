@@ -1036,3 +1036,23 @@ def test_locate_chunks_rule():
     assert locate_chunks(["only chunk"], None) == [1]
     assert locate_chunks(["a b", "c  D e"], "d E") == [0, 1]
     assert locate_chunks(["a", "b"], "") == [0, 0]
+
+
+# ================================================================ review r1 regressions
+
+
+def test_failed_commit_rolls_back_and_store_stays_usable(store, db):
+    before = snapshot(db)
+    with pytest.raises(sqlite3.IntegrityError):
+        with store.batch() as c:
+            # a deferred FK violation is only detected by COMMIT itself
+            c.execute("PRAGMA defer_foreign_keys=ON")
+            c.execute(
+                "INSERT INTO assertions(origin, belief_key, source_id, polarity, source_type,"
+                " reliability, observed_at, recorded_at, chunk_id, located, seq)"
+                " VALUES('live','no.such','s',1,'reported',0.7,'t','t','c',1,999)"
+            )
+    assert not store._conn().in_transaction
+    assert snapshot(db) == before
+    write(store, "live", "k.after", 1, "reported", T15, "c1")
+    assert store.exists("k.after")

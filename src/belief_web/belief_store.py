@@ -279,13 +279,17 @@ class BeliefStore:
             self._local.depth = depth + 1
             try:
                 yield c
-            except BaseException:
-                c.execute("ROLLBACK" if depth == 0 else f"ROLLBACK TO sp{depth}")
-                if depth:
-                    c.execute(f"RELEASE sp{depth}")
-                raise
-            else:
+                # inside the guard: a failed COMMIT (for example a deferred FK)
+                # leaves the transaction open and must be rolled back too
                 c.execute("COMMIT" if depth == 0 else f"RELEASE sp{depth}")
+            except BaseException:
+                if c.in_transaction:  # SQLite may already have rolled back
+                    if depth == 0:
+                        c.execute("ROLLBACK")
+                    else:
+                        c.execute(f"ROLLBACK TO sp{depth}")
+                        c.execute(f"RELEASE sp{depth}")
+                raise
             finally:
                 self._local.depth = depth
 
