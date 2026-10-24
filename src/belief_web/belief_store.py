@@ -29,7 +29,7 @@ import threading
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Tuple
 
 from .solver import (
     EDGE_TYPES,
@@ -133,6 +133,17 @@ SCHEMA = (
     "INSERT OR IGNORE INTO migrations (version, description, applied_at) "
     "VALUES ('008', 'Belief web tables (beliefs, assertions, edges, belief_seq, aliases)', datetime('now'))",
 )
+
+
+class Web(NamedTuple):
+    """BeliefStore.web(): the whole web at one instant."""
+
+    attrs: Dict[str, Tuple]  # key -> (claim, kind, half_life_days, prior_logit)
+    evidence: Dict[str, List[Evidence]]  # reduced, before supersession
+    edges: List[Tuple[str, str, str, float]]  # (type, src, dst, weight)
+    mentions: Dict[Tuple[str, str, int], List[Tuple[str, int]]]  # -> (chunk, located)
+    projects: Dict[str, set]
+    mention_rows: int  # every assertion row, eligible or not
 
 
 class BeliefValidationError(ValueError):
@@ -811,6 +822,31 @@ class BeliefStore:
         key = self.resolve(name)
         with self._read() as c:
             return self._load_evidence(c, format_ts(now), [key]).get(key, [])
+
+    def web(self, now: Any) -> "Web":
+        """One consistent snapshot of the whole web at `now` for whole-web reads
+        (find_holes, lifecycle counts): attributes, reduced evidence, effective
+        edges, every eligible mention row per (key, source, polarity), and the
+        projects each key was recorded under."""
+        now_s = format_ts(now)
+        with self._read() as c:
+            attrs = self._load_attrs(c, None)
+            evidence = self._load_evidence(c, now_s, None)
+            edges = self._effective_edges(c)
+            mentions: Dict[Tuple[str, str, int], List[Tuple[str, int]]] = {}
+            for key, sid, pol, chunk, loc in c.execute(
+                "SELECT belief_key, source_id, polarity, chunk_id, located FROM assertions "
+                "WHERE observed_at <= ? AND recorded_at <= ? ORDER BY seq",
+                (now_s, now_s),
+            ):
+                mentions.setdefault((key, sid, pol), []).append((chunk, loc))
+            projects: Dict[str, set] = {}
+            for key, project in c.execute(
+                "SELECT key, project FROM beliefs WHERE project IS NOT NULL"
+            ):
+                projects.setdefault(key, set()).add(project)
+            rows = c.execute("SELECT count(*) FROM assertions").fetchone()[0]
+        return Web(attrs, evidence, edges, mentions, projects, rows)
 
     def catalog(self) -> List[Tuple[str, str, Optional[bytes], Optional[str]]]:
         """(key, display claim, claim_vec, vec_model) per belief, sorted by key.
