@@ -1122,3 +1122,31 @@ def test_tiny_accepted_weight_does_not_crash(store):
     assert sol.converged
     two = sigmoid(2 * 0.45 * 2 * math.tanh(a9 / 2))
     assert close(store.probability("k.d", T15), two)
+
+
+# ================================================================ review r2 regression
+
+
+def test_caught_auto_rollback_poisons_outer_batch(store, db):
+    before = snapshot(db)
+    refused = None
+    with pytest.raises(RuntimeError, match="outer fails"):
+        with store.batch() as c:
+            write(store, "live", "k.a", 1, "reported", T15, "c1")
+            try:  # OR ROLLBACK makes SQLite end the whole transaction itself
+                c.execute(
+                    "INSERT OR ROLLBACK INTO beliefs(origin, key, seq, created_at)"
+                    " VALUES('live', 'k.a', 1, 't')"
+                )
+            except sqlite3.IntegrityError:
+                pass
+            assert not c.in_transaction
+            try:
+                write(store, "live", "k.b", 1, "reported", T15, "c2")
+            except sqlite3.OperationalError as exc:
+                refused = exc
+            raise RuntimeError("outer fails")
+    assert refused is not None, "write after a caught auto-rollback was accepted"
+    assert snapshot(db) == before
+    write(store, "live", "k.c", 1, "reported", T15, "c3")  # store usable after unwind
+    assert store.exists("k.c") and not store.exists("k.b")

@@ -375,6 +375,10 @@ MUTANTS = {
             1,
         )
     ],
+    # review r2 fix
+    "nested_after_auto_rollback": [
+        (STORE, "if depth and not c.in_transaction:", "if False:", 1)
+    ],
 }
 
 

@@ -276,6 +276,13 @@ class BeliefStore:
         with self._lock:
             c = self._conn()
             depth = self._local.depth
+            if depth and not c.in_transaction:
+                # SQLite ended the enclosing transaction itself (a caught
+                # auto-rollback). A SAVEPOINT now would open and commit a new
+                # transaction outside the batch, so refuse until it unwinds.
+                raise sqlite3.OperationalError(
+                    "enclosing belief transaction was rolled back by SQLite"
+                )
             c.execute("BEGIN IMMEDIATE" if depth == 0 else f"SAVEPOINT sp{depth}")
             self._local.depth = depth + 1
             try:
