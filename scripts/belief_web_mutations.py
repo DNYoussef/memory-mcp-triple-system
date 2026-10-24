@@ -680,6 +680,20 @@ MUTANTS = {
     "pair_without_both_true": [
         (HOLES, "both = p[a] > 0.5 and p[b] > 0.5", "both = True", 1)
     ],
+    "pair_loads_only_in_scope": [
+        (
+            HOLES,
+            "loads = _loads(web.edges, keyset | {x for pair in pairs for x in pair})",
+            "loads = _loads(web.edges, keyset)",
+            1,
+        ),
+        (
+            HOLES,
+            "la, lb = loads[a], loads[b]",
+            "la, lb = loads.get(a, 0), loads.get(b, 0)",
+            1,
+        ),
+    ],
 }
 
 

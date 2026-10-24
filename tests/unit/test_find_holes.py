@@ -225,6 +225,24 @@ def test_strong_belief_excluding_an_unevidenced_one_is_not_a_pair(store, tool):
     assert payload["counts"]["contradicted_pair"] == 0
 
 
+def test_project_filter_keeps_the_pair_load_and_rank(store, tool):
+    write(store, "k.a", 1, "witnessed", T15, "ca", reliability=0.9)
+    write(store, "k.b", 1, "witnessed", T15, "cb", reliability=0.8)
+    store.link("live", "k.b", "k.b holds", project="alpha")
+    store.add_edge("live", "k.a", "k.b", "excludes", 0.5)
+    for child in ("k.c1", "k.c2", "k.c3"):
+        store.add_edge("live", "k.a", child, "supports", 0.5)
+
+    def pair(**kw):
+        (h,) = [
+            x for x in holes(tool, **kw)["holes"] if x["hole"] == "contradicted_pair"
+        ]
+        return h["load"], h["rank"]
+
+    assert pair()[0] == 3
+    assert pair(project="alpha") == pair()  # k.a is outside the filter
+
+
 def test_weak_excludes_pair_is_not(store, tool):
     write(store, "k.a", 1, "inferred", T15, "ca")  # 0.6, no evidence on k.b
     store.add_edge("live", "k.a", "k.b", "excludes", 0.5)

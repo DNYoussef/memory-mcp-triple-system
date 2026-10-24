@@ -136,30 +136,7 @@ def find_holes(
     scope = sorted(
         k for k in web.attrs if project is None or project in web.projects.get(k, ())
     )
-    loads = _loads(web.edges, scope)
-    found: List[Dict[str, Any]] = []
-    for k in scope:
-        found.extend(_belief_holes(web, k, local[k], p[k], loads[k], min_load, now))
-    in_scope = set(scope)
-    pairs = sorted(
-        {tuple(sorted((s, d))) for t, s, d, _ in web.edges if t == "excludes"}
-    )
-    for a, b in pairs:
-        # both sides must lean true: one strong belief pushing an unevidenced
-        # alternative down (F5: 0.90 + 0.31) is the edge working, not a conflict
-        both = p[a] > 0.5 and p[b] > 0.5
-        if (a in in_scope or b in in_scope) and both and p[a] + p[b] > PAIR_SUM:
-            la, lb = loads.get(a, 0), loads.get(b, 0)
-            found.append(
-                {
-                    "hole": "contradicted_pair",
-                    "keys": [a, b],
-                    "claims": [_claim(web, a), _claim(web, b)],
-                    "p": [p[a], p[b]],
-                    "load": max(la, lb),
-                    "rank": max(_rank(p[a], la), _rank(p[b], lb)),
-                }
-            )
+    found = holes_of(web, local, p, scope, min_load, now)
     counts = {kind: sum(1 for h in found if h["hole"] == kind) for kind in HOLE_KINDS}
     shown = [h for h in found if kinds is None or h["hole"] in kinds]
     shown.sort(
@@ -173,6 +150,41 @@ def find_holes(
     return _result(
         shown[:limit], counts, len(scope), now, sol.converged, sol.iterations
     )
+
+
+def holes_of(web, local, p, keys, min_load, now) -> List[Dict[str, Any]]:
+    """Every hole of `keys`, plus each excludes pair touching them. Loads are
+    computed over the whole snapshot for each key and each pair endpoint, so
+    a project filter (or a scoped caller) cannot change a pair's rank."""
+    keyset = set(keys)
+    pairs = [
+        (a, b)
+        for a, b in sorted(
+            {tuple(sorted((s, d))) for t, s, d, _ in web.edges if t == "excludes"}
+        )
+        if a in keyset or b in keyset
+    ]
+    loads = _loads(web.edges, keyset | {x for pair in pairs for x in pair})
+    found: List[Dict[str, Any]] = []
+    for k in sorted(keyset):
+        found.extend(_belief_holes(web, k, local[k], p[k], loads[k], min_load, now))
+    for a, b in pairs:
+        # both sides must lean true: one strong belief pushing an unevidenced
+        # alternative down (F5: 0.90 + 0.31) is the edge working, not a conflict
+        both = p[a] > 0.5 and p[b] > 0.5
+        if both and p[a] + p[b] > PAIR_SUM:
+            la, lb = loads[a], loads[b]
+            found.append(
+                {
+                    "hole": "contradicted_pair",
+                    "keys": [a, b],
+                    "claims": [_claim(web, a), _claim(web, b)],
+                    "p": [p[a], p[b]],
+                    "load": max(la, lb),
+                    "rank": max(_rank(p[a], la), _rank(p[b], lb)),
+                }
+            )
+    return found
 
 
 def _claim(web, key: str) -> str:
