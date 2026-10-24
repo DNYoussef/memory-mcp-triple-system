@@ -6,7 +6,6 @@ raise inside pgmpy, be swallowed by execute_with_timeout, and surface as
 and still return probabilities.
 """
 import json
-import threading
 import types
 
 import networkx as nx
