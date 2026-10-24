@@ -215,6 +215,16 @@ def test_excludes_pair_both_evidenced_is_contradicted_pair(store, tool):
     assert math.isclose(h["p"][1], sigmoid(a8 - 0.8), abs_tol=1e-6)  # 0.6425
 
 
+def test_strong_belief_excluding_an_unevidenced_one_is_not_a_pair(store, tool):
+    """F5: A 0.9 excludes B with no evidence on B gives 0.90 + 0.31 = 1.21 > 1.1,
+    yet B only leans false. Both sides must lean true (plan predicate fix)."""
+    write(store, "k.a", 1, "witnessed", T15, "ca", reliability=0.9)
+    store.add_edge("live", "k.a", "k.b", "excludes", 0.5)
+    payload = holes(tool)
+    assert not [x for x in payload["holes"] if x["hole"] == "contradicted_pair"]
+    assert payload["counts"]["contradicted_pair"] == 0
+
+
 def test_weak_excludes_pair_is_not(store, tool):
     write(store, "k.a", 1, "inferred", T15, "ca")  # 0.6, no evidence on k.b
     store.add_edge("live", "k.a", "k.b", "excludes", 0.5)

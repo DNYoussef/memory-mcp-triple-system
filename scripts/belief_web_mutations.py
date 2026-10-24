@@ -676,6 +676,10 @@ MUTANTS = {
             1,
         )
     ],
+    # B-PR4 review r1 fixes: each mutant re-creates the reported defect
+    "pair_without_both_true": [
+        (HOLES, "both = p[a] > 0.5 and p[b] > 0.5", "both = True", 1)
+    ],
 }
 
 

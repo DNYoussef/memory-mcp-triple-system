@@ -25,7 +25,7 @@ HOLE_KINDS = (
     "weak_load_bearing",
 )
 CONTRADICTION_LLR = 0.4  # both sides at least this strong
-PAIR_SUM = 1.1  # excludes pair with pA + pB above this
+PAIR_SUM = 1.1  # excludes pair with pA + pB above this, each side above 0.5
 UNSUPPORTED_SUM = 0.1  # total |active decayed llr| below this
 WEAK_BAND = (0.3, 0.7)
 LOAD_DEPTH = 5
@@ -145,7 +145,10 @@ def find_holes(
         {tuple(sorted((s, d))) for t, s, d, _ in web.edges if t == "excludes"}
     )
     for a, b in pairs:
-        if (a in in_scope or b in in_scope) and p[a] + p[b] > PAIR_SUM:
+        # both sides must lean true: one strong belief pushing an unevidenced
+        # alternative down (F5: 0.90 + 0.31) is the edge working, not a conflict
+        both = p[a] > 0.5 and p[b] > 0.5
+        if (a in in_scope or b in in_scope) and both and p[a] + p[b] > PAIR_SUM:
             la, lb = loads.get(a, 0), loads.get(b, 0)
             found.append(
                 {
