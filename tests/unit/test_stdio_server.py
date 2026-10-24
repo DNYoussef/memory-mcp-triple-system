@@ -46,11 +46,11 @@ class TestHandleListTools:
         assert isinstance(tools, list)
 
     def test_returns_all_registered_tools(self):
-        """All registered tools returned, including the KV tools (B4)."""
+        """All registered tools returned, including the KV tools (B4) and find_holes."""
         tools = handle_list_tools()
         names = {t["name"] for t in tools}
-        assert len(tools) == 18
-        assert {"kv_get", "kv_set", "kv_delete"} <= names
+        assert len(tools) == 19
+        assert {"kv_get", "kv_set", "kv_delete", "find_holes"} <= names
 
     def test_vector_search_tool_present(self):
         """Test vector_search tool is in the list."""
@@ -326,7 +326,7 @@ class TestStdioMainLoop:
 
         assert "result" in response
         assert "tools" in response["result"]
-        assert len(response["result"]["tools"]) == 18
+        assert len(response["result"]["tools"]) == 19
 
     def test_error_response_format(self):
         """Test error response format for unknown method."""

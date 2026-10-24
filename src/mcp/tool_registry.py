@@ -24,6 +24,7 @@ def get_tool_definitions() -> List[Dict[str, Any]]:
         _hipporag_retrieve_tool(),
         _detect_mode_tool(),
         _lifecycle_status_tool(),
+        _find_holes_tool(),
         _obsidian_sync_tool(),
         _beads_ready_tasks_tool(),
         _beads_task_detail_tool(),
@@ -348,6 +349,57 @@ def _lifecycle_status_tool() -> Dict[str, Any]:
         "version": REGISTRY_VERSION,
         "description": "Get memory lifecycle statistics",
         "inputSchema": {"type": "object", "properties": {}},
+    }
+
+
+def _find_holes_tool() -> Dict[str, Any]:
+    """find_holes tool definition (PLAN-B section 5.2)."""
+    return {
+        "name": "find_holes",
+        "version": REGISTRY_VERSION,
+        "description": (
+            "Read-only: list the weakest beliefs in the belief web (contradicted, "
+            "outdated_memory, contradicted_pair, stale, unsupported, weak_load_bearing), "
+            "ranked by how much rests on them and how uncertain they are"
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project": {
+                    "type": "string",
+                    "description": "Only beliefs recorded under this project",
+                },
+                "kinds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "contradicted",
+                            "outdated_memory",
+                            "contradicted_pair",
+                            "stale",
+                            "unsupported",
+                            "weak_load_bearing",
+                        ],
+                    },
+                    "description": "Hole kinds to list (default all)",
+                },
+                "min_load": {
+                    "type": "integer",
+                    "description": "Dependents needed for weak_load_bearing",
+                    "default": 2,
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Holes to list (1-200)",
+                    "default": 20,
+                },
+                "now": {
+                    "type": "string",
+                    "description": "ISO time to evaluate at (tests and replay)",
+                },
+            },
+        },
     }
 
 
