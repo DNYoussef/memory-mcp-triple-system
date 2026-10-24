@@ -443,3 +443,17 @@ def test_conflicting_evidence_for_one_belief_refused(web):
         web, query=PILOT_QUERY, evidence={PILOT: True, "guardspine.pilot.paid": True}
     )
     assert is_error is False and payload["evidence"] == {PILOT: True}
+
+
+@pytest.mark.parametrize("bad", [[], False, 0, "", [1]])
+def test_supplied_evidence_must_be_an_object(web, bad):
+    pilot_web(web)
+    payload, is_error = ask(web, query=PILOT_QUERY, evidence=bad)
+    assert is_error is True and "evidence must be an object" in payload["error"]
+
+
+def test_omitted_or_null_evidence_is_none(web):
+    pilot_web(web)
+    for arguments in ({}, {"evidence": None}):
+        payload, is_error = ask(web, query=PILOT_QUERY, **arguments)
+        assert is_error is False and payload["evidence"] == {}

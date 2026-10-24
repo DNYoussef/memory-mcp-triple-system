@@ -103,7 +103,8 @@ def _resolve(store: BeliefStore, name: str) -> Optional[str]:
 
 def _args(arguments: Dict[str, Any]) -> Tuple[str, Dict, str, int, datetime]:
     query = arguments.get("query", "")
-    evidence = arguments.get("evidence") or {}
+    evidence = arguments.get("evidence")
+    evidence = {} if evidence is None else evidence  # omitted or null only
     mode = arguments.get("unknown_evidence", "refuse")
     top_k = arguments.get("top_k", 3)
     if not isinstance(query, str) or not query.strip():

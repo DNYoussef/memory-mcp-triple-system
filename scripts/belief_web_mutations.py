@@ -561,6 +561,14 @@ MUTANTS = {
     "conflicting_evidence_overwrites": [
         (INFER, "    if conflicts:\n", "    if False:\n", 1)
     ],
+    "falsy_evidence_defaulted": [
+        (
+            INFER,
+            "evidence = {} if evidence is None else evidence",
+            "evidence = evidence or {}",
+            1,
+        )
+    ],
 }
 
 
