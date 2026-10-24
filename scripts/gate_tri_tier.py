@@ -62,7 +62,7 @@ def main():
         # (3) bayesian tier ran (numeric posterior, not an 'unavailable' string)
         bay = call("bayesian_inference", {"query": "Wilhelmina Ashgrove"}).lower()
         if "unavailable" in bay or "no co-occurrence" in bay or not any(c.isdigit() for c in bay):
-            failures.append("bayesian tier did not produce a numeric posterior")
+            failures.append(f"bayesian tier did not produce a numeric posterior: {bay[:400]}")
 
         # (4) POISON: kill the graph tier, fusion must OBSERVABLY change (not silently identical)
         setattr(tool, "hipporag_service", None)
