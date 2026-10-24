@@ -10,18 +10,43 @@ Pipeline:
 3. Generate embedding
 4. Index to vector store (with stable chunk ID)
 5. Extract entities → populate graph
-6. Log event
-7. Run lifecycle maintenance
+6. Record metadata beliefs/because in the belief web (only when given)
+7. Log event
+8. Run lifecycle maintenance
 
 Non-negotiable rule: HTTP and stdio MUST NOT have separate ingestion logic.
 """
 
 import hashlib
+import json
 import time
+from array import array
 from datetime import datetime
 from typing import Any, Dict, List
 
 from loguru import logger
+
+from src.belief_web.belief_store import (
+    BeliefStore,
+    BeliefValidationError,
+    locate_chunks,
+)
+from src.belief_web.solver import EDGE_TYPES, EdgeConflict
+
+BELIEF_FIELDS = {
+    "key",
+    "claim",
+    "value",
+    "source_type",
+    "observed_at",
+    "kind",
+    "quote",
+    "source_ref",
+    "reliability",
+    "half_life_days",
+    *EDGE_TYPES,
+}
+EDGE_WEIGHT = 0.5  # memory_store edges carry no weight of their own
 
 
 class MemoryIngestionService:
@@ -42,6 +67,7 @@ class MemoryIngestionService:
         event_log,
         chunker=None,
         kv_store=None,
+        beliefs_enabled=True,
     ):
         self._embedder = embedder
         self._indexer = indexer
@@ -52,6 +78,10 @@ class MemoryIngestionService:
         self._event_log = event_log
         self._chunker = chunker
         self._kv_store = kv_store
+        # Opened on first use next to the KV store (agent_kv.db), so a store
+        # without beliefs never creates the belief tables.
+        self._belief_store = None
+        self._beliefs_enabled = beliefs_enabled
 
     # ------------------------------------------------------------------
     # Public API
@@ -143,6 +173,12 @@ class MemoryIngestionService:
 
         entity_stats = all_entity_stats
 
+        # 6. Beliefs, after the chunks are indexed. Absent keys add nothing to
+        # the response, so a store without beliefs answers exactly as before.
+        beliefs = None
+        if "beliefs" in metadata or "because" in metadata:
+            beliefs = self._record_beliefs(metadata, text_chunks, chunk_ids, now_iso)
+
         # 7. Log event (log all chunk IDs, not just last)
         self._log_event(
             text, metadata, ",".join(chunk_ids) if chunk_ids else "none", entity_stats
@@ -152,7 +188,7 @@ class MemoryIngestionService:
         self._run_lifecycle_maintenance()
 
         elapsed_ms = (time.monotonic() - t0) * 1000
-        return {
+        result = {
             "success": True,
             "chunk_id": chunk_ids[0] if chunk_ids else None,
             "chunk_ids": chunk_ids,
@@ -166,6 +202,9 @@ class MemoryIngestionService:
             "graph_persisted": not warnings,
             "warnings": warnings,
         }
+        if beliefs is not None:
+            result["beliefs"] = beliefs
+        return result
 
     # ------------------------------------------------------------------
     # Pipeline steps
@@ -253,6 +292,148 @@ class MemoryIngestionService:
         except Exception as e:
             logger.warning(f"Graph population failed: {e}")
             return {**empty, "graph_warning": f"graph population failed: {e}"}
+
+    # ------------------------------------------------------------------
+    # Beliefs (PLAN-B section 4.1)
+    # ------------------------------------------------------------------
+
+    def _record_beliefs(
+        self,
+        metadata: Dict[str, Any],
+        chunks: List[str],
+        chunk_ids: List[str],
+        recorded_at: str,
+    ) -> Dict[str, Any]:
+        """Record metadata `beliefs`/`because` under origin live (section 2.6).
+
+        A bad entry is rejected on its own (its savepoint rolls back) and
+        reported. The valid entries share ONE transaction, so any other write
+        failure leaves zero belief rows from this call. The memory itself is
+        already stored either way. Errors are sanitized with strip_private.
+        """
+        from src.hooks.post_tool_handler import strip_private
+
+        errors: List[str] = []
+        recorded = 0
+        entries = metadata.get("beliefs", [])
+        because = metadata.get("because", [])
+        try:
+            if not self._beliefs_enabled:
+                raise BeliefValidationError(
+                    "belief ingestion is disabled (belief_web.ingest)"
+                )
+            if not isinstance(entries, list) or not isinstance(because, list):
+                raise BeliefValidationError("beliefs and because must be lists")
+            if because and not entries:
+                raise BeliefValidationError("because needs at least one belief")
+            store = self._beliefs()
+            links = [self._link(entry) for entry in entries]  # outside the lock
+            with store.batch():
+                for i, entry in enumerate(entries):
+                    key = entry.get("key") if isinstance(entry, dict) else None
+                    label = key if isinstance(key, str) else f"beliefs[{i}]"
+                    try:
+                        with store.batch():
+                            note = self._write_belief(
+                                store,
+                                entry,
+                                because,
+                                metadata,
+                                chunks,
+                                chunk_ids,
+                                recorded_at,
+                                links[i],
+                            )
+                        recorded += 1
+                        if note:
+                            errors.append(f"{label}: {note}")
+                    except (BeliefValidationError, EdgeConflict) as e:
+                        errors.append(f"{label}: {e}")
+        except BeliefValidationError as e:
+            errors.append(f"beliefs: {e}")
+        except Exception as e:
+            logger.warning(f"Belief write failed: {e}")
+            recorded = 0
+            errors.append(f"beliefs: not recorded ({e}); no belief rows kept")
+        return {"recorded": recorded, "errors": [strip_private(e) for e in errors]}
+
+    def _write_belief(
+        self, store, entry, because, metadata, chunks, chunk_ids, recorded_at, link
+    ) -> str:
+        """One entry: an assertion row per chunk (the mention, located by the
+        quote rule), then its edges. Returns a non-fatal note, else ''."""
+        if not isinstance(entry, dict):
+            raise BeliefValidationError("entry must be an object")
+        unknown = sorted(set(entry) - BELIEF_FIELDS)
+        if unknown:
+            raise BeliefValidationError(f"unknown fields {unknown}")
+        key, claim, quote = entry.get("key"), entry.get("claim"), entry.get("quote")
+        if not isinstance(key, str) or not isinstance(entry.get("value"), bool):
+            raise BeliefValidationError("key must be text and value true or false")
+        if quote is not None and not isinstance(quote, str):
+            raise BeliefValidationError("quote must be text")
+        if claim is None and not store.exists(key):
+            raise BeliefValidationError("a new key needs a claim")
+        located = locate_chunks(chunks, quote)
+        for chunk_id, loc in zip(chunk_ids, located):
+            store.add_assertion(
+                "live",
+                key,
+                polarity=1 if entry["value"] else -1,
+                source_type=entry.get("source_type"),
+                observed_at=entry.get("observed_at") or recorded_at,
+                recorded_at=recorded_at,
+                chunk_id=chunk_id,
+                source_ref=entry.get("source_ref"),
+                who=metadata.get("who"),
+                reliability=entry.get("reliability"),
+                located=loc,
+                kind=entry.get("kind"),
+                claim=claim,
+                half_life_days=entry.get("half_life_days"),
+            )
+        for edge_type in EDGE_TYPES:
+            targets = entry.get(edge_type, [])
+            if not isinstance(targets, list):
+                raise BeliefValidationError(f"{edge_type} must be a list of keys")
+            if edge_type == "depends_on":
+                targets = targets + because
+            for target in targets:
+                store.add_edge("live", key, target, edge_type, EDGE_WEIGHT)
+        if claim is not None:
+            store.link("live", key, claim, metadata.get("project"), *link)
+        if quote and len(chunks) > 1 and not any(located):
+            return "quote not found"
+        return ""
+
+    def _link(self, entry: Any) -> tuple:
+        """(entities, claim_vec, vec_model) for an entry's claim. Linking is
+        enrichment: a failure leaves NULLs and never rejects the belief."""
+        claim = entry.get("claim") if isinstance(entry, dict) else None
+        if not isinstance(claim, str) or not claim.strip():
+            return (None, None, None)
+        entities = vec = model = None
+        try:
+            if self._entity_service:
+                found = self._entity_service.extract_entities(claim)
+                entities = json.dumps(sorted({e["text"] for e in found}))
+        except Exception as e:
+            logger.warning(f"Belief entity linking failed: {e}")
+        try:
+            vec = array("f", self._encode_single_chunk(claim)).tobytes()
+            model = getattr(self._embedder, "model_name", None)
+            model = model if isinstance(model, str) else None
+        except Exception as e:
+            logger.warning(f"Belief claim embedding failed: {e}")
+        return (entities, vec, model)
+
+    def _beliefs(self) -> BeliefStore:
+        if self._belief_store is None:
+            path = getattr(self._kv_store, "db_path", None)
+            if path is None:
+                raise RuntimeError("no belief store (KV store path unknown)")
+            self._belief_store = BeliefStore(str(path))
+        return self._belief_store
 
     def _log_event(
         self,
