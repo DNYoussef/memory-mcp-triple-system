@@ -602,7 +602,12 @@ def run_tests():
     return proc.returncode, failed, summary
 
 
-def main():
+def main(argv):
+    """argv[0], optional, is a slice START:END of the mutant list, so a long run
+    can be split into shorter ones; the control runs in every slice."""
+    start, _, end = (argv[0] if argv else ":").partition(":")
+    names = list(MUTANTS)[int(start or 0) : int(end) if end else None]
+    mutants = {n: MUTANTS[n] for n in names}
     originals = {
         p: (p.read_bytes(), sha(p)) for p in (SOLVER, STORE, INGEST, ROUTER, INFER)
     }
@@ -617,7 +622,7 @@ def main():
         ]
     }
     survived = []
-    for name, edits in {**control, **MUTANTS}.items():
+    for name, edits in {**control, **mutants}.items():
         try:
             for path, old, new, count in edits:
                 text = path.read_text(encoding="utf-8")
@@ -651,9 +656,10 @@ def main():
     if survived:
         print("SURVIVING MUTATIONS: " + ", ".join(survived))
         return 1
-    print(f"ALL {len(MUTANTS)} MUTATIONS KILLED")
+    total = "" if len(mutants) == len(MUTANTS) else f" (of {len(MUTANTS)})"
+    print(f"ALL {len(mutants)} MUTATIONS KILLED{total}")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))
