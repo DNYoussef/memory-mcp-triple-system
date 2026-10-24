@@ -231,11 +231,17 @@ def _now_stamp() -> str:
 class BeliefStore:
     """Origin-scoped belief tables in one SQLite file. Thread-local connections."""
 
-    def __init__(self, db_path: str):
+    def __init__(self, db_path: str, readonly: bool = False):
+        """readonly is for read tools: it never creates the file or the schema,
+        never changes the journal mode, and its connections refuse every write
+        (PRAGMA query_only). Check has_schema() before reading."""
         self.db_path = Path(db_path)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.readonly = readonly
         self._lock = threading.RLock()
         self._local = threading.local()
+        if readonly:
+            return
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
         with self.batch() as c:
             for stmt in SCHEMA:
                 c.execute(stmt)
@@ -243,16 +249,26 @@ class BeliefStore:
     def _conn(self) -> sqlite3.Connection:
         c = getattr(self._local, "conn", None)
         if c is None:
-            c = sqlite3.connect(
-                str(self.db_path),
-                check_same_thread=False,
-                timeout=30.0,
-                isolation_level=None,
-            )
-            try:
-                c.execute("PRAGMA journal_mode=WAL")
-            except sqlite3.Error:
-                pass  # WAL unavailable (e.g. :memory:) -- rollback journal is fine
+            if self.readonly:  # mode=rw: a missing file is an error, never created
+                c = sqlite3.connect(
+                    self.db_path.resolve().as_uri() + "?mode=rw",
+                    uri=True,
+                    check_same_thread=False,
+                    timeout=30.0,
+                    isolation_level=None,
+                )
+                c.execute("PRAGMA query_only=ON")
+            else:
+                c = sqlite3.connect(
+                    str(self.db_path),
+                    check_same_thread=False,
+                    timeout=30.0,
+                    isolation_level=None,
+                )
+                try:
+                    c.execute("PRAGMA journal_mode=WAL")
+                except sqlite3.Error:
+                    pass  # WAL unavailable (e.g. :memory:) -- rollback journal is fine
             # Must be set outside a transaction: SQLite ignores it inside one.
             c.execute("PRAGMA foreign_keys=ON")
             if c.execute("PRAGMA foreign_keys").fetchone()[0] != 1:
@@ -261,6 +277,22 @@ class BeliefStore:
             self._local.conn = c
             self._local.depth = 0
         return c
+
+    def has_schema(self) -> bool:
+        """True once a writer has created every belief table."""
+        if not self.db_path.exists():
+            return False
+        names = json.dumps(list(ARCHIVE_TABLES))
+        row = (
+            self._conn()
+            .execute(
+                "SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN "
+                "(SELECT value FROM json_each(?))",
+                (names,),
+            )
+            .fetchone()
+        )
+        return row[0] == len(ARCHIVE_TABLES)
 
     def close(self) -> None:
         c = getattr(self._local, "conn", None)

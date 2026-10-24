@@ -121,17 +121,18 @@ def _args(arguments: Dict[str, Any]) -> Tuple[str, Dict, str, int, datetime]:
 
 def infer(
     arguments: Dict[str, Any],
-    store: BeliefStore,
+    store: Optional[BeliefStore],
     embedder,
     threshold: float = MATCH_THRESHOLD,
 ) -> Tuple[Dict[str, Any], bool]:
-    """(payload, is_error) for one bayesian_inference call."""
+    """(payload, is_error) for one bayesian_inference call. store None means
+    the belief tables do not exist yet: an empty web."""
     try:
         query, raw_evidence, mode, top_k, now = _args(arguments)
     except BeliefValidationError as e:
         return {"error": str(e)}, True
-    matcher = Matcher(store, embedder)
-    if not matcher.keys:
+    matcher = Matcher(store, embedder) if store is not None else None
+    if matcher is None or not matcher.keys:
         return {
             "error": "no beliefs recorded yet",
             "nearest": [],

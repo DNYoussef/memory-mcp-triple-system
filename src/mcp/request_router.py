@@ -621,6 +621,25 @@ def _belief_web_config(tool: "NexusSearchTool") -> Dict[str, Any]:
     return section if isinstance(section, dict) else {}
 
 
+def _belief_reader(tool: "NexusSearchTool"):
+    """A read-only BeliefStore next to the KV store (agent_kv.db), or None while
+    no writer has created the belief tables yet. A read never creates them."""
+    reader = getattr(tool, "__dict__", {}).get("_belief_reader")
+    if reader is not None:
+        return reader
+    from ..belief_web.belief_store import BeliefStore
+
+    path = getattr(getattr(tool, "kv_store", None), "db_path", None)
+    if path is None:
+        raise RuntimeError("no belief store (KV store path unknown)")
+    reader = BeliefStore(str(path), readonly=True)
+    if not reader.has_schema():
+        reader.close()
+        return None
+    setattr(tool, "_belief_reader", reader)
+    return reader
+
+
 def _handle_belief_web_inference(
     arguments: Dict[str, Any], tool: "NexusSearchTool"
 ) -> Dict[str, Any]:
@@ -629,7 +648,7 @@ def _handle_belief_web_inference(
 
     threshold = _belief_web_config(tool).get("match_threshold", MATCH_THRESHOLD)
     try:
-        store = _get_ingestion_service(tool)._beliefs()
+        store = _belief_reader(tool)
         payload, is_error = infer(
             arguments, store, tool.vector_search_tool.embedder, threshold
         )

@@ -548,6 +548,16 @@ MUTANTS = {
             1,
         )
     ],
+    # B-PR3 review r1 fixes: each mutant re-creates the reported defect
+    "inference_reads_through_writer": [
+        (
+            ROUTER,
+            "store = _belief_reader(tool)",
+            "store = _get_ingestion_service(tool)._beliefs()",
+            1,
+        )
+    ],
+    "reader_allows_writes": [(STORE, 'c.execute("PRAGMA query_only=ON")', "pass", 1)],
 }
 
 

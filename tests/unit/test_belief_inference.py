@@ -64,6 +64,7 @@ def web(tmp_path, embedder, monkeypatch):
         config={"belief_web": {"backend": "belief_web"}},
         nexus_processor=None,  # the legacy engine is never reached
         vector_search_tool=SimpleNamespace(embedder=embedder),
+        kv_store=SimpleNamespace(db_path=tmp_path / "agent_kv.db"),
         _ingestion_service=svc,
     )
     yield tool
@@ -379,3 +380,47 @@ def test_match_threshold_rates_on_labeled_dataset(tmp_path, embedder):
     assert (got["correct"], got["wrong_key"], got["missed"]) == (58, 2, 0)
     assert got["no_match_false_accept"] == 0
     assert chooser.choose(labeled, none)["threshold"] == round(threshold(), 4)
+
+
+# ================================================================ review r1
+
+
+def test_first_read_never_creates_tables(tmp_path, embedder):
+    from src.stores.kv_store import KVStore
+
+    db = tmp_path / "agent_kv.db"
+    KVStore(str(db)).close()  # a live database from before B-PR2
+    missing = tmp_path / "absent" / "agent_kv.db"
+    for path in (db, missing):
+        tool = SimpleNamespace(
+            config={"belief_web": {"backend": "belief_web"}},
+            # an indexer, so the old path really builds its write store
+            vector_search_tool=SimpleNamespace(embedder=embedder, indexer=MagicMock()),
+            kv_store=SimpleNamespace(db_path=path),
+        )
+        payload, is_error = ask(tool, query=PILOT_QUERY)
+        assert is_error is True and payload["error"] == "no beliefs recorded yet"
+        assert not hasattr(tool, "_belief_reader")  # retried once tables exist
+    assert not missing.exists() and not missing.parent.exists()
+    c = sqlite3.connect(str(db))
+    names = {n for (n,) in c.execute("SELECT name FROM sqlite_master")}
+    c.close()
+    assert not names & set(TABLES)
+    assert (
+        "migrations" not in names
+        or not sqlite3.connect(str(db))
+        .execute("SELECT 1 FROM migrations WHERE version='008'")
+        .fetchone()
+    )
+
+
+def test_reader_connection_refuses_writes(web):
+    pilot_web(web)
+    payload, is_error = ask(web, query=PILOT_QUERY)
+    assert is_error is False
+    conn = web._belief_reader._conn()
+    assert conn.execute("PRAGMA query_only").fetchone()[0] == 1
+    with pytest.raises(sqlite3.OperationalError, match="readonly"):
+        conn.execute("UPDATE belief_seq SET n = n + 1")
+    # control: the writer's connection still writes
+    store_of(web)._conn().execute("UPDATE belief_seq SET n = n")
