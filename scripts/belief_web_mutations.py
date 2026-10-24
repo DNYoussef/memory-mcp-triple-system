@@ -558,6 +558,9 @@ MUTANTS = {
         )
     ],
     "reader_allows_writes": [(STORE, 'c.execute("PRAGMA query_only=ON")', "pass", 1)],
+    "conflicting_evidence_overwrites": [
+        (INFER, "    if conflicts:\n", "    if False:\n", 1)
+    ],
 }
 
 

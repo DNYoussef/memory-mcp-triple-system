@@ -424,3 +424,22 @@ def test_reader_connection_refuses_writes(web):
         conn.execute("UPDATE belief_seq SET n = n + 1")
     # control: the writer's connection still writes
     store_of(web)._conn().execute("UPDATE belief_seq SET n = n")
+
+
+def test_conflicting_evidence_for_one_belief_refused(web):
+    pilot_web(web)
+    record(web, "guardspine.pilot.paid", "GuardSpine pilot is paid")
+    store_of(web).merge("guardspine.pilot.paid", PILOT, "merge:m1")
+    for evidence in (
+        {PILOT: True, "guardspine.pilot.paid": False},
+        {"guardspine.pilot.paid": False, PILOT: True},
+        {"GuardSpine.Paid_Pilot.Exists": True, PILOT: False},  # slug collision
+    ):
+        payload, is_error = ask(web, query=PILOT_QUERY, evidence=evidence)
+        assert is_error is True and "results" not in payload
+        assert payload["conflicting_evidence"] == {PILOT: evidence}
+    # identical duplicates are one fact, not a conflict
+    payload, is_error = ask(
+        web, query=PILOT_QUERY, evidence={PILOT: True, "guardspine.pilot.paid": True}
+    )
+    assert is_error is False and payload["evidence"] == {PILOT: True}

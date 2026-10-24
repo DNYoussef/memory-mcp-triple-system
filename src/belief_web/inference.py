@@ -140,9 +140,11 @@ def infer(
         }, True
 
     # Evidence: slug -> alias -> key. Refused unless every entry resolves to a
-    # boolean on a known belief, or the caller chose to drop the rest.
+    # boolean on a known belief, or the caller chose to drop the rest. Two
+    # names for one belief with different values are always refused.
     clamp: Dict[str, float] = {}
     applied: Dict[str, bool] = {}
+    names: Dict[str, Dict[str, bool]] = {}
     unmatched: Dict[str, List[Dict[str, Any]]] = {}
     for name, value in raw_evidence.items():
         key = _resolve(store, slug(name))
@@ -152,8 +154,16 @@ def infer(
                 for c in matcher.nearest(str(name).replace("_", " ").replace(".", " "))
             ]
             continue
+        names.setdefault(key, {})[name] = value
         applied[key] = value
         clamp[key] = CLAMP_L if value else -CLAMP_L
+    conflicts = {k: v for k, v in names.items() if len(set(v.values())) > 1}
+    if conflicts:
+        return {
+            "error": "evidence refused: one belief given both true and false",
+            "conflicting_evidence": conflicts,
+            "hint": "give each belief one value",
+        }, True
     if unmatched and mode == "refuse":
         return {
             "error": "evidence refused: unknown keys or non-boolean values",
