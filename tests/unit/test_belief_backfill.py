@@ -1196,11 +1196,13 @@ def test_r2_success_reports_are_scrubbed_too(tmp_path, files, capfd):
     assert "R2CANARY" not in out + err
 
 
-def test_r2_read_chroma_refuses_an_unsafe_name_before_opening_anything():
+def test_r2_read_chroma_refuses_an_unsafe_name_before_opening_anything(tmp_path):
     name = "sk-" + "COLLECTIONCANARY0123456789"
+    store = tmp_path / "never-opened"
     with pytest.raises(bf.BackfillError) as err:
-        next(bf.read_chroma("never-opened", name))
+        next(bf.read_chroma(str(store), name))
     assert "CANARY" not in str(err.value) and sha_id(name) in str(err.value)
+    assert not store.exists()  # no client was opened
 
 
 def test_r2_unsafe_collection_names_are_refused(tmp_path):
