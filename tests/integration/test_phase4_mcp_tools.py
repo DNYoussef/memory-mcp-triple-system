@@ -39,6 +39,7 @@ class TestMCPToolsExposed:
             "hipporag_retrieve",
             "detect_mode",
             "lifecycle_status",
+            "find_holes",
             "obsidian_sync",
             "beads_ready_tasks",
             "beads_task_detail",

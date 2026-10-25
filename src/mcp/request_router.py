@@ -500,7 +500,37 @@ def handle_lifecycle_status(
 ) -> Dict[str, Any]:
     """Handle lifecycle_status - Get lifecycle statistics."""
     stats = tool.lifecycle_manager.get_stage_stats()
-    return _text_result(json.dumps(stats))
+    # Belief counts (PLAN-B section 5.2), read-only. A failure here is reported
+    # in the field and never breaks the lifecycle stats.
+    from datetime import timezone
+
+    from ..belief_web.holes import belief_counts
+
+    try:
+        beliefs = belief_counts(_belief_reader(tool), datetime.now(timezone.utc))
+    except Exception as exc:
+        logger.error(f"Belief counts failed: {exc}")
+        beliefs = {"error": f"belief counts failed: {exc}"}
+    return _text_result(json.dumps({**stats, "beliefs": beliefs}))
+
+
+def handle_find_holes(
+    arguments: Dict[str, Any], tool: "NexusSearchTool"
+) -> Dict[str, Any]:
+    """Handle find_holes - weakest beliefs in the belief web (PLAN-B 5.2), read-only."""
+    from ..belief_web.belief_store import BeliefValidationError
+    from ..belief_web.holes import find_holes, parse_args
+
+    try:
+        args = parse_args(arguments)
+    except BeliefValidationError as e:
+        return _text_result(json.dumps({"error": str(e)}), True)
+    try:
+        payload = find_holes(_belief_reader(tool), **args)
+    except Exception as exc:
+        logger.error(f"find_holes failed: {exc}")
+        return _text_result(f"find_holes failed: {exc}", True)
+    return _text_result(json.dumps(payload, default=str))
 
 
 def handle_bayesian_inference(
@@ -1064,6 +1094,7 @@ def handle_call_tool(
         "hipporag_retrieve": handle_hipporag_retrieve,
         "detect_mode": handle_detect_mode,
         "lifecycle_status": handle_lifecycle_status,
+        "find_holes": handle_find_holes,
         "obsidian_sync": handle_obsidian_sync,
         "beads_ready_tasks": handle_beads_ready_tasks,
         "beads_task_detail": handle_beads_task_detail,

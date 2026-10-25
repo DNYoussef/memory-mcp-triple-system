@@ -315,6 +315,7 @@ def test_belief_web_output_is_a_superset(web):
         "evidence",
         "messages",
         "holes",
+        "holes_omitted",
     }
     p = result["probabilities"]["true"]
     assert math.isclose(p, 1 - 0.95)  # witnessed false, fresh
@@ -451,6 +452,90 @@ def test_supplied_evidence_must_be_an_object(web, bad):
     pilot_web(web)
     payload, is_error = ask(web, query=PILOT_QUERY, evidence=bad)
     assert is_error is True and "evidence must be an object" in payload["error"]
+
+
+def test_inference_holes_match_find_holes_on_the_component(web, monkeypatch):
+    """Sol r1 finding 5: a witnessed tie that find_holes reports as contradicted
+    came back from inference with holes []. Inference now runs the same
+    predicates on the component it solves; the entries must be identical."""
+    from src.mcp.request_router import handle_call_tool
+
+    s = store_of(web)
+    for pol, ref in ((1, "ref:a"), (-1, "ref:b")):
+        s.add_assertion("live", "k.tie", polarity=pol, source_type="witnessed",
+                        observed_at=T15, recorded_at=T15, chunk_id=ref,
+                        source_ref=ref, reliability=0.9, claim="the tie holds")  # fmt: skip
+    record(web, "k.a", "alpha holds", reliability=0.9)
+    record(web, "k.b", "beta holds", source_type="witnessed", reliability=0.8)
+    s.add_edge("live", "k.a", "k.b", "excludes", 0.5)
+    record(web, "k.far", "an unrelated belief", source_type="reported")
+    out = handle_call_tool("find_holes", {"now": T15, "limit": 200}, web)
+    whole = json.loads(out["content"][0]["text"])["holes"]
+
+    real, scopes = BeliefStore.web, []
+
+    def spy(self, now, keys=None):
+        scopes.append(None if keys is None else sorted(keys))
+        return real(self, now, keys=keys)
+
+    monkeypatch.setattr(BeliefStore, "web", spy)
+    for key in ("k.tie", "k.a"):
+        payload, is_error = ask(web, query=key)
+        assert is_error is False
+        mine = payload["results"][key]["holes"]
+        want = [h for h in whole if key in (h.get("key"), *h.get("keys", ()))]
+        assert mine == want and mine
+    assert {h["hole"] for h in mine} == {"contradicted_pair"}
+    assert scopes == [["k.tie"], ["k.a"]]  # one component snapshot per call
+
+
+def test_inference_drops_an_oversized_hole_like_find_holes(web):
+    """Sol r2 shape 1: one 70 KB hole came back whole from inference, while
+    find_holes omitted it. Both now share one bounded formatter."""
+    from src.mcp.request_router import handle_call_tool
+
+    s = store_of(web)
+    big = "a very long claim " + "x" * 70_000
+    for pol, ref in ((1, "ref:a"), (-1, "ref:b")):  # a witnessed tie: contradicted
+        s.add_assertion("live", "k.big", polarity=pol, source_type="witnessed",
+                        observed_at=T15, recorded_at=T15, chunk_id=ref,
+                        source_ref=ref, reliability=0.9, claim=big)  # fmt: skip
+    payload, is_error = ask(web, query="k.big")
+    assert is_error is False
+    result = payload["results"]["k.big"]
+    assert result["holes"] == [] and result["holes_omitted"] == {
+        "by_limit": 0,
+        "by_size": 1,
+    }
+    out = handle_call_tool("find_holes", {"now": T15}, web)
+    assert (
+        json.loads(out["content"][0]["text"])["omitted"]["by_size"] == 1
+    )  # same answer
+
+
+def test_inference_bounds_many_pair_holes(web):
+    """Sol r2 shape 2: 100 pair holes on one key came back unbounded."""
+    from src.belief_web.holes import MAX_BYTES
+
+    s = store_of(web)
+    with s.batch():
+        s.add_assertion("live", "k.hub", polarity=1, source_type="witnessed",
+                        observed_at=T15, recorded_at=T15, chunk_id="hub",
+                        reliability=0.9, claim="the hub holds")  # fmt: skip
+        for i in range(100):
+            key = f"k.alt{i:03d}"
+            s.add_assertion("live", key, polarity=1, source_type="witnessed",
+                            observed_at=T15, recorded_at=T15, chunk_id=key,
+                            reliability=0.8, claim=f"alternative {i} " + "y" * 4000)  # fmt: skip
+            s.add_edge("live", "k.hub", key, "excludes", 0.5)
+    payload, is_error = ask(web, query="k.hub")
+    assert is_error is False
+    result = payload["results"]["k.hub"]
+    assert {h["hole"] for h in result["holes"]} == {"contradicted_pair"}
+    assert len(json.dumps(result["holes"])) <= MAX_BYTES
+    omitted = result["holes_omitted"]
+    assert omitted["by_limit"] == 80 and omitted["by_size"] > 0  # 100 pairs, 20 listed
+    assert len(result["holes"]) + omitted["by_size"] == 20
 
 
 def test_omitted_or_null_evidence_is_none(web):

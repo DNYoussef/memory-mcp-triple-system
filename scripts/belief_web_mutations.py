@@ -1,11 +1,12 @@
 """
-Mutation run for the belief web (PLAN-B section 6.5, B-PR1 to B-PR3).
+Mutation run for the belief web (PLAN-B section 6.5, B-PR1 to B-PR4).
 
 Each mutant is a temporary text edit of src/belief_web/*.py that re-creates a
 defect from the reference calculator's mutation list (belief_calc_r8.py), or
 a PR1 safeguard (validation, FK, atomicity), or a B-PR2 ingestion defect
 (memory_store beliefs/because), or a B-PR3 inference defect
-(bayesian_inference on the belief web). For each mutant the script
+(bayesian_inference on the belief web), or a B-PR4 hole defect
+(find_holes and lifecycle counts). For each mutant the script
 applies the edit, runs the belief web tests, restores the original bytes and
 asserts the file hash matches. Exit 0 only if the baseline passes and every
 mutant is killed (some test went red).
@@ -26,6 +27,7 @@ STORE = ROOT / "src" / "belief_web" / "belief_store.py"
 INGEST = ROOT / "src" / "services" / "memory_ingestion_service.py"
 ROUTER = ROOT / "src" / "mcp" / "request_router.py"
 INFER = ROOT / "src" / "belief_web" / "inference.py"
+HOLES = ROOT / "src" / "belief_web" / "holes.py"
 TESTS = [
     "tests/unit/test_belief_solver.py",
     "tests/unit/test_belief_store.py",
@@ -34,6 +36,7 @@ TESTS = [
     "tests/unit/test_belief_inference.py",
     "tests/unit/test_bayesian_evidence_e2e.py",
     "tests/unit/test_request_router_handlers.py",
+    "tests/unit/test_find_holes.py",
 ]
 
 BELIEF_LINE = "notices += f\"\\nBeliefs: recorded {beliefs['recorded']}\""
@@ -522,8 +525,8 @@ MUTANTS = {
     "clamp_dropped": [
         (
             INFER,
-            "keys=[k for k, _ in matches], clamp=clamp)",
-            "keys=[k for k, _ in matches], clamp={})",
+            "local, p, sol = analyze(web, now, clamp)",
+            "local, p, sol = analyze(web, now, {})",
             1,
         )
     ],
@@ -569,6 +572,185 @@ MUTANTS = {
             1,
         )
     ],
+    # B-PR4: find_holes predicates, ranking and the read-only lifecycle counts
+    "contradiction_threshold_lowered": [
+        (HOLES, "CONTRADICTION_LLR = 0.4", "CONTRADICTION_LLR = 0.1", 1)
+    ],
+    "disputed_side_reversed": [
+        (HOLES, "side = {-1} if p > 0.5 else", "side = {1} if p > 0.5 else", 1)
+    ],
+    "outdated_ignores_sign": [
+        (
+            HOLES,
+            "older = [e for e in local.superseded if e.polarity != sign]",
+            "older = list(local.superseded)",
+            1,
+        )
+    ],
+    "unlocated_listed_as_chunks": [
+        (
+            HOLES,
+            "_capped([c for c, loc in rows if loc], MAX_REFS)",
+            "_capped([c for c, loc in rows], MAX_REFS)",
+            1,
+        )
+    ],
+    "pair_threshold_lowered": [
+        (HOLES, "p[a] + p[b] > PAIR_SUM", "p[a] + p[b] > 1.0", 1)
+    ],
+    "stale_reads_oldest": [
+        (
+            HOLES,
+            "newest = max(e.observed_at for e in local.active)",
+            "newest = min(e.observed_at for e in local.active)",
+            1,
+        )
+    ],
+    "stale_ignores_half_life": [
+        (
+            HOLES,
+            "half_life = hl if hl is not None else HALF_LIFE_DEFAULT[kind]",
+            "half_life = HALF_LIFE_DEFAULT[kind]",
+            1,
+        )
+    ],
+    "unsupported_threshold_raised": [
+        (HOLES, "UNSUPPORTED_SUM = 0.1", "UNSUPPORTED_SUM = 1.0", 1)
+    ],
+    "load_direction_reversed": [
+        (HOLES, "out.setdefault(s, []).append(d)", "out.setdefault(d, []).append(s)", 1)
+    ],
+    "load_depth_off_by_one": [
+        (HOLES, "if depth == LOAD_DEPTH:", "if depth == LOAD_DEPTH + 1:", 1)
+    ],
+    "weak_band_ignored": [
+        (
+            HOLES,
+            "(WEAK_BAND[0] <= p <= WEAK_BAND[1] or single)",
+            "(single)",
+            1,
+        )
+    ],
+    "single_source_counts_witnessed": [
+        (
+            HOLES,
+            "    single = len(sources) == 1 and all(\n"
+            '        e.source_type != "witnessed" for e in local.active\n'
+            "    )\n",
+            "    single = len(sources) == 1\n",
+            1,
+        )
+    ],
+    "rank_tie_order_reversed": [
+        (HOLES, 'h["hole"] != "contradicted",', 'h["hole"] == "contradicted",', 1)
+    ],
+    "counts_after_limit": [
+        (
+            HOLES,
+            'sum(1 for h in found if h["hole"] == kind)',
+            'sum(1 for h in found[:limit] if h["hole"] == kind)',
+            1,
+        )
+    ],
+    "project_filter_ignored": [
+        (
+            HOLES,
+            "if project is None or project in web.projects.get(k, ())",
+            "if True",
+            1,
+        )
+    ],
+    "find_holes_reads_through_writer": [
+        (
+            ROUTER,
+            "payload = find_holes(_belief_reader(tool), **args)",
+            "payload = find_holes(_get_ingestion_service(tool)._beliefs(), **args)",
+            1,
+        )
+    ],
+    "lifecycle_drops_belief_counts": [
+        (
+            ROUTER,
+            'json.dumps({**stats, "beliefs": beliefs})',
+            "json.dumps(stats)",
+            1,
+        )
+    ],
+    # B-PR4 review r1 fixes: each mutant re-creates the reported defect
+    "pair_without_both_true": [
+        (HOLES, "both = p[a] > 0.5 and p[b] > 0.5", "both = True", 1)
+    ],
+    "pair_loads_only_in_scope": [
+        (
+            HOLES,
+            "loads = _loads(web.edges, keyset | {x for pair in pairs for x in pair})",
+            "loads = _loads(web.edges, keyset)",
+            1,
+        ),
+        (
+            HOLES,
+            "la, lb = loads[a], loads[b]",
+            "la, lb = loads.get(a, 0), loads.get(b, 0)",
+            1,
+        ),
+    ],
+    "lifecycle_two_snapshots": [
+        (
+            HOLES,
+            '"holes": _report(web, now)["counts"],',
+            '"holes": find_holes(store, now)["counts"],',
+            1,
+        )
+    ],
+    "refs_uncapped": [
+        (
+            HOLES,
+            "_capped([c for c, loc in rows if not loc], MAX_REFS)",
+            "([c for c, loc in rows if not loc], 0)",
+            1,
+        )
+    ],
+    "sources_uncapped": [
+        (
+            HOLES,
+            "shown, omitted = _capped(list(evidence), MAX_SOURCES)",
+            "shown, omitted = list(evidence), 0",
+            1,
+        )
+    ],
+    "response_size_uncapped": [
+        (
+            HOLES,
+            "while page and len(json.dumps(page, default=str)) > max_bytes:",
+            "while False:",
+            1,
+        )
+    ],
+    "inference_holes_empty": [
+        (
+            INFER,
+            '"holes": shown,',
+            '"holes": [],',
+            1,
+        )
+    ],
+    "inference_reads_whole_web": [
+        (
+            INFER,
+            "web = store.web(now, keys=keys + list(clamp))",
+            "web = store.web(now)",
+            1,
+        )
+    ],
+    # B-PR4 review r2 fix
+    "inference_holes_unbounded": [
+        (
+            INFER,
+            "        max_bytes=budget,\n",
+            "        limit=10**9,\n        max_bytes=10**12,\n",
+            1,
+        )
+    ],
 }
 
 
@@ -576,30 +758,49 @@ def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+TIMEOUT = 900  # seconds per pytest run; a hang is an ERROR, never a kill
+
+
 def run_tests():
-    proc = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pytest",
-            "-q",
-            "-p",
-            "no:cacheprovider",
-            "--no-cov",
-            *TESTS,
-        ],
-        cwd=ROOT,
-        capture_output=True,
-        # decode as UTF-8 whatever the console code page: the embedder's
-        # libraries print non-ASCII, and a locale decode failure left
-        # stdout None and crashed the run
-        encoding="utf-8",
-        errors="replace",
-    )
+    """(outcome, failed test names, summary). KILLED needs what a real test
+    failure produces: exit code 1, an "N failed" summary and FAILED lines.
+    A collection error, crash, timeout or any other exit is ERROR; exit 0 is
+    SURVIVED."""
+    try:
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "-q",
+                "-p",
+                "no:cacheprovider",
+                "--no-cov",
+                *TESTS,
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            # decode as UTF-8 whatever the console code page: the embedder's
+            # libraries print non-ASCII, and a locale decode failure left
+            # stdout None and crashed the run
+            encoding="utf-8",
+            errors="replace",
+            timeout=TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        return "ERROR", [], f"timeout after {TIMEOUT} s"
     stdout, stderr = proc.stdout or "", proc.stderr or ""
-    failed = sorted(set(re.findall(r"^(?:FAILED|ERROR) (\S+)", stdout, re.M)))
-    summary = stdout.strip().splitlines()[-1] if stdout.strip() else stderr[-200:]
-    return proc.returncode, failed, summary
+    failed = sorted(set(re.findall(r"^FAILED (\S+)", stdout, re.M)))
+    lines = stdout.strip().splitlines()
+    summary = lines[-1] if lines else stderr.strip()[-200:]
+    if proc.returncode == 0:
+        outcome = "SURVIVED"
+    elif proc.returncode == 1 and failed and re.search(r"\b\d+ failed\b", summary):
+        outcome = "KILLED"
+    else:
+        outcome = "ERROR"
+        summary = f"rc={proc.returncode} {summary}"
+    return outcome, failed, summary
 
 
 def main(argv):
@@ -609,19 +810,37 @@ def main(argv):
     names = list(MUTANTS)[int(start or 0) : int(end) if end else None]
     mutants = {n: MUTANTS[n] for n in names}
     originals = {
-        p: (p.read_bytes(), sha(p)) for p in (SOLVER, STORE, INGEST, ROUTER, INFER)
+        p: (p.read_bytes(), sha(p))
+        for p in (SOLVER, STORE, INGEST, ROUTER, INFER, HOLES)
     }
-    rc, failed, summary = run_tests()
-    print(f"baseline: rc={rc} {summary}")
-    if rc != 0:
+    outcome, failed, summary = run_tests()
+    print(f"baseline: {outcome} {summary}")
+    if outcome != "SURVIVED":
         return 1
-    # known-inert control: a comment edit must SURVIVE, or the harness cannot tell
+    # controls with a known outcome: an inert edit must SURVIVE, and edits that
+    # crash pytest or break collection must be ERROR, never counted as kills
     control = {
         "control_inert_comment": [
             (SOLVER, "K = 2.0  # message gain", "K = 2.0  # gain (control)", 1)
-        ]
+        ],
+        "control_process_crash": [
+            (
+                SOLVER,
+                "K = 2.0  # message gain",
+                "K = 2.0  # message gain\nimport os\nos._exit(3)",
+                1,
+            )
+        ],
+        "control_collection_error": [
+            (SOLVER, "K = 2.0  # message gain", "K = 2.0 +  # syntax error", 1)
+        ],
     }
-    survived = []
+    expected = {
+        "control_inert_comment": "SURVIVED",
+        "control_process_crash": "ERROR",
+        "control_collection_error": "ERROR",
+    }
+    survived, errors = [], []
     for name, edits in {**control, **mutants}.items():
         try:
             for path, old, new, count in edits:
@@ -631,30 +850,32 @@ def main(argv):
                         f"{name}: anchor count {text.count(old)} != {count} in {path.name}"
                     )
                 path.write_text(text.replace(old, new), encoding="utf-8", newline="\n")
-            rc, failed, summary = run_tests()
+            outcome, failed, summary = run_tests()
         finally:
             for path, (data, digest) in originals.items():
                 path.write_bytes(data)
                 assert sha(path) == digest, f"{path} not restored"
-        killed = rc != 0
         shown = ", ".join(f.split("::")[-1] for f in failed[:4]) + (
             f" (+{len(failed) - 4})" if len(failed) > 4 else ""
         )
-        print(
-            f"mutation {name:26s} -> {'KILLED' if killed else 'SURVIVED'}: {shown or summary}"
-        )
+        print(f"mutation {name:26s} -> {outcome}: {shown or summary}")
         if name in control:
-            if killed:
-                print("CONTROL KILLED: the harness reports kills for inert edits")
+            if outcome != expected[name]:
+                print(f"CONTROL {name} gave {outcome}, want {expected[name]}")
                 return 1
-        elif not killed:
+        elif outcome == "SURVIVED":
             survived.append(name)
+        elif outcome == "ERROR":
+            errors.append(name)
     print(
         "hashes restored: "
         + ", ".join(f"{p.name} {d[:12]}" for p, (_, d) in originals.items())
     )
     if survived:
         print("SURVIVING MUTATIONS: " + ", ".join(survived))
+    if errors:
+        print("ERRORED MUTATIONS (not kills): " + ", ".join(errors))
+    if survived or errors:
         return 1
     total = "" if len(mutants) == len(MUTANTS) else f" (of {len(MUTANTS)})"
     print(f"ALL {len(mutants)} MUTATIONS KILLED{total}")

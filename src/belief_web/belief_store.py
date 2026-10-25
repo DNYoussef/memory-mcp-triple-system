@@ -29,7 +29,7 @@ import threading
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Tuple
 
 from .solver import (
     EDGE_TYPES,
@@ -133,6 +133,17 @@ SCHEMA = (
     "INSERT OR IGNORE INTO migrations (version, description, applied_at) "
     "VALUES ('008', 'Belief web tables (beliefs, assertions, edges, belief_seq, aliases)', datetime('now'))",
 )
+
+
+class Web(NamedTuple):
+    """BeliefStore.web(): the whole web at one instant."""
+
+    attrs: Dict[str, Tuple]  # key -> (claim, kind, half_life_days, prior_logit)
+    evidence: Dict[str, List[Evidence]]  # reduced, before supersession
+    edges: List[Tuple[str, str, str, float]]  # (type, src, dst, weight)
+    mentions: Dict[Tuple[str, str, int], List[Tuple[str, int]]]  # -> (chunk, located)
+    projects: Dict[str, set]
+    mention_rows: int  # every assertion row, eligible or not
 
 
 class BeliefValidationError(ValueError):
@@ -811,6 +822,45 @@ class BeliefStore:
         key = self.resolve(name)
         with self._read() as c:
             return self._load_evidence(c, format_ts(now), [key]).get(key, [])
+
+    def web(self, now: Any, keys: Optional[Iterable[str]] = None) -> "Web":
+        """One consistent snapshot of the web at `now` (find_holes, lifecycle
+        counts, inference): attributes, reduced evidence, effective edges, every
+        eligible mention row per (key, source, polarity), and the projects each
+        key was recorded under. With `keys`, only their connected component:
+        components are independent, so what is solved there is unchanged."""
+        now_s = format_ts(now)
+        with self._read() as c:
+            edges = self._effective_edges(c)
+            scope = None
+            if keys is not None:
+                scope = self._component({self.resolve(k) for k in keys}, edges)
+                edges = [e for e in edges if e[1] in scope]
+            flt, args = self._filter(scope)
+            attrs = self._load_attrs(c, scope)
+            evidence = self._load_evidence(c, now_s, scope)
+            mentions: Dict[Tuple[str, str, int], List[Tuple[str, int]]] = {}
+            for key, sid, pol, chunk, loc in c.execute(
+                "SELECT belief_key, source_id, polarity, chunk_id, located FROM assertions "
+                "WHERE observed_at <= ? AND recorded_at <= ?"
+                + (f" AND belief_key{flt}" if flt else "")
+                + " ORDER BY seq",
+                (now_s, now_s, *args),
+            ):
+                mentions.setdefault((key, sid, pol), []).append((chunk, loc))
+            projects: Dict[str, set] = {}
+            for key, project in c.execute(
+                "SELECT key, project FROM beliefs WHERE project IS NOT NULL"
+                + (f" AND key{flt}" if flt else ""),
+                args,
+            ):
+                projects.setdefault(key, set()).add(project)
+            rows = c.execute(
+                "SELECT count(*) FROM assertions"
+                + (f" WHERE belief_key{flt}" if flt else ""),
+                args,
+            ).fetchone()[0]
+        return Web(attrs, evidence, edges, mentions, projects, rows)
 
     def catalog(self) -> List[Tuple[str, str, Optional[bytes], Optional[str]]]:
         """(key, display claim, claim_vec, vec_model) per belief, sorted by key.

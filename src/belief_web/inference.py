@@ -21,7 +21,8 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 
 from .belief_store import BeliefStore, BeliefValidationError, format_ts, parse_ts
-from .solver import CLAMP_L, local_logodds, sigmoid
+from .holes import MAX_BYTES, analyze, bounded, holes_of
+from .solver import CLAMP_L
 
 METHOD = "belief_web_v1 log-odds propagation"
 # Chosen on tests/fixtures/belief_match_labeled.json (section 6.4) by
@@ -189,8 +190,17 @@ def infer(
             "hint": "name a belief key, or rephrase closer to a recorded claim",
         }, True
 
-    sol = store.solve(now, keys=[k for k, _ in matches], clamp=clamp)
-    results = {k: _detail(store, sol, k, s, now) for k, s in matches}
+    # One snapshot of the component of the matched and clamped beliefs, solved
+    # once; the hole predicates run on that same solution, no whole-web solve.
+    keys = [k for k, _ in matches]
+    web = store.web(now, keys=keys + list(clamp))
+    local, p, sol = analyze(web, now, clamp)
+    holes = holes_of(web, local, p, keys, 2, now)
+    budget = MAX_BYTES // len(keys)  # all results together stay under the cap
+    results = {
+        k: _detail(web, local[k], p[k], sol, k, s, now, holes, budget)
+        for k, s in matches
+    }
     return {
         "results": results,
         "evidence": applied,
@@ -205,15 +215,13 @@ def infer(
     }, False
 
 
-def _detail(store, sol, key: str, score: float, now: datetime) -> Dict[str, Any]:
-    attrs = store.attrs(key)
-    p = sigmoid(sol.L[key])
-    local = local_logodds(
-        store.evidence(key, now),
-        attrs["kind"],
-        now,
-        attrs["half_life_days"],
-        attrs["prior_logit"] or 0.0,
+def _detail(web, local, p, sol, key, score, now, holes, budget) -> Dict[str, Any]:
+    claim, kind, _, _ = web.attrs[key]
+    # the same formatter as find_holes: per-hole caps already applied, then
+    # limit and byte cap, with what was left out reported
+    shown, omitted = bounded(
+        [h for h in holes if key in (h.get("key"), *h.get("keys", ()))],
+        max_bytes=budget,
     )
     evidence = [
         _evidence(e, llr, "active", now) for e, llr in zip(local.active, local.llrs)
@@ -231,12 +239,13 @@ def _detail(store, sol, key: str, score: float, now: datetime) -> Dict[str, Any]
     return {
         "probabilities": {"true": p, "false": 1 - p},
         "entropy": _entropy(p),
-        "claim": attrs["claim"],
+        "claim": claim if claim is not None else key,
         "match_score": round(score, 4),
-        "kind": attrs["kind"],
+        "kind": kind or "state",
         "evidence": evidence,
         "messages": messages,
-        "holes": [],  # find_holes predicates arrive in B-PR4
+        "holes": shown,
+        "holes_omitted": omitted,
     }
 
 
