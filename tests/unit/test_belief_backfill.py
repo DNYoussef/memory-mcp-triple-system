@@ -303,6 +303,17 @@ def test_observed_after_stored_at_is_rejected(tmp_path):
     assert bf.validate(bf.read_records(exp, ok))["error_count"] == 0
 
 
+def test_validation_errors_are_sanitized(tmp_path, files):
+    write_jsonl(
+        files[1], [extracted("m1", entry("k.a", source_type="API_KEY=hunter2xyz"))]
+    )
+    report = bf.validate(bf.read_records(*files))
+    assert report["error_count"] == 1
+    assert (
+        "hunter2xyz" not in json.dumps(report) and "[REDACTED]" in report["errors"][0]
+    )
+
+
 def test_extracted_id_missing_from_export_is_an_error(tmp_path, files):
     write_jsonl(files[1], EXTRACTED + [extracted("m9", entry("k.orphan"))])
     with pytest.raises(bf.BackfillError, match="m9"):
@@ -529,6 +540,31 @@ def test_uninstall_archives_live_rows(tmp_path, files):
     bf.restore(str(db), str(arc), "fresh")
     assert snapshot(db, BELIEF_TABLES) == before
     kv.close()
+
+
+def test_uninstall_stops_when_a_row_lands_after_the_archive(tmp_path, monkeypatch):
+    db = tmp_path / "agent_kv.db"
+    s = BeliefStore(str(db))
+    s.add_assertion("live", "k.a", polarity=1, source_type="witnessed",
+                    observed_at=T12, recorded_at=T12, chunk_id="c1", claim="a")  # fmt: skip
+    s.close()
+    real = BeliefStore.archive
+
+    def archive_then_write(self, path):
+        counts = real(self, path)
+        late = BeliefStore(str(db))  # a writer that was not quiesced
+        late.add_assertion("live", "k.late", polarity=1, source_type="reported",
+                           observed_at=T15, recorded_at=T15, chunk_id="c2",
+                           claim="late")  # fmt: skip
+        late.close()
+        return counts
+
+    monkeypatch.setattr(BeliefStore, "archive", archive_then_write)
+    with pytest.raises(bf.BackfillError, match="changed after the archive"):
+        bf.uninstall(str(db), str(tmp_path / "arc.db"))
+    s = BeliefStore(str(db))
+    assert s.exists("k.late") and s.exists("k.a")  # nothing dropped
+    s.close()
 
 
 def test_uninstall_refuses_an_existing_archive_and_drops_nothing(tmp_path):
