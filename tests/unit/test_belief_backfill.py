@@ -246,7 +246,9 @@ def test_load_refuses_any_invalid_record_before_writing(tmp_path, files):
         bf.load(str(db), bf.read_records(*files), "X")
     report = err.value.report
     assert report["error_count"] == 2
-    assert any("Bad Key" in e for e in report["errors"])
+    assert any(
+        "invalid key" in e for e in report["errors"]
+    )  # since review r4 messages name a fixed reason, never the value
     assert not db.exists()  # nothing opened, nothing written
 
 
@@ -296,7 +298,9 @@ def test_observed_after_stored_at_is_rejected(tmp_path):
     )
     report = bf.validate(bf.read_records(exp, ext))
     assert report["error_count"] == 1
-    assert "later than the memory's stored_at" in report["errors"][0]
+    assert (
+        "observed after it was recorded" in report["errors"][0]
+    )  # since review r4 messages name a fixed reason, never the value
     ok = write_jsonl(
         tmp_path / "y.jsonl",
         [extracted("m1", entry("k.past", observed_at="2026-10-14T11:00:00Z"))],
@@ -317,7 +321,7 @@ def test_validation_errors_are_sanitized(tmp_path, files):
 
 def test_extracted_id_missing_from_export_is_an_error(tmp_path, files):
     write_jsonl(files[1], EXTRACTED + [extracted("m9", entry("k.orphan"))])
-    with pytest.raises(bf.BackfillError, match="m9"):
+    with pytest.raises(bf.BackfillError, match=sha_id("m9")):
         bf.read_records(*files)
 
 
@@ -347,11 +351,14 @@ def test_import_record_over_belief_limits_is_an_error(tmp_path, files):
     )
     report = bf.validate(bf.read_records(*files))
     assert report["error_count"] == 1
-    assert "51 entries exceed the limit of 50" in report["errors"][0]
+    assert (
+        "limits: too many entries" in report["errors"][0]
+    )  # since review r4 messages name a fixed reason, never the value
     assert report["rows"] == {"beliefs": 0, "assertions": 0, "edges": 0, "aliases": 0}
 
 
-def test_import_error_report_is_bounded(tmp_path, files):
+def test_import_error_report_is_bounded(tmp_path, files, monkeypatch):
+    monkeypatch.setattr(bf, "ERROR_BUDGET", 2000)  # digest-only errors are short
     write_jsonl(
         files[1],
         [
@@ -735,7 +742,7 @@ def test_extract_reports_bad_reply_lines(tmp_path):
 
     report = bf.extract(str(exp), str(out), model)
     assert len(report["errors"]) == 2
-    assert report["missing"] == ["m2"]
+    assert report["missing"] == [sha_id("m2")]
     assert [
         json.loads(x)["id"] for x in out.read_text(encoding="utf-8").splitlines()
     ] == ["m1"]
@@ -775,15 +782,21 @@ def test_review_list_names_near_duplicate_keys(tmp_path):
             ),
         ],
     )
+    review = tmp_path / "review.json"
     report = bf.validate(
-        bf.read_records(exp, ext), existing_keys=["nick.price_sheet.read"]
+        bf.read_records(exp, ext),
+        existing_keys=["nick.price_sheet.read"],
+        review_out=str(review),
     )
-    assert [(d["old"], d["new"]) for d in report["duplicates"]] == [
+    pairs = json.loads(review.read_text(encoding="utf-8"))  # data: the keys
+    assert [(d["old"], d["new"]) for d in pairs] == [
         ("nick.pricesheet.sent", "nick.price_sheet.sent")
     ]
-    assert (
-        report["duplicates"][0]["approve"] is False
-    )  # review decides, never the script
+    assert pairs[0]["approve"] is False  # review decides, never the script
+    # the report (a message) names each key by digest only
+    assert [(d["old"], d["new"]) for d in report["duplicates"]] == [
+        (sha_id("nick.pricesheet.sent"), sha_id("nick.price_sheet.sent"))
+    ]
 
 
 # ================================================================ CLI
@@ -794,7 +807,7 @@ def test_cli_requires_explicit_paths_and_exits_nonzero_on_errors(
 ):
     # no default database path: a usage error, through the safe error path
     assert bf.main(["load"]) == 1
-    assert "the following arguments are required" in capsys.readouterr().out
+    assert "usage: missing required arguments" in capsys.readouterr().out
     assert (
         bf.main(["validate", "--export", str(files[0]), "--extracted", str(files[1])])
         == 0
@@ -813,7 +826,7 @@ def test_cli_requires_explicit_paths_and_exits_nonzero_on_errors(
         == 1
     )
     printed = capsys.readouterr().out
-    assert "Bad Key" in printed
+    assert "invalid key" in printed and "Bad Key" not in printed
 
 
 # ================================================================ review r1 (Sol)
@@ -821,7 +834,6 @@ def test_cli_requires_explicit_paths_and_exits_nonzero_on_errors(
 ID_CANARY = "API_KEY=ID_CANARY"
 PRIV_ID = "<private>PRIV_ID_CANARY</private>"
 SK_ID = "sk-" + "IDCANARY0123456789ab"
-WITHHELD = "1 diagnostic withheld (unresolved private tag)"
 
 
 def test_r1_unsafe_ids_are_excluded_and_reported_by_digest(tmp_path):
@@ -904,24 +916,6 @@ def test_r1_cli_error_messages_go_through_the_helper(tmp_path, capsys):
     code = bf.main(["validate", "--export", str(exp), "--extracted", str(bad)])
     printed = capsys.readouterr().out
     assert code == 1 and "CANARY" not in printed and "<" not in printed
-
-
-def test_r1_safe_diagnostic_sanitizes_before_truncating():
-    secret = "sk-" + "TRUNCCANARY0123456789"
-    text = "e" * 70 + " " + secret  # a cut at 80 first would leave 'sk-TRUNCCAN'
-    got = bf.safe_diagnostic(text, cap=80)
-    assert got is not None and "TRUNC" not in got and len(got) <= 80
-    assert bf.safe_diagnostic("a < private >b") is None
-    assert bf.safe_diagnostic("plain") == "plain"
-
-
-def test_r1_safe_diagnostic_gives_the_sanitizer_the_whole_text(monkeypatch):
-    # strip_private's trailing patterns hide the order today; a sanitizer that
-    # only knows whole tokens shows it: a cut first leaves 'sk-TRUNCC' behind
-    whole_tokens = re.compile(r"sk-[A-Za-z0-9]{16,}")
-    monkeypatch.setattr(bf, "strip_private", lambda t: whole_tokens.sub("[X]", t))
-    got = bf.safe_diagnostic("e" * 70 + " sk-" + "TRUNCCANARY0123456789", cap=80)
-    assert got == "e" * 70 + " [X]"
 
 
 def chroma_with(path, collections):
@@ -1162,7 +1156,8 @@ def test_r2_extract_refuses_unsafe_reply_entries(tmp_path):
     written = out.read_text(encoding="utf-8")
     assert "R2CANARY" not in written + json.dumps(report)
     assert [json.loads(x)["id"] for x in written.splitlines()] == ["m3"]
-    assert report["refused_unsafe"] == 2 and report["missing"] == ["m1", "m2"]
+    assert report["refused_unsafe"] == 2
+    assert report["missing"] == [sha_id("m1"), sha_id("m2")]
     assert all("sha256:" in e for e in report["errors"])
 
 
@@ -1307,14 +1302,6 @@ def test_r3_reply_ids_and_lines_are_checked_raw(tmp_path):
         "CANARY" not in json.dumps(report) and len(report["errors"]) == 3
     )  # CR LF splits the line
     assert all("sha256:" in e for e in report["errors"])
-
-
-def test_r3_safe_diagnostic_withholds_escaped_tags_and_secrets():
-    assert bf.safe_diagnostic(repr("<\tprivate>X")) is None
-    assert bf.safe_diagnostic(repr("<\nPRIVATE>X")) is None
-    assert bf.safe_diagnostic("bad value 'api_key\\t=ESCAPED_SECRET'") is None
-    assert bf.safe_errors([repr("<\tprivate>X"), "fine"]) == ["fine", WITHHELD]
-    assert bf.safe_diagnostic("a\\tb plain") == "a\\tb plain"  # escapes alone are fine
 
 
 def test_r3_unknown_exceptions_show_only_a_digest(tmp_path, monkeypatch, capfd):
@@ -1535,3 +1522,25 @@ def test_r3_extract_error_list_stays_within_the_budget(tmp_path):
     report = bf.extract(str(exp), str(tmp_path / "x.jsonl"), model)
     assert len("".join(report["errors"])) <= bf.ERROR_BUDGET
     assert report["errors"][-1].endswith("more errors not shown")
+
+
+# ================================================================ review r4 (Sol)
+
+
+def test_r4_restore_with_an_escape_like_path_prints_its_report(tmp_path, capfd):
+    # D:\backup\Uffffffff.db is a legal Windows path; nothing may decode it
+    db = tmp_path / "agent_kv.db"
+    s = BeliefStore(str(db))
+    s.add_assertion("live", "k.a", polarity=1, source_type="witnessed",
+                    observed_at=T12, recorded_at=T12, chunk_id="c1", claim="a")  # fmt: skip
+    s.close()
+    backup = tmp_path / "backup"
+    backup.mkdir()
+    arc = backup / "Uffffffff.db"
+    assert bf.main(["archive", "--db", str(db), "--out", str(arc)]) == 0
+    restore = ["restore", "--db", str(db), "--archive", str(arc), "--mode", "same_db"]
+    assert bf.main(restore) == 0
+    out, err = capfd.readouterr()
+    last = out[out.rindex('{\n  "restored"') :]  # the second of two reports
+    assert json.loads(last)["mode"] == "same_db"
+    assert "Traceback" not in err

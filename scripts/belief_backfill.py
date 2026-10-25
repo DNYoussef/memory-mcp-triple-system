@@ -39,7 +39,6 @@ from typing import (
     Iterator,
     List,
     NoReturn,
-    Optional,
     Sequence,
     Tuple,
 )
@@ -55,7 +54,6 @@ from src.belief_web.belief_store import (
 from src.belief_web.solver import EdgeConflict
 from src.hooks.post_tool_handler import strip_private
 from src.services.memory_ingestion_service import (
-    ERROR_CAP,
     MAX_KEY,
     MemoryIngestionService,
     belief_limits,
@@ -120,56 +118,62 @@ class TokenBudgetExceeded(BackfillError):
 # ---------------------------------------------------------------- files
 
 
-def shown(value: Any) -> str:
-    """How a user-supplied value may appear in a message: checked RAW, before
-    any repr or formatting can escape a tag or a secret out of sight. A safe
-    value is shown as is (repr for non-text); anything else by its digest."""
-    if unsafe_text(value):
-        return data_digest(value)
-    return value if isinstance(value, str) else repr(value)
+# MESSAGE RULE (review r4): no diagnostic, error, report or CLI message holds
+# any input-derived string, safe or not. A message names the field and the
+# reason from the fixed vocabularies below, plus the sha256 digest of the full
+# raw value; counts and our own constants are fine. An operator finds a value
+# by its digest in the input file. Data rows keep record ids for provenance.
 
 
 def where(path: Any) -> str:
-    """A path in a message: only ever its digest (a path can hold anything)."""
+    """A path in a message: only ever its digest."""
     return id_digest(str(path))
 
 
-ESCAPE = re.compile(r"\\(?:x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8}|[tnrfv])")
+def coll(name: str) -> str:
+    """A collection in a message: our constant names as is, any other by digest."""
+    return name if name in COLLECTIONS else id_digest(name)
 
 
-def _unescaped(text: str) -> str:
-    return ESCAPE.sub(lambda m: m.group(0).encode().decode("unicode_escape"), text)
+# validator text -> reason; the validator's own message (which quotes the
+# value) is only matched here, never shown. First match wins.
+VALIDATOR_REASONS = (
+    ("unknown fields", "unknown field"),
+    ("later than", "observed after it was recorded"),
+    ("timestamp", "invalid timestamp"),
+    ("bad belief key", "invalid key"),
+    ("key must be text and value", "invalid key or value"),
+    ("needs a claim", "new key without a claim"),
+    ("claim must be", "invalid claim"),
+    ("quote must be", "invalid quote"),
+    ("source_ref", "invalid source_ref"),
+    ("source_type", "invalid source_type"),
+    ("reliability", "invalid reliability"),
+    ("half_life_days", "invalid half_life_days"),
+    ("prior_logit", "invalid prior_logit"),
+    ("bad kind", "invalid kind"),
+    ("polarity", "invalid value"),
+    ("weight", "invalid weight"),
+    ("must be a list of keys", "edge list is not a list"),
+    ("bad edge type", "invalid edge type"),
+    ("self-edge", "self-edge"),
+    ("supports and excludes", "supports and excludes on one pair"),
+    ("entry must be an object", "entry is not an object"),
+    ("who and note", "invalid reporter"),
+    ("already one belief", "merge of a belief into itself"),
+    ("unknown belief", "merge of an unknown belief"),
+    ("merge origin", "invalid merge id"),
+)
+LIMIT_REASONS = (
+    ("entries exceed", "too many entries"),
+    ("links exceed", "too many links"),
+    ("longer than", "text too long"),
+)
 
 
-def safe_diagnostic(text: Any, cap: int = ERROR_CAP) -> Optional[str]:
-    """One diagnostic made safe to print: strip_private FIRST (a cut first
-    could leave a secret too short to match), then None (withheld, never
-    shown) if a private tag is still there, else the first `cap` chars.
-    Backstop for a value that reached a message through repr: the check also
-    runs on the text with escapes such as \\t undone, so an escaped tag or
-    secret is withheld too. Call sites embed values through shown()."""
-    clean = strip_private(str(text))
-    loose = _unescaped(clean)
-    if PRIVATE_RESIDUE.search(loose) or (
-        loose != clean and strip_private(loose) != loose
-    ):
-        return None
-    return clean[:cap]
-
-
-def safe_errors(errors: Sequence[Any], budget: int = ERROR_BUDGET) -> List[str]:
-    """Every error list a report or the CLI prints goes through here: each
-    error through safe_diagnostic, the withheld ones counted in a last line,
-    and the whole list within `budget` chars."""
-    shown = [d for d in map(safe_diagnostic, errors) if d is not None]
-    withheld = len(errors) - len(shown)
-    note = (
-        [f"{withheld} diagnostic{'' if withheld == 1 else 's'} withheld "
-         "(unresolved private tag)"]
-        if withheld
-        else []
-    )  # fmt: skip
-    return cap_errors(shown, budget - sum(map(len, note))) + note
+def reason(text: str, vocabulary=VALIDATOR_REASONS, default="rejected") -> str:
+    """The fixed reason for a validator or limit message (never the message)."""
+    return next((r for marker, r in vocabulary if marker in text), default)
 
 
 def unsafe_text(obj: Any) -> bool:
@@ -186,7 +190,7 @@ def unsafe_text(obj: Any) -> bool:
 
 
 def data_digest(obj: Any) -> str:
-    """A refused structure, named without showing it."""
+    """A structure (or any non-id value) in a message: its digest."""
     return id_digest(json.dumps(obj, sort_keys=True, default=str))
 
 
@@ -198,7 +202,7 @@ def safe_id(mid: Any) -> bool:
 
 
 def id_digest(mid: Any) -> str:
-    """How a refused id is named in a report: a digest, never the id itself."""
+    """How a record id, path or other text value is named in a message."""
     raw = mid if isinstance(mid, str) else repr(mid)
     return "sha256:" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
@@ -239,9 +243,9 @@ def read_records(export_path: str, extracted_path: str) -> List[Dict[str, Any]]:
     for x in read_jsonl(extracted_path):
         mid = x["id"]
         if mid not in memories:
-            raise BackfillError(f"extracted id {shown(mid)} is not in the export")
+            raise BackfillError(f"extracted id {id_digest(mid)} is not in the export")
         if mid in seen:
-            raise BackfillError(f"extracted id {shown(mid)} appears twice")
+            raise BackfillError(f"extracted id {id_digest(mid)} appears twice")
         seen.add(mid)
         records.append(
             {
@@ -279,7 +283,9 @@ def read_chroma(
             yield {"id": mid, "text": text, "metadata": md or {}}
         offset += len(got["ids"])
     if offset != total:  # reconcile the paged read with the collection count
-        raise BackfillError(f"{collection}: read {offset} of {total} records")
+        raise BackfillError(
+            f"collection {coll(collection)}: read {offset} of {total} records"
+        )
 
 
 def export_records(
@@ -309,7 +315,7 @@ def export_records(
             if r["id"] in seen:
                 raise BackfillError(
                     f"id {id_digest(r['id'])} is in more than one collection "
-                    f"({seen[r['id']]}, {name})"
+                    f"({coll(seen[r['id']])}, {coll(name)})"
                 )
             seen[r["id"]] = name
             md = r.get("metadata") or {}
@@ -324,21 +330,21 @@ def export_records(
             }
             row = {"id": r["id"], **row, "collection": name}
             if not safe_id(r["id"]):
-                reason = "unsafe_id"
+                why = "unsafe_id"
             elif any(
                 isinstance(v, str) and PRIVATE_RESIDUE.search(v) for v in row.values()
             ):
-                reason = "private_residue"
+                why = "private_residue"
             elif not row["stored_at"]:
-                reason = "missing_stored_at"
+                why = "missing_stored_at"
             else:
                 rows.append(row)
                 continue
-            excluded[reason] += 1
+            excluded[why] += 1
             excluded_records.append(
-                {"collection": name, "digest": id_digest(r["id"]), "reason": reason}
+                {"collection": coll(name), "digest": id_digest(r["id"]), "reason": why}
             )
-        per[name] = {
+        per[coll(name)] = {
             "read": read,
             "exported": read - sum(excluded.values()),
             "excluded": excluded,
@@ -437,11 +443,14 @@ def extract(
                 continue
             mid = obj.get("id") if isinstance(obj, dict) else None
             if mid not in ids or mid in rows:
-                errors.append(f"batch {n}: unexpected or repeated id {shown(mid)}")
+                errors.append(
+                    f"batch {n}: unexpected or repeated id {data_digest(mid)}"
+                )
                 continue
             if unsafe_text(obj):
                 errors.append(
-                    f"batch {n}: {mid}: refused, unsafe text ({data_digest(obj)})"
+                    f"batch {n}: {id_digest(mid)}: refused, unsafe text "
+                    f"({data_digest(obj)})"
                 )
                 refused += 1
                 continue
@@ -469,9 +478,9 @@ def extract(
         "batches": len(batches),
         "tokens": spent,
         "written": len(rows),
-        "missing": [r["id"] for r in records if r["id"] not in rows],
+        "missing": [id_digest(r["id"]) for r in records if r["id"] not in rows],
         "refused_unsafe": refused,
-        "errors": safe_errors(errors),
+        "errors": cap_errors(errors, ERROR_BUDGET),
     }
 
 
@@ -510,9 +519,10 @@ def _check_record(rec: Dict[str, Any]) -> str:
         return "text must be text"
     try:
         parse_ts(rec.get("stored_at"))
-    except BeliefValidationError as exc:
-        return f"stored_at: {exc}"
-    return belief_limits(rec["beliefs"], rec["because"])
+    except BeliefValidationError:
+        return f"stored_at: invalid timestamp ({data_digest(rec.get('stored_at'))})"
+    over = belief_limits(rec["beliefs"], rec["because"])
+    return f"limits: {reason(over, LIMIT_REASONS)}" if over else ""
 
 
 def _for_import(rec: Dict[str, Any], entry: Any) -> Tuple[Any, int]:
@@ -620,7 +630,8 @@ def _safe_entries(rec: Dict[str, Any], report: Dict[str, Any], errors: List[str]
         if unsafe_text(beliefs):
             report["refused_unsafe"] += 1
             errors.append(
-                f"{rec['id']}: beliefs: refused, unsafe text ({data_digest(beliefs)})"
+                f"{id_digest(rec['id'])}: beliefs: refused, unsafe text "
+                f"({data_digest(beliefs)})"
             )
             return []
         return beliefs  # _check_record reports the shape
@@ -629,7 +640,8 @@ def _safe_entries(rec: Dict[str, Any], report: Dict[str, Any], errors: List[str]
         if unsafe_text(entry):
             report["refused_unsafe"] += 1
             errors.append(
-                f"{rec['id']}: beliefs[{i}]: refused, unsafe text ({data_digest(entry)})"
+                f"{id_digest(rec['id'])}: beliefs[{i}]: refused, unsafe text "
+                f"({data_digest(entry)})"
             )
         else:
             kept.append(entry)
@@ -637,12 +649,16 @@ def _safe_entries(rec: Dict[str, Any], report: Dict[str, Any], errors: List[str]
 
 
 def validate(
-    records: Sequence[Dict[str, Any]], existing_keys: Iterable[str] = ()
+    records: Sequence[Dict[str, Any]],
+    existing_keys: Iterable[str] = (),
+    review_out: str = None,
 ) -> Dict[str, Any]:
     """Run every record through the shared write path into a scratch store
     in a temporary directory, so the B-PR2 validator decides. Each entry is
     its own savepoint: one bad entry is reported and the rest still count.
-    No other database is opened."""
+    No other database is opened. The duplicate review pairs are data: they
+    go to `review_out` (a new file) with their keys, while the report names
+    each key by digest."""
     report = {
         "records": len(records),
         "entries": 0,
@@ -665,33 +681,40 @@ def validate(
                     if unsafe_text(memory):
                         report["refused_unsafe"] += 1
                         errors.append(
-                            f"{rec['id']}: refused, unsafe text in the memory "
-                            f"({data_digest(memory)})"
+                            f"{id_digest(rec['id'])}: refused, unsafe text in the "
+                            f"memory ({data_digest(memory)})"
                         )
                         continue
                     rec = {**rec, "beliefs": _safe_entries(rec, report, errors)}
                     problem = _check_record(rec)
                     if problem:
-                        errors.append(f"{rec['id']}: {problem}")
+                        errors.append(f"{id_digest(rec['id'])}: {problem}")
                         continue
                     report["entries"] += len(rec["beliefs"])
                     for i, entry in enumerate(rec["beliefs"]):
-                        key = entry.get("key") if isinstance(entry, dict) else None
-                        label = key if isinstance(key, str) else f"beliefs[{i}]"
                         try:
                             item, capped = _for_import(rec, entry)
                             with store.batch():
                                 _write_entry(store, "import:validate", rec, item)
                             report["witnessed_capped"] += capped
                         except (BeliefValidationError, EdgeConflict) as exc:
-                            errors.append(f"{rec['id']}: {label}: {exc}")
+                            errors.append(
+                                f"{id_digest(rec['id'])}: beliefs[{i}]: "
+                                f"{reason(str(exc))} ({data_digest(entry)})"
+                            )
             report["rows"] = _origin_counts(store, "import:validate")
             keys = [r[0] for r in store._conn().execute("SELECT key FROM beliefs")]
         finally:
             store.close()
     report["error_count"] = len(errors)
-    report["errors"] = safe_errors(errors)
-    report["duplicates"] = duplicate_pairs(keys, existing_keys)
+    report["errors"] = cap_errors(errors, ERROR_BUDGET)
+    pairs = duplicate_pairs(keys, existing_keys)
+    if review_out:
+        with open(review_out, "x", encoding="utf-8") as fh:
+            json.dump(pairs, fh, indent=2)
+    report["duplicates"] = [
+        {**d, "old": id_digest(d["old"]), "new": id_digest(d["new"])} for d in pairs
+    ]
     return report
 
 
@@ -721,7 +744,7 @@ def load(db: str, records: Sequence[Dict[str, Any]], import_id: str) -> Dict[str
         report["rows"] = _origin_counts(store, origin)
     finally:
         store.close()
-    report["import"] = origin
+    report["import"] = id_digest(import_id)
     return report
 
 
@@ -754,14 +777,14 @@ def rollback(db: str, import_id: str) -> Dict[str, Any]:
     try:
         before = _origin_counts(store, origin)
         if not any(before.values()):
-            raise BackfillError(f"no rows with origin {origin}")
+            raise BackfillError(f"no rows for import {id_digest(import_id)}")
         store.rollback(origin)
         left = _origin_counts(store, origin)
     finally:
         store.close()
     if any(left.values()):
-        raise BackfillError(f"rows of {origin} left after rollback: {left}")
-    return {"origin": origin, "deleted": before}
+        raise BackfillError(f"rows left after rollback: {left}")
+    return {"import": id_digest(import_id), "deleted": before}
 
 
 def approved_pairs(path: str) -> List[Tuple[str, str]]:
@@ -791,7 +814,11 @@ def merge_pairs(
                 store.merge(old, new, merge_id)
     finally:
         store.close()
-    return {"merged": len(pairs), "merge": merge_id, "archive": archive_path}
+    return {
+        "merged": len(pairs),
+        "merge": id_digest(merge_id),
+        "archive": where(archive_path),
+    }
 
 
 def archive(db: str, out_path: str) -> Dict[str, int]:
@@ -844,24 +871,30 @@ def uninstall(db: str, archive_path: str) -> Dict[str, int]:
 # ---------------------------------------------------------------- CLI
 
 
+USAGE_REASONS = (
+    ("arguments are required", "missing required arguments"),
+    ("invalid choice", "invalid choice"),
+    ("invalid", "invalid value"),
+    ("expected one argument", "missing value"),
+    ("unrecognized arguments", "unknown argument"),
+    ("ambiguous option", "ambiguous option"),
+)
+
+
 class _Parser(argparse.ArgumentParser):
-    """A usage error echoes the bad value, so it takes the safe error path
-    in main instead of printing to stderr. Subparsers inherit the class."""
+    """A usage error quotes the offending value, so argparse's message is
+    never shown: the error names the option (one of ours), a fixed reason and
+    the digest of the whole argument list. Subparsers inherit the class."""
 
     argv: List[str] = []  # set by main
-    known: set = set()  # option strings and command names, set by _parser
+    known: set = set()  # option strings, command names and "cmd", set by _parser
 
     def error(self, message: str) -> NoReturn:
-        """argparse quotes the offending value (repr, or raw for unrecognized
-        arguments); every user token is replaced by its digest first."""
-        parts = {p for tok in self.argv for p in (tok, tok.partition("=")[2])}
-        # longest first, so a value inside a token cannot break the token's match
-        for part in sorted(parts - self.known - {""}, key=len, reverse=True):
-            message = message.replace(repr(part), id_digest(part))
-            message = re.sub(
-                rf"(?<![\w-]){re.escape(part)}(?![\w-])", id_digest(part), message
-            )
-        raise BackfillError(f"usage: {message}")
+        m = re.match(r"argument ([^:]+):", message)
+        names = [n for n in (m.group(1).split("/") if m else []) if n in self.known]
+        what = f"argument {names[-1]}: " if names else ""
+        why = reason(message, USAGE_REASONS, "invalid arguments")
+        raise BackfillError(f"usage: {what}{why} ({id_digest(' '.join(self.argv))})")
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -899,6 +932,7 @@ def _parser() -> argparse.ArgumentParser:
         for action in parser._actions:
             _Parser.known.update(action.option_strings)
     _Parser.known.update(sub.choices)
+    _Parser.known.add("cmd")  # argparse names the subcommand argument by its dest
     return p
 
 
@@ -920,10 +954,9 @@ def _run(a: argparse.Namespace) -> Tuple[int, Any]:
         )
     if a.cmd == "validate":
         existing = _existing_keys(a.db) if a.db else []
-        report = validate(read_records(a.export, a.extracted), existing)
-        if a.review_out:
-            with open(a.review_out, "x", encoding="utf-8") as fh:
-                json.dump(report["duplicates"], fh, indent=2)
+        report = validate(
+            read_records(a.export, a.extracted), existing, review_out=a.review_out
+        )
         return (1 if report["error_count"] else 0), report
     if a.cmd == "load":
         records = read_records(a.export, a.extracted)
@@ -941,40 +974,30 @@ def _run(a: argparse.Namespace) -> Tuple[int, Any]:
         return 0, archive(a.db, a.out)
     if a.cmd == "restore":
         restore(a.db, a.archive, a.mode)
-        return 0, {"restored": a.archive, "mode": a.mode}
+        return 0, {"restored": where(a.archive), "mode": a.mode}  # mode: a choice
     return 0, uninstall(a.db, a.archive)
 
 
-def _scrub(obj: Any) -> Any:
-    """Every string of a report through safe_diagnostic (uncapped), the last
-    gate before anything is printed; a string with a private tag is withheld."""
-    if isinstance(obj, dict):
-        return {_scrub(k): _scrub(v) for k, v in obj.items()}
-    if isinstance(obj, (list, tuple)):
-        return [_scrub(v) for v in obj]
-    if obj is None or isinstance(obj, (bool, int, float)):
-        return obj
-    return safe_diagnostic(str(obj), cap=sys.maxsize) or "[withheld: private tag]"
-
-
 def main(argv: Sequence[str]) -> int:
-    """One handler for every failure: a safe error line and exit 1, never a
-    traceback (an I/O error names its path, and a path can hold anything)."""
+    """One handler for every failure: one error line and exit 1, never a
+    traceback, and under the message rule never an input value: our own
+    errors are built from the vocabularies and digests; any other error is
+    named by its type, a fixed reason and a digest of its text."""
     _Parser.argv = [str(a) for a in argv]
     try:
         code, report = _run(_parser().parse_args(argv))
-    except BackfillError as exc:  # built from shown() and where()
-        code, report = 1, {**exc.report, "error": safe_errors([str(exc)])}
+    except BackfillError as exc:
+        code, report = 1, {**exc.report, "error": [str(exc)]}
     except (BeliefValidationError, EdgeConflict) as exc:
-        # the values these echo come from input that passed unsafe_text raw
-        code, report = 1, {"error": safe_errors([f"{type(exc).__name__}: {exc}"])}
+        name, why = type(exc).__name__, reason(str(exc))
+        code, report = 1, {"error": [f"{name}: {why} ({id_digest(str(exc))})"]}
     except OSError as exc:
         path = exc.filename if exc.filename is not None else str(exc)
-        why = exc.strerror or "I/O error"
-        code, report = 1, {"error": [f"{type(exc).__name__}: {why} ({where(path)})"]}
-    except Exception as exc:  # unknown text: never shown, only its digest
+        name = type(exc).__name__
+        code, report = 1, {"error": [f"{name}: I/O error ({where(path)})"]}
+    except Exception as exc:
         code, report = 1, {"error": [f"{type(exc).__name__} ({id_digest(str(exc))})"]}
-    print(json.dumps(_scrub(report), indent=2))
+    print(json.dumps(report, indent=2))
     return code
 
 
