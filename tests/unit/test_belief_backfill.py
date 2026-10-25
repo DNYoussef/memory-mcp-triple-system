@@ -871,8 +871,9 @@ def test_r1_extract_diagnostics_are_sanitized_and_tags_withheld(
     report = bf.extract(str(exp), str(tmp_path / "x.jsonl"), model)
     dump = json.dumps(report)
     assert "CANARY" not in dump and "<" not in dump
-    assert len(report["errors"]) == 4  # three shown, then the withheld notice
-    assert report["errors"][-1] == WITHHELD
+    # since review r3 every reply value is checked raw and shown by digest
+    assert len(report["errors"]) == 4
+    assert all("sha256:" in e for e in report["errors"])
     # the CLI prints through the same helper
     monkeypatch.setattr(bf, "model_command", lambda cmd: model)
     out = tmp_path / "y.jsonl"
@@ -1032,7 +1033,8 @@ def test_r1_cli_errors_with_unsafe_paths_are_sanitized(tmp_path, monkeypatch, ca
     monkeypatch.setattr(bf, "MAX_IMPORT_BYTES", 1)
     assert bf.main([*args, str(tmp_path / "new.jsonl")]) == 1  # BackfillError branch
     printed = capsys.readouterr().out
-    assert "PATHCANARY" not in printed and printed.count("[REDACTED]") == 2
+    # since review r3 a path in an error is only ever its digest
+    assert "PATHCANARY" not in printed and printed.count("sha256:") == 2
 
 
 def test_r1_chroma_read_is_reconciled_with_the_collection_count(monkeypatch):
@@ -1331,3 +1333,86 @@ def test_r2_canary_sweep_over_every_subcommand(tmp_path, monkeypatch, capfd):
     )
     for p in produced:
         assert b"SWEEPCANARY" not in p.read_bytes(), p.name
+
+
+# ================================================================ review r3 (Sol)
+
+TAB_TAG = "<\tprivate>TIME_CANARY"
+
+
+def test_r3_escaped_tag_in_stored_at_never_reaches_a_message(tmp_path, capfd):
+    exp = write_jsonl(tmp_path / "e.jsonl", [memory("m1", "a", stored_at=TAB_TAG)])
+    ext = write_jsonl(tmp_path / "x.jsonl", [extracted("m1", entry("k.a"))])
+    report = bf.validate(bf.read_records(exp, ext))
+    assert report["refused_unsafe"] == 1 and report["error_count"] == 1
+    assert "TIME_CANARY" not in json.dumps(report)
+    assert bf.main(["validate", "--export", str(exp), "--extracted", str(ext)]) == 1
+    out, err = capfd.readouterr()
+    assert "TIME_CANARY" not in out + err
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("text", 7),  # a type error after the raw check
+        ("stored_at", "not a time"),
+    ],
+)
+def test_r3_safe_values_still_get_a_useful_message(tmp_path, field, value):
+    exp = write_jsonl(tmp_path / "e.jsonl", [{**memory("m1", "a"), field: value}])
+    ext = write_jsonl(tmp_path / "x.jsonl", [extracted("m1", entry("k.a"))])
+    report = bf.validate(bf.read_records(exp, ext))
+    assert report["error_count"] == 1 and report["refused_unsafe"] == 0
+
+
+def test_r3_escaped_tags_in_paths_and_arguments_print_only_digests(tmp_path, capfd):
+    bad_path = str(tmp_path / "x") + "<\tprivate>PATH_CANARY"
+    assert bf.main(["validate", "--export", bad_path, "--extracted", bad_path]) == 1
+    assert bf.main(["extract", "--export", "e", "--out", "o", "--model-cmd", "m",
+                    "--budget", "<\tprivate>ARG_CANARY"]) == 1  # fmt: skip
+    assert bf.main(["restore", "--db", "d", "--archive", "a",
+                    "--mode", "<\nprivate>MODE_CANARY"]) == 1  # fmt: skip
+    assert bf.main(["validate", "--export", "e", "--extracted", "x",
+                    "--<\rprivate>FLAG_CANARY=1"]) == 1  # fmt: skip
+    assert bf.main(["<\tPrivate>CMD_CANARY"]) == 1
+    out, err = capfd.readouterr()
+    assert "CANARY" not in out + err and "Traceback" not in out + err
+    assert out.count("sha256:") >= 5
+
+
+def test_r3_reply_ids_and_lines_are_checked_raw(tmp_path):
+    exp = write_jsonl(tmp_path / "e.jsonl", [memory("m1", "a")])
+
+    def model(prompt):
+        return "\n".join(
+            [
+                json.dumps({"id": "<\tprivate>RID_CANARY", "beliefs": []}),
+                "<\r\nprivate>LINE_CANARY not json",
+                json.dumps(extracted("m1", entry("k.a"))),
+            ]
+        )
+
+    report = bf.extract(str(exp), str(tmp_path / "x.jsonl"), model)
+    assert (
+        "CANARY" not in json.dumps(report) and len(report["errors"]) == 3
+    )  # CR LF splits the line
+    assert all("sha256:" in e for e in report["errors"])
+
+
+def test_r3_safe_diagnostic_withholds_escaped_tags_and_secrets():
+    assert bf.safe_diagnostic(repr("<\tprivate>X")) is None
+    assert bf.safe_diagnostic(repr("<\nPRIVATE>X")) is None
+    assert bf.safe_diagnostic("bad value 'api_key\\t=ESCAPED_SECRET'") is None
+    assert bf.safe_errors([repr("<\tprivate>X"), "fine"]) == ["fine", WITHHELD]
+    assert bf.safe_diagnostic("a\\tb plain") == "a\\tb plain"  # escapes alone are fine
+
+
+def test_r3_unknown_exceptions_show_only_a_digest(tmp_path, monkeypatch, capfd):
+    def boom(*a):
+        raise RuntimeError("plain words and a repr " + repr("<\tprivate>EXC_CANARY"))
+
+    monkeypatch.setattr(bf, "read_records", boom)
+    assert bf.main(["validate", "--export", "a", "--extracted", "b"]) == 1
+    out, _ = capfd.readouterr()
+    assert "CANARY" not in out and "plain words" not in out
+    assert "RuntimeError (sha256:" in out

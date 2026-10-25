@@ -20,6 +20,7 @@ Run from the repo root:
 """
 
 import argparse
+import errno
 import hashlib
 import json
 import math
@@ -119,12 +120,41 @@ class TokenBudgetExceeded(BackfillError):
 # ---------------------------------------------------------------- files
 
 
+def shown(value: Any) -> str:
+    """How a user-supplied value may appear in a message: checked RAW, before
+    any repr or formatting can escape a tag or a secret out of sight. A safe
+    value is shown as is (repr for non-text); anything else by its digest."""
+    if unsafe_text(value):
+        return data_digest(value)
+    return value if isinstance(value, str) else repr(value)
+
+
+def where(path: Any) -> str:
+    """A path in a message: only ever its digest (a path can hold anything)."""
+    return id_digest(str(path))
+
+
+ESCAPE = re.compile(r"\\(?:x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8}|[tnrfv])")
+
+
+def _unescaped(text: str) -> str:
+    return ESCAPE.sub(lambda m: m.group(0).encode().decode("unicode_escape"), text)
+
+
 def safe_diagnostic(text: Any, cap: int = ERROR_CAP) -> Optional[str]:
     """One diagnostic made safe to print: strip_private FIRST (a cut first
-    could leave a secret too short to match), then None if a private tag is
-    still there (withheld, never shown), else the first `cap` chars."""
+    could leave a secret too short to match), then None (withheld, never
+    shown) if a private tag is still there, else the first `cap` chars.
+    Backstop for a value that reached a message through repr: the check also
+    runs on the text with escapes such as \\t undone, so an escaped tag or
+    secret is withheld too. Call sites embed values through shown()."""
     clean = strip_private(str(text))
-    return None if PRIVATE_RESIDUE.search(clean) else clean[:cap]
+    loose = _unescaped(clean)
+    if PRIVATE_RESIDUE.search(loose) or (
+        loose != clean and strip_private(loose) != loose
+    ):
+        return None
+    return clean[:cap]
 
 
 def safe_errors(errors: Sequence[Any], budget: int = ERROR_BUDGET) -> List[str]:
@@ -178,22 +208,24 @@ def read_jsonl(path: str) -> List[Dict[str, Any]]:
     oversized file is refused before it is read."""
     size = Path(path).stat().st_size
     if size > MAX_IMPORT_BYTES:
-        raise BackfillError(f"{path}: {size} bytes exceed {MAX_IMPORT_BYTES}")
+        raise BackfillError(f"{where(path)}: {size} bytes exceed {MAX_IMPORT_BYTES}")
     rows = []
     with open(path, encoding="utf-8") as fh:
         for n, line in enumerate(fh, 1):
             if not line.strip():
                 continue
             if len(rows) == MAX_IMPORT_RECORDS:
-                raise BackfillError(f"{path}: more than {MAX_IMPORT_RECORDS} records")
+                raise BackfillError(
+                    f"{where(path)}: more than {MAX_IMPORT_RECORDS} records"
+                )
             try:
                 row = json.loads(line)
             except ValueError as exc:
-                raise BackfillError(f"{path}:{n}: not JSON ({exc})") from exc
+                raise BackfillError(f"{where(path)}:{n}: not JSON") from exc
             if not isinstance(row, dict) or not safe_id(row.get("id")):
                 mid = row.get("id") if isinstance(row, dict) else None
                 raise BackfillError(
-                    f"{path}:{n}: missing or unsafe id ({id_digest(mid)})"
+                    f"{where(path)}:{n}: missing or unsafe id ({id_digest(mid)})"
                 )
             rows.append(row)
     return rows
@@ -207,9 +239,9 @@ def read_records(export_path: str, extracted_path: str) -> List[Dict[str, Any]]:
     for x in read_jsonl(extracted_path):
         mid = x["id"]
         if mid not in memories:
-            raise BackfillError(f"extracted id {mid!r} is not in the export")
+            raise BackfillError(f"extracted id {shown(mid)} is not in the export")
         if mid in seen:
-            raise BackfillError(f"extracted id {mid!r} appears twice")
+            raise BackfillError(f"extracted id {shown(mid)} appears twice")
         seen.add(mid)
         records.append(
             {
@@ -261,7 +293,7 @@ def export_records(
     collection goes to ONE file, so one validate and one load cover them all.
     The file is written only after every record was read."""
     if Path(out_path).exists():
-        raise FileExistsError(out_path)
+        raise FileExistsError(errno.EEXIST, "already exists", out_path)
     rows, per, excluded_records, seen = [], {}, [], {}
     # a name lands in every row and report key: the safe-id rule, by digest
     unsafe = [id_digest(n) for n in collections if not safe_id(n)]
@@ -369,7 +401,7 @@ def extract(
         )
     records = read_jsonl(export_path)
     if Path(out_path).exists():
-        raise FileExistsError(out_path)
+        raise FileExistsError(errno.EEXIST, "already exists", out_path)
     need = preflight_tokens(records, batch_size)
     if need > token_budget:
         raise TokenBudgetExceeded(
@@ -393,17 +425,19 @@ def extract(
                 "no output written"
             )
         ids = {r["id"] for r in batch}
-        for line in reply.splitlines():
+        for line in reply.split("\n"):  # JSONL: no other character splits a line
             if not line.strip():
                 continue
             try:
                 obj = json.loads(line)
             except ValueError:
-                errors.append(f"batch {n}: not JSON: {line}")
+                # a line is a fragment of the raw reply, never a whole value:
+                # a value split across lines passes no raw check, so digest only
+                errors.append(f"batch {n}: not JSON ({data_digest(line)})")
                 continue
             mid = obj.get("id") if isinstance(obj, dict) else None
             if mid not in ids or mid in rows:
-                errors.append(f"batch {n}: unexpected or repeated id {mid!r}")
+                errors.append(f"batch {n}: unexpected or repeated id {shown(mid)}")
                 continue
             if unsafe_text(obj):
                 errors.append(
@@ -578,6 +612,30 @@ def duplicate_pairs(
     return sorted(out, key=lambda d: (-d["score"], d["old"]))
 
 
+def _safe_entries(rec: Dict[str, Any], report: Dict[str, Any], errors: List[str]):
+    """The record's entries with every unsafe one refused (counted, named by
+    digest), checked raw before anything else looks at them."""
+    beliefs = rec["beliefs"]
+    if not isinstance(beliefs, list):
+        if unsafe_text(beliefs):
+            report["refused_unsafe"] += 1
+            errors.append(
+                f"{rec['id']}: beliefs: refused, unsafe text ({data_digest(beliefs)})"
+            )
+            return []
+        return beliefs  # _check_record reports the shape
+    kept = []
+    for i, entry in enumerate(beliefs):
+        if unsafe_text(entry):
+            report["refused_unsafe"] += 1
+            errors.append(
+                f"{rec['id']}: beliefs[{i}]: refused, unsafe text ({data_digest(entry)})"
+            )
+        else:
+            kept.append(entry)
+    return kept
+
+
 def validate(
     records: Sequence[Dict[str, Any]], existing_keys: Iterable[str] = ()
 ) -> Dict[str, Any]:
@@ -601,11 +659,18 @@ def validate(
         try:
             with store.batch():
                 for rec in records:
-                    problem = _check_record(rec)
+                    # RAW check first: no shape or type check may echo a value
+                    # that has not passed unsafe_text (review r3)
                     memory = {k: v for k, v in rec.items() if k != "beliefs"}
-                    if not problem and unsafe_text(memory):
-                        problem = f"refused, unsafe text in the memory ({data_digest(memory)})"
+                    if unsafe_text(memory):
                         report["refused_unsafe"] += 1
+                        errors.append(
+                            f"{rec['id']}: refused, unsafe text in the memory "
+                            f"({data_digest(memory)})"
+                        )
+                        continue
+                    rec = {**rec, "beliefs": _safe_entries(rec, report, errors)}
+                    problem = _check_record(rec)
                     if problem:
                         errors.append(f"{rec['id']}: {problem}")
                         continue
@@ -613,13 +678,6 @@ def validate(
                     for i, entry in enumerate(rec["beliefs"]):
                         key = entry.get("key") if isinstance(entry, dict) else None
                         label = key if isinstance(key, str) else f"beliefs[{i}]"
-                        if unsafe_text(entry):
-                            report["refused_unsafe"] += 1
-                            errors.append(
-                                f"{rec['id']}: beliefs[{i}]: refused, unsafe text "
-                                f"({data_digest(entry)})"
-                            )
-                            continue
                         try:
                             item, capped = _for_import(rec, entry)
                             with store.batch():
@@ -684,7 +742,7 @@ def _import_origin(import_id: Any) -> str:
 def _open_existing(db: str) -> BeliefStore:
     """A writer on a database that already has the belief tables; never creates them."""
     if not BeliefStore(db, readonly=True).has_schema():
-        raise BackfillError(f"{db}: no belief tables")
+        raise BackfillError(f"{where(db)}: no belief tables")
     return BeliefStore(db)
 
 
@@ -724,7 +782,7 @@ def merge_pairs(
             f"unsafe merge id or pair ({data_digest([merge_id, list(pairs)])})"
         )
     if Path(archive_path).exists():
-        raise FileExistsError(archive_path)
+        raise FileExistsError(errno.EEXIST, "already exists", archive_path)
     store = _open_existing(db)
     try:
         store.archive(archive_path)
@@ -746,7 +804,7 @@ def archive(db: str, out_path: str) -> Dict[str, int]:
 
 def restore(db: str, archive_path: str, mode: str) -> None:
     if not Path(archive_path).is_file():  # ATTACH would create an empty file
-        raise FileNotFoundError(archive_path)
+        raise FileNotFoundError(errno.ENOENT, "no such archive", archive_path)
     store = BeliefStore(db)
     try:
         store.restore(archive_path, mode)
@@ -790,7 +848,19 @@ class _Parser(argparse.ArgumentParser):
     """A usage error echoes the bad value, so it takes the safe error path
     in main instead of printing to stderr. Subparsers inherit the class."""
 
+    argv: List[str] = []  # set by main
+    known: set = set()  # option strings and command names, set by _parser
+
     def error(self, message: str) -> NoReturn:
+        """argparse quotes the offending value (repr, or raw for unrecognized
+        arguments); every user token is replaced by its digest first."""
+        parts = {p for tok in self.argv for p in (tok, tok.partition("=")[2])}
+        # longest first, so a value inside a token cannot break the token's match
+        for part in sorted(parts - self.known - {""}, key=len, reverse=True):
+            message = message.replace(repr(part), id_digest(part))
+            message = re.sub(
+                rf"(?<![\w-]){re.escape(part)}(?![\w-])", id_digest(part), message
+            )
         raise BackfillError(f"usage: {message}")
 
 
@@ -825,6 +895,10 @@ def _parser() -> argparse.ArgumentParser:
     s = cmd("restore", "--db", "--archive")
     s.add_argument("--mode", required=True, choices=("fresh", "same_db"))
     cmd("uninstall", "--db", "--archive")
+    for parser in (p, *sub.choices.values()):
+        for action in parser._actions:
+            _Parser.known.update(action.option_strings)
+    _Parser.known.update(sub.choices)
     return p
 
 
@@ -886,12 +960,20 @@ def _scrub(obj: Any) -> Any:
 def main(argv: Sequence[str]) -> int:
     """One handler for every failure: a safe error line and exit 1, never a
     traceback (an I/O error names its path, and a path can hold anything)."""
+    _Parser.argv = [str(a) for a in argv]
     try:
         code, report = _run(_parser().parse_args(argv))
-    except BackfillError as exc:
+    except BackfillError as exc:  # built from shown() and where()
         code, report = 1, {**exc.report, "error": safe_errors([str(exc)])}
-    except Exception as exc:
+    except (BeliefValidationError, EdgeConflict) as exc:
+        # the values these echo come from input that passed unsafe_text raw
         code, report = 1, {"error": safe_errors([f"{type(exc).__name__}: {exc}"])}
+    except OSError as exc:
+        path = exc.filename if exc.filename is not None else str(exc)
+        why = exc.strerror or "I/O error"
+        code, report = 1, {"error": [f"{type(exc).__name__}: {why} ({where(path)})"]}
+    except Exception as exc:  # unknown text: never shown, only its digest
+        code, report = 1, {"error": [f"{type(exc).__name__} ({id_digest(str(exc))})"]}
     print(json.dumps(_scrub(report), indent=2))
     return code
 
