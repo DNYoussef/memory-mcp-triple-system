@@ -850,6 +850,66 @@ def test_r1_unsafe_id_in_an_input_file_never_reaches_a_prompt(tmp_path):
     assert sha_id(ID_CANARY) in str(err.value)
 
 
+def test_r1_extract_diagnostics_are_sanitized_and_tags_withheld(
+    tmp_path, monkeypatch, capsys
+):
+    exp = write_jsonl(tmp_path / "e.jsonl", [memory("m1", "a"), memory("m2", "b")])
+
+    def model(prompt):
+        return "\n".join(
+            [
+                "API_KEY=REPLY_CANARY not json",
+                json.dumps({"id": "API_KEY=REPLY_CANARY2", "beliefs": []}),
+                "< private >PRIV_REPLY_CANARY",
+                "x" * 70 + " " + "sk-" + "REPLYCANARY0123456789",
+                json.dumps(extracted("m1")),
+            ]
+        )
+
+    report = bf.extract(str(exp), str(tmp_path / "x.jsonl"), model)
+    dump = json.dumps(report)
+    assert "CANARY" not in dump and "<" not in dump
+    assert len(report["errors"]) == 4  # three shown, then the withheld notice
+    assert report["errors"][-1] == WITHHELD
+    # the CLI prints through the same helper
+    monkeypatch.setattr(bf, "model_command", lambda cmd: model)
+    out = tmp_path / "y.jsonl"
+    args = ["extract", "--export", str(exp), "--out", str(out), "--model-cmd", "stub"]
+    code = bf.main(args)
+    printed = capsys.readouterr().out
+    assert code == 0 and "CANARY" not in printed and "<" not in printed
+
+
+def test_r1_validate_errors_with_private_tags_are_withheld(tmp_path, files):
+    write_jsonl(
+        files[1],
+        [extracted("m1", entry("k.a", source_type="< private >PRIV_VALIDATE_CANARY"))],
+    )
+    report = bf.validate(bf.read_records(*files))
+    assert report["error_count"] == 1
+    assert "CANARY" not in json.dumps(report)
+    assert report["errors"] == [WITHHELD]
+
+
+def test_r1_cli_error_messages_go_through_the_helper(tmp_path, capsys):
+    exp = write_jsonl(tmp_path / "e.jsonl", [memory("m1", "a")])
+    bad = tmp_path / "x.jsonl"
+    line = json.dumps({"id": "API_KEY=CLI_CANARY < private >"})
+    bad.write_text(line + "\n", encoding="utf-8")
+    code = bf.main(["validate", "--export", str(exp), "--extracted", str(bad)])
+    printed = capsys.readouterr().out
+    assert code == 1 and "CANARY" not in printed and "<" not in printed
+
+
+def test_r1_safe_diagnostic_sanitizes_before_truncating():
+    secret = "sk-" + "TRUNCCANARY0123456789"
+    text = "e" * 70 + " " + secret  # a cut at 80 first would leave 'sk-TRUNCCAN'
+    got = bf.safe_diagnostic(text, cap=80)
+    assert got is not None and "TRUNC" not in got and len(got) <= 80
+    assert bf.safe_diagnostic("a < private >b") is None
+    assert bf.safe_diagnostic("plain") == "plain"
+
+
 def chroma_with(path, collections):
     chromadb = pytest.importorskip("chromadb")
     from chromadb.config import Settings

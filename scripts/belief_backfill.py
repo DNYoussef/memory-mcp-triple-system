@@ -30,7 +30,17 @@ import sys
 import tempfile
 from difflib import SequenceMatcher
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, Iterator, List, Sequence, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+)
 
 from src.belief_web.belief_store import (
     ARCHIVE_TABLES,
@@ -43,6 +53,7 @@ from src.belief_web.belief_store import (
 from src.belief_web.solver import EdgeConflict
 from src.hooks.post_tool_handler import strip_private
 from src.services.memory_ingestion_service import (
+    ERROR_CAP,
     MAX_KEY,
     MemoryIngestionService,
     belief_limits,
@@ -105,6 +116,29 @@ class TokenBudgetExceeded(BackfillError):
 
 
 # ---------------------------------------------------------------- files
+
+
+def safe_diagnostic(text: Any, cap: int = ERROR_CAP) -> Optional[str]:
+    """One diagnostic made safe to print: strip_private FIRST (a cut first
+    could leave a secret too short to match), then None if a private tag is
+    still there (withheld, never shown), else the first `cap` chars."""
+    clean = strip_private(str(text))
+    return None if PRIVATE_RESIDUE.search(clean) else clean[:cap]
+
+
+def safe_errors(errors: Sequence[Any], budget: int = ERROR_BUDGET) -> List[str]:
+    """Every error list a report or the CLI prints goes through here: each
+    error through safe_diagnostic, the withheld ones counted in a last line,
+    and the whole list within `budget` chars."""
+    shown = [d for d in map(safe_diagnostic, errors) if d is not None]
+    withheld = len(errors) - len(shown)
+    note = (
+        [f"{withheld} diagnostic{'' if withheld == 1 else 's'} withheld "
+         "(unresolved private tag)"]
+        if withheld
+        else []
+    )  # fmt: skip
+    return cap_errors(shown, budget - sum(map(len, note))) + note
 
 
 def safe_id(mid: Any) -> bool:
@@ -333,7 +367,7 @@ def extract(
             try:
                 obj = json.loads(line)
             except ValueError:
-                errors.append(f"batch {n}: not JSON: {line[:80]}")
+                errors.append(f"batch {n}: not JSON: {line}")
                 continue
             mid = obj.get("id") if isinstance(obj, dict) else None
             if mid not in ids or mid in rows:
@@ -364,7 +398,7 @@ def extract(
         "tokens": spent,
         "written": len(rows),
         "missing": [r["id"] for r in records if r["id"] not in rows],
-        "errors": cap_errors(errors, ERROR_BUDGET),
+        "errors": safe_errors(errors),
     }
 
 
@@ -547,7 +581,7 @@ def validate(
         finally:
             store.close()
     report["error_count"] = len(errors)
-    report["errors"] = cap_errors([strip_private(e) for e in errors], ERROR_BUDGET)
+    report["errors"] = safe_errors(errors)
     report["duplicates"] = duplicate_pairs(keys, existing_keys)
     return report
 
@@ -761,9 +795,9 @@ def main(argv: Sequence[str]) -> int:
     try:
         code, report = _run(args)
     except BackfillError as exc:
-        code, report = 1, {"error": str(exc), **exc.report}
+        code, report = 1, {**exc.report, "error": safe_errors([str(exc)])}
     except (FileExistsError, BeliefValidationError, EdgeConflict) as exc:
-        code, report = 1, {"error": f"{type(exc).__name__}: {exc}"}
+        code, report = 1, {"error": safe_errors([f"{type(exc).__name__}: {exc}"])}
     print(json.dumps(report, indent=2, default=str))
     return code
 
