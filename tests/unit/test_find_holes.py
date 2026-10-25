@@ -225,6 +225,15 @@ def test_strong_belief_excluding_an_unevidenced_one_is_not_a_pair(store, tool):
     assert payload["counts"]["contradicted_pair"] == 0
 
 
+def test_both_leaning_true_below_the_sum_is_not_a_pair(store, tool):
+    write(store, "k.a", 1, "inferred", T15, "ca")  # 0.6
+    write(store, "k.b", 1, "assumed", T15, "cb")  # 0.55
+    store.add_edge("live", "k.a", "k.b", "excludes", 0.5)
+    pa, pb = store.probability("k.a", T15), store.probability("k.b", T15)
+    assert pa > 0.5 and pb > 0.5 and 1.0 < pa + pb <= 1.1  # 0.5758 + 0.5002
+    assert holes(tool)["counts"]["contradicted_pair"] == 0
+
+
 def test_project_filter_keeps_the_pair_load_and_rank(store, tool):
     write(store, "k.a", 1, "witnessed", T15, "ca", reliability=0.9)
     write(store, "k.b", 1, "witnessed", T15, "cb", reliability=0.8)
