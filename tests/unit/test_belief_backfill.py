@@ -1008,3 +1008,43 @@ def test_r1_error_budget_is_exact_with_the_notice():
         else:
             shown = len(got) - 1
             assert got[-1] == f"... {n - shown} more errors not shown"
+
+
+def test_r1_cli_errors_with_unsafe_paths_are_sanitized(tmp_path, monkeypatch, capsys):
+    exp = write_jsonl(tmp_path / "API_KEY=PATHCANARY_E.jsonl", [memory("m1", "a")])
+    taken = tmp_path / "API_KEY=PATHCANARY_O.jsonl"
+    taken.write_text("x", encoding="utf-8")
+    monkeypatch.setattr(bf, "model_command", lambda cmd: stub_model([]))
+    args = ["extract", "--export", str(exp), "--model-cmd", "stub", "--out"]
+    assert bf.main([*args, str(taken)]) == 1  # FileExistsError branch
+    monkeypatch.setattr(bf, "MAX_IMPORT_BYTES", 1)
+    assert bf.main([*args, str(tmp_path / "new.jsonl")]) == 1  # BackfillError branch
+    printed = capsys.readouterr().out
+    assert "PATHCANARY" not in printed and printed.count("[REDACTED]") == 2
+
+
+def test_r1_chroma_read_is_reconciled_with_the_collection_count(monkeypatch):
+    class Col:
+        def count(self):
+            return 3
+
+        def get(self, limit, offset, include):
+            ids = ["c1", "c2"][offset : offset + limit]
+            return {
+                "ids": ids,
+                "documents": ["d"] * len(ids),
+                "metadatas": [{}] * len(ids),
+            }
+
+    class Client:
+        def __init__(self, path, settings):
+            pass
+
+        def get_collection(self, name, embedding_function):
+            return Col()
+
+    import chromadb
+
+    monkeypatch.setattr(chromadb, "PersistentClient", Client)
+    with pytest.raises(bf.BackfillError, match="read 2 of 3 records"):
+        list(bf.read_chroma("unused", "memory_chunks", page=5))
