@@ -634,7 +634,7 @@ def test_memory_store_belief_errors_have_an_aggregate_budget(tmp_path):
     svc = service(tmp_path)
     bad = {"beliefs": [belief(f"k.n{i}", source_type="x" * 400) for i in range(50)]}
     errors = svc.ingest("one short memory", bad)["beliefs"]["errors"]
-    assert len("".join(errors)) <= mis.ERROR_BUDGET + 100
+    assert len("".join(errors)) <= mis.ERROR_BUDGET  # notice included
     assert errors[-1].endswith("more errors not shown")
     assert errors[-1].startswith("... ")
     few = {"beliefs": [belief("k.a", source_type="bogus")]}

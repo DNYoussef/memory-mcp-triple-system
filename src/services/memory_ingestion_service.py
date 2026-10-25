@@ -92,16 +92,24 @@ def belief_limits(entries: Any, because: Any) -> str:
 
 
 def cap_errors(errors: List[str], budget: int = ERROR_BUDGET) -> List[str]:
-    """Keep whole errors until `budget` chars, then say how many were cut."""
+    """Keep whole errors while they fit `budget` chars, then say how many were
+    cut. Each kept error leaves room for the notice the rest would need, so
+    the list, notice included, never passes the budget."""
     out: List[str] = []
     used = 0
     for i, e in enumerate(errors):
-        if used + len(e) > budget:
-            out.append(f"... {len(errors) - i} more errors not shown")
+        rest = len(errors) - i - 1
+        reserve = len(_omitted(rest)) if rest else 0
+        if used + len(e) + reserve > budget:
+            out.append(_omitted(len(errors) - i))
             break
         out.append(e)
         used += len(e)
     return out
+
+
+def _omitted(n: int) -> str:
+    return f"... {n} more errors not shown"
 
 
 class MemoryIngestionService:

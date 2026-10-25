@@ -18,6 +18,7 @@ import pytest
 from scripts import belief_backfill as bf
 from src.belief_web.belief_store import BeliefStore
 from src.belief_web.solver import logit, sigmoid
+from src.services import memory_ingestion_service as mis
 from src.stores.kv_store import KVStore
 
 T12, T15 = "2026-10-14T12:00:00Z", "2026-10-14T15:00:00Z"
@@ -995,3 +996,15 @@ def test_r1_budget_above_the_ceiling_is_refused(tmp_path, monkeypatch):
     assert calls == []
     assert bf.main([*args, "--model-cmd", "stub", "--budget", "100000"]) == 0
     assert len(calls) == 1  # a lower budget still runs
+
+
+def test_r1_error_budget_is_exact_with_the_notice():
+    for n, size in [(50, 100), (21, 100), (20, 100), (3, 990), (1, 3000)]:
+        errors = ["x" * size] * n
+        got = mis.cap_errors(errors, 2000)
+        assert len("".join(got)) <= 2000, (n, size)
+        if n * size <= 2000:
+            assert got == errors  # everything fits: no notice
+        else:
+            shown = len(got) - 1
+            assert got[-1] == f"... {n - shown} more errors not shown"
