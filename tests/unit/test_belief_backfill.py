@@ -1245,96 +1245,6 @@ class FakeChroma:
         return Col()
 
 
-def test_r2_canary_sweep_over_every_subcommand(tmp_path, monkeypatch, capfd):
-    """Positive control for the whole leak class: canaries in every field of
-    every input, then every subcommand; no canary in any output file, report,
-    stdout or stderr."""
-    chromadb = pytest.importorskip("chromadb")
-    key, tag = "API_KEY=SWEEPCANARY_K", "< private >SWEEPCANARY_T"
-    sk = "sk-" + "SWEEPCANARY0123456789ab"
-    md = {"stored_at": STORED, "who": "w", "project": "p"}
-    FakeChroma.data = {
-        "memory_chunks": [
-            ("c1", "clean memory", md),
-            ("c2", f"text {key}", md),
-            ("c3", "x", {**md, "who": tag}),
-            (sk, "x", md),
-            ("c4", "x", {**md, "project": key}),
-        ],
-        "agent_memories": [("a1", "agent memory", md)],
-        sk: [("z1", "x", md)],
-    }
-    monkeypatch.setattr(chromadb, "PersistentClient", FakeChroma)
-    work = tmp_path / "API_KEY=SWEEPCANARY_DIR"
-    work.mkdir()
-    exp, db = work / "export.jsonl", work / "kv.db"
-    codes = []
-
-    def run(*argv):
-        codes.append(bf.main([str(a) for a in argv]))
-
-    def model(prompt):
-        lines = []
-        for mid in re.findall(r'^\{"id": "([^"]+)"', prompt, re.M):
-            lines.append(json.dumps(extracted(mid, entry("k.s", claim=key))))
-            lines.append(json.dumps({"id": sk, "beliefs": [tag]}))
-        return "\n".join(lines + [key, tag])
-
-    monkeypatch.setattr(bf, "model_command", lambda cmd: model)
-    seeded = [
-        extracted(
-            "c1",
-            {**entry("k.a"), "claim": key},
-            {**entry("k.b"), "quote": tag},
-            {**entry("k.c"), "source_ref": sk},
-        ),
-        extracted("a1", entry("k.ok")),
-    ]
-    ext = write_jsonl(work / "seeded.jsonl", seeded)
-    ok = write_jsonl(work / "ok.jsonl", [extracted("a1", entry("k.ok"))])
-    pairs = work / "pairs.json"
-    pairs.write_text(json.dumps([{"old": key, "new": "k.ok", "approve": True}]))
-    good_pairs = work / "good.json"
-    good_pairs.write_text(json.dumps([{"old": "k.ok", "new": "k.s", "approve": True}]))
-    inputs = {ext, ok, pairs, good_pairs}
-    load = ["load", "--db", db, "--export", exp]
-
-    run("export", "--chroma", work / "c", "--out", exp, "--collection", sk)
-    run("export", "--chroma", work / "c", "--out", exp)
-    run("extract", "--export", exp, "--out", work / "x1.jsonl", "--model-cmd", "m")
-    run("extract", "--export", exp, "--out", work / "x2.jsonl", "--model-cmd", "m",
-        "--budget", key)  # fmt: skip
-    run(
-        "validate", "--export", exp, "--extracted", ext, "--review-out", work / "r.json"
-    )
-    run("validate", "--export", work / key, "--extracted", ext)
-    run(*load, "--extracted", ext, "--import-id", "X", "--dry-run")
-    run(*load, "--extracted", ext, "--import-id", "X")
-    run(*load, "--extracted", ok, "--import-id", sk)
-    run(*load, "--extracted", ok, "--import-id", key)
-    run(*load, "--extracted", ok, "--import-id", "X")
-    run("rollback", "--db", db, "--import-id", sk)
-    run("merge", "--db", db, "--pairs", pairs, "--merge-id", "r1", "--archive",
-        work / "m1.db")  # fmt: skip
-    run("merge", "--db", db, "--pairs", good_pairs, "--merge-id", sk, "--archive",
-        work / "m2.db")  # fmt: skip
-    run("archive", "--db", db, "--out", work / "arc.db")
-    run("archive", "--db", work / key, "--out", work / "arc2.db")
-    run("restore", "--db", db, "--archive", work / sk, "--mode", "same_db")
-    run("uninstall", "--db", db, "--archive", work / "arc.db")  # exists: refused
-    run("uninstall", "--db", db, "--archive", work / "un.db")
-    run("rollback", "--db", db, "--import-id", "X")
-    out, err = capfd.readouterr()
-    assert codes.count(0) >= 4 and codes.count(1) >= 12  # both kinds of path ran
-    assert "SWEEPCANARY" not in out + err and "Traceback" not in err
-    produced = [p for p in tmp_path.rglob("*") if p.is_file() and p not in inputs]
-    assert {exp, work / "x1.jsonl", db, work / "arc.db", work / "un.db"} <= set(
-        produced
-    )
-    for p in produced:
-        assert b"SWEEPCANARY" not in p.read_bytes(), p.name
-
-
 # ================================================================ review r3 (Sol)
 
 TAB_TAG = "<\tprivate>TIME_CANARY"
@@ -1416,3 +1326,201 @@ def test_r3_unknown_exceptions_show_only_a_digest(tmp_path, monkeypatch, capfd):
     out, _ = capfd.readouterr()
     assert "CANARY" not in out and "plain words" not in out
     assert "RuntimeError (sha256:" in out
+
+
+def sweep_forms(label):
+    """One canary in every form: plain, separators with TAB/CR/LF, mixed case,
+    spaced and stray tags, an sk- token."""
+    return [
+        f"API_KEY=SWEEP{label}a",
+        f"api_key\t=SWEEP{label}b",
+        f"Api_Key\r\n= SWEEP{label}c",
+        "sk-" + f"SWEEP{label}d0123456789abcdef",
+        f"<private>SWEEP{label}e</private>",
+        f"<\tprivate>SWEEP{label}f",
+        f"<\rPRIVATE>SWEEP{label}g",
+        f"<\nPrIvAtE>SWEEP{label}h",
+        f"< private >SWEEP{label}i",
+        f"</ private>SWEEP{label}j",
+    ]
+
+
+BELIEF_FIELDS = (
+    "key", "claim", "value", "source_type", "observed_at", "kind", "quote",
+    "source_ref", "reliability", "half_life_days", "supports", "excludes",
+    "depends_on",
+)  # fmt: skip
+
+
+def test_r3_canary_sweep_over_every_subcommand(tmp_path, monkeypatch, capfd):
+    """Positive control for the whole leak class (review r2 and r3): every
+    input field, each canary in every form, every subcommand on its success
+    and its refusal path with its own expected result; no canary in any
+    produced file, report, stdout or stderr, and no traceback."""
+    chromadb = pytest.importorskip("chromadb")
+    forms = sweep_forms("X")
+    md = {"stored_at": STORED, "who": "w", "project": "p"}
+    bad_mem = []
+    for i, f in enumerate(forms):
+        bad_mem += [
+            (f"t{i}", f, md),
+            (f"w{i}", "x", {**md, "who": f}),
+            (f"p{i}", "x", {**md, "project": f}),
+            (f"s{i}", "x", {**md, "stored_at": f}),
+            (f, "x", md),
+        ]
+    FakeChroma.data = {
+        "memory_chunks": [("c1", "clean one", md), ("c2", "clean two", md), *bad_mem],
+        "agent_memories": [("a1", "agent one", md)],
+        **{f: [("z", "x", md)] for f in forms},
+    }
+    monkeypatch.setattr(chromadb, "PersistentClient", FakeChroma)
+    work = tmp_path / "API_KEY=SWEEPXdir"
+    work.mkdir()
+    exp, db = work / "export.jsonl", work / "kv.db"
+    steps = []
+
+    def run(name, want, *argv):
+        code = bf.main([str(a) for a in argv])
+        out, err = capfd.readouterr()
+        steps.append(name)
+        assert code == want, (name, code, out[-300:])
+        assert "SWEEP" not in out + err, name
+        assert "Traceback" not in err, name
+        return json.loads(out)
+
+    def model(prompt):
+        lines = []
+        for mid in re.findall(r'^\{"id": "([^"]+)"', prompt, re.M):
+            if mid == "c1":
+                lines.append(json.dumps(extracted(mid, entry("k.s"))))
+                continue
+            for field in BELIEF_FIELDS:
+                lines.append(
+                    json.dumps(extracted(mid, {**entry("k.r"), field: forms[1]}))
+                )
+        lines += [json.dumps({"id": f, "beliefs": []}) for f in forms] + forms
+        return "\n".join(lines)
+
+    monkeypatch.setattr(bf, "model_command", lambda cmd: model)
+    entries = [
+        {**entry(f"k.e{i}"), field: f}
+        for i, (field, f) in enumerate((fl, f) for fl in BELIEF_FIELDS for f in forms)
+    ]
+    entries += [{**entry("k.n"), f: True} for f in forms]  # field names
+    seeded = write_jsonl(
+        work / "seeded.jsonl",
+        [
+            extracted("c1", *entries, entry("k.fine")),
+            *[extracted("c2", entry("k.b"), because=[f]) for f in forms[:1]],
+        ],
+    )
+    sup_exp = write_jsonl(
+        work / "supplied-export.jsonl",
+        [memory("c1", "clean one")]
+        + [
+            {**memory(f"m{i}{k}", "x"), field: f}
+            for i, f in enumerate(forms)
+            for k, field in enumerate(("text", "stored_at", "who", "project", "collection"))
+        ]  # fmt: skip
+        + [{**memory(f"n{i}", "x"), f: "extra"} for i, f in enumerate(forms)],
+    )
+    sup_ext = write_jsonl(
+        work / "supplied-extracted.jsonl",
+        [extracted(r["id"], entry("k.q")) for r in bf.read_jsonl(str(sup_exp))],
+    )
+    ok = write_jsonl(
+        work / "ok.jsonl",
+        [extracted("a1", entry("k.ok")), extracted("c1", entry("k.two"))],
+    )
+    bad_pairs = work / "bad-pairs.json"
+    bad_pairs.write_text(
+        json.dumps([{"old": f, "new": "k.two", "approve": True} for f in forms])
+    )
+    good_pairs = work / "good-pairs.json"
+    good_pairs.write_text(
+        json.dumps([{"old": "k.ok", "new": "k.two", "approve": True}])
+    )
+    inputs = {seeded, sup_exp, sup_ext, ok, bad_pairs, good_pairs}
+    load = ["load", "--db", db, "--export", exp]
+
+    # export: unsafe collection names refused, then the default pair
+    for f in forms:
+        run("export-unsafe-collection", 1, "export", "--chroma", work / "c",
+            "--out", exp, "--collection", f)  # fmt: skip
+    assert not exp.exists()
+    rep = run("export", 0, "export", "--chroma", work / "c", "--out", exp)
+    ids = {json.loads(x)["id"] for x in exp.read_text(encoding="utf-8").splitlines()}
+    assert {"c1", "c2", "a1"} <= ids and rep["excluded"]["unsafe_id"] == len(forms)
+    # extract: a raised budget refused, then a run that refuses every unsafe reply
+    for f in forms:
+        run("extract-unsafe-budget", 1, "extract", "--export", exp, "--out",
+            work / "x0.jsonl", "--model-cmd", "m", "--budget", f)  # fmt: skip
+    rep = run("extract", 0, "extract", "--export", exp, "--out", work / "x1.jsonl",
+              "--model-cmd", "m")  # fmt: skip
+    kept = [json.loads(x) for x in (work / "x1.jsonl").read_text().splitlines()]
+    assert [r["id"] for r in kept] == ["c1"] and rep["refused_unsafe"] > 0
+    # validate: seeded entries and a seeded export refused; a clean file passes
+    rep = run("validate-seeded", 1, "validate", "--export", exp, "--extracted", seeded,
+              "--review-out", work / "review.json")  # fmt: skip
+    assert rep["refused_unsafe"] == len(entries) + 1
+    rep = run("validate-seeded-export", 1, "validate", "--export", sup_exp,
+              "--extracted", sup_ext)  # fmt: skip
+    assert rep["refused_unsafe"] == 6 * len(forms)
+    rep = run("validate", 0, "validate", "--export", exp, "--extracted", ok)
+    assert rep["error_count"] == 0
+    # load: seeded refused, unsafe import ids refused, then the clean load
+    run("load-seeded-dry", 1, *load, "--extracted", seeded, "--import-id", "X",
+        "--dry-run")  # fmt: skip
+    run("load-seeded", 1, *load, "--extracted", seeded, "--import-id", "X")
+    assert not db.exists()
+    for f in forms:
+        run("load-unsafe-id", 1, *load, "--extracted", ok, "--import-id", f)
+    rep = run("load", 0, *load, "--extracted", ok, "--import-id", "X")
+    assert rep["rows"]["assertions"] == 2
+    # rollback: unsafe ids refused, then a real rollback and a reload
+    for f in forms:
+        run("rollback-unsafe-id", 1, "rollback", "--db", db, "--import-id", f)
+    rep = run("rollback", 0, "rollback", "--db", db, "--import-id", "X")
+    assert rep["deleted"]["assertions"] == 2
+    run("reload", 0, *load, "--extracted", ok, "--import-id", "X")
+    # merge: unsafe pairs and merge ids refused, then a real merge
+    run("merge-unsafe-pairs", 1, "merge", "--db", db, "--pairs", bad_pairs,
+        "--merge-id", "r1", "--archive", work / "m0.db")  # fmt: skip
+    for f in forms:
+        run("merge-unsafe-id", 1, "merge", "--db", db, "--pairs", good_pairs,
+            "--merge-id", f, "--archive", work / "m0.db")  # fmt: skip
+    assert not (work / "m0.db").exists()
+    rep = run("merge", 0, "merge", "--db", db, "--pairs", good_pairs, "--merge-id",
+              "r2", "--archive", work / "API_KEY=SWEEPXmerge.db")  # fmt: skip
+    assert rep["merged"] == 1
+    # archive, restore, uninstall: success and refusal paths
+    rep = run(
+        "archive", 0, "archive", "--db", db, "--out", work / "API_KEY=SWEEPXarc.db"
+    )
+    assert rep["beliefs"] >= 1
+    for f in forms:
+        run(
+            "archive-unsafe-db", 1, "archive", "--db", work / f, "--out", work / "a2.db"
+        )
+        run("restore-unsafe-path", 1, "restore", "--db", db, "--archive", work / f,
+            "--mode", "same_db")  # fmt: skip
+        run("restore-unsafe-mode", 1, "restore", "--db", db, "--archive",
+            work / "API_KEY=SWEEPXarc.db", "--mode", f)  # fmt: skip
+        run("unknown-command", 1, f)
+        run("unknown-flag", 1, "validate", "--export", exp, "--extracted", ok, "--" + f)
+    rep = run("restore", 0, "restore", "--db", db, "--archive",
+              work / "API_KEY=SWEEPXarc.db", "--mode", "same_db")  # fmt: skip
+    assert rep["mode"] == "same_db"  # the echoed path is scrubbed
+    run("uninstall-existing", 1, "uninstall", "--db", db, "--archive",
+        work / "API_KEY=SWEEPXarc.db")  # fmt: skip
+    rep = run("uninstall", 0, "uninstall", "--db", db, "--archive", work / "un.db")
+    assert rep["beliefs"] >= 1
+    run("rollback-after-uninstall", 1, "rollback", "--db", db, "--import-id", "X")
+    for cmd in ("export", "extract", "validate", "load", "rollback", "merge",
+                "archive", "restore", "uninstall"):  # fmt: skip
+        assert cmd in steps, cmd  # every subcommand ran, success and refusal
+    produced = [p for p in tmp_path.rglob("*") if p.is_file() and p not in inputs]
+    assert {exp, work / "x1.jsonl", db, work / "un.db"} <= set(produced)
+    for p in produced:
+        assert b"SWEEP" not in p.read_bytes(), p.name
