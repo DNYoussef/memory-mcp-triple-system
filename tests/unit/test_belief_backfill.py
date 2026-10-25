@@ -628,8 +628,17 @@ def test_export_sanitizer(tmp_path):
     assert not re.search(r"(?i)<\s*/?\s*private", dump)
     assert "hidden" not in dump
     assert report["exported"] == 5
-    assert report["excluded"] == {"private_residue": 3, "missing_stored_at": 1}
-    assert report["excluded_ids"] == ["spaced", "stray", "who_tag", "no_time"]
+    assert report["excluded"] == {
+        "unsafe_id": 0,
+        "private_residue": 3,
+        "missing_stored_at": 1,
+    }
+    assert [(r["digest"], r["reason"]) for r in report["excluded_records"]] == [
+        (sha_id("spaced"), "private_residue"),
+        (sha_id("stray"), "private_residue"),
+        (sha_id("who_tag"), "private_residue"),
+        (sha_id("no_time"), "missing_stored_at"),
+    ]
 
 
 def test_export_refuses_to_overwrite(tmp_path):
@@ -811,6 +820,34 @@ ID_CANARY = "API_KEY=ID_CANARY"
 PRIV_ID = "<private>PRIV_ID_CANARY</private>"
 SK_ID = "sk-" + "IDCANARY0123456789ab"
 WITHHELD = "1 diagnostic withheld (unresolved private tag)"
+
+
+def test_r1_unsafe_ids_are_excluded_and_reported_by_digest(tmp_path):
+    records = [chroma_like(i, "fine text") for i in (ID_CANARY, PRIV_ID, SK_ID)]
+    records.append(chroma_like("c1-safe:id.0", "fine text"))
+    out = tmp_path / "export.jsonl"
+    report = bf.export_records({"memory_chunks": records}, str(out))
+    rows = [json.loads(x) for x in out.read_text(encoding="utf-8").splitlines()]
+    assert [r["id"] for r in rows] == ["c1-safe:id.0"]  # a safe id is kept as is
+    assert report["excluded"]["unsafe_id"] == 3
+    assert [r["digest"] for r in report["excluded_records"]] == [
+        sha_id(ID_CANARY),
+        sha_id(PRIV_ID),
+        sha_id(SK_ID),
+    ]
+    dump = json.dumps(report) + out.read_text(encoding="utf-8")
+    assert "CANARY" not in dump and "<" not in dump
+
+
+def test_r1_unsafe_id_in_an_input_file_never_reaches_a_prompt(tmp_path):
+    exp = write_jsonl(
+        tmp_path / "e.jsonl", [memory(ID_CANARY, "text"), memory("m2", "b")]
+    )
+    calls = []
+    with pytest.raises(bf.BackfillError) as err:
+        bf.extract(str(exp), str(tmp_path / "x.jsonl"), stub_model(calls))
+    assert calls == [] and "CANARY" not in str(err.value)
+    assert sha_id(ID_CANARY) in str(err.value)
 
 
 def chroma_with(path, collections):

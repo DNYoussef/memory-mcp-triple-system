@@ -20,6 +20,7 @@ Run from the repo root:
 """
 
 import argparse
+import hashlib
 import json
 import math
 import re
@@ -57,7 +58,10 @@ ERROR_BUDGET = 20_000  # chars of errors in one report
 ROW_TABLES = ("beliefs", "assertions", "edges", "aliases")
 # strip_private cannot clear these (spaced or stray tags): fail closed
 PRIVATE_RESIDUE = re.compile(r"(?i)<\s*/?\s*private")
-EXCLUDE_REASONS = ("private_residue", "missing_stored_at")
+EXCLUDE_REASONS = ("unsafe_id", "private_residue", "missing_stored_at")
+# an id is provenance (the chunk the beliefs cite), so it is never rewritten:
+# one that strip_private would change, or outside this charset, is refused
+SAFE_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,200}$")
 # section 1.1: the real memories are memory_chunks plus agent_memories
 COLLECTIONS = ("memory_chunks", "agent_memories")
 
@@ -103,6 +107,19 @@ class TokenBudgetExceeded(BackfillError):
 # ---------------------------------------------------------------- files
 
 
+def safe_id(mid: Any) -> bool:
+    """A record id that can travel into prompts, rows and reports unchanged."""
+    return (
+        isinstance(mid, str) and bool(SAFE_ID.match(mid)) and strip_private(mid) == mid
+    )
+
+
+def id_digest(mid: Any) -> str:
+    """How a refused id is named in a report: a digest, never the id itself."""
+    raw = mid if isinstance(mid, str) else repr(mid)
+    return "sha256:" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+
+
 def read_jsonl(path: str) -> List[Dict[str, Any]]:
     """One JSON object per line. Size and count limits come first, so an
     oversized file is refused before it is read."""
@@ -120,8 +137,11 @@ def read_jsonl(path: str) -> List[Dict[str, Any]]:
                 row = json.loads(line)
             except ValueError as exc:
                 raise BackfillError(f"{path}:{n}: not JSON ({exc})") from exc
-            if not isinstance(row, dict) or not isinstance(row.get("id"), str):
-                raise BackfillError(f"{path}:{n}: not an object with a text id")
+            if not isinstance(row, dict) or not safe_id(row.get("id")):
+                mid = row.get("id") if isinstance(row, dict) else None
+                raise BackfillError(
+                    f"{path}:{n}: missing or unsafe id ({id_digest(mid)})"
+                )
             rows.append(row)
     return rows
 
@@ -187,7 +207,7 @@ def export_records(
     The file is written only after every record was read."""
     if Path(out_path).exists():
         raise FileExistsError(out_path)
-    rows, per, excluded_ids, seen = [], {}, [], {}
+    rows, per, excluded_records, seen = [], {}, [], {}
     for name, records in collections.items():
         excluded = dict.fromkeys(EXCLUDE_REASONS, 0)
         read = 0
@@ -195,7 +215,7 @@ def export_records(
             read += 1
             if r["id"] in seen:
                 raise BackfillError(
-                    f"id {r['id']!r} is in more than one collection "
+                    f"id {id_digest(r['id'])} is in more than one collection "
                     f"({seen[r['id']]}, {name})"
                 )
             seen[r["id"]] = name
@@ -210,7 +230,9 @@ def export_records(
                 k: strip_private(v) if isinstance(v, str) else v for k, v in row.items()
             }
             row = {"id": r["id"], **row, "collection": name}
-            if any(
+            if not safe_id(r["id"]):
+                reason = "unsafe_id"
+            elif any(
                 isinstance(v, str) and PRIVATE_RESIDUE.search(v) for v in row.values()
             ):
                 reason = "private_residue"
@@ -220,7 +242,9 @@ def export_records(
                 rows.append(row)
                 continue
             excluded[reason] += 1
-            excluded_ids.append(r["id"])
+            excluded_records.append(
+                {"collection": name, "digest": id_digest(r["id"]), "reason": reason}
+            )
         per[name] = {
             "read": read,
             "exported": read - sum(excluded.values()),
@@ -233,7 +257,7 @@ def export_records(
         "collections": per,
         "exported": len(rows),
         "excluded": totals,
-        "excluded_ids": excluded_ids,
+        "excluded_records": excluded_records,  # by digest, never the raw id
     }
 
 
