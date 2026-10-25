@@ -9,6 +9,7 @@ Expected values are hand values from the reference calculator's rules
 
 import hashlib
 import json
+import random
 import re
 import sqlite3
 from pathlib import Path
@@ -1332,6 +1333,22 @@ def sweep_forms(label):
     ]
 
 
+def encoded_forms():
+    """Review r4: values that hide a tag or a secret behind an encoding. The
+    raw text is not a private tag, so these may pass the data gate; the point
+    is that no message can show them (ENCODEDCANARY is checked in messages)."""
+    t = "ENCODEDCANARY"
+    return [
+        json.dumps(f"<\tprivate>{t}a"),  # JSON-dumps of a TAB tag
+        repr(f"<\tprivate>{t}b".encode()),  # bytes repr
+        repr(f"<\nPRIVATE>{t}c"),  # str repr
+        json.dumps(f"API_KEY=\t{t}d"),  # JSON-dumped secret marker
+        "API\\u005fKEY=" + t + "e",  # JSON-escaped underscore
+        "D:\\backup\\Uffffffff" + t + "f",  # escape-like Windows path text
+        "\\x3cprivate\\x3e" + t + "g",  # hex-escaped tag
+    ]
+
+
 BELIEF_FIELDS = (
     "key", "claim", "value", "source_type", "observed_at", "kind", "quote",
     "source_ref", "reliability", "half_life_days", "supports", "excludes",
@@ -1373,6 +1390,7 @@ def test_r3_canary_sweep_over_every_subcommand(tmp_path, monkeypatch, capfd):
         steps.append(name)
         assert code == want, (name, code, out[-300:])
         assert "SWEEP" not in out + err, name
+        assert "ENCODEDCANARY" not in out + err, name
         assert "Traceback" not in err, name
         return json.loads(out)
 
@@ -1504,6 +1522,45 @@ def test_r3_canary_sweep_over_every_subcommand(tmp_path, monkeypatch, capfd):
     rep = run("uninstall", 0, "uninstall", "--db", db, "--archive", work / "un.db")
     assert rep["beliefs"] >= 1
     run("rollback-after-uninstall", 1, "rollback", "--db", db, "--import-id", "X")
+    # review r4: encoded, bytes-repr and JSON-dumps forms where Sol found them
+    # (stored_at, source_type, kind) and in every other validated field and value
+    enc = encoded_forms()
+    enc_exp = write_jsonl(
+        work / "enc-export.jsonl",
+        [memory("c1", "clean one")]
+        + [memory(f"e{i}", "x", stored_at=f) for i, f in enumerate(enc)],
+    )
+    enc_ext = write_jsonl(
+        work / "enc-extracted.jsonl",
+        [
+            extracted(
+                "c1",
+                *[
+                    {**entry(f"k.v{i}{j}"), field: f}
+                    for i, f in enumerate(enc)
+                    for j, field in enumerate(("source_type", "kind", "observed_at"))
+                ],
+                *[{**entry("k.w"), "key": f} for f in enc],
+            )
+        ]
+        + [extracted(f"e{i}", entry("k.x")) for i in range(len(enc))],
+    )
+    inputs |= {enc_exp, enc_ext}
+    rep = run("validate-encoded", 1, "validate", "--export", enc_exp, "--extracted",
+              enc_ext)  # fmt: skip
+    assert rep["error_count"] == 5 * len(enc)  # 4 per entry field set + stored_at
+    run("load-encoded", 1, "load", "--db", work / "enc.db", "--export", enc_exp,
+        "--extracted", enc_ext, "--import-id", "E")  # fmt: skip
+    for f in enc:
+        run("extract-encoded-budget", 1, "extract", "--export", enc_exp, "--out",
+            work / "xe.jsonl", "--model-cmd", "m", "--budget", f)  # fmt: skip
+        run("restore-encoded-mode", 1, "restore", "--db", db, "--archive",
+            work / "un.db", "--mode", f)  # fmt: skip
+        run("unknown-encoded-command", 1, f)
+        run("rollback-encoded-id", 1, "rollback", "--db", db, "--import-id", f)
+        run(
+            "archive-encoded-db", 1, "archive", "--db", work / f, "--out", work / "e.db"
+        )
     for cmd in ("export", "extract", "validate", "load", "rollback", "merge",
                 "archive", "restore", "uninstall"):  # fmt: skip
         assert cmd in steps, cmd  # every subcommand ran, success and refusal
@@ -1544,3 +1601,173 @@ def test_r4_restore_with_an_escape_like_path_prints_its_report(tmp_path, capfd):
     last = out[out.rindex('{\n  "restored"') :]  # the second of two reports
     assert json.loads(last)["mode"] == "same_db"
     assert "Traceback" not in err
+
+
+ALPHA = "ghijklmnopqrstuvwxyzGHIJKLMNOPQRSTUVWXYZ"  # no hex digits: never in a digest
+DIGEST = re.compile(r"sha256:[0-9a-f]{16}")
+
+
+class Values:
+    """Random high-entropy strings for every input field, all remembered."""
+
+    def __init__(self, seed):
+        self.rnd = random.Random(seed)
+        self.seen = []
+
+    def __call__(self, n=14, lower=False):
+        v = "".join(self.rnd.choice(ALPHA) for _ in range(n))
+        v = v.lower() if lower else v
+        self.seen.append(v)
+        return v
+
+    def key(self):
+        return "k." + self(lower=True)
+
+    def leaks(self, text):
+        """Input values with any 6-char substring in text (digests removed)."""
+        text = DIGEST.sub("", text)
+        return [
+            v for v in self.seen if any(v[i : i + 6] in text for i in range(len(v) - 5))
+        ]
+
+
+def test_r4_no_message_holds_any_substring_of_any_input_value(
+    tmp_path, monkeypatch, capfd
+):
+    """Structural test for the message rule: every input field seeded with a
+    random high-entropy string, every subcommand on its success and refusal
+    paths; no stdout or stderr text holds any 6-char substring of any input
+    value (digests removed). Data files (export, extraction, review file,
+    databases) are data and keep values; only messages are checked."""
+    chromadb = pytest.importorskip("chromadb")
+    v = Values(20261025)
+    ids = [v() for _ in range(4)]
+
+    def md():
+        return {"stored_at": STORED, "who": v(), "project": v(), v(): v()}
+
+    other = v()  # a collection that is not one of ours
+    FakeChroma.data = {
+        "memory_chunks": [(ids[0], v(40), md()), (ids[1], v(40), md())],
+        "agent_memories": [(ids[2], v(40), md())],
+        other: [(ids[3], v(40), md())],
+    }
+    monkeypatch.setattr(chromadb, "PersistentClient", FakeChroma)
+    work = tmp_path / v()
+    work.mkdir()
+    exp, db = work / (v() + ".jsonl"), work / (v() + ".db")
+    keys = [v.key() for _ in range(3)]
+
+    def good(key):
+        return {"key": key, "claim": v(30), "value": True, "source_type": "reported",
+                "quote": v(), "source_ref": "url:" + v(), "kind": "state"}  # fmt: skip
+
+    def run(name, want, *argv):
+        code = bf.main([str(a) for a in argv])
+        out, err = capfd.readouterr()
+        assert code == want, (name, code, out[-300:])
+        assert v.leaks(out + err) == [], name
+        assert "Traceback" not in err, name
+        return json.loads(out)
+
+    def model(prompt):
+        lines = [json.dumps(extracted(ids[0], good(keys[0])))]
+        lines += [json.dumps({"id": v(), "beliefs": []}), v(30), v()]
+        return "\n".join(lines)
+
+    monkeypatch.setattr(bf, "model_command", lambda cmd: model)
+    ok = write_jsonl(
+        work / (v() + ".jsonl"),
+        [
+            extracted(ids[0], good(keys[0]), good(keys[1])),
+            extracted(ids[1], good(keys[2]), because=[keys[0]]),
+            extracted(ids[2], {**good(keys[1]), "claim": None}),
+        ],
+    )
+    bad_entries = [
+        {**good(v.key()), "key": v()},  # invalid key
+        {**good(v.key()), "source_type": v()},
+        {**good(v.key()), "kind": v()},
+        {**good(v.key()), "observed_at": v()},
+        {**good(v.key()), "half_life_days": v()},
+        {**good(v.key()), "value": v()},
+        {**good(v.key()), "supports": [v()]},
+        {**good(v.key()), v(): v()},  # unknown field
+        {**good(v.key()), v(250): 1},  # over the limits
+        {k: x for k, x in good(v.key()).items() if k != "claim"},  # new key, no claim
+        v(),  # not an object
+    ]
+    bad = write_jsonl(
+        work / (v() + ".jsonl"),
+        [extracted(ids[0], *bad_entries[:-3]), extracted(ids[1], *bad_entries[-3:-1]),
+         extracted(ids[2], bad_entries[-1], because=v())],  # fmt: skip
+    )
+    sup_exp = write_jsonl(
+        work / (v() + ".jsonl"),
+        [{**memory(ids[0], v()), "stored_at": v()}, {**memory(ids[1], v()), "who": 7}],
+    )
+    sup_ext = write_jsonl(
+        work / (v() + ".jsonl"),
+        [extracted(ids[0], good(v.key())), extracted(ids[1], good(v.key()))],
+    )
+    pairs = work / (v() + ".json")
+    pairs.write_text(json.dumps([{"old": keys[1], "new": keys[2], "approve": True}]))
+    bad_pairs = work / (v() + ".json")
+    bad_pairs.write_text(
+        json.dumps([{"old": v.key(), "new": keys[2], "approve": True}])
+    )
+    load = ["load", "--db", db, "--export", exp]
+    imp, arc, arc2 = v(), work / (v() + ".db"), work / (v() + ".db")
+
+    run("export-missing-collection", 1, "export", "--chroma", work / v(), "--out",
+        work / v(), "--collection", v())  # fmt: skip
+    rep = run("export-other", 0, "export", "--chroma", work / v(), "--out",
+              work / (v() + ".jsonl"), "--collection", other)  # fmt: skip
+    assert rep["exported"] == 1
+    rep = run("export", 0, "export", "--chroma", work / v(), "--out", exp)
+    assert rep["exported"] == 3
+    run("extract-budget", 1, "extract", "--export", exp, "--out", work / v(),
+        "--model-cmd", v(), "--budget", v())  # fmt: skip
+    rep = run("extract", 0, "extract", "--export", exp, "--out", work / v(),
+              "--model-cmd", v())  # fmt: skip
+    assert rep["written"] == 1 and len(rep["errors"]) == 3
+    rep = run("validate", 0, "validate", "--export", exp, "--extracted", ok,
+              "--review-out", work / v())  # fmt: skip
+    assert rep["error_count"] == 0
+    rep = run("validate-bad", 1, "validate", "--export", exp, "--extracted", bad)
+    assert rep["error_count"] == 10  # 8 entry errors, one limit, one shape
+    run(
+        "validate-bad-export",
+        1,
+        "validate",
+        "--export",
+        sup_exp,
+        "--extracted",
+        sup_ext,
+    )
+    run("validate-missing", 1, "validate", "--export", work / v(), "--extracted", ok)
+    run("load-bad", 1, *load, "--extracted", bad, "--import-id", imp)
+    run("load-bad-id", 1, *load, "--extracted", ok, "--import-id", v() + "!")
+    rep = run("load", 0, *load, "--extracted", ok, "--import-id", imp)
+    assert rep["rows"]["assertions"] == 4
+    run("rollback-unknown", 1, "rollback", "--db", db, "--import-id", v())
+    rep = run("rollback", 0, "rollback", "--db", db, "--import-id", imp)
+    assert rep["deleted"]["assertions"] == 4
+    run("reload", 0, *load, "--extracted", ok, "--import-id", imp)
+    run("merge-unknown", 1, "merge", "--db", db, "--pairs", bad_pairs, "--merge-id",
+        v(), "--archive", work / v())  # fmt: skip
+    rep = run("merge", 0, "merge", "--db", db, "--pairs", pairs, "--merge-id", v(),
+              "--archive", work / v())  # fmt: skip
+    assert rep["merged"] == 1
+    run("archive-missing", 1, "archive", "--db", work / v(), "--out", work / v())
+    run("archive", 0, "archive", "--db", db, "--out", arc)
+    run("restore-missing", 1, "restore", "--db", db, "--archive", work / v(),
+        "--mode", "same_db")  # fmt: skip
+    run("restore-bad-mode", 1, "restore", "--db", db, "--archive", arc, "--mode", v())
+    run("restore", 0, "restore", "--db", db, "--archive", arc, "--mode", "same_db")
+    run("uninstall-existing", 1, "uninstall", "--db", db, "--archive", arc)
+    run("uninstall", 0, "uninstall", "--db", db, "--archive", arc2)
+    run("unknown-command", 1, v())
+    run("unknown-flag", 1, "validate", "--export", exp, "--extracted", ok, "--" + v())
+    run("missing-value", 1, "load", "--db", db, "--export", exp, "--extracted")
+    assert len(v.seen) > 100  # the test really seeded every field
