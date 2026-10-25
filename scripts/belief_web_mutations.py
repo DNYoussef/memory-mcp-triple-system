@@ -985,6 +985,98 @@ MUTANTS = {
     "notice_reserve_removed": [
         (INGEST, "reserve = len(_omitted(rest)) if rest else 0", "reserve = 0", 1)
     ],
+    # B-PR5 review r2 fixes
+    "unsafe_text_ignores_secrets": [
+        (
+            BACKFILL,
+            "return strip_private(obj) != obj or bool(PRIVATE_RESIDUE.search(obj))",
+            "return bool(PRIVATE_RESIDUE.search(obj))",
+            1,
+        )
+    ],
+    "unsafe_text_ignores_tags": [
+        (
+            BACKFILL,
+            "return strip_private(obj) != obj or bool(PRIVATE_RESIDUE.search(obj))",
+            "return strip_private(obj) != obj",
+            1,
+        )
+    ],
+    "unsafe_text_skips_keys": [
+        (BACKFILL, "unsafe_text(k) or unsafe_text(v)", "unsafe_text(v)", 1)
+    ],
+    "unsafe_text_skips_lists": [
+        (BACKFILL, "return any(unsafe_text(v) for v in obj)", "return False", 1)
+    ],
+    "extract_unsafe_reply_kept": [
+        (BACKFILL, "            if unsafe_text(obj):", "            if False:", 1)
+    ],
+    "validate_memory_unchecked": [
+        (BACKFILL, "if not problem and unsafe_text(memory):", "if False:", 1)
+    ],
+    "validate_entry_unchecked": [
+        (
+            BACKFILL,
+            "                        if unsafe_text(entry):",
+            "                        if False:",
+            1,
+        )
+    ],
+    "load_gate_removed": [
+        (
+            BACKFILL,
+            "unsafe = [data_digest(r) for r in records if unsafe_text(r)]",
+            "unsafe = []",
+            1,
+        )
+    ],
+    "import_id_unchecked": [(BACKFILL, "if not safe_id(import_id):", "if False:", 1)],
+    "merge_names_unchecked": [
+        (
+            BACKFILL,
+            "if not safe_id(merge_id) or unsafe_text(list(pairs)):",
+            "if False:",
+            1,
+        )
+    ],
+    "cli_catch_all_removed": [
+        (
+            BACKFILL,
+            "    except Exception as exc:\n",
+            "    except (FileExistsError, BeliefValidationError, EdgeConflict) as exc:\n",
+            1,
+        )
+    ],
+    "usage_error_not_routed": [
+        (
+            BACKFILL,
+            'raise BackfillError(f"usage: {message}")',
+            "super().error(message)",
+            1,
+        )
+    ],
+    "report_not_scrubbed": [
+        (
+            BACKFILL,
+            "print(json.dumps(_scrub(report), indent=2))",
+            "print(json.dumps(report, indent=2, default=str))",
+            1,
+        )
+    ],
+    "restore_creates_missing_archive": [
+        (BACKFILL, "if not Path(archive_path).is_file():", "if False:", 1)
+    ],
+    "collection_name_unchecked": [
+        (
+            BACKFILL,
+            "unsafe = [id_digest(n) for n in collections if not safe_id(n)]",
+            "unsafe = []",
+            1,
+        )
+    ],
+    "read_chroma_name_unchecked": [
+        (BACKFILL, "    if not safe_id(collection):\n", "    if False:\n", 1)
+    ],
 }
 
 
