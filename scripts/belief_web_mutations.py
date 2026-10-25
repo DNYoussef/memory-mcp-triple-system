@@ -1,12 +1,13 @@
 """
-Mutation run for the belief web (PLAN-B section 6.5, B-PR1 to B-PR4).
+Mutation run for the belief web (PLAN-B section 6.5, B-PR1 to B-PR5).
 
 Each mutant is a temporary text edit of src/belief_web/*.py that re-creates a
 defect from the reference calculator's mutation list (belief_calc_r8.py), or
 a PR1 safeguard (validation, FK, atomicity), or a B-PR2 ingestion defect
 (memory_store beliefs/because), or a B-PR3 inference defect
 (bayesian_inference on the belief web), or a B-PR4 hole defect
-(find_holes and lifecycle counts). For each mutant the script
+(find_holes and lifecycle counts), or a B-PR5 backfill defect
+(scripts/belief_backfill.py and the shared payload limits). For each mutant the script
 applies the edit, runs the belief web tests, restores the original bytes and
 asserts the file hash matches. Exit 0 only if the baseline passes and every
 mutant is killed (some test went red).
@@ -28,6 +29,7 @@ INGEST = ROOT / "src" / "services" / "memory_ingestion_service.py"
 ROUTER = ROOT / "src" / "mcp" / "request_router.py"
 INFER = ROOT / "src" / "belief_web" / "inference.py"
 HOLES = ROOT / "src" / "belief_web" / "holes.py"
+BACKFILL = ROOT / "scripts" / "belief_backfill.py"
 TESTS = [
     "tests/unit/test_belief_solver.py",
     "tests/unit/test_belief_store.py",
@@ -37,8 +39,11 @@ TESTS = [
     "tests/unit/test_bayesian_evidence_e2e.py",
     "tests/unit/test_request_router_handlers.py",
     "tests/unit/test_find_holes.py",
+    "tests/unit/test_belief_backfill.py",
 ]
 
+# whole-file restore semantics on the belief tables: every row since the import goes
+ROLLBACK_POINT_IN_TIME = "c = store._conn()\n        lo = c.execute('SELECT min(seq) FROM beliefs WHERE origin=?', (origin,)).fetchone()[0]\n        new = '(SELECT key FROM beliefs WHERE seq >= ?)'\n        with store.batch():\n            c.execute(f'DELETE FROM aliases WHERE key IN {new}', (lo,))\n            c.execute('DELETE FROM assertions WHERE seq >= ?', (lo,))\n            c.execute(f'DELETE FROM edges WHERE src IN {new} OR dst IN {new}', (lo, lo))\n            c.execute('DELETE FROM beliefs WHERE seq >= ?', (lo,))"
 BELIEF_LINE = "notices += f\"\\nBeliefs: recorded {beliefs['recorded']}\""
 
 # name -> [(file, old, new, expected count)]
@@ -751,6 +756,143 @@ MUTANTS = {
             1,
         )
     ],
+    # B-PR5 backfill and shared payload limits
+    "export_observation_bridge_regex": [
+        (
+            BACKFILL,
+            "strip_private(v) if isinstance(v, str)",
+            '__import__("src.services.observation_bridge", fromlist=["_"])'
+            "._redact_private(v) if isinstance(v, str)",
+            1,
+        )
+    ],
+    "export_not_fail_closed": [
+        (BACKFILL, "isinstance(v, str) and PRIVATE_RESIDUE.search(v)", "False", 1)
+    ],
+    "loader_inserts_nothing": [
+        (
+            BACKFILL,
+            "_write_entry(store, origin, rec, _for_import(rec, entry)[0])",
+            "pass",
+            1,
+        )
+    ],
+    "load_not_one_transaction": [
+        (
+            BACKFILL,
+            "    try:\n        with store.batch():\n            for rec in records:",
+            "    try:\n        if True:\n            for rec in records:",
+            1,
+        )
+    ],
+    "load_skips_validation": [
+        (BACKFILL, '    if report["error_count"]:\n', "    if False:\n", 1)
+    ],
+    "rollback_point_in_time": [
+        (BACKFILL, "store.rollback(origin)", ROLLBACK_POINT_IN_TIME, 1)
+    ],
+    "merge_without_archive": [
+        (
+            BACKFILL,
+            "        store.archive(archive_path)\n        with store.batch():\n",
+            "        with store.batch():\n",
+            1,
+        )
+    ],
+    "merge_batch_not_atomic": [
+        (
+            BACKFILL,
+            "with store.batch():\n            for old, new in pairs:",
+            "if True:\n            for old, new in pairs:",
+            1,
+        )
+    ],
+    "uninstall_without_archive": [
+        (BACKFILL, "counts = store.archive(archive_path)", "counts = {}", 1),
+        (
+            BACKFILL,
+            'if store._table_digest(c, "main", t) != store._table_digest(',
+            'if False and store._table_digest(c, "main", t) != store._table_digest(',
+            1,
+        ),
+    ],
+    "uninstall_no_reverify": [
+        (
+            BACKFILL,
+            'if store._table_digest(c, "main", t) != store._table_digest(',
+            'if False and store._table_digest(c, "main", t) != store._table_digest(',
+            1,
+        )
+    ],
+    "witnessed_not_capped": [(BACKFILL, 'item["source_type"] = "reported"', "pass", 1)],
+    "model_reliability_kept": [(BACKFILL, 'if k != "reliability"', "if True", 1)],
+    "observed_after_stored_accepted": [
+        (
+            BACKFILL,
+            'raise BeliefValidationError("observed_at is later than the memory\'s stored_at")',
+            "pass",
+            1,
+        )
+    ],
+    "import_bytes_unchecked": [
+        (BACKFILL, "if size > MAX_IMPORT_BYTES:", "if False:", 1)
+    ],
+    "import_records_unchecked": [
+        (BACKFILL, "if len(rows) == MAX_IMPORT_RECORDS:", "if False:", 1)
+    ],
+    "import_payload_limits_skipped": [
+        (
+            BACKFILL,
+            'return belief_limits(rec["beliefs"], rec["because"])',
+            'return ""',
+            1,
+        )
+    ],
+    "extracted_orphan_accepted": [
+        (BACKFILL, "if mid not in memories:", "if False:", 1)
+    ],
+    "validate_errors_unsanitized": [
+        (
+            BACKFILL,
+            "cap_errors([strip_private(e) for e in errors]",
+            "cap_errors([e for e in errors]",
+            1,
+        )
+    ],
+    "extract_preflight_skipped": [
+        (BACKFILL, "if need > token_budget:", "if False:", 1)
+    ],
+    "extract_output_tokens_ignored": [
+        (BACKFILL, "spent += cost + estimate_tokens(reply)", "spent += cost", 1)
+    ],
+    "extract_vocab_frozen": [
+        (BACKFILL, "            vocab |= {", "            _unused = {", 1)
+    ],
+    "duplicate_digits_ignored": [
+        (
+            BACKFILL,
+            'if re.findall(r"\\d+", a) != re.findall(r"\\d+", b):',
+            "if False:",
+            1,
+        )
+    ],
+    "duplicate_threshold_ignored": [
+        (BACKFILL, "if score >= threshold:", "if score >= 0.5:", 1)
+    ],
+    "ingest_limits_ignored": [(INGEST, "if limit_error:", "if False:", 1)],
+    "limit_entry_count_removed": [
+        (INGEST, "if len(entries) > MAX_BELIEFS:", "if False:", 1)
+    ],
+    "limit_links_removed": [(INGEST, "if links > MAX_LINKS:", "if False:", 1)],
+    "limit_text_length_removed": [
+        (
+            INGEST,
+            "isinstance(v, str) and len(v) > (MAX_KEY if short else MAX_TEXT)",
+            "False",
+            1,
+        )
+    ],
+    "error_budget_uncapped": [(INGEST, "if used + len(e) > budget:", "if False:", 1)],
 }
 
 
@@ -811,7 +953,7 @@ def main(argv):
     mutants = {n: MUTANTS[n] for n in names}
     originals = {
         p: (p.read_bytes(), sha(p))
-        for p in (SOLVER, STORE, INGEST, ROUTER, INFER, HOLES)
+        for p in (SOLVER, STORE, INGEST, ROUTER, INFER, HOLES, BACKFILL)
     }
     outcome, failed, summary = run_tests()
     print(f"baseline: {outcome} {summary}")
