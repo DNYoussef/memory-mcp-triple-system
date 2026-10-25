@@ -1524,3 +1524,14 @@ def test_r3_canary_sweep_over_every_subcommand(tmp_path, monkeypatch, capfd):
     assert {exp, work / "x1.jsonl", db, work / "un.db"} <= set(produced)
     for p in produced:
         assert b"SWEEP" not in p.read_bytes(), p.name
+
+
+def test_r3_extract_error_list_stays_within_the_budget(tmp_path):
+    exp = write_jsonl(tmp_path / "e.jsonl", [memory("m1", "a")])
+
+    def model(prompt):
+        return "\n".join(f"junk line {i}" for i in range(800))
+
+    report = bf.extract(str(exp), str(tmp_path / "x.jsonl"), model)
+    assert len("".join(report["errors"])) <= bf.ERROR_BUDGET
+    assert report["errors"][-1].endswith("more errors not shown")
