@@ -911,6 +911,15 @@ def test_r1_safe_diagnostic_sanitizes_before_truncating():
     assert bf.safe_diagnostic("plain") == "plain"
 
 
+def test_r1_safe_diagnostic_gives_the_sanitizer_the_whole_text(monkeypatch):
+    # strip_private's trailing patterns hide the order today; a sanitizer that
+    # only knows whole tokens shows it: a cut first leaves 'sk-TRUNCC' behind
+    whole_tokens = re.compile(r"sk-[A-Za-z0-9]{16,}")
+    monkeypatch.setattr(bf, "strip_private", lambda t: whole_tokens.sub("[X]", t))
+    got = bf.safe_diagnostic("e" * 70 + " sk-" + "TRUNCCANARY0123456789", cap=80)
+    assert got == "e" * 70 + " [X]"
+
+
 def chroma_with(path, collections):
     chromadb = pytest.importorskip("chromadb")
     from chromadb.config import Settings
