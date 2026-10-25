@@ -427,11 +427,21 @@ class MemoryIngestionService:
             "errors": cap_errors([strip_private(e)[:ERROR_CAP] for e in errors]),
         }
 
+    @staticmethod
     def _write_belief(
-        self, store, entry, because, metadata, chunks, chunk_ids, recorded_at, link
+        store,
+        entry,
+        because,
+        metadata,
+        chunks,
+        chunk_ids,
+        recorded_at,
+        link,
+        origin="live",
     ) -> str:
         """One entry: an assertion row per chunk (the mention, located by the
-        quote rule), then its edges. Returns a non-fatal note, else ''."""
+        quote rule), then its edges. Returns a non-fatal note, else ''.
+        The backfill import writes through here too, under its own origin."""
         if not isinstance(entry, dict):
             raise BeliefValidationError("entry must be an object")
         unknown = sorted(set(entry) - BELIEF_FIELDS)
@@ -447,7 +457,7 @@ class MemoryIngestionService:
         located = locate_chunks(chunks, quote)
         for chunk_id, loc in zip(chunk_ids, located):
             store.add_assertion(
-                "live",
+                origin,
                 key,
                 polarity=1 if entry["value"] else -1,
                 source_type=entry.get("source_type"),
@@ -469,9 +479,9 @@ class MemoryIngestionService:
             if edge_type == "depends_on":
                 targets = targets + because
             for target in targets:
-                store.add_edge("live", key, target, edge_type, EDGE_WEIGHT)
+                store.add_edge(origin, key, target, edge_type, EDGE_WEIGHT)
         if claim is not None:
-            store.link("live", key, claim, metadata.get("project"), *link)
+            store.link(origin, key, claim, metadata.get("project"), *link)
         if quote and len(chunks) > 1 and not any(located):
             return "quote not found"
         return ""
