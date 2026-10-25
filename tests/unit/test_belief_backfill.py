@@ -1231,3 +1231,93 @@ class FakeChroma:
                 }
 
         return Col()
+
+
+def test_r2_canary_sweep_over_every_subcommand(tmp_path, monkeypatch, capfd):
+    """Positive control for the whole leak class: canaries in every field of
+    every input, then every subcommand; no canary in any output file, report,
+    stdout or stderr."""
+    chromadb = pytest.importorskip("chromadb")
+    key, tag = "API_KEY=SWEEPCANARY_K", "< private >SWEEPCANARY_T"
+    sk = "sk-" + "SWEEPCANARY0123456789ab"
+    md = {"stored_at": STORED, "who": "w", "project": "p"}
+    FakeChroma.data = {
+        "memory_chunks": [
+            ("c1", "clean memory", md),
+            ("c2", f"text {key}", md),
+            ("c3", "x", {**md, "who": tag}),
+            (sk, "x", md),
+            ("c4", "x", {**md, "project": key}),
+        ],
+        "agent_memories": [("a1", "agent memory", md)],
+        sk: [("z1", "x", md)],
+    }
+    monkeypatch.setattr(chromadb, "PersistentClient", FakeChroma)
+    work = tmp_path / "API_KEY=SWEEPCANARY_DIR"
+    work.mkdir()
+    exp, db = work / "export.jsonl", work / "kv.db"
+    codes = []
+
+    def run(*argv):
+        codes.append(bf.main([str(a) for a in argv]))
+
+    def model(prompt):
+        lines = []
+        for mid in re.findall(r'^\{"id": "([^"]+)"', prompt, re.M):
+            lines.append(json.dumps(extracted(mid, entry("k.s", claim=key))))
+            lines.append(json.dumps({"id": sk, "beliefs": [tag]}))
+        return "\n".join(lines + [key, tag])
+
+    monkeypatch.setattr(bf, "model_command", lambda cmd: model)
+    seeded = [
+        extracted(
+            "c1",
+            {**entry("k.a"), "claim": key},
+            {**entry("k.b"), "quote": tag},
+            {**entry("k.c"), "source_ref": sk},
+        ),
+        extracted("a1", entry("k.ok")),
+    ]
+    ext = write_jsonl(work / "seeded.jsonl", seeded)
+    ok = write_jsonl(work / "ok.jsonl", [extracted("a1", entry("k.ok"))])
+    pairs = work / "pairs.json"
+    pairs.write_text(json.dumps([{"old": key, "new": "k.ok", "approve": True}]))
+    good_pairs = work / "good.json"
+    good_pairs.write_text(json.dumps([{"old": "k.ok", "new": "k.s", "approve": True}]))
+    inputs = {ext, ok, pairs, good_pairs}
+    load = ["load", "--db", db, "--export", exp]
+
+    run("export", "--chroma", work / "c", "--out", exp, "--collection", sk)
+    run("export", "--chroma", work / "c", "--out", exp)
+    run("extract", "--export", exp, "--out", work / "x1.jsonl", "--model-cmd", "m")
+    run("extract", "--export", exp, "--out", work / "x2.jsonl", "--model-cmd", "m",
+        "--budget", key)  # fmt: skip
+    run(
+        "validate", "--export", exp, "--extracted", ext, "--review-out", work / "r.json"
+    )
+    run("validate", "--export", work / key, "--extracted", ext)
+    run(*load, "--extracted", ext, "--import-id", "X", "--dry-run")
+    run(*load, "--extracted", ext, "--import-id", "X")
+    run(*load, "--extracted", ok, "--import-id", sk)
+    run(*load, "--extracted", ok, "--import-id", key)
+    run(*load, "--extracted", ok, "--import-id", "X")
+    run("rollback", "--db", db, "--import-id", sk)
+    run("merge", "--db", db, "--pairs", pairs, "--merge-id", "r1", "--archive",
+        work / "m1.db")  # fmt: skip
+    run("merge", "--db", db, "--pairs", good_pairs, "--merge-id", sk, "--archive",
+        work / "m2.db")  # fmt: skip
+    run("archive", "--db", db, "--out", work / "arc.db")
+    run("archive", "--db", work / key, "--out", work / "arc2.db")
+    run("restore", "--db", db, "--archive", work / sk, "--mode", "same_db")
+    run("uninstall", "--db", db, "--archive", work / "arc.db")  # exists: refused
+    run("uninstall", "--db", db, "--archive", work / "un.db")
+    run("rollback", "--db", db, "--import-id", "X")
+    out, err = capfd.readouterr()
+    assert codes.count(0) >= 4 and codes.count(1) >= 12  # both kinds of path ran
+    assert "SWEEPCANARY" not in out + err and "Traceback" not in err
+    produced = [p for p in tmp_path.rglob("*") if p.is_file() and p not in inputs]
+    assert {exp, work / "x1.jsonl", db, work / "arc.db", work / "un.db"} <= set(
+        produced
+    )
+    for p in produced:
+        assert b"SWEEPCANARY" not in p.read_bytes(), p.name
