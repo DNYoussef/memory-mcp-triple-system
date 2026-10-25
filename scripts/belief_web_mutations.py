@@ -843,21 +843,13 @@ MUTANTS = {
     "import_payload_limits_skipped": [
         (
             BACKFILL,
-            'return belief_limits(rec["beliefs"], rec["because"])',
-            'return ""',
+            'over = belief_limits(rec["beliefs"], rec["because"])',
+            'over = ""',
             1,
         )
     ],
     "extracted_orphan_accepted": [
         (BACKFILL, "if mid not in memories:", "if False:", 1)
-    ],
-    "validate_errors_unsanitized": [
-        (
-            BACKFILL,
-            'report["errors"] = safe_errors(errors)',
-            'report["errors"] = errors',
-            1,
-        )
     ],
     "extract_preflight_skipped": [
         (BACKFILL, "if need > token_budget:", "if False:", 1)
@@ -899,8 +891,8 @@ MUTANTS = {
     "export_unsafe_id_kept": [
         (
             BACKFILL,
-            '            if not safe_id(r["id"]):\n                reason = "unsafe_id"',
-            '            if False:\n                reason = "unsafe_id"',
+            '            if not safe_id(r["id"]):\n                why = "unsafe_id"',
+            '            if False:\n                why = "unsafe_id"',
             1,
         )
     ],
@@ -923,50 +915,21 @@ MUTANTS = {
     "excluded_raw_id": [
         (BACKFILL, '"digest": id_digest(r["id"])', '"digest": r["id"]', 1)
     ],
-    "diagnostic_unsanitized": [
-        (BACKFILL, "clean = strip_private(str(text))", "clean = str(text)", 1)
-    ],
-    "diagnostic_tags_kept": [
+    "extract_errors_uncapped": [
         (
             BACKFILL,
-            "if PRIVATE_RESIDUE.search(loose) or (",
-            "if False and (",
+            '"errors": cap_errors(errors, ERROR_BUDGET),',
+            '"errors": errors,',
             1,
         )
-    ],
-    "diagnostic_truncated_first": [
-        (
-            BACKFILL,
-            "clean = strip_private(str(text))",
-            "clean = strip_private(str(text)[:cap])",
-            1,
-        )
-    ],
-    "extract_errors_raw": [
-        (BACKFILL, '"errors": safe_errors(errors),', '"errors": errors,', 1)
     ],
     "cli_errors_raw": [
         (
             BACKFILL,
-            '{**exc.report, "error": safe_errors([str(exc)])}',
-            '{**exc.report, "error": str(exc)}',
+            '{"error": [f"{name}: {why} ({id_digest(str(exc))})"]}',
+            '{"error": [f"{name}: {exc}"]}',
             1,
-        ),
-        (
-            BACKFILL,
-            '{"error": safe_errors([f"{type(exc).__name__}: {exc}"])}',
-            '{"error": f"{type(exc).__name__}: {exc}"}',
-            1,
-        ),
-        # since review r2 _scrub is a second layer over every report, so the
-        # raw-error defect needs both layers gone (report_not_scrubbed alone
-        # is its own mutant)
-        (
-            BACKFILL,
-            "print(json.dumps(_scrub(report), indent=2))",
-            "print(json.dumps(report, indent=2, default=str))",
-            1,
-        ),
+        )
     ],
     "export_one_collection": [
         (
@@ -1051,24 +1014,16 @@ MUTANTS = {
     "cli_catch_all_removed": [
         (
             BACKFILL,
-            "    except Exception as exc:  # unknown text",
-            "    except ZeroDivisionError as exc:  # unknown text",
+            "    except Exception as exc:\n",
+            "    except ZeroDivisionError as exc:\n",
             1,
         )
     ],
     "usage_error_not_routed": [
         (
             BACKFILL,
-            'raise BackfillError(f"usage: {message}")',
+            """raise BackfillError(f"usage: {what}{why} ({id_digest(' '.join(self.argv))})")""",
             "super().error(message)",
-            1,
-        )
-    ],
-    "report_not_scrubbed": [
-        (
-            BACKFILL,
-            "print(json.dumps(_scrub(report), indent=2))",
-            "print(json.dumps(report, indent=2, default=str))",
             1,
         )
     ],
@@ -1087,14 +1042,6 @@ MUTANTS = {
         (BACKFILL, "    if not safe_id(collection):\n", "    if False:\n", 1)
     ],
     # B-PR5 review r3 fixes
-    "shown_skips_raw_check": [
-        (
-            BACKFILL,
-            "    if unsafe_text(value):\n        return data_digest(value)",
-            "    if False:\n        return data_digest(value)",
-            1,
-        )
-    ],
     "paths_shown_raw": [
         (BACKFILL, "    return id_digest(str(path))", "    return str(path)", 1)
     ],
@@ -1106,47 +1053,76 @@ MUTANTS = {
             1,
         )
     ],
-    "argparse_values_raw": [
-        (
-            BACKFILL,
-            'for part in sorted(parts - self.known - {""}, key=len, reverse=True):',
-            "for part in []:",
-            1,
-        )
-    ],
-    "argparse_shortest_first": [
-        (
-            BACKFILL,
-            'for part in sorted(parts - self.known - {""}, key=len, reverse=True):',
-            'for part in sorted(parts - self.known - {""}, key=len):',
-            1,
-        )
-    ],
     "oserror_text_shown": [
         (
             BACKFILL,
-            'code, report = 1, {"error": [f"{type(exc).__name__}: {why} ({where(path)})"]}',
-            'code, report = 1, {"error": safe_errors([f"{type(exc).__name__}: {exc}"])}',
+            '{"error": [f"{name}: I/O error ({where(path)})"]}',
+            '{"error": [f"{name}: {exc}"]}',
             1,
         )
     ],
     "unknown_exception_text_shown": [
         (
             BACKFILL,
-            'code, report = 1, {"error": [f"{type(exc).__name__} ({id_digest(str(exc))})"]}',
-            'code, report = 1, {"error": safe_errors([f"{type(exc).__name__}: {exc}"])}',
+            '{"error": [f"{type(exc).__name__} ({id_digest(str(exc))})"]}',
+            '{"error": [f"{type(exc).__name__}: {exc}"]}',
             1,
         )
     ],
-    "unescape_backstop_removed": [
-        (BACKFILL, "    loose = _unescaped(clean)", "    loose = clean", 1)
-    ],
-    "sweep_scrub_removed": [
-        # aimed at the r3 sweep: the final report scrubber alone
+    # B-PR5 review r4: each re-adds an input value to one message
+    "raw_value_in_validator_message": [
         (
             BACKFILL,
-            "print(json.dumps(_scrub(report), indent=2))",
-            "print(json.dumps(report, indent=2, default=str))",
+            'f"{reason(str(exc))} ({data_digest(entry)})"',
+            'f"{reason(str(exc))} ({entry})"',
+            1,
+        )
+    ],
+    "validator_message_shown": [
+        (
+            BACKFILL,
+            "return next((r for marker, r in vocabulary if marker in text), default)",
+            "return text",
+            1,
+        )
+    ],
+    "record_id_in_message": [
+        (
+            BACKFILL,
+            """errors.append(f"{id_digest(rec['id'])}: {problem}")""",
+            """errors.append(f"{rec['id']}: {problem}")""",
+            1,
+        )
+    ],
+    "missing_ids_raw": [
+        (
+            BACKFILL,
+            '"missing": [id_digest(r["id"]) for r',
+            '"missing": [r["id"] for r',
+            1,
+        )
+    ],
+    "import_id_in_report": [
+        (
+            BACKFILL,
+            'report["import"] = id_digest(import_id)',
+            'report["import"] = import_id',
+            1,
+        )
+    ],
+    "collection_name_in_report": [
+        (
+            BACKFILL,
+            "return name if name in COLLECTIONS else id_digest(name)",
+            "return name",
+            1,
+        )
+    ],
+    "review_keys_in_report": [
+        (
+            BACKFILL,
+            '{**d, "old": id_digest(d["old"]), "new": id_digest(d["new"])} for d in pairs',
+            "d for d in pairs",
             1,
         )
     ],
