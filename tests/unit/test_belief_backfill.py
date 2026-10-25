@@ -976,3 +976,22 @@ def test_r1_an_id_in_two_collections_is_refused(tmp_path):
     with pytest.raises(bf.BackfillError, match="more than one collection"):
         bf.export_records({"memory_chunks": a, "agent_memories": b}, str(out))
     assert not out.exists()
+
+
+def test_r1_budget_above_the_ceiling_is_refused(tmp_path, monkeypatch):
+    exp = write_jsonl(tmp_path / "e.jsonl", [memory("m1", "a")])
+    calls = []
+    with pytest.raises(bf.BackfillError, match="exceeds the 1500000 token ceiling"):
+        bf.extract(
+            str(exp),
+            str(tmp_path / "x.jsonl"),
+            stub_model(calls),
+            token_budget=bf.TOKEN_ABORT + 1,
+        )
+    assert calls == [] and not (tmp_path / "x.jsonl").exists()
+    monkeypatch.setattr(bf, "model_command", lambda cmd: stub_model(calls))
+    args = ["extract", "--export", str(exp), "--out", str(tmp_path / "y.jsonl")]
+    assert bf.main([*args, "--model-cmd", "stub", "--budget", "2000000"]) == 1
+    assert calls == []
+    assert bf.main([*args, "--model-cmd", "stub", "--budget", "100000"]) == 0
+    assert len(calls) == 1  # a lower budget still runs

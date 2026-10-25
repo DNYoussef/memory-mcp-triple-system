@@ -334,7 +334,12 @@ def extract(
     """Prompt the model batch by batch; each prompt carries the keys seen so
     far. Input plus output tokens are counted, and the run aborts before a
     batch that would pass the budget, or right after one that did. An
-    aborted run writes no output file."""
+    aborted run writes no output file. A budget may lower the plan's
+    1.5 M abort, never raise it."""
+    if token_budget > TOKEN_ABORT:
+        raise BackfillError(
+            f"budget {token_budget} exceeds the {TOKEN_ABORT} token ceiling"
+        )
     records = read_jsonl(export_path)
     if Path(out_path).exists():
         raise FileExistsError(out_path)
@@ -732,7 +737,9 @@ def _parser() -> argparse.ArgumentParser:
         help=f"repeatable; default: {' and '.join(COLLECTIONS)}",
     )
     s = cmd("extract", "--export", "--out", "--model-cmd")
-    s.add_argument("--budget", type=int, default=TOKEN_ABORT)
+    s.add_argument(
+        "--budget", type=int, default=TOKEN_ABORT, help="may only lower 1.5 M"
+    )
     s = cmd("validate", "--export", "--extracted")
     s.add_argument("--db", help="read existing keys for the review list (read-only)")
     s.add_argument("--review-out")

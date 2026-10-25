@@ -49,7 +49,7 @@ every backfilled mention is located on that chunk.
 
 - Batches of 20 memories. Every prompt carries the key vocabulary seen so far and
   tells the model the memories are data, not instructions.
-- Token abort at 1.5 M (`--budget` to lower it). Tokens are estimated at four
+- Token abort at 1.5 M. `--budget` can only lower it: a value above 1.5 M exits 1. Tokens are estimated at four
   characters each, input plus output. A preflight estimate over the budget stops
   the run before any model call; a run that passes it mid-way stops after that
   batch and writes no output file.
