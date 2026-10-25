@@ -310,9 +310,9 @@ def test_validation_errors_are_sanitized(tmp_path, files):
     )
     report = bf.validate(bf.read_records(*files))
     assert report["error_count"] == 1
-    assert (
-        "hunter2xyz" not in json.dumps(report) and "[REDACTED]" in report["errors"][0]
-    )
+    # since review r2 the entry is refused before validation even sees it
+    assert "hunter2xyz" not in json.dumps(report)
+    assert "refused, unsafe text (sha256:" in report["errors"][0]
 
 
 def test_extracted_id_missing_from_export_is_an_error(tmp_path, files):
@@ -889,7 +889,9 @@ def test_r1_validate_errors_with_private_tags_are_withheld(tmp_path, files):
     report = bf.validate(bf.read_records(*files))
     assert report["error_count"] == 1
     assert "CANARY" not in json.dumps(report)
-    assert report["errors"] == [WITHHELD]
+    # since review r2 the entry is refused by digest before any validator echo
+    assert len(report["errors"]) == 1
+    assert "refused, unsafe text (sha256:" in report["errors"][0]
 
 
 def test_r1_cli_error_messages_go_through_the_helper(tmp_path, capsys):
@@ -1057,3 +1059,104 @@ def test_r1_chroma_read_is_reconciled_with_the_collection_count(monkeypatch):
     monkeypatch.setattr(chromadb, "PersistentClient", Client)
     with pytest.raises(bf.BackfillError, match="read 2 of 3 records"):
         list(bf.read_chroma("unused", "memory_chunks", page=5))
+
+
+# ================================================================ review r2 (Sol)
+
+KEY_CANARY = "API_KEY=R2CANARY_CLAIM"
+TAG_CANARY = "keep < private >R2CANARY_TAG"
+SK_CANARY = "sk-" + "R2CANARY0123456789abcd"
+
+
+def r2_entry(**kw):
+    return {**entry("k.r2", claim="a clean claim"), **kw}
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"claim": KEY_CANARY},
+        {"quote": TAG_CANARY},
+        {"source_ref": SK_CANARY},
+        {"kind": KEY_CANARY},
+        {"supports": ["k.ok", KEY_CANARY]},
+    ],
+)
+def test_r2_validate_refuses_unsafe_text_in_any_entry_field(tmp_path, files, bad):
+    write_jsonl(
+        files[1],
+        [extracted("m1", r2_entry(**bad)), extracted("m3", entry("k.clean"))],
+    )
+    report = bf.validate(bf.read_records(*files))
+    assert report["refused_unsafe"] == 1 and report["error_count"] == 1
+    assert "R2CANARY" not in json.dumps(report)
+    assert "sha256:" in report["errors"][0]
+    assert report["rows"]["assertions"] == 1  # the clean entry still validates
+
+
+def test_r2_validate_refuses_unsafe_text_in_a_supplied_export(tmp_path):
+    exp = write_jsonl(
+        tmp_path / "e.jsonl",
+        [memory("m1", f"note {KEY_CANARY}"), memory("m2", "fine", who=SK_CANARY)],
+    )
+    ext = write_jsonl(
+        tmp_path / "x.jsonl",
+        [extracted("m1", entry("k.a")), extracted("m2", entry("k.b"))],
+    )
+    report = bf.validate(bf.read_records(exp, ext))
+    assert report["refused_unsafe"] == 2 and report["error_count"] == 2
+    assert "R2CANARY" not in json.dumps(report)
+
+
+def test_r2_load_refuses_unsafe_text_even_when_validate_is_bypassed(
+    tmp_path, files, monkeypatch
+):
+    write_jsonl(files[1], [extracted("m1", r2_entry(claim=KEY_CANARY))])
+    records = bf.read_records(*files)
+    monkeypatch.setattr(bf, "validate", lambda recs: {"error_count": 0})
+    db = tmp_path / "agent_kv.db"
+    with pytest.raises(bf.BackfillError) as err:
+        bf.load(str(db), records, "X")
+    assert "R2CANARY" not in str(err.value) and "sha256:" in str(err.value)
+    assert not db.exists()  # the last gate runs before the database is opened
+
+
+def test_r2_import_and_merge_names_must_be_safe(tmp_path, files):
+    db = tmp_path / "agent_kv.db"
+    with pytest.raises(bf.BackfillError) as err:
+        bf.load(str(db), bf.read_records(*files), SK_CANARY)
+    assert "R2CANARY" not in str(err.value) and not db.exists()
+    bf.load(str(db), bf.read_records(*files), "X")
+    with pytest.raises(bf.BackfillError) as err:
+        bf.merge_pairs(
+            str(db),
+            [("guardspine.pricing.final", "guardspine.deploy.green")],
+            "merge:" + SK_CANARY,
+            str(tmp_path / "arc.db"),
+        )
+    assert "R2CANARY" not in str(err.value) and not (tmp_path / "arc.db").exists()
+    with pytest.raises(bf.BackfillError):
+        bf.rollback(str(db), SK_CANARY)
+
+
+def test_r2_extract_refuses_unsafe_reply_entries(tmp_path):
+    exp = write_jsonl(
+        tmp_path / "e.jsonl", [memory("m1", "a"), memory("m2", "b"), memory("m3", "c")]
+    )
+    out = tmp_path / "x.jsonl"
+
+    def model(prompt):
+        return "\n".join(
+            [
+                json.dumps(extracted("m1", r2_entry(claim=KEY_CANARY))),
+                json.dumps(extracted("m2", r2_entry(quote=TAG_CANARY))),
+                json.dumps(extracted("m3", entry("k.clean"))),
+            ]
+        )
+
+    report = bf.extract(str(exp), str(out), model)
+    written = out.read_text(encoding="utf-8")
+    assert "R2CANARY" not in written + json.dumps(report)
+    assert [json.loads(x)["id"] for x in written.splitlines()] == ["m3"]
+    assert report["refused_unsafe"] == 2 and report["missing"] == ["m1", "m2"]
+    assert all("sha256:" in e for e in report["errors"])

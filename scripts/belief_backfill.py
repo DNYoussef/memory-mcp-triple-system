@@ -141,6 +141,24 @@ def safe_errors(errors: Sequence[Any], budget: int = ERROR_BUDGET) -> List[str]:
     return cap_errors(shown, budget - sum(map(len, note))) + note
 
 
+def unsafe_text(obj: Any) -> bool:
+    """True if any string anywhere in obj (dict keys included) is one that
+    strip_private would change, or that still holds a private tag. The
+    boundary for structured input: such data is refused, never rewritten."""
+    if isinstance(obj, str):
+        return strip_private(obj) != obj or bool(PRIVATE_RESIDUE.search(obj))
+    if isinstance(obj, dict):
+        return any(unsafe_text(k) or unsafe_text(v) for k, v in obj.items())
+    if isinstance(obj, (list, tuple)):
+        return any(unsafe_text(v) for v in obj)
+    return False
+
+
+def data_digest(obj: Any) -> str:
+    """A refused structure, named without showing it."""
+    return id_digest(json.dumps(obj, sort_keys=True, default=str))
+
+
 def safe_id(mid: Any) -> bool:
     """A record id that can travel into prompts, rows and reports unchanged."""
     return (
@@ -349,7 +367,7 @@ def extract(
             f"preflight estimate {need} tokens exceeds {token_budget}; "
             "aborted before any model call"
         )
-    vocab, rows, errors, spent = set(), {}, [], 0
+    vocab, rows, errors, spent, refused = set(), {}, [], 0, 0
     batches = _batches(records, batch_size)
     for n, batch in enumerate(batches, 1):
         prompt = build_prompt(batch, vocab)
@@ -378,6 +396,12 @@ def extract(
             if mid not in ids or mid in rows:
                 errors.append(f"batch {n}: unexpected or repeated id {mid!r}")
                 continue
+            if unsafe_text(obj):
+                errors.append(
+                    f"batch {n}: {mid}: refused, unsafe text ({data_digest(obj)})"
+                )
+                refused += 1
+                continue
             rows[mid] = {
                 "id": mid,
                 "beliefs": obj.get("beliefs", []),
@@ -403,6 +427,7 @@ def extract(
         "tokens": spent,
         "written": len(rows),
         "missing": [r["id"] for r in records if r["id"] not in rows],
+        "refused_unsafe": refused,
         "errors": safe_errors(errors),
     }
 
@@ -555,6 +580,7 @@ def validate(
         "records": len(records),
         "entries": 0,
         "witnessed_capped": 0,
+        "refused_unsafe": 0,
         "rows": {},
         "error_count": 0,
         "errors": [],
@@ -567,6 +593,10 @@ def validate(
             with store.batch():
                 for rec in records:
                     problem = _check_record(rec)
+                    memory = {k: v for k, v in rec.items() if k != "beliefs"}
+                    if not problem and unsafe_text(memory):
+                        problem = f"refused, unsafe text in the memory ({data_digest(memory)})"
+                        report["refused_unsafe"] += 1
                     if problem:
                         errors.append(f"{rec['id']}: {problem}")
                         continue
@@ -574,6 +604,13 @@ def validate(
                     for i, entry in enumerate(rec["beliefs"]):
                         key = entry.get("key") if isinstance(entry, dict) else None
                         label = key if isinstance(key, str) else f"beliefs[{i}]"
+                        if unsafe_text(entry):
+                            report["refused_unsafe"] += 1
+                            errors.append(
+                                f"{rec['id']}: beliefs[{i}]: refused, unsafe text "
+                                f"({data_digest(entry)})"
+                            )
+                            continue
                         try:
                             item, capped = _for_import(rec, entry)
                             with store.batch():
@@ -596,15 +633,17 @@ def load(db: str, records: Sequence[Dict[str, Any]], import_id: str) -> Dict[str
     database is opened. Then write every record in ONE transaction under
     origin import:<id>: an interruption leaves no row of this import. A
     replay of the same import is idempotent (the evidence tuple is UNIQUE)."""
-    origin = f"import:{import_id}"
-    try:
-        validate_origin(origin)
-    except BeliefValidationError as exc:
-        raise BackfillError(str(exc)) from exc
+    origin = _import_origin(import_id)
     report = validate(records)
     if report["error_count"]:
         raise BackfillError(
             f"{report['error_count']} validation errors; nothing loaded", report
+        )
+    unsafe = [data_digest(r) for r in records if unsafe_text(r)]
+    if unsafe:  # last gate: nothing unsafe is ever written, whatever validate said
+        raise BackfillError(
+            f"{len(unsafe)} records hold unsafe text; nothing loaded "
+            f"({', '.join(unsafe[:5])})"
         )
     store = BeliefStore(db)
     try:
@@ -622,6 +661,17 @@ def load(db: str, records: Sequence[Dict[str, Any]], import_id: str) -> Dict[str
 # ---------------------------------------------------------------- 7.1 rollback, 4.4 merge, 7.2
 
 
+def _import_origin(import_id: Any) -> str:
+    """import:<id> for a safe id; the id is stored in every row of the import."""
+    if not safe_id(import_id):
+        raise BackfillError(f"unsafe import id ({id_digest(import_id)})")
+    origin = f"import:{import_id}"
+    try:
+        return validate_origin(origin)
+    except BeliefValidationError as exc:
+        raise BackfillError(f"bad import id ({id_digest(import_id)})") from exc
+
+
 def _open_existing(db: str) -> BeliefStore:
     """A writer on a database that already has the belief tables; never creates them."""
     if not BeliefStore(db, readonly=True).has_schema():
@@ -632,7 +682,7 @@ def _open_existing(db: str) -> BeliefStore:
 def rollback(db: str, import_id: str) -> Dict[str, Any]:
     """Delete every row of origin import:<id> in one transaction (section
     7.1). No other origin references them, so nothing else changes."""
-    origin = f"import:{import_id}"
+    origin = _import_origin(import_id)
     store = _open_existing(db)
     try:
         before = _origin_counts(store, origin)
@@ -658,7 +708,12 @@ def merge_pairs(
     db: str, pairs: Sequence[Tuple[str, str]], merge_id: str, archive_path: str
 ) -> Dict[str, Any]:
     """Archive the belief tables (the merge undo, section 7.2), then apply
-    every merge in ONE transaction: one refused merge (MX) undoes the batch."""
+    every merge in ONE transaction: one refused merge (MX) undoes the batch.
+    The merge id and the pairs are stored, so unsafe text is refused first."""
+    if not safe_id(merge_id) or unsafe_text(list(pairs)):
+        raise BackfillError(
+            f"unsafe merge id or pair ({data_digest([merge_id, list(pairs)])})"
+        )
     if Path(archive_path).exists():
         raise FileExistsError(archive_path)
     store = _open_existing(db)
