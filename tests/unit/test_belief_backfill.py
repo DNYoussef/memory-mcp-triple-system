@@ -1081,6 +1081,7 @@ def r2_entry(**kw):
         {"source_ref": SK_CANARY},
         {"kind": KEY_CANARY},
         {"supports": ["k.ok", KEY_CANARY]},
+        {"API_KEY=R2CANARY_FIELD": True},  # a field name is text too
     ],
 )
 def test_r2_validate_refuses_unsafe_text_in_any_entry_field(tmp_path, files, bad):
@@ -1193,6 +1194,13 @@ def test_r2_success_reports_are_scrubbed_too(tmp_path, files, capfd):
     assert not (tmp_path / "nope.db").exists()
     out, err = capfd.readouterr()
     assert "R2CANARY" not in out + err
+
+
+def test_r2_read_chroma_refuses_an_unsafe_name_before_opening_anything():
+    name = "sk-" + "COLLECTIONCANARY0123456789"
+    with pytest.raises(bf.BackfillError) as err:
+        next(bf.read_chroma("never-opened", name))
+    assert "CANARY" not in str(err.value) and sha_id(name) in str(err.value)
 
 
 def test_r2_unsafe_collection_names_are_refused(tmp_path):
