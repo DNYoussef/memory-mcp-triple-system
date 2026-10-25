@@ -21,7 +21,18 @@ data directory and `$WORK` is a new scratch directory for this run.
     python scripts/belief_backfill.py export --chroma $WORK/chroma-copy \
         --out $WORK/export.jsonl
 
-Each record keeps id, text, stored_at, project and who. Text, project and who go
+The export reads BOTH real-memory collections, `memory_chunks` and `agent_memories`
+(PLAN-B section 1.1: 1,528 + 153 = 1,681 when measured), into ONE file, so one
+validate and one load under one import id cover both. `--collection` (repeatable)
+overrides the pair; the test_* collections are never exported by default. Each
+collection's paged read is reconciled with its Chroma count (a mismatch exits 1),
+and the report gives read, exported and excluded per collection: check that read
+matches the count you measured on the copy. An id found in two collections is
+refused, because the id is the chunk the beliefs cite. A record without stored_at
+(possible in the older agent_memories) is excluded and counted as
+missing_stored_at; if that count is large, stop and decide before extraction.
+
+Each record keeps id, text, stored_at, project, who and its collection. Text, project and who go
 through `strip_private` (src/hooks/post_tool_handler.py). A record that still
 matches `(?i)<\s*/?\s*private` afterwards (a spaced or stray tag) is EXCLUDED, and
 so is a record without stored_at. The report lists the excluded counts and ids.

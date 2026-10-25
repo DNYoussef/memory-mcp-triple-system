@@ -361,7 +361,7 @@ def test_import_error_report_is_bounded(tmp_path, files):
     )
     report = bf.validate(bf.read_records(*files))
     assert report["error_count"] == 50
-    assert len("".join(report["errors"])) <= bf.ERROR_BUDGET + 100
+    assert len("".join(report["errors"])) <= bf.ERROR_BUDGET  # notice included
     assert report["errors"][-1].endswith("more errors not shown")
 
 
@@ -584,6 +584,10 @@ def test_uninstall_refuses_an_existing_archive_and_drops_nothing(tmp_path):
 # ================================================================ test 16
 
 
+def sha_id(mid):
+    return "sha256:" + hashlib.sha256(mid.encode("utf-8")).hexdigest()[:16]
+
+
 def chroma_like(mid, text, **md):
     return {"id": mid, "text": text,
             "metadata": {"stored_at": STORED, "project": "gs", "who": "alice", **md}}  # fmt: skip
@@ -605,7 +609,7 @@ def test_export_sanitizer(tmp_path):
         chroma_like("no_time", "fine text", stored_at=None),
     ]
     out = tmp_path / "export.jsonl"
-    report = bf.export_records(records, str(out))
+    report = bf.export_records({"memory_chunks": records}, str(out))
     rows = {
         r["id"]: r
         for r in map(json.loads, out.read_text(encoding="utf-8").splitlines())
@@ -618,7 +622,8 @@ def test_export_sanitizer(tmp_path):
     assert "hunter2xyz" not in secret and key not in secret and bearer not in secret
     assert rows["plain"]["text"] == "Nick's price sheet is still unsent."
     assert rows["plain"] == {"id": "plain", "text": "Nick's price sheet is still unsent.",
-                             "stored_at": STORED, "project": "gs", "who": "alice"}  # fmt: skip
+                             "stored_at": STORED, "project": "gs", "who": "alice",
+                             "collection": "memory_chunks"}  # fmt: skip
     dump = out.read_text(encoding="utf-8")
     assert not re.search(r"(?i)<\s*/?\s*private", dump)
     assert "hidden" not in dump
@@ -631,7 +636,7 @@ def test_export_refuses_to_overwrite(tmp_path):
     out = tmp_path / "export.jsonl"
     out.write_text("x", encoding="utf-8")
     with pytest.raises(FileExistsError):
-        bf.export_records([chroma_like("a", "t")], str(out))
+        bf.export_records({"memory_chunks": [chroma_like("a", "t")]}, str(out))
     assert out.read_text(encoding="utf-8") == "x"
 
 
@@ -798,3 +803,79 @@ def test_cli_requires_explicit_paths_and_exits_nonzero_on_errors(
     )
     printed = capsys.readouterr().out
     assert "Bad Key" in printed
+
+
+# ================================================================ review r1 (Sol)
+
+ID_CANARY = "API_KEY=ID_CANARY"
+PRIV_ID = "<private>PRIV_ID_CANARY</private>"
+SK_ID = "sk-" + "IDCANARY0123456789ab"
+WITHHELD = "1 diagnostic withheld (unresolved private tag)"
+
+
+def chroma_with(path, collections):
+    chromadb = pytest.importorskip("chromadb")
+    from chromadb.config import Settings
+
+    client = chromadb.PersistentClient(
+        path=str(path), settings=Settings(anonymized_telemetry=False)
+    )
+    for name, recs in collections.items():
+        col = client.get_or_create_collection(name, embedding_function=None)
+        col.add(
+            ids=[r[0] for r in recs],
+            documents=[r[1] for r in recs],
+            metadatas=[r[2] for r in recs],
+            embeddings=[[0.1, 0.2]] * len(recs),
+        )
+
+
+def test_r1_export_covers_both_collections_and_loads_once(tmp_path, capsys):
+    md = {"stored_at": STORED, "who": "w", "project": "p"}
+    chroma = tmp_path / "chroma"
+    chroma_with(
+        chroma,
+        {
+            "memory_chunks": [("c1", "one", md), ("c2", "two", md)],
+            "agent_memories": [
+                ("a1", "agent one", md),
+                ("a2", "no time", {"who": "w"}),
+            ],
+            "test_other": [("t1", "never exported", md)],
+        },
+    )
+    out = tmp_path / "export.jsonl"
+    assert bf.main(["export", "--chroma", str(chroma), "--out", str(out)]) == 0
+    report = json.loads(capsys.readouterr().out)
+    per = report["collections"]
+    assert set(per) == {"memory_chunks", "agent_memories"}
+    assert per["memory_chunks"]["read"] == 2 and per["memory_chunks"]["exported"] == 2
+    assert per["agent_memories"]["read"] == 2
+    assert per["agent_memories"]["exported"] == 1
+    assert per["agent_memories"]["excluded"]["missing_stored_at"] == 1
+    assert report["exported"] == 3
+    rows = [json.loads(x) for x in out.read_text(encoding="utf-8").splitlines()]
+    assert {(r["id"], r["collection"]) for r in rows} == {
+        ("c1", "memory_chunks"),
+        ("c2", "memory_chunks"),
+        ("a1", "agent_memories"),
+    }
+    ext = write_jsonl(
+        tmp_path / "x.jsonl",
+        [extracted("c1", entry("k.one")), extracted("a1", entry("k.agent"))],
+    )
+    db = tmp_path / "agent_kv.db"
+    bf.load(str(db), bf.read_records(str(out), str(ext)), "X")  # one import
+    c = sqlite3.connect(str(db))
+    got = set(c.execute("SELECT origin, chunk_id FROM assertions"))
+    c.close()
+    assert got == {("import:X", "c1"), ("import:X", "a1")}
+
+
+def test_r1_an_id_in_two_collections_is_refused(tmp_path):
+    a = [chroma_like("same", "one")]
+    b = [chroma_like("same", "two")]
+    out = tmp_path / "export.jsonl"
+    with pytest.raises(bf.BackfillError, match="more than one collection"):
+        bf.export_records({"memory_chunks": a, "agent_memories": b}, str(out))
+    assert not out.exists()
