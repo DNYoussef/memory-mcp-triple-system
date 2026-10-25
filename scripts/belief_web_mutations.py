@@ -854,8 +854,8 @@ MUTANTS = {
     "validate_errors_unsanitized": [
         (
             BACKFILL,
-            "cap_errors([strip_private(e) for e in errors]",
-            "cap_errors([e for e in errors]",
+            'report["errors"] = safe_errors(errors)',
+            'report["errors"] = errors',
             1,
         )
     ],
@@ -892,7 +892,99 @@ MUTANTS = {
             1,
         )
     ],
-    "error_budget_uncapped": [(INGEST, "if used + len(e) > budget:", "if False:", 1)],
+    "error_budget_uncapped": [
+        (INGEST, "if used + len(e) + reserve > budget:", "if False:", 1)
+    ],
+    # B-PR5 review r1 fixes
+    "export_unsafe_id_kept": [
+        (
+            BACKFILL,
+            '            if not safe_id(r["id"]):\n                reason = "unsafe_id"',
+            '            if False:\n                reason = "unsafe_id"',
+            1,
+        )
+    ],
+    "input_unsafe_id_accepted": [
+        (
+            BACKFILL,
+            'not safe_id(row.get("id"))',
+            'not isinstance(row.get("id"), str)',
+            1,
+        )
+    ],
+    "safe_id_ignores_secrets": [
+        (
+            BACKFILL,
+            "and bool(SAFE_ID.match(mid)) and strip_private(mid) == mid",
+            "and bool(SAFE_ID.match(mid))",
+            1,
+        )
+    ],
+    "excluded_raw_id": [
+        (BACKFILL, '"digest": id_digest(r["id"])', '"digest": r["id"]', 1)
+    ],
+    "diagnostic_unsanitized": [
+        (BACKFILL, "clean = strip_private(str(text))", "clean = str(text)", 1)
+    ],
+    "diagnostic_tags_kept": [
+        (
+            BACKFILL,
+            "return None if PRIVATE_RESIDUE.search(clean) else clean[:cap]",
+            "return clean[:cap]",
+            1,
+        )
+    ],
+    "diagnostic_truncated_first": [
+        (
+            BACKFILL,
+            "clean = strip_private(str(text))",
+            "clean = strip_private(str(text)[:cap])",
+            1,
+        )
+    ],
+    "extract_errors_raw": [
+        (BACKFILL, '"errors": safe_errors(errors),', '"errors": errors,', 1)
+    ],
+    "cli_errors_raw": [
+        (
+            BACKFILL,
+            '{**exc.report, "error": safe_errors([str(exc)])}',
+            '{**exc.report, "error": str(exc)}',
+            1,
+        ),
+        (
+            BACKFILL,
+            '{"error": safe_errors([f"{type(exc).__name__}: {exc}"])}',
+            '{"error": f"{type(exc).__name__}: {exc}"}',
+            1,
+        ),
+    ],
+    "export_one_collection": [
+        (
+            BACKFILL,
+            "names = a.collection or COLLECTIONS",
+            "names = a.collection or COLLECTIONS[:1]",
+            1,
+        )
+    ],
+    "collection_collision_accepted": [
+        (BACKFILL, 'if r["id"] in seen:', "if False:", 1)
+    ],
+    "collection_not_recorded": [
+        (
+            BACKFILL,
+            'row = {"id": r["id"], **row, "collection": name}',
+            'row = {"id": r["id"], **row}',
+            1,
+        )
+    ],
+    "chroma_count_not_reconciled": [(BACKFILL, "if offset != total:", "if False:", 1)],
+    "budget_ceiling_unchecked": [
+        (BACKFILL, "if token_budget > TOKEN_ABORT:", "if False:", 1)
+    ],
+    "notice_reserve_removed": [
+        (INGEST, "reserve = len(_omitted(rest)) if rest else 0", "reserve = 0", 1)
+    ],
 }
 
 
