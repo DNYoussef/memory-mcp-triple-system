@@ -958,6 +958,15 @@ MUTANTS = {
             '{"error": f"{type(exc).__name__}: {exc}"}',
             1,
         ),
+        # since review r2 _scrub is a second layer over every report, so the
+        # raw-error defect needs both layers gone (report_not_scrubbed alone
+        # is its own mutant)
+        (
+            BACKFILL,
+            "print(json.dumps(_scrub(report), indent=2))",
+            "print(json.dumps(report, indent=2, default=str))",
+            1,
+        ),
     ],
     "export_one_collection": [
         (
