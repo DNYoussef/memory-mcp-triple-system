@@ -929,8 +929,8 @@ MUTANTS = {
     "diagnostic_tags_kept": [
         (
             BACKFILL,
-            "return None if PRIVATE_RESIDUE.search(clean) else clean[:cap]",
-            "return clean[:cap]",
+            "if PRIVATE_RESIDUE.search(loose) or (",
+            "if False and (",
             1,
         )
     ],
@@ -1021,13 +1021,13 @@ MUTANTS = {
         (BACKFILL, "            if unsafe_text(obj):", "            if False:", 1)
     ],
     "validate_memory_unchecked": [
-        (BACKFILL, "if not problem and unsafe_text(memory):", "if False:", 1)
+        (BACKFILL, "if unsafe_text(memory):", "if False:", 1)
     ],
     "validate_entry_unchecked": [
         (
             BACKFILL,
-            "                        if unsafe_text(entry):",
-            "                        if False:",
+            "        if unsafe_text(entry):",
+            "        if False:",
             1,
         )
     ],
@@ -1051,8 +1051,8 @@ MUTANTS = {
     "cli_catch_all_removed": [
         (
             BACKFILL,
-            "    except Exception as exc:\n",
-            "    except (FileExistsError, BeliefValidationError, EdgeConflict) as exc:\n",
+            "    except Exception as exc:  # unknown text",
+            "    except ZeroDivisionError as exc:  # unknown text",
             1,
         )
     ],
@@ -1085,6 +1085,70 @@ MUTANTS = {
     ],
     "read_chroma_name_unchecked": [
         (BACKFILL, "    if not safe_id(collection):\n", "    if False:\n", 1)
+    ],
+    # B-PR5 review r3 fixes
+    "shown_skips_raw_check": [
+        (
+            BACKFILL,
+            "    if unsafe_text(value):\n        return data_digest(value)",
+            "    if False:\n        return data_digest(value)",
+            1,
+        )
+    ],
+    "paths_shown_raw": [
+        (BACKFILL, "    return id_digest(str(path))", "    return str(path)", 1)
+    ],
+    "reply_line_shown": [
+        (
+            BACKFILL,
+            'errors.append(f"batch {n}: not JSON ({data_digest(line)})")',
+            'errors.append(f"batch {n}: not JSON: {line!r}")',
+            1,
+        )
+    ],
+    "argparse_values_raw": [
+        (
+            BACKFILL,
+            'for part in sorted(parts - self.known - {""}, key=len, reverse=True):',
+            "for part in []:",
+            1,
+        )
+    ],
+    "argparse_shortest_first": [
+        (
+            BACKFILL,
+            'for part in sorted(parts - self.known - {""}, key=len, reverse=True):',
+            'for part in sorted(parts - self.known - {""}, key=len):',
+            1,
+        )
+    ],
+    "oserror_text_shown": [
+        (
+            BACKFILL,
+            'code, report = 1, {"error": [f"{type(exc).__name__}: {why} ({where(path)})"]}',
+            'code, report = 1, {"error": safe_errors([f"{type(exc).__name__}: {exc}"])}',
+            1,
+        )
+    ],
+    "unknown_exception_text_shown": [
+        (
+            BACKFILL,
+            'code, report = 1, {"error": [f"{type(exc).__name__} ({id_digest(str(exc))})"]}',
+            'code, report = 1, {"error": safe_errors([f"{type(exc).__name__}: {exc}"])}',
+            1,
+        )
+    ],
+    "unescape_backstop_removed": [
+        (BACKFILL, "    loose = _unescaped(clean)", "    loose = clean", 1)
+    ],
+    "sweep_scrub_removed": [
+        # aimed at the r3 sweep: the final report scrubber alone
+        (
+            BACKFILL,
+            "print(json.dumps(_scrub(report), indent=2))",
+            "print(json.dumps(report, indent=2, default=str))",
+            1,
+        )
     ],
 }
 
