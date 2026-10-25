@@ -1193,3 +1193,41 @@ def test_r2_success_reports_are_scrubbed_too(tmp_path, files, capfd):
     assert not (tmp_path / "nope.db").exists()
     out, err = capfd.readouterr()
     assert "R2CANARY" not in out + err
+
+
+def test_r2_unsafe_collection_names_are_refused(tmp_path):
+    out = tmp_path / "export.jsonl"
+    name = "sk-" + "COLLECTIONCANARY0123456789"
+    with pytest.raises(bf.BackfillError) as err:
+        bf.export_records(
+            {"memory_chunks": [chroma_like("c1", "t")], name: [chroma_like("c2", "t")]},
+            str(out),
+        )
+    assert "CANARY" not in str(err.value) and sha_id(name) in str(err.value)
+    assert not out.exists()
+
+
+class FakeChroma:
+    """A Chroma stand-in for the sweep: collections of (id, text, metadata)."""
+
+    data = {}
+
+    def __init__(self, path, settings):
+        pass
+
+    def get_collection(self, name, embedding_function):
+        rows = FakeChroma.data[name]
+
+        class Col:
+            def count(self):
+                return len(rows)
+
+            def get(self, limit, offset, include):
+                part = rows[offset : offset + limit]
+                return {
+                    "ids": [r[0] for r in part],
+                    "documents": [r[1] for r in part],
+                    "metadatas": [r[2] for r in part],
+                }
+
+        return Col()

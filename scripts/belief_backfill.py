@@ -229,6 +229,8 @@ def read_chroma(
 ) -> Iterator[Dict[str, Any]]:
     """Every record of a Chroma collection as {id, text, metadata}. Point it at
     a COPY of the vector store: a Chroma client may write to its directory."""
+    if not safe_id(collection):
+        raise BackfillError(f"unsafe collection name ({id_digest(collection)})")
     import chromadb
     from chromadb.config import Settings
 
@@ -261,6 +263,12 @@ def export_records(
     if Path(out_path).exists():
         raise FileExistsError(out_path)
     rows, per, excluded_records, seen = [], {}, [], {}
+    # a name lands in every row and report key: the safe-id rule, by digest
+    unsafe = [id_digest(n) for n in collections if not safe_id(n)]
+    if unsafe:
+        raise BackfillError(
+            f"unsafe collection name ({', '.join(unsafe)}); nothing exported"
+        )
     for name, records in collections.items():
         excluded = dict.fromkeys(EXCLUDE_REASONS, 0)
         read = 0
