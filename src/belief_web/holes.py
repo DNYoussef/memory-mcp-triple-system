@@ -161,23 +161,31 @@ def _report(web, now, project=None, kinds=None, min_load=2, limit=20):
     found = holes_of(web, local, p, scope, min_load, now)
     counts = {kind: sum(1 for h in found if h["hole"] == kind) for kind in HOLE_KINDS}
     shown = [h for h in found if kinds is None or h["hole"] in kinds]
-    shown.sort(
+    page, omitted = bounded(shown, limit)
+    return _result(
+        page, counts, len(scope), now, sol.converged, sol.iterations, omitted
+    )
+
+
+def bounded(holes, limit: int = 20, max_bytes: int = MAX_BYTES):
+    """The one formatter for listed holes (find_holes and inference): ranked,
+    contradicted first on ties, at most `limit`, and at most `max_bytes`
+    serialized. Returns (page, omitted counts by limit and by size)."""
+    ordered = sorted(
+        holes,
         key=lambda h: (
             -h["rank"],
             h["hole"] != "contradicted",
             h.get("key", ""),
             h.get("keys", []),
-        )
+        ),
     )
-    page = shown[:limit]
+    page = ordered[:limit]
     by_size = 0
-    while page and len(json.dumps(page, default=str)) > MAX_BYTES:
+    while page and len(json.dumps(page, default=str)) > max_bytes:
         page.pop()
         by_size += 1
-    omitted = {"by_limit": max(0, len(shown) - limit), "by_size": by_size}
-    return _result(
-        page, counts, len(scope), now, sol.converged, sol.iterations, omitted
-    )
+    return page, {"by_limit": max(0, len(ordered) - limit), "by_size": by_size}
 
 
 def holes_of(web, local, p, keys, min_load, now) -> List[Dict[str, Any]]:

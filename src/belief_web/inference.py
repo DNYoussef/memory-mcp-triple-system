@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 
 from .belief_store import BeliefStore, BeliefValidationError, format_ts, parse_ts
-from .holes import analyze, holes_of
+from .holes import MAX_BYTES, analyze, bounded, holes_of
 from .solver import CLAMP_L
 
 METHOD = "belief_web_v1 log-odds propagation"
@@ -196,8 +196,10 @@ def infer(
     web = store.web(now, keys=keys + list(clamp))
     local, p, sol = analyze(web, now, clamp)
     holes = holes_of(web, local, p, keys, 2, now)
+    budget = MAX_BYTES // len(keys)  # all results together stay under the cap
     results = {
-        k: _detail(web, local[k], p[k], sol, k, s, now, holes) for k, s in matches
+        k: _detail(web, local[k], p[k], sol, k, s, now, holes, budget)
+        for k, s in matches
     }
     return {
         "results": results,
@@ -213,8 +215,14 @@ def infer(
     }, False
 
 
-def _detail(web, local, p, sol, key, score, now, holes) -> Dict[str, Any]:
+def _detail(web, local, p, sol, key, score, now, holes, budget) -> Dict[str, Any]:
     claim, kind, _, _ = web.attrs[key]
+    # the same formatter as find_holes: per-hole caps already applied, then
+    # limit and byte cap, with what was left out reported
+    shown, omitted = bounded(
+        [h for h in holes if key in (h.get("key"), *h.get("keys", ()))],
+        max_bytes=budget,
+    )
     evidence = [
         _evidence(e, llr, "active", now) for e, llr in zip(local.active, local.llrs)
     ] + [_evidence(e, 0.0, "superseded", now) for e in local.superseded]
@@ -236,7 +244,8 @@ def _detail(web, local, p, sol, key, score, now, holes) -> Dict[str, Any]:
         "kind": kind or "state",
         "evidence": evidence,
         "messages": messages,
-        "holes": [h for h in holes if key in (h.get("key"), *h.get("keys", ()))],
+        "holes": shown,
+        "holes_omitted": omitted,
     }
 
 

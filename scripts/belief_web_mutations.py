@@ -721,7 +721,7 @@ MUTANTS = {
     "response_size_uncapped": [
         (
             HOLES,
-            "while page and len(json.dumps(page, default=str)) > MAX_BYTES:",
+            "while page and len(json.dumps(page, default=str)) > max_bytes:",
             "while False:",
             1,
         )
@@ -729,7 +729,7 @@ MUTANTS = {
     "inference_holes_empty": [
         (
             INFER,
-            '"holes": [h for h in holes if key in (h.get("key"), *h.get("keys", ()))],',
+            '"holes": shown,',
             '"holes": [],',
             1,
         )
@@ -739,6 +739,15 @@ MUTANTS = {
             INFER,
             "web = store.web(now, keys=keys + list(clamp))",
             "web = store.web(now)",
+            1,
+        )
+    ],
+    # B-PR4 review r2 fix
+    "inference_holes_unbounded": [
+        (
+            INFER,
+            "        max_bytes=budget,\n",
+            "        limit=10**9,\n        max_bytes=10**12,\n",
             1,
         )
     ],
