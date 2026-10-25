@@ -792,8 +792,9 @@ def test_review_list_names_near_duplicate_keys(tmp_path):
 def test_cli_requires_explicit_paths_and_exits_nonzero_on_errors(
     tmp_path, files, capsys
 ):
-    with pytest.raises(SystemExit):
-        bf.main(["load"])  # no default database path
+    # no default database path: a usage error, through the safe error path
+    assert bf.main(["load"]) == 1
+    assert "the following arguments are required" in capsys.readouterr().out
     assert (
         bf.main(["validate", "--export", str(files[0]), "--extracted", str(files[1])])
         == 0
@@ -1160,3 +1161,35 @@ def test_r2_extract_refuses_unsafe_reply_entries(tmp_path):
     assert [json.loads(x)["id"] for x in written.splitlines()] == ["m3"]
     assert report["refused_unsafe"] == 2 and report["missing"] == ["m1", "m2"]
     assert all("sha256:" in e for e in report["errors"])
+
+
+def test_r2_cli_catches_every_exception_without_a_traceback(
+    tmp_path, monkeypatch, capfd
+):
+    missing = tmp_path / "API_KEY=R2CANARY_PATH.jsonl"
+    assert bf.main(["validate", "--export", str(missing), "--extracted", "b"]) == 1
+    assert bf.main(["extract", "--export", "x", "--out", "y", "--model-cmd", "s",
+                    "--budget", "API_KEY=R2CANARY_ARG"]) == 1  # fmt: skip
+
+    def boom(*a):
+        raise RuntimeError(KEY_CANARY)
+
+    monkeypatch.setattr(bf, "read_records", boom)
+    assert bf.main(["validate", "--export", "a", "--extracted", "b"]) == 1
+    out, err = capfd.readouterr()
+    assert "R2CANARY" not in out + err and "Traceback" not in out + err
+    assert out.count('"error"') == 3
+
+
+def test_r2_success_reports_are_scrubbed_too(tmp_path, files, capfd):
+    db = tmp_path / "agent_kv.db"
+    bf.load(str(db), bf.read_records(*files), "X")
+    arc = tmp_path / "API_KEY=R2CANARY_ARC.db"
+    assert bf.main(["archive", "--db", str(db), "--out", str(arc)]) == 0
+    restore = ["restore", "--db", str(db), "--archive", str(arc), "--mode", "same_db"]
+    assert bf.main(restore) == 0
+    missing = ["restore", "--db", str(db), "--archive", str(tmp_path / "nope.db")]
+    assert bf.main([*missing, "--mode", "same_db"]) == 1  # never created
+    assert not (tmp_path / "nope.db").exists()
+    out, err = capfd.readouterr()
+    assert "R2CANARY" not in out + err

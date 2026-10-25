@@ -37,6 +37,7 @@ from typing import (
     Iterable,
     Iterator,
     List,
+    NoReturn,
     Optional,
     Sequence,
     Tuple,
@@ -736,6 +737,8 @@ def archive(db: str, out_path: str) -> Dict[str, int]:
 
 
 def restore(db: str, archive_path: str, mode: str) -> None:
+    if not Path(archive_path).is_file():  # ATTACH would create an empty file
+        raise FileNotFoundError(archive_path)
     store = BeliefStore(db)
     try:
         store.restore(archive_path, mode)
@@ -775,8 +778,16 @@ def uninstall(db: str, archive_path: str) -> Dict[str, int]:
 # ---------------------------------------------------------------- CLI
 
 
+class _Parser(argparse.ArgumentParser):
+    """A usage error echoes the bad value, so it takes the safe error path
+    in main instead of printing to stderr. Subparsers inherit the class."""
+
+    def error(self, message: str) -> NoReturn:
+        raise BackfillError(f"usage: {message}")
+
+
 def _parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    p = _Parser(description=__doc__.split("\n\n")[0])
     sub = p.add_subparsers(dest="cmd", required=True)
 
     def cmd(name, *args):
@@ -852,15 +863,28 @@ def _run(a: argparse.Namespace) -> Tuple[int, Any]:
     return 0, uninstall(a.db, a.archive)
 
 
+def _scrub(obj: Any) -> Any:
+    """Every string of a report through safe_diagnostic (uncapped), the last
+    gate before anything is printed; a string with a private tag is withheld."""
+    if isinstance(obj, dict):
+        return {_scrub(k): _scrub(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_scrub(v) for v in obj]
+    if obj is None or isinstance(obj, (bool, int, float)):
+        return obj
+    return safe_diagnostic(str(obj), cap=sys.maxsize) or "[withheld: private tag]"
+
+
 def main(argv: Sequence[str]) -> int:
-    args = _parser().parse_args(argv)
+    """One handler for every failure: a safe error line and exit 1, never a
+    traceback (an I/O error names its path, and a path can hold anything)."""
     try:
-        code, report = _run(args)
+        code, report = _run(_parser().parse_args(argv))
     except BackfillError as exc:
         code, report = 1, {**exc.report, "error": safe_errors([str(exc)])}
-    except (FileExistsError, BeliefValidationError, EdgeConflict) as exc:
+    except Exception as exc:
         code, report = 1, {"error": safe_errors([f"{type(exc).__name__}: {exc}"])}
-    print(json.dumps(report, indent=2, default=str))
+    print(json.dumps(_scrub(report), indent=2))
     return code
 
 
