@@ -592,6 +592,52 @@ def test_merge_keeps_links_with_the_winning_claim(tmp_path, monkeypatch):
 def test_structured_errors_are_capped(tmp_path, monkeypatch):
     freeze(monkeypatch, T15)
     svc = service(tmp_path)
-    out = svc.ingest("note", {"beliefs": [belief("K." + "x" * 20000)]})
+    # within the payload limits (a 20,000-char key is now refused up front)
+    out = svc.ingest("note", {"beliefs": [belief("k.a", source_type="x" * 1500)]})
     errors = out["beliefs"]["errors"]
     assert len(errors) == 1 and len(errors[0]) == 500
+
+
+# ================================================================ payload limits (B-PR5)
+
+
+def test_memory_store_belief_limits_refuse_before_any_belief_work(tmp_path):
+    svc = service(tmp_path)
+    too_many = {"beliefs": [belief(f"k.n{i}") for i in range(51)]}
+    huge_key = {"beliefs": [belief("k." + "x" * 20000)]}
+    long_claim = {"beliefs": [belief("k.a", claim="c" * 2001)]}
+    wide = {"beliefs": [belief("k.a", supports=[f"k.s{i}" for i in range(11)])],
+            "because": [f"k.b{i}" for i in range(10)]}  # fmt: skip
+    for meta, want in [
+        (too_many, "51 entries exceed the limit of 50"),
+        (huge_key, "key longer than 200"),
+        (long_claim, "longer than 2000"),
+        (wide, "21 links exceed the limit of 20"),
+    ]:
+        svc._embedder.encode.reset_mock()
+        res = svc.ingest("one short memory", meta)
+        assert res["success"] is True  # the memory itself is stored (section 2.6)
+        assert res["beliefs"]["recorded"] == 0
+        assert want in res["beliefs"]["errors"][0]
+        assert svc._embedder.encode.call_count == 1  # the chunk only, no claim vectors
+        assert store_count(svc) == {
+            "beliefs": 0,
+            "assertions": 0,
+            "edges": 0,
+            "aliases": 0,
+        }
+    ok = {"beliefs": [belief(f"k.n{i}") for i in range(50)]}  # at the limit is fine
+    assert svc.ingest("one short memory", ok)["beliefs"]["recorded"] == 50
+
+
+def test_memory_store_belief_errors_have_an_aggregate_budget(tmp_path):
+    svc = service(tmp_path)
+    bad = {"beliefs": [belief(f"k.n{i}", source_type="x" * 400) for i in range(50)]}
+    errors = svc.ingest("one short memory", bad)["beliefs"]["errors"]
+    assert len("".join(errors)) <= mis.ERROR_BUDGET  # notice included
+    assert errors[-1].endswith("more errors not shown")
+    assert errors[-1].startswith("... ")
+    few = {"beliefs": [belief("k.a", source_type="bogus")]}
+    assert svc.ingest("one short memory", few)["beliefs"]["errors"] == [
+        "k.a: bad source_type 'bogus'"
+    ]

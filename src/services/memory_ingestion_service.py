@@ -48,6 +48,68 @@ BELIEF_FIELDS = {
 }
 EDGE_WEIGHT = 0.5  # memory_store edges carry no weight of their own
 ERROR_CAP = 500  # chars per belief error, the stdio line cap (section 4.2)
+# Payload bounds, shared by memory_store and the backfill import. The plan sets
+# none; these sit far above any real memory (B-PR5 owner ruling on #11).
+MAX_BELIEFS = 50  # entries per memory
+MAX_LINKS = 20  # edge targets per entry, `because` included
+MAX_KEY = 200  # chars in a key, an edge target or a field name
+MAX_TEXT = 2000  # chars in any other text field (claim, quote, source_ref...)
+ERROR_BUDGET = 2000  # chars across all belief errors of one call
+
+
+def belief_limits(entries: Any, because: Any) -> str:
+    """The first size or count limit a belief payload breaks, else ''.
+
+    Pure and cheap, so every write path runs it before any embedding or
+    database work. Type errors are left to the validator.
+    """
+    if not isinstance(entries, list) or not isinstance(because, list):
+        return ""
+    if len(entries) > MAX_BELIEFS:
+        return f"{len(entries)} entries exceed the limit of {MAX_BELIEFS}"
+    if len(because) > MAX_LINKS:
+        return f"because: {len(because)} links exceed the limit of {MAX_LINKS}"
+    if any(isinstance(k, str) and len(k) > MAX_KEY for k in because):
+        return f"because: key longer than {MAX_KEY} chars"
+    for i, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            continue
+        lists = [entry[t] for t in EDGE_TYPES if isinstance(entry.get(t), list)]
+        links = len(because) + sum(map(len, lists))
+        if links > MAX_LINKS:
+            return f"beliefs[{i}]: {links} links exceed the limit of {MAX_LINKS}"
+        for name, value in entry.items():
+            if isinstance(name, str) and len(name) > MAX_KEY:
+                return f"beliefs[{i}]: field name longer than {MAX_KEY} chars"
+            short = name in ("key", *EDGE_TYPES)
+            for v in value if isinstance(value, list) else [value]:
+                if isinstance(v, str) and len(v) > (MAX_KEY if short else MAX_TEXT):
+                    return (
+                        f"beliefs[{i}]: {name} longer than "
+                        f"{MAX_KEY if short else MAX_TEXT} chars"
+                    )
+    return ""
+
+
+def cap_errors(errors: List[str], budget: int = ERROR_BUDGET) -> List[str]:
+    """Keep whole errors while they fit `budget` chars, then say how many were
+    cut. Each kept error leaves room for the notice the rest would need, so
+    the list, notice included, never passes the budget."""
+    out: List[str] = []
+    used = 0
+    for i, e in enumerate(errors):
+        rest = len(errors) - i - 1
+        reserve = len(_omitted(rest)) if rest else 0
+        if used + len(e) + reserve > budget:
+            out.append(_omitted(len(errors) - i))
+            break
+        out.append(e)
+        used += len(e)
+    return out
+
+
+def _omitted(n: int) -> str:
+    return f"... {n} more errors not shown"
 
 
 class MemoryIngestionService:
@@ -104,6 +166,11 @@ class MemoryIngestionService:
         # 0. Validate input
         if not text or not text.strip():
             return {"success": False, "error": "Empty text — nothing to ingest"}
+
+        # Belief payload bounds, before any embedding or database work
+        limit_error = belief_limits(
+            metadata.get("beliefs", []), metadata.get("because", [])
+        )
 
         # 1. Stamp metadata
         now = datetime.utcnow()
@@ -178,7 +245,9 @@ class MemoryIngestionService:
         # the response, so a store without beliefs answers exactly as before.
         beliefs = None
         if "beliefs" in metadata or "because" in metadata:
-            beliefs = self._record_beliefs(metadata, text_chunks, chunk_ids, now_iso)
+            beliefs = self._record_beliefs(
+                metadata, text_chunks, chunk_ids, now_iso, limit_error
+            )
 
         # 7. Log event (log all chunk IDs, not just last)
         self._log_event(
@@ -304,14 +373,16 @@ class MemoryIngestionService:
         chunks: List[str],
         chunk_ids: List[str],
         recorded_at: str,
+        limit_error: str = "",
     ) -> Dict[str, Any]:
         """Record metadata `beliefs`/`because` under origin live (section 2.6).
 
         A bad entry is rejected on its own (its savepoint rolls back) and
         reported. The valid entries share ONE transaction, so any other write
         failure leaves zero belief rows from this call. The memory itself is
-        already stored either way. Errors are sanitized with strip_private,
-        then capped.
+        already stored either way. A payload over the limits writes nothing.
+        Errors are sanitized with strip_private, then capped one by one and
+        in total.
         """
         from src.hooks.post_tool_handler import strip_private
 
@@ -328,6 +399,8 @@ class MemoryIngestionService:
                 raise BeliefValidationError("beliefs and because must be lists")
             if because and not entries:
                 raise BeliefValidationError("because needs at least one belief")
+            if limit_error:
+                raise BeliefValidationError(limit_error)
             store = self._beliefs()
             links = [self._link(entry) for entry in entries]  # outside the lock
             with store.batch():
@@ -359,14 +432,24 @@ class MemoryIngestionService:
             errors.append(f"beliefs: not recorded ({e}); no belief rows kept")
         return {
             "recorded": recorded,
-            "errors": [strip_private(e)[:ERROR_CAP] for e in errors],
+            "errors": cap_errors([strip_private(e)[:ERROR_CAP] for e in errors]),
         }
 
+    @staticmethod
     def _write_belief(
-        self, store, entry, because, metadata, chunks, chunk_ids, recorded_at, link
+        store,
+        entry,
+        because,
+        metadata,
+        chunks,
+        chunk_ids,
+        recorded_at,
+        link,
+        origin="live",
     ) -> str:
         """One entry: an assertion row per chunk (the mention, located by the
-        quote rule), then its edges. Returns a non-fatal note, else ''."""
+        quote rule), then its edges. Returns a non-fatal note, else ''.
+        The backfill import writes through here too, under its own origin."""
         if not isinstance(entry, dict):
             raise BeliefValidationError("entry must be an object")
         unknown = sorted(set(entry) - BELIEF_FIELDS)
@@ -382,7 +465,7 @@ class MemoryIngestionService:
         located = locate_chunks(chunks, quote)
         for chunk_id, loc in zip(chunk_ids, located):
             store.add_assertion(
-                "live",
+                origin,
                 key,
                 polarity=1 if entry["value"] else -1,
                 source_type=entry.get("source_type"),
@@ -404,9 +487,9 @@ class MemoryIngestionService:
             if edge_type == "depends_on":
                 targets = targets + because
             for target in targets:
-                store.add_edge("live", key, target, edge_type, EDGE_WEIGHT)
+                store.add_edge(origin, key, target, edge_type, EDGE_WEIGHT)
         if claim is not None:
-            store.link("live", key, claim, metadata.get("project"), *link)
+            store.link(origin, key, claim, metadata.get("project"), *link)
         if quote and len(chunks) > 1 and not any(located):
             return "quote not found"
         return ""

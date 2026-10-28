@@ -1,12 +1,13 @@
 """
-Mutation run for the belief web (PLAN-B section 6.5, B-PR1 to B-PR4).
+Mutation run for the belief web (PLAN-B section 6.5, B-PR1 to B-PR5).
 
 Each mutant is a temporary text edit of src/belief_web/*.py that re-creates a
 defect from the reference calculator's mutation list (belief_calc_r8.py), or
 a PR1 safeguard (validation, FK, atomicity), or a B-PR2 ingestion defect
 (memory_store beliefs/because), or a B-PR3 inference defect
 (bayesian_inference on the belief web), or a B-PR4 hole defect
-(find_holes and lifecycle counts). For each mutant the script
+(find_holes and lifecycle counts), or a B-PR5 backfill defect
+(scripts/belief_backfill.py and the shared payload limits). For each mutant the script
 applies the edit, runs the belief web tests, restores the original bytes and
 asserts the file hash matches. Exit 0 only if the baseline passes and every
 mutant is killed (some test went red).
@@ -28,6 +29,7 @@ INGEST = ROOT / "src" / "services" / "memory_ingestion_service.py"
 ROUTER = ROOT / "src" / "mcp" / "request_router.py"
 INFER = ROOT / "src" / "belief_web" / "inference.py"
 HOLES = ROOT / "src" / "belief_web" / "holes.py"
+BACKFILL = ROOT / "scripts" / "belief_backfill.py"
 TESTS = [
     "tests/unit/test_belief_solver.py",
     "tests/unit/test_belief_store.py",
@@ -37,8 +39,11 @@ TESTS = [
     "tests/unit/test_bayesian_evidence_e2e.py",
     "tests/unit/test_request_router_handlers.py",
     "tests/unit/test_find_holes.py",
+    "tests/unit/test_belief_backfill.py",
 ]
 
+# whole-file restore semantics on the belief tables: every row since the import goes
+ROLLBACK_POINT_IN_TIME = "c = store._conn()\n        lo = c.execute('SELECT min(seq) FROM beliefs WHERE origin=?', (origin,)).fetchone()[0]\n        new = '(SELECT key FROM beliefs WHERE seq >= ?)'\n        with store.batch():\n            c.execute(f'DELETE FROM aliases WHERE key IN {new}', (lo,))\n            c.execute('DELETE FROM assertions WHERE seq >= ?', (lo,))\n            c.execute(f'DELETE FROM edges WHERE src IN {new} OR dst IN {new}', (lo, lo))\n            c.execute('DELETE FROM beliefs WHERE seq >= ?', (lo,))"
 BELIEF_LINE = "notices += f\"\\nBeliefs: recorded {beliefs['recorded']}\""
 
 # name -> [(file, old, new, expected count)]
@@ -751,6 +756,376 @@ MUTANTS = {
             1,
         )
     ],
+    # B-PR5 backfill and shared payload limits
+    "export_observation_bridge_regex": [
+        (
+            BACKFILL,
+            "strip_private(v) if isinstance(v, str)",
+            '__import__("src.services.observation_bridge", fromlist=["_"])'
+            "._redact_private(v) if isinstance(v, str)",
+            1,
+        )
+    ],
+    "export_not_fail_closed": [
+        (BACKFILL, "isinstance(v, str) and PRIVATE_RESIDUE.search(v)", "False", 1)
+    ],
+    "loader_inserts_nothing": [
+        (
+            BACKFILL,
+            "_write_entry(store, origin, rec, _for_import(rec, entry)[0])",
+            "pass",
+            1,
+        )
+    ],
+    "load_not_one_transaction": [
+        (
+            BACKFILL,
+            "    try:\n        with store.batch():\n            for rec in records:",
+            "    try:\n        if True:\n            for rec in records:",
+            1,
+        )
+    ],
+    "load_skips_validation": [
+        (BACKFILL, '    if report["error_count"]:\n', "    if False:\n", 1)
+    ],
+    "rollback_point_in_time": [
+        (BACKFILL, "store.rollback(origin)", ROLLBACK_POINT_IN_TIME, 1)
+    ],
+    "merge_without_archive": [
+        (
+            BACKFILL,
+            "        store.archive(archive_path)\n        with store.batch():\n",
+            "        with store.batch():\n",
+            1,
+        )
+    ],
+    "merge_batch_not_atomic": [
+        (
+            BACKFILL,
+            "with store.batch():\n            for old, new in pairs:",
+            "if True:\n            for old, new in pairs:",
+            1,
+        )
+    ],
+    "uninstall_without_archive": [
+        (BACKFILL, "counts = store.archive(archive_path)", "counts = {}", 1),
+        (
+            BACKFILL,
+            'if store._table_digest(c, "main", t) != store._table_digest(',
+            'if False and store._table_digest(c, "main", t) != store._table_digest(',
+            1,
+        ),
+    ],
+    "uninstall_no_reverify": [
+        (
+            BACKFILL,
+            'if store._table_digest(c, "main", t) != store._table_digest(',
+            'if False and store._table_digest(c, "main", t) != store._table_digest(',
+            1,
+        )
+    ],
+    "witnessed_not_capped": [(BACKFILL, 'item["source_type"] = "reported"', "pass", 1)],
+    "model_reliability_kept": [(BACKFILL, 'if k != "reliability"', "if True", 1)],
+    "observed_after_stored_accepted": [
+        (
+            BACKFILL,
+            'raise BeliefValidationError("observed_at is later than the memory\'s stored_at")',
+            "pass",
+            1,
+        )
+    ],
+    "import_bytes_unchecked": [
+        (BACKFILL, "if size > MAX_IMPORT_BYTES:", "if False:", 1)
+    ],
+    "import_records_unchecked": [
+        (BACKFILL, "if len(rows) == MAX_IMPORT_RECORDS:", "if False:", 1)
+    ],
+    "import_payload_limits_skipped": [
+        (
+            BACKFILL,
+            'over = belief_limits(rec["beliefs"], rec["because"])',
+            'over = ""',
+            1,
+        )
+    ],
+    "extracted_orphan_accepted": [
+        (BACKFILL, "if mid not in memories:", "if False:", 1)
+    ],
+    "extract_preflight_skipped": [
+        (BACKFILL, "if need > token_budget:", "if False:", 1)
+    ],
+    "extract_output_tokens_ignored": [
+        (BACKFILL, "spent += cost + estimate_tokens(reply)", "spent += cost", 1)
+    ],
+    "extract_vocab_frozen": [
+        (BACKFILL, "            vocab |= {", "            _unused = {", 1)
+    ],
+    "duplicate_digits_ignored": [
+        (
+            BACKFILL,
+            'if re.findall(r"\\d+", a) != re.findall(r"\\d+", b):',
+            "if False:",
+            1,
+        )
+    ],
+    "duplicate_threshold_ignored": [
+        (BACKFILL, "if score >= threshold:", "if score >= 0.5:", 1)
+    ],
+    "ingest_limits_ignored": [(INGEST, "if limit_error:", "if False:", 1)],
+    "limit_entry_count_removed": [
+        (INGEST, "if len(entries) > MAX_BELIEFS:", "if False:", 1)
+    ],
+    "limit_links_removed": [(INGEST, "if links > MAX_LINKS:", "if False:", 1)],
+    "limit_text_length_removed": [
+        (
+            INGEST,
+            "isinstance(v, str) and len(v) > (MAX_KEY if short else MAX_TEXT)",
+            "False",
+            1,
+        )
+    ],
+    "error_budget_uncapped": [
+        (INGEST, "if used + len(e) + reserve > budget:", "if False:", 1)
+    ],
+    # B-PR5 review r1 fixes
+    "export_unsafe_id_kept": [
+        (
+            BACKFILL,
+            '            if not safe_id(r["id"]):\n                why = "unsafe_id"',
+            '            if False:\n                why = "unsafe_id"',
+            1,
+        )
+    ],
+    "input_unsafe_id_accepted": [
+        (
+            BACKFILL,
+            'not safe_id(row.get("id"))',
+            'not isinstance(row.get("id"), str)',
+            1,
+        )
+    ],
+    "safe_id_ignores_secrets": [
+        (
+            BACKFILL,
+            "and bool(SAFE_ID.match(mid)) and strip_private(mid) == mid",
+            "and bool(SAFE_ID.match(mid))",
+            1,
+        )
+    ],
+    "excluded_raw_id": [
+        (BACKFILL, '"digest": id_digest(r["id"])', '"digest": r["id"]', 1)
+    ],
+    "extract_errors_uncapped": [
+        (
+            BACKFILL,
+            '"errors": cap_errors(errors, ERROR_BUDGET),',
+            '"errors": errors,',
+            1,
+        )
+    ],
+    "cli_errors_raw": [
+        (
+            BACKFILL,
+            '{"error": [f"{name}: {why} ({id_digest(str(exc))})"]}',
+            '{"error": [f"{name}: {exc}"]}',
+            1,
+        )
+    ],
+    "export_one_collection": [
+        (
+            BACKFILL,
+            "names = a.collection or COLLECTIONS",
+            "names = a.collection or COLLECTIONS[:1]",
+            1,
+        )
+    ],
+    "collection_collision_accepted": [
+        (BACKFILL, 'if r["id"] in seen:', "if False:", 1)
+    ],
+    "collection_not_recorded": [
+        (
+            BACKFILL,
+            'row = {"id": r["id"], **row, "collection": name}',
+            'row = {"id": r["id"], **row}',
+            1,
+        )
+    ],
+    "chroma_count_not_reconciled": [(BACKFILL, "if offset != total:", "if False:", 1)],
+    "budget_ceiling_unchecked": [
+        (BACKFILL, "if token_budget > TOKEN_ABORT:", "if False:", 1)
+    ],
+    "notice_reserve_removed": [
+        (INGEST, "reserve = len(_omitted(rest)) if rest else 0", "reserve = 0", 1)
+    ],
+    # B-PR5 review r2 fixes
+    "unsafe_text_ignores_secrets": [
+        (
+            BACKFILL,
+            "return strip_private(obj) != obj or bool(PRIVATE_RESIDUE.search(obj))",
+            "return bool(PRIVATE_RESIDUE.search(obj))",
+            1,
+        )
+    ],
+    "unsafe_text_ignores_tags": [
+        (
+            BACKFILL,
+            "return strip_private(obj) != obj or bool(PRIVATE_RESIDUE.search(obj))",
+            "return strip_private(obj) != obj",
+            1,
+        )
+    ],
+    "unsafe_text_skips_keys": [
+        (BACKFILL, "unsafe_text(k) or unsafe_text(v)", "unsafe_text(v)", 1)
+    ],
+    "unsafe_text_skips_lists": [
+        (BACKFILL, "return any(unsafe_text(v) for v in obj)", "return False", 1)
+    ],
+    "extract_unsafe_reply_kept": [
+        (BACKFILL, "            if unsafe_text(obj):", "            if False:", 1)
+    ],
+    "validate_memory_unchecked": [
+        (BACKFILL, "if unsafe_text(memory):", "if False:", 1)
+    ],
+    "validate_entry_unchecked": [
+        (
+            BACKFILL,
+            "        if unsafe_text(entry):",
+            "        if False:",
+            1,
+        )
+    ],
+    "load_gate_removed": [
+        (
+            BACKFILL,
+            "unsafe = [data_digest(r) for r in records if unsafe_text(r)]",
+            "unsafe = []",
+            1,
+        )
+    ],
+    "import_id_unchecked": [(BACKFILL, "if not safe_id(import_id):", "if False:", 1)],
+    "merge_names_unchecked": [
+        (
+            BACKFILL,
+            "if not safe_id(merge_id) or unsafe_text(list(pairs)):",
+            "if False:",
+            1,
+        )
+    ],
+    "cli_catch_all_removed": [
+        (
+            BACKFILL,
+            "    except Exception as exc:\n",
+            "    except ZeroDivisionError as exc:\n",
+            1,
+        )
+    ],
+    "usage_error_not_routed": [
+        (
+            BACKFILL,
+            """raise BackfillError(f"usage: {what}{why} ({id_digest(' '.join(self.argv))})")""",
+            "super().error(message)",
+            1,
+        )
+    ],
+    "restore_creates_missing_archive": [
+        (BACKFILL, "if not Path(archive_path).is_file():", "if False:", 1)
+    ],
+    "collection_name_unchecked": [
+        (
+            BACKFILL,
+            "unsafe = [id_digest(n) for n in collections if not safe_id(n)]",
+            "unsafe = []",
+            1,
+        )
+    ],
+    "read_chroma_name_unchecked": [
+        (BACKFILL, "    if not safe_id(collection):\n", "    if False:\n", 1)
+    ],
+    # B-PR5 review r3 fixes
+    "paths_shown_raw": [
+        (BACKFILL, "    return id_digest(str(path))", "    return str(path)", 1)
+    ],
+    "reply_line_shown": [
+        (
+            BACKFILL,
+            'errors.append(f"batch {n}: not JSON ({data_digest(line)})")',
+            'errors.append(f"batch {n}: not JSON: {line!r}")',
+            1,
+        )
+    ],
+    "oserror_text_shown": [
+        (
+            BACKFILL,
+            '{"error": [f"{name}: I/O error ({where(path)})"]}',
+            '{"error": [f"{name}: {exc}"]}',
+            1,
+        )
+    ],
+    "unknown_exception_text_shown": [
+        (
+            BACKFILL,
+            '{"error": [f"{type(exc).__name__} ({id_digest(str(exc))})"]}',
+            '{"error": [f"{type(exc).__name__}: {exc}"]}',
+            1,
+        )
+    ],
+    # B-PR5 review r4: each re-adds an input value to one message
+    "raw_value_in_validator_message": [
+        (
+            BACKFILL,
+            'f"{reason(str(exc))} ({data_digest(entry)})"',
+            'f"{reason(str(exc))} ({entry})"',
+            1,
+        )
+    ],
+    "validator_message_shown": [
+        (
+            BACKFILL,
+            "return next((r for marker, r in vocabulary if marker in text), default)",
+            "return text",
+            1,
+        )
+    ],
+    "record_id_in_message": [
+        (
+            BACKFILL,
+            """errors.append(f"{id_digest(rec['id'])}: {problem}")""",
+            """errors.append(f"{rec['id']}: {problem}")""",
+            1,
+        )
+    ],
+    "missing_ids_raw": [
+        (
+            BACKFILL,
+            '"missing": [id_digest(r["id"]) for r',
+            '"missing": [r["id"] for r',
+            1,
+        )
+    ],
+    "import_id_in_report": [
+        (
+            BACKFILL,
+            'report["import"] = id_digest(import_id)',
+            'report["import"] = import_id',
+            1,
+        )
+    ],
+    "collection_name_in_report": [
+        (
+            BACKFILL,
+            "return name if name in COLLECTIONS else id_digest(name)",
+            "return name",
+            1,
+        )
+    ],
+    "review_keys_in_report": [
+        (
+            BACKFILL,
+            '{**d, "old": id_digest(d["old"]), "new": id_digest(d["new"])} for d in pairs',
+            "d for d in pairs",
+            1,
+        )
+    ],
 }
 
 
@@ -811,7 +1186,7 @@ def main(argv):
     mutants = {n: MUTANTS[n] for n in names}
     originals = {
         p: (p.read_bytes(), sha(p))
-        for p in (SOLVER, STORE, INGEST, ROUTER, INFER, HOLES)
+        for p in (SOLVER, STORE, INGEST, ROUTER, INFER, HOLES, BACKFILL)
     }
     outcome, failed, summary = run_tests()
     print(f"baseline: {outcome} {summary}")
